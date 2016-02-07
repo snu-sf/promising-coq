@@ -25,14 +25,18 @@ Coercion Value.reg: Reg.t >-> Value.t.
 Coercion Value.const: Const.t >-> Value.t.
 Coercion Value.of_nat: nat >-> Value.t.
 
-Module Loc.
-  Include Ident.
-End Loc.
-
 Module Op1.
   Inductive t :=
   | not
   .
+
+  Definition eval (op:t) (op1:Const.t): Const.t :=
+    match op with
+    | not =>
+      if Const.eq_dec op1 Const.zero
+      then Const.one
+      else Const.zero
+    end.
 End Op1.
 
 Module Op2.
@@ -41,6 +45,13 @@ Module Op2.
   | sub
   | mul
   .
+
+  Definition eval (op:t): forall (op1 op2:Const.t), Const.t :=
+    match op with
+    | add => Const.add
+    | sub => Const.sub
+    | mul => Const.mul
+    end.
 End Op2.
 
 Module Instr.
@@ -99,10 +110,6 @@ Module Stmt.
 End Stmt.
 Coercion Stmt.instr: Instr.t >-> Stmt.t.
 
-Module Core.
-  Definition t := list Stmt.t.
-End Core.
-
 Module SyntaxNotations.
   Export ListNotations.
 
@@ -131,7 +138,7 @@ Module SyntaxNotations.
   Notation "'IF' cond 'THEN' c1 'ELSE' c2" := (Stmt.ite cond c1 c2) (at level 43).
   Notation "'DO' c 'WHILE' cond" := (Stmt.dowhile c cond) (at level 43).
 
-  Program Definition example: Core.t := [
+  Program Definition example: list Stmt.t := [
     DO [
       LOAD %r"r1" <- %l"flag" @ acq;
       %r"r2" ::= NOT %r"r1"

@@ -1,5 +1,13 @@
 Require Import PeanoNat.
 
+Require Import Basic.
+
+Module Loc.
+  Include Ident.
+End Loc.
+
+Module Const := Nat.
+
 Module Ordering.
   Inductive t: Type :=
   | relaxed
@@ -18,4 +26,10 @@ Module Ordering.
   .
 End Ordering.
 
-Module Const := Nat.
+Module Event.
+  Inductive t: Type :=
+  | read (loc:Loc.t) (val:Const.t) (ord:Ordering.t)
+  | write (loc:Loc.t) (val:Const.t) (ord:Ordering.t)
+  | update (loc:Loc.t) (rval wval:Const.t) (ord:Ordering.t)
+  .
+End Event.
