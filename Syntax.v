@@ -1,3 +1,5 @@
+Require Import List.
+
 Require Import Basic.
 Require Import Event.
 
@@ -16,11 +18,22 @@ Module Value.
     | reg r => Reg.Set_.singleton r
     | const _ => Reg.Set_.empty
     end.
+
+  Definition of_nat (n:nat): t := const n.
 End Value.
+Coercion Value.reg: Reg.t >-> Value.t.
+Coercion Value.const: Const.t >-> Value.t.
+Coercion Value.of_nat: nat >-> Value.t.
 
 Module Loc.
-  Definition t := nat.
+  Include Ident.
 End Loc.
+
+Module Op1.
+  Inductive t :=
+  | not
+  .
+End Op1.
 
 Module Op2.
   Inductive t :=
@@ -31,11 +44,24 @@ Module Op2.
 End Op2.
 
 Module Instr.
+  Inductive rhs: Type :=
+  | rhs_val (val:Value.t)
+  | rhs_op1 (op:Op1.t) (op:Value.t)
+  | rhs_op2 (op:Op2.t) (op1 op2:Value.t)
+  .
+
+  Definition regs_of_rhs (r:rhs): Reg.Set_.t :=
+    match r with
+    | rhs_val val => Value.regs_of val
+    | rhs_op1 _ op => Value.regs_of op
+    | rhs_op2 _ op1 op2 => Reg.Set_.union (Value.regs_of op1) (Value.regs_of op2)
+    end.
+
   Inductive t: Type :=
   | load (lhs:Reg.t) (rhs:Loc.t) (ord:Ordering.t)
   | store (lhs:Loc.t) (rhs:Value.t) (ord:Ordering.t)
   | fetch_add (lhs:Reg.t) (loc:Loc.t) (addendum:Value.t) (ord:Ordering.t)
-  | op2 (lhs:Reg.t) (op:Op2.t) (op1 op2:Value.t)
+  | assign (lhs:Reg.t) (rhs:rhs)
   .
 
   Definition ordering_of (i:t): Ordering.t :=
@@ -43,7 +69,7 @@ Module Instr.
     | load _ _ ord => ord
     | store _ _ ord => ord
     | fetch_add _ _ _ ord => ord
-    | op2 _ _ _ _ => Ordering.relaxed
+    | assign _ _ => Ordering.relaxed
     end.
 
   Definition loc_of (i:t): option Loc.t :=
@@ -51,7 +77,7 @@ Module Instr.
     | load _ loc _ => Some loc
     | store loc _ _ => Some loc
     | fetch_add _ loc _ _ => Some loc
-    | op2 _ _ _ _ => None
+    | assign _ _ => None
     end.
 
   Definition regs_of (i:t): Reg.Set_.t :=
@@ -59,16 +85,57 @@ Module Instr.
     | load reg _ _ => Reg.Set_.singleton reg
     | store _ val _ => Value.regs_of val
     | fetch_add reg _ val _ => Reg.Set_.add reg (Value.regs_of val)
-    | op2 reg _ val1 val2 =>
-      Reg.Set_.add reg (Reg.Set_.union (Value.regs_of val1) (Value.regs_of val2))
+    | assign reg rhs => Reg.Set_.add reg (regs_of_rhs rhs)
     end.
 End Instr.
+Coercion Instr.rhs_val: Value.t >-> Instr.rhs.
+
+Module Stmt.
+  Inductive t: Type :=
+  | instr (i:Instr.t)
+  | ite (cond:Value.t) (c1 c2:list t)
+  | dowhile (c:list t) (cond:Value.t)
+  .
+End Stmt.
+Coercion Stmt.instr: Instr.t >-> Stmt.t.
 
 Module Core.
-  Inductive t: Type :=
-  | instrs (is:list Instr.t)
-  | seq (c1 c2:t)
-  | ite (cond:Value.t) (c1 c2:t)
-  | while (cond:Value.t) (c:t)
-  .
+  Definition t := list Stmt.t.
 End Core.
+
+Module SyntaxNotations.
+  Export ListNotations.
+
+  Delimit Scope string_scope with string.
+  Open Scope string_scope.
+
+  Notation "'%r' var" := (Reg.of_string var) (at level 41).
+  Notation "'%l' var" := (Loc.of_string var) (at level 41).
+
+  Notation "'rlx'" := (Ordering.relaxed) (at level 41).
+  Notation "'rel'" := (Ordering.release) (at level 41).
+  Notation "'acq'" := (Ordering.acquire) (at level 41).
+  Notation "'ra'" := (Ordering.relacq) (at level 41).
+  Notation "'sc'" := (Ordering.seqcst) (at level 41).
+
+  Notation "'NOT' e" := (Instr.rhs_op1 Op1.not e) (at level 41).
+  Notation "e1 'ADD' e2" := (Instr.rhs_op2 e1 Op2.add e2) (at level 41).
+  Notation "e1 'SUB' e2" := (Instr.rhs_op2 e1 Op2.sub e2) (at level 41).
+  Notation "e1 'MUL' e2" := (Instr.rhs_op2 e1 Op2.mul e2) (at level 41).
+
+  Notation "'LOAD' lhs '<-' rhs '@' ord" := (Instr.load lhs rhs ord) (at level 42).
+  Notation "'STORE' lhs '<-' rhs '@' ord" := (Instr.store lhs rhs ord) (at level 42).
+  Notation "'FETCH_ADD' lhs '<-' loc ',' addendum '@' ord" := (Instr.fetch_add lhs loc addendum ord) (at level 42).
+  Notation "lhs '::=' rhs" := (Instr.assign lhs rhs) (at level 42).
+
+  Notation "'IF' cond 'THEN' c1 'ELSE' c2" := (Stmt.ite cond c1 c2) (at level 43).
+  Notation "'DO' c 'WHILE' cond" := (Stmt.dowhile c cond) (at level 43).
+
+  Program Definition example: Core.t := [
+    DO [
+      LOAD %r"r1" <- %l"flag" @ acq;
+      %r"r2" ::= NOT %r"r1"
+    ] WHILE %r"r2";
+    LOAD %r"r3" <- %l"x" @ rlx
+  ].
+End SyntaxNotations.
