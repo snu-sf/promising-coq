@@ -1,5 +1,6 @@
 ## TODO
 
-- consistency
-- SC atomics
+- Consistency
 - Liveness counter
+- Fence
+- SC atomics

@@ -55,19 +55,28 @@ Module Buffer.
 
   Definition empty := mk nil MessageSet.empty.
 
-  Inductive position :=
-  | position_h (n:nat)
-  | position_i
-  .
+  Module Position.
+    Inductive t :=
+    | history (n:nat)
+    | inception
+    .
 
-  Inductive In (msg:Message.t) (b:t): forall (p:position), Prop :=
+    Inductive lt: forall (lhs rhs:t), Prop :=
+    | lt_hh n m (LT: n < m):
+        lt (history n) (history m)
+    | lt_hi n:
+        lt (history n) inception
+    .
+  End Position.
+
+  Inductive In (msg:Message.t) (b:t): forall (p:Position.t), Prop :=
   | In_history
       n
       (HISTORY: List.nth_error b.(history) n = Some msg):
-      In msg b (position_h n)
+      In msg b (Position.history n)
   | In_inception
       (INCEPTION: MessageSet.In msg b.(inception)):
-      In msg b position_i
+      In msg b Position.inception
   .
 
   Definition add_history (msg:Message.t) (b:t): t :=
@@ -75,6 +84,11 @@ Module Buffer.
 
   Definition add_inception (msg:Message.t) (b:t): t :=
     mk b.(history) (MessageSet.add msg b.(inception)).
+
+  Definition confirm (msg:Message.t) (b:t): option t :=
+    if MessageSet.mem msg b.(inception)
+    then Some (mk (msg::b.(history)) (MessageSet.remove msg b.(inception)))
+    else None.
 
   Definition timestamp_history (loc:Loc.t) (b:t): nat :=
     List.fold_left
@@ -109,7 +123,7 @@ Module Memory.
 
   Definition init := Ident.Fun.init Buffer.empty.
 
-  Definition position := (Ident.t * Buffer.position)%type.
+  Definition position := (Ident.t * Buffer.Position.t)%type.
 
   Inductive In (msg:Message.t) (m:t): forall (p:position), Prop :=
   | In_intro
@@ -129,7 +143,7 @@ Module Memory.
       i loc val ord
       (MESSAGE: Memory.In (Message.mk read_event ts) m position)
       (READ: Event.is_writing read_event = Some (loc, val))
-      (POSITION: position <> (i, Buffer.position_i))
+      (POSITION: position <> (i, Buffer.Position.inception))
       (TS1: Loc.Fun.find loc (Ident.Fun.find i c) <= ts)
       (TS2: Buffer.timestamp_history loc (Ident.Fun.find i m) <= ts):
       step
@@ -162,7 +176,7 @@ Module Memory.
       i loc valr valw ord
       (MESSAGE: Memory.In (Message.mk read_event (timestamp loc m)) m position)
       (READ: Event.is_writing read_event = Some (loc, valr))
-      (POSITION: position <> (i, Buffer.position_i))
+      (POSITION: position <> (i, Buffer.Position.inception))
       (TS: Loc.Fun.find loc (Ident.Fun.find i c) <= (timestamp loc m)):
       step
         c
@@ -177,5 +191,9 @@ Module Memory.
                  ((timestamp loc m) + 1))
               (Ident.Fun.find i m))
            m)
+  | step_confirm
+      m event ts i b'
+      (MESSAGE: Buffer.confirm (Message.mk event ts) (Ident.Fun.find i m) = Some b'):
+      step c m i (Some event) (Ident.Fun.add i b' m)
   .
 End Memory.
