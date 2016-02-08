@@ -1,4 +1,5 @@
 Require Import PeanoNat.
+Require Import Equalities.
 
 Require Import Basic.
 
@@ -24,12 +25,27 @@ Module Ordering.
   | acquire_: le acquire relacq
   | release_: le release relacq
   .
+
+  Definition eq_dec (x y:t): {x = y} + {x <> y}.
+  Proof. decide equality. Qed.
 End Ordering.
 
-Module Event.
-  Inductive t: Type :=
+Module Event <: DecidableType.
+  Inductive t_: Type :=
   | read (loc:Loc.t) (val:Const.t) (ord:Ordering.t)
   | write (loc:Loc.t) (val:Const.t) (ord:Ordering.t)
   | update (loc:Loc.t) (rval wval:Const.t) (ord:Ordering.t)
   .
+  Definition t := t_.
+
+  Definition eq := @eq t.
+  Program Instance eq_equiv: Equivalence eq.
+  Definition eq_dec (x y:t): {eq x y} + {~ eq x y}.
+  Proof.
+    unfold eq.
+    decide equality;
+      (try apply Loc.eq_dec);
+      (try apply Const.eq_dec);
+      (try apply Ordering.eq_dec).
+  Qed.
 End Event.
