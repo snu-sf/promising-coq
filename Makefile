@@ -8,13 +8,17 @@ all: theories
 sflib: lib/sflib
 	make -C lib/sflib
 
+paco: lib/paco/src
+	make -C lib/paco/src
+
 Makefile.coq: Makefile $(COQTHEORIES)
 	(echo "-R src $(COQMODULE)"; \
    echo "-R lib/sflib sflib"; \
+   echo "-R lib/paco/src Paco"; \
    echo $(COQTHEORIES)) > _CoqProject
 	coq_makefile -f _CoqProject -o Makefile.coq
 
-theories: sflib Makefile.coq
+theories: sflib paco Makefile.coq
 	$(MAKE) -f Makefile.coq
 
 %.vo: Makefile.coq

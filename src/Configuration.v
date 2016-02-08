@@ -1,4 +1,7 @@
+Require Import sflib.
+
 Require Import Basic.
+Require Import Event.
 Require Import Thread.
 Require Import Memory.
 
@@ -29,16 +32,25 @@ Module Configuration.
       i e
       c p1 p2 m1 m2 stack
       (THREADS: Threads.step p1 i e p2)
-      (MEMORY: Memory.step c m1 i e m2):
+      (MEMORY: Memory.step c m1 i e m2)
+      (CONSISTENT: Memory.consistent m2):
       step (mk c p1 m1 stack) (mk c p2 m2 stack)
   | step_dream
       c p m stack:
       step (mk c p m stack) (mk c p m ((p, m)::stack))
   | step_inception
       c p m p' m' stack
-      event ts ts' position i
-      (MESSAGE: Memory.In (Message.mk event ts) m position)
-      (POSITION: position.(snd) <> Buffer.position_i)
+      event ts loc val
+      ts' position i
+      (WRITING: Event.is_writing event = Some (loc, val))
+      (UPDATE:
+         forall loc valr valw ord (EVENT: event = Event.update loc valr valw ord),
+         exists event' ts' pos' val',
+           <<IN: Memory.In m' (Message.mk event' ts') pos'>> /\
+           <<TS: ts' + 1 = ts>> /\
+           <<EVENT': Event.is_writing event' = Some (loc, val')>>)
+      (MESSAGE: Memory.In m (Message.mk event ts) position)
+      (POSITION: Memory.Position.is_inception position = false)
       (INCEPTION:
          forall i,
            MessageSet.Subset

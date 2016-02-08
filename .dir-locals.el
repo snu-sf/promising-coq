@@ -3,5 +3,6 @@
                           ((pre (s) (concat (locate-dominating-file buffer-file-name ".dir-locals.el") s)))
                         (setq coq-load-path
                               `((rec ,(pre "lib/sflib") "sflib")
+                                (rec ,(pre "lib/paco") "Paco")
                                 (rec ,(pre "src") "cmem")))))
               (coq-prog-args . ("-emacs-U")))))

@@ -2,10 +2,15 @@ Require Import List.
 Require Import Equalities.
 Require Import MSetWeakList.
 Require Import PeanoNat.
+Require Import Relations.
+
+Require Import paco.
 
 Require Import Basic.
 Require Import Event.
 Require Import Thread.
+
+Import ListNotations.
 
 Set Implicit Arguments.
 
@@ -58,14 +63,14 @@ Module Buffer.
   Module Position.
     Inductive t :=
     | history (n:nat)
-    | inception
+    | inception (msg:Message.t)
     .
 
     Inductive lt: forall (lhs rhs:t), Prop :=
     | lt_hh n m (LT: n < m):
         lt (history n) (history m)
-    | lt_hi n:
-        lt (history n) inception
+    | lt_hi n msg:
+        lt (history n) (inception msg)
     .
   End Position.
 
@@ -76,18 +81,18 @@ Module Buffer.
       In msg b (Position.history n)
   | In_inception
       (INCEPTION: MessageSet.In msg b.(inception)):
-      In msg b Position.inception
+      In msg b (Position.inception msg)
   .
 
   Definition add_history (msg:Message.t) (b:t): t :=
-    mk (msg::b.(history)) b.(inception).
+    mk (b.(history) ++ [msg]) b.(inception).
 
   Definition add_inception (msg:Message.t) (b:t): t :=
     mk b.(history) (MessageSet.add msg b.(inception)).
 
   Definition confirm (msg:Message.t) (b:t): option t :=
     if MessageSet.mem msg b.(inception)
-    then Some (mk (msg::b.(history)) (MessageSet.remove msg b.(inception)))
+    then Some (mk (b.(history) ++ [msg]) (MessageSet.remove msg b.(inception)))
     else None.
 
   Definition timestamp_history (loc:Loc.t) (b:t): nat :=
@@ -123,13 +128,31 @@ Module Memory.
 
   Definition init := Ident.Fun.init Buffer.empty.
 
-  Definition position := (Ident.t * Buffer.Position.t)%type.
+  Module Position.
+    Inductive t :=
+    | init
+    | buffer (i:Ident.t) (pos:Buffer.Position.t)
+    .
 
-  Inductive In (msg:Message.t) (m:t): forall (p:position), Prop :=
-  | In_intro
-      i p
+    Definition is_inception (p:t): bool :=
+      match p with
+      | buffer _ pos =>
+        match pos with
+        | Buffer.Position.inception _ => true
+        | _ => false
+        end
+      | _ => false
+      end.
+  End Position.
+
+  Inductive In (m:t): forall (msg:Message.t) (p:Position.t), Prop :=
+  | In_init
+      loc:
+      In m (Message.mk (Event.write loc Const.zero Ordering.relacq) 0) Position.init
+  | In_buffer
+      msg i p
       (IN: Buffer.In msg (Ident.Fun.find i m) p):
-      In msg m (i, p)
+      In m msg (Position.buffer i p)
   .
 
   Definition timestamp (loc:Loc.t) (m:t): nat :=
@@ -141,9 +164,9 @@ Module Memory.
   | step_read
       m read_event ts position
       i loc val ord
-      (MESSAGE: Memory.In (Message.mk read_event ts) m position)
+      (MESSAGE: In m (Message.mk read_event ts) position)
       (READ: Event.is_writing read_event = Some (loc, val))
-      (POSITION: position <> (i, Buffer.Position.inception))
+      (POSITION: position <> Position.buffer i (Buffer.Position.inception (Message.mk read_event ts)))
       (TS1: Loc.Fun.find loc (Ident.Fun.find i c) <= ts)
       (TS2: Buffer.timestamp_history loc (Ident.Fun.find i m) <= ts):
       step
@@ -174,9 +197,9 @@ Module Memory.
   | step_update
       m read_event position
       i loc valr valw ord
-      (MESSAGE: Memory.In (Message.mk read_event (timestamp loc m)) m position)
+      (MESSAGE: In m (Message.mk read_event (timestamp loc m)) position)
       (READ: Event.is_writing read_event = Some (loc, valr))
-      (POSITION: position <> (i, Buffer.Position.inception))
+      (POSITION: position <> Position.buffer i (Buffer.Position.inception (Message.mk read_event (timestamp loc m))))
       (TS: Loc.Fun.find loc (Ident.Fun.find i c) <= (timestamp loc m)):
       step
         c
@@ -196,4 +219,97 @@ Module Memory.
       (MESSAGE: Buffer.confirm (Message.mk event ts) (Ident.Fun.find i m) = Some b'):
       step c m i (Some event) (Ident.Fun.add i b' m)
   .
+
+  Section Consistency.
+    Variable (m:t).
+
+    Inductive prod (pred1 pred2: Message.t -> Prop): relation Position.t :=
+    | prod_intro
+        pos1 pos2 msg1 msg2
+        (POS1: In m msg1 pos1)
+        (POS2: In m msg2 pos2)
+        (MSG1: pred1 msg1)
+        (MSG2: pred2 msg2):
+        prod pred1 pred2 pos1 pos2
+    .
+
+    Inductive compose (rel1 rel2:relation Position.t): relation Position.t :=
+    | compose_intro
+        x y z
+        (REL1: rel1 x y)
+        (REL2: rel2 y z):
+        compose rel1 rel2 x z
+    .
+
+    Inductive acyclic (rel:relation Position.t): Prop :=
+    | acyclic_intro
+        (ACYCLIC: Irreflexive (tc rel))
+    .
+
+    Inductive sb: relation Position.t :=
+    | sb_init
+        i pos:
+        sb Position.init (Position.buffer i pos)
+    | sb_buffer
+        i pos1 pos2
+        (LT: Buffer.Position.lt pos1 pos2):
+        sb (Position.buffer i pos1) (Position.buffer i pos2)
+    .
+
+    Inductive sbw: relation Position.t :=
+    | sbw_intro
+        pos1 pos2 e1 e2 ts1 ts2 loc val1 val2
+        (SB: sb pos1 pos2)
+        (POS1: In m (Message.mk e1 ts1) pos1)
+        (POS2: In m (Message.mk e2 ts2) pos2)
+        (WRITE1: Event.is_writing e1 = Some (loc, val1))
+        (WRITE2: Event.is_writing e2 = Some (loc, val2)):
+        sbw pos1 pos2
+    .
+
+    Inductive rfr: relation Position.t :=
+    | rfr_intro
+        write_pos read_pos
+        write_event ts
+        loc val ord
+        (WRITEPOS: In m (Message.mk write_event ts) write_pos)
+        (READPOS: In m (Message.mk (Event.read loc val ord) ts) read_pos)
+        (WRITE: Event.is_writing write_event = Some (loc, val)):
+        rfr write_pos read_pos
+    .
+
+    Inductive rfu: relation Position.t :=
+    | rfu_intro
+        write_pos update_pos
+        write_event ts
+        loc valr valw ord
+        (WRITEPOS: In m (Message.mk write_event ts) write_pos)
+        (UPDATEPOS: In m (Message.mk (Event.update loc valr valw ord) (ts + 1)) update_pos)
+        (WRITE: Event.is_writing write_event = Some (loc, valr)):
+        rfu write_pos update_pos
+    .
+
+    Definition rf: relation Position.t := rfr \2/ rfu.
+
+    Definition rseq: relation Position.t :=
+      compose
+        (rc sbw)
+        (rtc rfu).
+
+    Definition sw: relation Position.t :=
+      (compose rseq rf)
+        /2\
+        (prod
+           (fun msg => Ordering.le Ordering.release (Event.get_ordering msg.(Message.event)))
+           (fun msg => Ordering.le Ordering.acquire (Event.get_ordering msg.(Message.event))))
+    .
+
+    Definition hb: relation Position.t := tc (sb \2/ sw).
+
+    Inductive consistent: Prop :=
+    | consistent_intro
+        (CoHB: acyclic hb)
+        (CoRF: acyclic (compose hb rf))
+    .
+  End Consistency.
 End Memory.

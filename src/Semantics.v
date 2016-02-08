@@ -84,7 +84,7 @@ Module Semantics.
       step
         (mk rs ((Stmt.dowhile s cond)::stmts))
         None
-        (mk rs (s ++ (Stmt.ite cond (cons (Stmt.dowhile s cond) nil) nil) :: stmts))
+        (mk rs (s ++ (Stmt.ite cond ((Stmt.dowhile s cond)::nil) nil) :: stmts))
   .
 
   Definition lang :=

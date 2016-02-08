@@ -5,6 +5,7 @@ Require Import Omega.
 Require Import MSetPositive.
 Require Import FMapPositive.
 Require Import FMapFacts.
+Require Import Relations.
 
 Set Implicit Arguments.
 
@@ -104,3 +105,8 @@ Proof.
   - subst. left. auto.
   - right. contradict n. inversion n. auto.
 Defined.
+
+Notation rtc := (clos_refl_trans _). (* reflexive transitive closure *)
+Notation rc := (clos_refl _). (* reflexive transitive closure *)
+Notation tc := (clos_trans _). (* transitive closure *)
+Hint Immediate rt_step rt_refl t_step.
