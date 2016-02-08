@@ -7,7 +7,7 @@ Set Implicit Arguments.
 Module RegSet.
   Definition t := Reg.Fun.t Const.t.
 
-  Definition empty := Reg.Fun.empty Const.zero.
+  Definition empty := Reg.Fun.init Const.zero.
 
   Definition eval_value (rs:t) (val:Value.t): Const.t :=
     match val with

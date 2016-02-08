@@ -123,7 +123,6 @@ Module SyntaxNotations.
   Notation "'rel'" := (Ordering.release) (at level 41).
   Notation "'acq'" := (Ordering.acquire) (at level 41).
   Notation "'ra'" := (Ordering.relacq) (at level 41).
-  Notation "'sc'" := (Ordering.seqcst) (at level 41).
 
   Notation "'NOT' e" := (Instr.rhs_op1 Op1.not e) (at level 41).
   Notation "e1 'ADD' e2" := (Instr.rhs_op2 e1 Op2.add e2) (at level 41).

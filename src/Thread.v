@@ -27,7 +27,7 @@ Module Thread.
       step (mk lang s1) e (mk lang s2).
 End Thread.
 
-Module Program.
+Module Threads.
   Definition t := Ident.Map.t Thread.t.
 
   Inductive is_terminal (p:t): Prop :=
@@ -45,4 +45,4 @@ Module Program.
       (STEP: Thread.step th1 e th2):
       step p1 i e (Ident.Map.add i th2 p1)
   .
-End Program.
+End Threads.

@@ -15,13 +15,11 @@ Module Ordering.
   | acquire
   | release
   | relacq
-  | seqcst
   .
 
   Inductive le: forall (lhs rhs:t), Prop :=
   | le_refl ord: le ord ord
   | relaxed_ rhs: le relaxed rhs
-  | _seqcst lhs: le lhs seqcst
   | acquire_: le acquire relacq
   | release_: le release relacq
   .
@@ -48,4 +46,18 @@ Module Event <: DecidableType.
       (try apply Const.eq_dec);
       (try apply Ordering.eq_dec).
   Qed.
+
+  Definition is_reading (e:Event.t): option (Loc.t * Const.t) :=
+    match e with
+    | read loc val _ => Some (loc, val)
+    | write loc _ _ => None
+    | update loc val _ _ => Some (loc, val)
+    end.
+
+  Definition is_writing (e:Event.t): option (Loc.t * Const.t) :=
+    match e with
+    | read _ _ _ => None
+    | write loc val _ => Some (loc, val)
+    | update loc _ val _ => Some (loc, val)
+    end.
 End Event.
