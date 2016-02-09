@@ -3,6 +3,8 @@ Require Import List.
 Require Import Basic.
 Require Import Event.
 Require Import Syntax.
+Require Import Semantics.
+Require Import Thread.
 
 Inductive reorderable: forall (i1 i2:Instr.t), Prop :=
 | reorderable_intro
@@ -63,4 +65,21 @@ Inductive consumed (i2:Instr.t): forall (c1 c2:list Stmt.t), Prop :=
     (REORDER1: reorderable i1 i2)
     (REORDER2: reordered_stmts c1 c2):
     consumed i2 ((Stmt.instr i1)::(Stmt.instr i2)::c1) ((Stmt.instr i1)::c2)
+.
+
+Inductive sim_thread: forall (i2:option Instr.t) (th1 th2:Thread.t), Prop :=
+| sim_thread_reordered
+    regs s1 s2
+    (REORDERED: reordered_stmts s1 s2):
+    sim_thread
+      None
+      (Thread.mk lang (State.mk regs s1))
+      (Thread.mk lang (State.mk regs s2))
+| sim_thread_consumed
+    i2 regs s1 s2
+    (CONSUMED: consumed i2 s1 s2):
+    sim_thread
+      (Some i2)
+      (Thread.mk lang (State.mk regs s1))
+      (Thread.mk lang (State.mk regs s2))
 .

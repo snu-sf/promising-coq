@@ -16,24 +16,14 @@ Module RegSet.
     | Value.const c => c
     end.
 
-  Definition eval_rhs (rs:t) (rhs:Instr.rhs): Const.t :=
+  Definition eval_expr (rs:t) (rhs:Instr.expr): Const.t :=
     match rhs with
-    | Instr.rhs_val val => eval_value rs val
-    | Instr.rhs_op1 op op1 => Op1.eval op (eval_value rs op1)
-    | Instr.rhs_op2 op op1 op2 => Op2.eval op (eval_value rs op1) (eval_value rs op2)
+    | Instr.expr_val val => eval_value rs val
+    | Instr.expr_op1 op op1 => Op1.eval op (eval_value rs op1)
+    | Instr.expr_op2 op op1 op2 => Op2.eval op (eval_value rs op1) (eval_value rs op2)
     end.
-End RegSet.
 
-Module Semantics.
-  Structure state: Type := mk {
-    regs: RegSet.t;
-    stmts: list Stmt.t;
-  }.
-
-  Definition is_terminal (s:state): Prop :=
-    stmts s = nil.
-
-  Inductive eval_instr: forall (rs1:RegSet.t) (i:Instr.t) (e:option ThreadEvent.t) (rs2:RegSet.t), Prop :=
+  Inductive eval_instr: forall (rs1:t) (i:Instr.t) (e:option ThreadEvent.t) (rs2:t), Prop :=
   | eval_load
       rs lhs rhs ord val:
       eval_instr
@@ -46,14 +36,14 @@ Module Semantics.
       eval_instr
         rs
         (Instr.store lhs rhs ord)
-        (Some (ThreadEvent.rw (RWEvent.write lhs (RegSet.eval_value rs rhs) ord)))
+        (Some (ThreadEvent.rw (RWEvent.write lhs (eval_value rs rhs) ord)))
         rs
   | eval_fetch_add
       rs lhs loc addendum ord val:
       eval_instr
         rs
         (Instr.fetch_add lhs loc addendum ord)
-        (Some (ThreadEvent.rw (RWEvent.update loc val (Const.add val (RegSet.eval_value rs addendum)) ord)))
+        (Some (ThreadEvent.rw (RWEvent.update loc val (Const.add val (eval_value rs addendum)) ord)))
         (Reg.Fun.add lhs val rs)
   | eval_assign
       rs lhs rhs:
@@ -61,7 +51,7 @@ Module Semantics.
         rs
         (Instr.assign lhs rhs)
         None
-        (Reg.Fun.add lhs (RegSet.eval_rhs rs rhs) rs)
+        (Reg.Fun.add lhs (eval_expr rs rhs) rs)
   | eval_fence
       rs ord:
       eval_instr
@@ -74,14 +64,24 @@ Module Semantics.
       eval_instr
         rs
         (Instr.syscall lhs rhses)
-        (Some (ThreadEvent.syscall (Event.mk lhs_val (map (RegSet.eval_value rs) rhses))))
+        (Some (ThreadEvent.syscall (Event.mk lhs_val (map (eval_value rs) rhses))))
         (Reg.Fun.add lhs lhs_val rs)
   .
+End RegSet.
 
-  Inductive step: forall (s1:state) (e:option ThreadEvent.t) (s1:state), Prop :=
+Module State.
+  Structure t: Type := mk {
+    regs: RegSet.t;
+    stmts: list Stmt.t;
+  }.
+
+  Definition is_terminal (s:t): Prop :=
+    stmts s = nil.
+
+  Inductive step: forall (s1:t) (e:option ThreadEvent.t) (s1:t), Prop :=
   | step_instr
       rs1 i e rs2 stmts
-      (INSTR: eval_instr rs1 i e rs2):
+      (INSTR: RegSet.eval_instr rs1 i e rs2):
       step
         (mk rs1 ((Stmt.instr i)::stmts))
         e
@@ -91,7 +91,7 @@ Module Semantics.
       step
         (mk rs ((Stmt.ite cond s1 s2)::stmts))
         None
-        (mk rs ((if RegSet.eval_value rs cond
+        (mk rs ((if RegSet.eval_expr rs cond
                  then s1
                  else s2) ++ stmts))
   | step_dowhile
@@ -101,9 +101,9 @@ Module Semantics.
         None
         (mk rs (s ++ (Stmt.ite cond ((Stmt.dowhile s cond)::nil) nil) :: stmts))
   .
+End State.
 
-  Definition lang :=
-    Language.mk
-      is_terminal
-      step.
-End Semantics.
+Definition lang :=
+  Language.mk
+    State.is_terminal
+    State.step.
