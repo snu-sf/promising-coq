@@ -12,6 +12,26 @@ Set Implicit Arguments.
 Module PositiveMapFacts := FMapFacts.Facts (PositiveMap).
 Module PositiveMapProperties := FMapFacts.Properties (PositiveMap).
 
+Definition PositiveMap_get_max V (pred: V -> nat) (m:PositiveMap.t V): nat :=
+  PositiveMap.fold
+    (fun _ v res => max (pred v) res)
+    m
+    0.
+
+Lemma PositiveMap_get_max_spec V (pred: V -> nat) m:
+  forall i v (FIND: PositiveMap.find i m = Some v), pred v <= PositiveMap_get_max pred m.
+Proof.
+  unfold find, PositiveMap_get_max.
+  rewrite PositiveMap.fold_1, <- fold_left_rev_right.
+  intros.
+  apply PositiveMap.elements_correct in FIND.
+  apply in_rev in FIND.
+  revert FIND. generalize (rev (PositiveMap.elements m)).
+  induction l; intros; inversion FIND; subst; simpl.
+  - apply Max.le_max_l.
+  - rewrite <- Max.le_max_r. apply IHl. auto.
+Qed.
+
 Module PositiveFun.
   Section PositiveFun.
     Variable (V:Type).
@@ -34,12 +54,6 @@ Module PositiveFun.
         (PositiveMap.add p v f.(map))
         f.(default).
 
-    Definition get_max (pred: V -> nat) (f:t): nat :=
-      PositiveMap.fold
-        (fun _ v res => max (pred v) res)
-        f.(map)
-        (pred f.(default)).
-
     Lemma init_spec p v:
       find p (init v) = v.
     Proof.
@@ -56,22 +70,6 @@ Module PositiveFun.
       unfold find, add. simpl.
       rewrite PositiveMapAdditionalFacts.gsspec.
       destruct (PositiveMap.E.eq_dec p' p), (Pos.eq_dec p' p); congruence.
-    Qed.
-
-    Lemma get_max_spec pred f:
-      forall i, pred (find i f) <= get_max pred f.
-    Proof.
-      unfold find, get_max.
-      rewrite PositiveMap.fold_1, <- fold_left_rev_right.
-      intros. destruct (PositiveMap.find i (map f)) eqn:FIND.
-      - apply PositiveMap.elements_correct in FIND.
-        apply in_rev in FIND.
-        revert FIND. generalize (rev (PositiveMap.elements (map f))).
-        induction l; intros; inversion FIND; subst; simpl.
-        + apply Max.le_max_l.
-        + rewrite <- Max.le_max_r. apply IHl. auto.
-      - induction (rev (PositiveMap.elements (map f))); auto.
-        simpl. rewrite <- Max.le_max_r. apply IHl.
     Qed.
   End PositiveFun.
 End PositiveFun.

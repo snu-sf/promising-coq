@@ -1,10 +1,14 @@
 Require Import List.
 
+Require Import sflib.
+
 Require Import Basic.
 Require Import Event.
 Require Import Syntax.
 Require Import Semantics.
 Require Import Thread.
+Require Import Memory.
+Require Import Configuration.
 
 Inductive reorderable: forall (i1 i2:Instr.t), Prop :=
 | reorderable_intro
@@ -67,19 +71,74 @@ Inductive consumed (i2:Instr.t): forall (c1 c2:list Stmt.t), Prop :=
     consumed i2 ((Stmt.instr i1)::(Stmt.instr i2)::c1) ((Stmt.instr i1)::c2)
 .
 
-Inductive sim_thread: forall (i2:option Instr.t) (th1 th2:Thread.t), Prop :=
+Inductive sim_thread: forall (e:option ThreadEvent.t) (th1 th2:Thread.t), Prop :=
 | sim_thread_reordered
-    regs s1 s2
+    rs s1 s2
     (REORDERED: reordered_stmts s1 s2):
     sim_thread
       None
-      (Thread.mk lang (State.mk regs s1))
-      (Thread.mk lang (State.mk regs s2))
+      (Thread.mk lang (State.mk rs s1))
+      (Thread.mk lang (State.mk rs s2))
 | sim_thread_consumed
-    i2 regs s1 s2
-    (CONSUMED: consumed i2 s1 s2):
+    rs1 rs2 s1 s2 i e
+    (CONSUMED: consumed i s1 s2)
+    (EVAL: RegSet.eval_instr rs1 i e rs2):
     sim_thread
-      (Some i2)
-      (Thread.mk lang (State.mk regs s1))
-      (Thread.mk lang (State.mk regs s2))
+      e
+      (Thread.mk lang (State.mk rs1 s1))
+      (Thread.mk lang (State.mk rs2 s2))
+.
+
+Inductive sim_buffer: forall (e:option ThreadEvent.t) (b1 b2:Buffer.t), Prop :=
+| sim_buffer_reordered
+    history inception1 inception2
+    (INCEPTION: MessageSet.Equal inception1 inception2):
+    sim_buffer
+      None
+      (Buffer.mk history inception1)
+      (Buffer.mk history inception2)
+| sim_buffer_consumed_observable
+    msg history1 inception1 inception2
+    (OBSERVABLE: Message.observable msg = true)
+    (INCEPTION: MessageSet.disjoint_add inception2 msg inception1):
+    sim_buffer
+      (Some (Message.get_threadevent msg))
+      (Buffer.mk history1 inception1)
+      (Buffer.mk (history1 ++ [msg]) inception2)
+| sim_buffer_consumed_unobservable
+    msg history1 inception1 inception2
+    (UNOBSERVABLE: Message.observable msg = false)
+    (INCEPTION: MessageSet.Equal inception1 inception2):
+    sim_buffer
+      (Some (Message.get_threadevent msg))
+      (Buffer.mk history1 inception1)
+      (Buffer.mk (history1 ++ [msg]) inception2)
+.
+
+Inductive sim_thread_buffer: forall (th1 th2:option Thread.t) (b1 b2:option Buffer.t), Prop :=
+| sim_thread_buffer_None:
+    sim_thread_buffer None None None None
+| sim_thread_buffer_Some
+    th1 th2 b1 b2 e
+    (THREAD: sim_thread e th1 th2)
+    (BUFFER: sim_buffer e b1 b2):
+    sim_thread_buffer (Some th1) (Some th2) (Some b1) (Some b2)
+.
+
+Definition sim_threads_memory (th1 th2:Threads.t) (m1 m2:Memory.t): Prop :=
+  forall i,
+    <<SIM: sim_thread_buffer
+             (Ident.Map.find i th1) (Ident.Map.find i th2)
+             (Ident.Map.find i m1) (Ident.Map.find i m2)>>.
+
+Inductive sim_configuration (c1 c2:Configuration.t): Prop :=
+| sim_configuration_intro
+    (CLOCKS: Clocks.le c1.(Configuration.clocks) c2.(Configuration.clocks))
+    (CUR: sim_threads_memory
+            c1.(Configuration.threads) c2.(Configuration.threads)
+            c1.(Configuration.memory) c2.(Configuration.memory))
+    (STACK:
+       Forall2
+         (fun stk1 stk2 => sim_threads_memory stk1.(fst) stk2.(fst) stk1.(snd) stk2.(snd))
+         c1.(Configuration.stack) c2.(Configuration.stack))
 .

@@ -104,6 +104,7 @@ Module State.
 End State.
 
 Definition lang :=
-  Language.mk
+  @Language.mk
+    State.t
     State.is_terminal
     State.step.

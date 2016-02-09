@@ -16,15 +16,15 @@ Module Configuration.
   Inductive is_terminal (c:t): Prop :=
   | is_terminal_intro
       (STACK: c.(stack) = nil)
-      (THREADS:
-         forall i th (THREAD: Ident.Map.find i c.(threads) = Some th),
-           Thread.is_terminal th)
+      (THREADS: Threads.is_terminal c.(threads))
   .
 
   Inductive is_observable (c:t): Prop :=
   | is_observable_intro
       (STACK: c.(stack) = nil)
-      (MEMORY: forall i, MessageSet.Empty (Ident.Fun.find i c.(memory)).(Buffer.inception))
+      (MEMORY:
+         forall i b (BUFFER: Ident.Map.find i c.(memory) = Some b),
+           MessageSet.Empty b.(Buffer.inception))
   .
 
   Inductive step: forall (c1:t) (e:option Event.t) (c2:t), Prop :=
@@ -39,7 +39,7 @@ Module Configuration.
       c th m stack:
       step (mk c th m stack) None (mk c th m ((th, m)::stack))
   | step_inception
-      c th1 m1 th2 m2 stack
+      c th1 m1 th2 m2 b2 stack
       event ts1 loc val
       ts2 pos i
       (WRITING: RWEvent.is_writing event = Some (loc, val))
@@ -51,21 +51,24 @@ Module Configuration.
            <<EVENT0: RWEvent.is_writing event0 = Some (loc, val0)>>)
       (MESSAGE: Memory.In m1 (Message.rw event ts1) pos)
       (POSITION: Memory.Position.is_inception pos = false)
+      (BUFFER: Ident.Map.find i m2 = Some b2)
       (INCEPTION:
-         forall i,
-           MessageSet.Subset
-             (Ident.Fun.find i m1).(Buffer.inception)
-             (Ident.Fun.find i m2).(Buffer.inception)):
+         forall i b1 (BUFFER1: Ident.Map.find i m1 = Some b1),
+         exists b2,
+           <<BUFFER2: Ident.Map.find i m2 = Some b2>> /\
+           <<SUBSET: MessageSet.Subset b1.(Buffer.inception) b2.(Buffer.inception)>>):
       step
         (mk c th1 m1 ((th2, m2)::stack))
         None
         (mk c
             th2
-            (Ident.Fun.add i (Buffer.add_inception (Message.rw event ts2) (Ident.Fun.find i m2)) m2)
+            (Ident.Map.add i (Buffer.add_inception (Message.rw event ts2) b2) m2)
             stack)
   | step_commit
       c1 th m c2
-      (MEMORY: forall i, MessageSet.Empty (Ident.Fun.find i m).(Buffer.inception))
+      (MEMORY:
+         forall i b (BUFFER: Ident.Map.find i m = Some b),
+           MessageSet.Empty b.(Buffer.inception))
       (CLOCKS: Clocks.le c1 c2):
       step
         (mk c1 th m nil)

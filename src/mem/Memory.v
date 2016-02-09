@@ -4,6 +4,7 @@ Require Import MSetWeakList.
 Require Import PeanoNat.
 Require Import Relations.
 
+Require Import sflib.
 Require Import paco.
 
 Require Import Basic.
@@ -55,9 +56,44 @@ Module Message <: DecidableType.
     | rw e _ => RWEvent.get_ordering e
     | fence ord => ord
     end.
+
+  Definition observable (msg:t): bool :=
+    match msg with
+    | rw e _ => if RWEvent.is_writing e then true else false
+    | fence _ => false
+    end.
+
+  Definition get_threadevent (msg:t): ThreadEvent.t :=
+    match msg with
+    | rw e _ => ThreadEvent.rw e
+    | fence ord => ThreadEvent.fence ord
+    end.
 End Message.
 
-Module MessageSet := MSetWeakList.Make (Message).
+Module MessageSet.
+  Include MSetWeakList.Make (Message).
+
+  Inductive disjoint_add (msgs1:t) (msg:Message.t) (msgs2:t): Prop :=
+  | MessageSet_disjoint_add_intro
+      (ADD: Equal (add msg msgs1) msgs2)
+      (DISJOINT: ~ In msg msgs1)
+  .
+
+  Lemma disjoint_add_spec msgs1 msg msgs2
+        (DISJADD: disjoint_add msgs1 msg msgs2):
+    <<ADD: Equal (add msg msgs1) msgs2>> /\
+    <<REMOVE: Equal (remove msg msgs2) msgs1>>.
+  Proof.
+    inv DISJADD. split; auto.
+    constructor; intro IN.
+    - specialize (ADD a). rewrite add_spec in ADD.
+      apply remove_spec in IN.
+      des. apply ADD0 in IN. des; congruence.
+    - specialize (ADD a). rewrite add_spec in ADD.
+      apply remove_spec. split; try congruence.
+      apply ADD. right. auto.
+  Qed.
+End MessageSet.
 
 Module Buffer.
   Structure t := mk {
@@ -139,9 +175,9 @@ Module Buffer.
 End Buffer.
 
 Module Memory.
-  Definition t := Ident.Fun.t Buffer.t.
+  Definition t := Ident.Map.t Buffer.t.
 
-  Definition init := Ident.Fun.init Buffer.empty.
+  Definition empty := Ident.Map.empty Buffer.t.
 
   Module Position.
     Inductive t :=
@@ -165,82 +201,88 @@ Module Memory.
       loc:
       In m (Message.rw (RWEvent.write loc Const.zero Ordering.release) 0) Position.init
   | In_buffer
-      msg i p
-      (IN: Buffer.In msg (Ident.Fun.find i m) p):
+      b msg i p
+      (BUFFER: Ident.Map.find i m = Some b)
+      (IN: Buffer.In msg b p):
       In m msg (Position.buffer i p)
   .
 
   Definition timestamp (loc:Loc.t) (m:t): nat :=
-    Ident.Fun.get_max
+    PositiveMap_get_max
       (Buffer.timestamp loc)
       m.
 
   Inductive step (c:Clocks.t): forall (m1:t) (i:Ident.t) (e:option ThreadEvent.t) (m2:t), Prop :=
   | step_read
       m read_event ts position
-      i loc val ord
+      i b loc val ord
       (MESSAGE: In m (Message.rw read_event ts) position)
       (READ: RWEvent.is_writing read_event = Some (loc, val))
       (POSITION: position <> Position.buffer i (Buffer.Position.inception (Message.rw read_event ts)))
+      (BUFFER: Ident.Map.find i m = Some b)
       (TS1: Loc.Fun.find loc (Ident.Fun.find i c) <= ts)
-      (TS2: Buffer.timestamp_history loc (Ident.Fun.find i m) <= ts):
+      (TS2: Buffer.timestamp_history loc b <= ts):
       step
         c
         m
         i
         (Some (ThreadEvent.rw (RWEvent.read loc val ord)))
-        (Ident.Fun.add
+        (Ident.Map.add
            i
-           (Buffer.add_history (Message.rw (RWEvent.read loc val ord) ts) (Ident.Fun.find i m))
+           (Buffer.add_history (Message.rw (RWEvent.read loc val ord) ts) b)
            m)
   | step_write
       m
-      i loc val ord:
+      i b loc val ord
+      (BUFFER: Ident.Map.find i m = Some b):
       step
         c
         m
         i
         (Some (ThreadEvent.rw (RWEvent.write loc val ord)))
-        (Ident.Fun.add
+        (Ident.Map.add
            i
            (Buffer.add_history
               (Message.rw
                  (RWEvent.write loc val ord)
                  ((timestamp loc m) + 1))
-              (Ident.Fun.find i m))
+              b)
            m)
   | step_update
       m read_event position
-      i loc valr valw ord
+      i b loc valr valw ord
       (MESSAGE: In m (Message.rw read_event (timestamp loc m)) position)
       (READ: RWEvent.is_writing read_event = Some (loc, valr))
       (POSITION: position <> Position.buffer i (Buffer.Position.inception (Message.rw read_event (timestamp loc m))))
+      (BUFFER: Ident.Map.find i m = Some b)
       (TS: Loc.Fun.find loc (Ident.Fun.find i c) <= (timestamp loc m)):
       step
         c
         m
         i
         (Some (ThreadEvent.rw (RWEvent.update loc valr valw ord)))
-        (Ident.Fun.add
+        (Ident.Map.add
            i
            (Buffer.add_history
               (Message.rw
                  (RWEvent.update loc valr valw ord)
                  ((timestamp loc m) + 1))
-              (Ident.Fun.find i m))
+              b)
            m)
   | step_fence
-      m i ord:
+      m i b ord
+      (BUFFER: Ident.Map.find i m = Some b):
       step
         c
         m
         i
         (Some (ThreadEvent.fence ord))
-        (Ident.Fun.add i (Buffer.add_history (Message.fence ord) (Ident.Fun.find i m)) m)
+        (Ident.Map.add i (Buffer.add_history (Message.fence ord) b) m)
   | step_confirm
-      m event ts i b
-      (MESSAGE: Buffer.confirm (Message.rw event ts) (Ident.Fun.find i m) = Some b):
-      step c m i (Some (ThreadEvent.rw event)) (Ident.Fun.add i b m)
+      m event ts i b1 b2
+      (BUFFER: Ident.Map.find i m = Some b1)
+      (MESSAGE: Buffer.confirm (Message.rw event ts) b1 = Some b2):
+      step c m i (Some (ThreadEvent.rw event)) (Ident.Map.add i b2 m)
   .
 
   Section Consistency.
