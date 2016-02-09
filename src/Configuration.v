@@ -42,14 +42,14 @@ Module Configuration.
       c p m p' m' stack
       event ts loc val
       ts' position i
-      (WRITING: Event.is_writing event = Some (loc, val))
+      (WRITING: RWEvent.is_writing event = Some (loc, val))
       (UPDATE:
-         forall loc valr valw ord (EVENT: event = Event.update loc valr valw ord),
+         forall loc valr valw ord (EVENT: event = RWEvent.update loc valr valw ord),
          exists event' ts' pos' val',
-           <<IN: Memory.In m' (Message.mk event' ts') pos'>> /\
+           <<IN: Memory.In m' (Message.rw event' ts') pos'>> /\
            <<TS: ts' + 1 = ts>> /\
-           <<EVENT': Event.is_writing event' = Some (loc, val')>>)
-      (MESSAGE: Memory.In m (Message.mk event ts) position)
+           <<EVENT': RWEvent.is_writing event' = Some (loc, val')>>)
+      (MESSAGE: Memory.In m (Message.rw event ts) position)
       (POSITION: Memory.Position.is_inception position = false)
       (INCEPTION:
          forall i,
@@ -60,7 +60,7 @@ Module Configuration.
         (mk c p m ((p', m')::stack))
         (mk c
             p'
-            (Ident.Fun.add i (Buffer.add_inception (Message.mk event ts') (Ident.Fun.find i m')) m')
+            (Ident.Fun.add i (Buffer.add_inception (Message.rw event ts') (Ident.Fun.find i m')) m')
             stack)
   | step_commit
       c p m c'

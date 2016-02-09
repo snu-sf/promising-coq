@@ -38,21 +38,21 @@ Module Semantics.
       eval_instr
         rs
         (Instr.load lhs rhs ord)
-        (Some (Event.read rhs val ord))
+        (Some (Event.rw (RWEvent.read rhs val ord)))
         (Reg.Fun.add lhs val rs)
   | eval_store
       rs lhs rhs ord:
       eval_instr
         rs
         (Instr.store lhs rhs ord)
-        (Some (Event.write lhs (RegSet.eval_value rs rhs) ord))
+        (Some (Event.rw (RWEvent.write lhs (RegSet.eval_value rs rhs) ord)))
         rs
   | eval_fetch_add
       rs lhs loc addendum ord val:
       eval_instr
         rs
         (Instr.fetch_add lhs loc addendum ord)
-        (Some (Event.update loc val (Const.add val (RegSet.eval_value rs addendum)) ord))
+        (Some (Event.rw (RWEvent.update loc val (Const.add val (RegSet.eval_value rs addendum)) ord)))
         (Reg.Fun.add lhs val rs)
   | eval_assign
       rs lhs rhs:
@@ -61,6 +61,13 @@ Module Semantics.
         (Instr.assign lhs rhs)
         None
         (Reg.Fun.add lhs (RegSet.eval_rhs rs rhs) rs)
+  | eval_fence
+      rs ord:
+      eval_instr
+        rs
+        (Instr.fence ord)
+        (Some (Event.fence ord))
+        rs
   .
 
   Inductive step: forall (s1:state) (e:option Event.t) (s1:state), Prop :=

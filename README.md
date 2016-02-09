@@ -11,5 +11,5 @@ make
 ## TODO
 
 - Liveness counter
-- Fence
-- SC atomics
+- SC atomics (cf. init = release, now)
+- System call

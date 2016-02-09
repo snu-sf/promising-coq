@@ -10,7 +10,7 @@ End Loc.
 Module Const := Nat.
 
 Module Ordering.
-  Inductive t: Type :=
+  Inductive t :=
   | relaxed
   | acquire
   | release
@@ -28,8 +28,8 @@ Module Ordering.
   Proof. decide equality. Qed.
 End Ordering.
 
-Module Event <: DecidableType.
-  Inductive t_: Type :=
+Module RWEvent <: DecidableType.
+  Inductive t_ :=
   | read (loc:Loc.t) (val:Const.t) (ord:Ordering.t)
   | write (loc:Loc.t) (val:Const.t) (ord:Ordering.t)
   | update (loc:Loc.t) (rval wval:Const.t) (ord:Ordering.t)
@@ -47,17 +47,35 @@ Module Event <: DecidableType.
       (try apply Ordering.eq_dec).
   Qed.
 
-  Definition is_writing (e:Event.t): option (Loc.t * Const.t) :=
+  Definition is_writing (e:t): option (Loc.t * Const.t) :=
     match e with
     | read _ _ _ => None
     | write loc val _ => Some (loc, val)
     | update loc _ val _ => Some (loc, val)
     end.
 
-  Definition get_ordering (e:Event.t): Ordering.t :=
+  Definition get_ordering (e:t): Ordering.t :=
     match e with
     | read _ _ ord => ord
     | write _ _ ord => ord
     | update _ _ _ ord => ord
     end.
+End RWEvent.
+
+Module Event <: DecidableType.
+  Inductive t_ :=
+  | rw (e:RWEvent.t)
+  | fence (ord:Ordering.t)
+  .
+  Definition t := t_.
+
+  Definition eq := @eq t.
+  Program Instance eq_equiv: Equivalence eq.
+  Definition eq_dec (x y:t): {eq x y} + {~ eq x y}.
+  Proof.
+    unfold eq.
+    decide equality;
+      (try apply RWEvent.eq_dec);
+      (try apply Ordering.eq_dec).
+  Qed.
 End Event.

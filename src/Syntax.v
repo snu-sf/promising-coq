@@ -55,7 +55,7 @@ Module Op2.
 End Op2.
 
 Module Instr.
-  Inductive rhs: Type :=
+  Inductive rhs :=
   | rhs_val (val:Value.t)
   | rhs_op1 (op:Op1.t) (op:Value.t)
   | rhs_op2 (op:Op2.t) (op1 op2:Value.t)
@@ -68,11 +68,12 @@ Module Instr.
     | rhs_op2 _ op1 op2 => Reg.Set_.union (Value.regs_of op1) (Value.regs_of op2)
     end.
 
-  Inductive t: Type :=
+  Inductive t :=
   | load (lhs:Reg.t) (rhs:Loc.t) (ord:Ordering.t)
   | store (lhs:Loc.t) (rhs:Value.t) (ord:Ordering.t)
   | fetch_add (lhs:Reg.t) (loc:Loc.t) (addendum:Value.t) (ord:Ordering.t)
   | assign (lhs:Reg.t) (rhs:rhs)
+  | fence (ord:Ordering.t)
   .
 
   Definition ordering_of (i:t): Ordering.t :=
@@ -81,6 +82,7 @@ Module Instr.
     | store _ _ ord => ord
     | fetch_add _ _ _ ord => ord
     | assign _ _ => Ordering.relaxed
+    | fence ord => ord
     end.
 
   Definition loc_of (i:t): option Loc.t :=
@@ -89,6 +91,7 @@ Module Instr.
     | store loc _ _ => Some loc
     | fetch_add _ loc _ _ => Some loc
     | assign _ _ => None
+    | fence _ => None
     end.
 
   Definition regs_of (i:t): Reg.Set_.t :=
@@ -97,12 +100,13 @@ Module Instr.
     | store _ val _ => Value.regs_of val
     | fetch_add reg _ val _ => Reg.Set_.add reg (Value.regs_of val)
     | assign reg rhs => Reg.Set_.add reg (regs_of_rhs rhs)
+    | fence _ => Reg.Set_.empty
     end.
 End Instr.
 Coercion Instr.rhs_val: Value.t >-> Instr.rhs.
 
 Module Stmt.
-  Inductive t: Type :=
+  Inductive t :=
   | instr (i:Instr.t)
   | ite (cond:Value.t) (c1 c2:list t)
   | dowhile (c:list t) (cond:Value.t)
@@ -133,15 +137,25 @@ Module SyntaxNotations.
   Notation "'STORE' lhs '<-' rhs '@' ord" := (Instr.store lhs rhs ord) (at level 42).
   Notation "'FETCH_ADD' lhs '<-' loc ',' addendum '@' ord" := (Instr.fetch_add lhs loc addendum ord) (at level 42).
   Notation "lhs '::=' rhs" := (Instr.assign lhs rhs) (at level 42).
+  Notation "'FENCE' '@' ord" := (Instr.fence ord) (at level 42).
 
   Notation "'IF' cond 'THEN' c1 'ELSE' c2" := (Stmt.ite cond c1 c2) (at level 43).
   Notation "'DO' c 'WHILE' cond" := (Stmt.dowhile c cond) (at level 43).
 
-  Program Definition example: list Stmt.t := [
+  Program Definition example1: list Stmt.t := [
     DO [
       LOAD %r"r1" <- %l"flag" @ acq;
       %r"r2" ::= NOT %r"r1"
     ] WHILE %r"r2";
+    LOAD %r"r3" <- %l"x" @ rlx
+  ].
+
+  Program Definition example2: list Stmt.t := [
+    DO [
+      LOAD %r"r1" <- %l"flag" @ rlx;
+      %r"r2" ::= NOT %r"r1"
+    ] WHILE %r"r2";
+    FENCE @ acq;
     LOAD %r"r3" <- %l"x" @ rlx
   ].
 End SyntaxNotations.

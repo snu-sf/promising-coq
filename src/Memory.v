@@ -33,10 +33,10 @@ Module Clocks.
 End Clocks.
 
 Module Message <: DecidableType.
-  Structure t_ := mk {
-    event: Event.t;
-    timestamp: nat;
-  }.
+  Inductive t_ :=
+  | rw (event:RWEvent.t) (timestamp:nat)
+  | fence (ord:Ordering.t)
+  .
   Definition t := t_.
 
   Definition eq := @eq t.
@@ -45,9 +45,16 @@ Module Message <: DecidableType.
   Proof.
     unfold eq.
     decide equality;
-      (try apply Event.eq_dec);
-      (try apply Nat.eq_dec).
+      (try apply RWEvent.eq_dec);
+      (try apply Nat.eq_dec);
+      (try apply Ordering.eq_dec).
   Qed.
+
+  Definition get_ordering (e:t): Ordering.t :=
+    match e with
+    | rw e _ => RWEvent.get_ordering e
+    | fence ord => ord
+    end.
 End Message.
 
 Module MessageSet := MSetWeakList.Make (Message).
@@ -98,24 +105,32 @@ Module Buffer.
   Definition timestamp_history (loc:Loc.t) (b:t): nat :=
     List.fold_left
       (fun res msg =>
-         if option_eq_dec
-              Loc.eq_dec
-              (option_map fst (Event.is_writing msg.(Message.event)))
-              (Some loc)
-         then max msg.(Message.timestamp) res
-         else res)
+         match msg with
+         | Message.rw event timestamp =>
+           if option_eq_dec
+                Loc.eq_dec
+                (option_map fst (RWEvent.is_writing event))
+                (Some loc)
+           then max timestamp res
+           else res
+         | _ => res
+         end)
       b.(history)
       0.
 
   Definition timestamp_inception (loc:Loc.t) (b:t): nat :=
     MessageSet.fold
       (fun msg res =>
-         if option_eq_dec
-              Loc.eq_dec
-              (option_map fst (Event.is_writing msg.(Message.event)))
-              (Some loc)
-         then max msg.(Message.timestamp) res
-         else res)
+         match msg with
+         | Message.rw event timestamp =>
+           if option_eq_dec
+                Loc.eq_dec
+                (option_map fst (RWEvent.is_writing event))
+                (Some loc)
+           then max timestamp res
+           else res
+         | _ => res
+         end)
       b.(inception)
       0.
 
@@ -148,7 +163,7 @@ Module Memory.
   Inductive In (m:t): forall (msg:Message.t) (p:Position.t), Prop :=
   | In_init
       loc:
-      In m (Message.mk (Event.write loc Const.zero Ordering.relacq) 0) Position.init
+      In m (Message.rw (RWEvent.write loc Const.zero Ordering.release) 0) Position.init
   | In_buffer
       msg i p
       (IN: Buffer.In msg (Ident.Fun.find i m) p):
@@ -164,19 +179,19 @@ Module Memory.
   | step_read
       m read_event ts position
       i loc val ord
-      (MESSAGE: In m (Message.mk read_event ts) position)
-      (READ: Event.is_writing read_event = Some (loc, val))
-      (POSITION: position <> Position.buffer i (Buffer.Position.inception (Message.mk read_event ts)))
+      (MESSAGE: In m (Message.rw read_event ts) position)
+      (READ: RWEvent.is_writing read_event = Some (loc, val))
+      (POSITION: position <> Position.buffer i (Buffer.Position.inception (Message.rw read_event ts)))
       (TS1: Loc.Fun.find loc (Ident.Fun.find i c) <= ts)
       (TS2: Buffer.timestamp_history loc (Ident.Fun.find i m) <= ts):
       step
         c
         m
         i
-        (Some (Event.read loc val ord))
+        (Some (Event.rw (RWEvent.read loc val ord)))
         (Ident.Fun.add
            i
-           (Buffer.add_history (Message.mk (Event.read loc val ord) ts) (Ident.Fun.find i m))
+           (Buffer.add_history (Message.rw (RWEvent.read loc val ord) ts) (Ident.Fun.find i m))
            m)
   | step_write
       m
@@ -185,39 +200,47 @@ Module Memory.
         c
         m
         i
-        (Some (Event.write loc val ord))
+        (Some (Event.rw (RWEvent.write loc val ord)))
         (Ident.Fun.add
            i
            (Buffer.add_history
-              (Message.mk
-                 (Event.write loc val ord)
+              (Message.rw
+                 (RWEvent.write loc val ord)
                  ((timestamp loc m) + 1))
               (Ident.Fun.find i m))
            m)
   | step_update
       m read_event position
       i loc valr valw ord
-      (MESSAGE: In m (Message.mk read_event (timestamp loc m)) position)
-      (READ: Event.is_writing read_event = Some (loc, valr))
-      (POSITION: position <> Position.buffer i (Buffer.Position.inception (Message.mk read_event (timestamp loc m))))
+      (MESSAGE: In m (Message.rw read_event (timestamp loc m)) position)
+      (READ: RWEvent.is_writing read_event = Some (loc, valr))
+      (POSITION: position <> Position.buffer i (Buffer.Position.inception (Message.rw read_event (timestamp loc m))))
       (TS: Loc.Fun.find loc (Ident.Fun.find i c) <= (timestamp loc m)):
       step
         c
         m
         i
-        (Some (Event.update loc valr valw ord))
+        (Some (Event.rw (RWEvent.update loc valr valw ord)))
         (Ident.Fun.add
            i
            (Buffer.add_history
-              (Message.mk
-                 (Event.update loc valr valw ord)
+              (Message.rw
+                 (RWEvent.update loc valr valw ord)
                  ((timestamp loc m) + 1))
               (Ident.Fun.find i m))
            m)
+  | step_fence
+      m i ord:
+      step
+        c
+        m
+        i
+        (Some (Event.fence ord))
+        (Ident.Fun.add i (Buffer.add_history (Message.fence ord) (Ident.Fun.find i m)) m)
   | step_confirm
       m event ts i b'
-      (MESSAGE: Buffer.confirm (Message.mk event ts) (Ident.Fun.find i m) = Some b'):
-      step c m i (Some event) (Ident.Fun.add i b' m)
+      (MESSAGE: Buffer.confirm (Message.rw event ts) (Ident.Fun.find i m) = Some b'):
+      step c m i (Some (Event.rw event)) (Ident.Fun.add i b' m)
   .
 
   Section Consistency.
@@ -257,13 +280,19 @@ Module Memory.
     .
 
     Inductive sbw: relation Position.t :=
-    | sbw_intro
+    | sbw_writing
         pos1 pos2 e1 e2 ts1 ts2 loc val1 val2
         (SB: sb pos1 pos2)
-        (POS1: In m (Message.mk e1 ts1) pos1)
-        (POS2: In m (Message.mk e2 ts2) pos2)
-        (WRITE1: Event.is_writing e1 = Some (loc, val1))
-        (WRITE2: Event.is_writing e2 = Some (loc, val2)):
+        (POS1: In m (Message.rw e1 ts1) pos1)
+        (POS2: In m (Message.rw e2 ts2) pos2)
+        (WRITE1: RWEvent.is_writing e1 = Some (loc, val1))
+        (WRITE2: RWEvent.is_writing e2 = Some (loc, val2)):
+        sbw pos1 pos2
+    | sbw_fence
+        pos1 pos2 ord1 e2 ts2
+        (SB: sb pos1 pos2)
+        (POS1: In m (Message.fence ord1) pos1)
+        (POS2: In m (Message.rw e2 ts2) pos2):
         sbw pos1 pos2
     .
 
@@ -272,9 +301,9 @@ Module Memory.
         write_pos read_pos
         write_event ts
         loc val ord
-        (WRITEPOS: In m (Message.mk write_event ts) write_pos)
-        (READPOS: In m (Message.mk (Event.read loc val ord) ts) read_pos)
-        (WRITE: Event.is_writing write_event = Some (loc, val)):
+        (WRITEPOS: In m (Message.rw write_event ts) write_pos)
+        (READPOS: In m (Message.rw (RWEvent.read loc val ord) ts) read_pos)
+        (WRITE: RWEvent.is_writing write_event = Some (loc, val)):
         rfr write_pos read_pos
     .
 
@@ -283,9 +312,9 @@ Module Memory.
         write_pos update_pos
         write_event ts
         loc valr valw ord
-        (WRITEPOS: In m (Message.mk write_event ts) write_pos)
-        (UPDATEPOS: In m (Message.mk (Event.update loc valr valw ord) (ts + 1)) update_pos)
-        (WRITE: Event.is_writing write_event = Some (loc, valr)):
+        (WRITEPOS: In m (Message.rw write_event ts) write_pos)
+        (UPDATEPOS: In m (Message.rw (RWEvent.update loc valr valw ord) (ts + 1)) update_pos)
+        (WRITE: RWEvent.is_writing write_event = Some (loc, valr)):
         rfu write_pos update_pos
     .
 
@@ -296,12 +325,23 @@ Module Memory.
         (rc sbw)
         (rtc rfu).
 
+    Inductive aseq: relation Position.t :=
+    | aseq_refl
+        pos:
+        aseq pos pos
+    | aseq_fence
+        pos1 pos2 ord2
+        (SB: sb pos1 pos2)
+        (POS2: In m (Message.fence ord2) pos2):
+        aseq pos1 pos2
+    .
+
     Definition sw: relation Position.t :=
-      (compose rseq rf)
+      (compose rseq (compose rf aseq))
         /2\
         (prod
-           (fun msg => Ordering.le Ordering.release (Event.get_ordering msg.(Message.event)))
-           (fun msg => Ordering.le Ordering.acquire (Event.get_ordering msg.(Message.event))))
+           (fun msg => Ordering.le Ordering.release (Message.get_ordering msg))
+           (fun msg => Ordering.le Ordering.acquire (Message.get_ordering msg)))
     .
 
     Definition hb: relation Position.t := tc (sb \2/ sw).
