@@ -53,9 +53,9 @@ with reordered_stmts: forall (s1 s2:list Stmt.t), Prop :=
       ((Stmt.instr i2)::(Stmt.instr i1)::s2)
 .
 
-Scheme reordered_stmt_ind' := Induction for reordered_stmt Sort Prop
-with reordered_stmts_ind' := Induction for reordered_stmts Sort Prop.
-Combined Scheme reordered_ind from reordered_stmt_ind', reordered_stmts_ind'.
+Scheme reordered_stmt_ind_ := Induction for reordered_stmt Sort Prop
+with reordered_stmts_ind_ := Induction for reordered_stmts Sort Prop.
+Combined Scheme reordered_ind from reordered_stmt_ind_, reordered_stmts_ind_.
 
 Inductive consumed (i2:Instr.t): forall (c1 c2:list Stmt.t), Prop :=
 | consumed_intro

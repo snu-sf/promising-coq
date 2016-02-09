@@ -39,38 +39,38 @@ Module Configuration.
       c th m stack:
       step (mk c th m stack) None (mk c th m ((th, m)::stack))
   | step_inception
-      c th m th' m' stack
-      event ts loc val
-      ts' position i
+      c th1 m1 th2 m2 stack
+      event ts1 loc val
+      ts2 pos i
       (WRITING: RWEvent.is_writing event = Some (loc, val))
       (UPDATE:
          forall loc valr valw ord (EVENT: event = RWEvent.update loc valr valw ord),
-         exists event' ts' pos' val',
-           <<IN: Memory.In m' (Message.rw event' ts') pos'>> /\
-           <<TS: ts' + 1 = ts>> /\
-           <<EVENT': RWEvent.is_writing event' = Some (loc, val')>>)
-      (MESSAGE: Memory.In m (Message.rw event ts) position)
-      (POSITION: Memory.Position.is_inception position = false)
+         exists event0 ts0 pos0 val0,
+           <<IN: Memory.In m2 (Message.rw event0 ts0) pos0>> /\
+           <<TS: ts0 + 1 = ts1>> /\
+           <<EVENT0: RWEvent.is_writing event0 = Some (loc, val0)>>)
+      (MESSAGE: Memory.In m1 (Message.rw event ts1) pos)
+      (POSITION: Memory.Position.is_inception pos = false)
       (INCEPTION:
          forall i,
            MessageSet.Subset
-             (Ident.Fun.find i m).(Buffer.inception)
-             (Ident.Fun.find i m').(Buffer.inception)):
+             (Ident.Fun.find i m1).(Buffer.inception)
+             (Ident.Fun.find i m2).(Buffer.inception)):
       step
-        (mk c th m ((th', m')::stack))
+        (mk c th1 m1 ((th2, m2)::stack))
         None
         (mk c
-            th'
-            (Ident.Fun.add i (Buffer.add_inception (Message.rw event ts') (Ident.Fun.find i m')) m')
+            th2
+            (Ident.Fun.add i (Buffer.add_inception (Message.rw event ts2) (Ident.Fun.find i m2)) m2)
             stack)
   | step_commit
-      c th m c'
+      c1 th m c2
       (MEMORY: forall i, MessageSet.Empty (Ident.Fun.find i m).(Buffer.inception))
-      (CLOCKS: Clocks.le c c'):
+      (CLOCKS: Clocks.le c1 c2):
       step
-        (mk c th m nil)
+        (mk c1 th m nil)
         None
-        (mk c' th m nil)
+        (mk c2 th m nil)
   | step_syscall
       c th1 m i e th2
       (THREADS: Threads.step th1 i (Some (ThreadEvent.syscall e)) th2):

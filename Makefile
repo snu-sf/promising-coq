@@ -1,5 +1,5 @@
 COQMODULE    := cmem
-COQTHEORIES  := src/*.v
+COQTHEORIES  := src/*/*.v
 
 .PHONY: all theories clean
 
@@ -12,9 +12,13 @@ paco: lib/paco/src
 	make -C lib/paco/src
 
 Makefile.coq: Makefile $(COQTHEORIES)
-	(echo "-R src $(COQMODULE)"; \
-   echo "-R lib/sflib sflib"; \
+	(echo "-R lib/sflib sflib"; \
    echo "-R lib/paco/src Paco"; \
+   \
+   echo "-R src/mem $(COQMODULE)"; \
+   echo "-R src/lang $(COQMODULE)"; \
+   echo "-R src/reorder $(COQMODULE)"; \
+   \
    echo $(COQTHEORIES)) > _CoqProject
 	coq_makefile -f _CoqProject -o Makefile.coq
 

@@ -238,9 +238,9 @@ Module Memory.
         (Some (ThreadEvent.fence ord))
         (Ident.Fun.add i (Buffer.add_history (Message.fence ord) (Ident.Fun.find i m)) m)
   | step_confirm
-      m event ts i b'
-      (MESSAGE: Buffer.confirm (Message.rw event ts) (Ident.Fun.find i m) = Some b'):
-      step c m i (Some (ThreadEvent.rw event)) (Ident.Fun.add i b' m)
+      m event ts i b
+      (MESSAGE: Buffer.confirm (Message.rw event ts) (Ident.Fun.find i m) = Some b):
+      step c m i (Some (ThreadEvent.rw event)) (Ident.Fun.add i b m)
   .
 
   Section Consistency.
