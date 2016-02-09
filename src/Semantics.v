@@ -1,3 +1,4 @@
+Require Import List.
 Require Import Event.
 Require Import Syntax.
 Require Import Thread.
@@ -32,27 +33,27 @@ Module Semantics.
   Definition is_terminal (s:state): Prop :=
     stmts s = nil.
 
-  Inductive eval_instr: forall (rs1:RegSet.t) (i:Instr.t) (e:option Event.t) (rs2:RegSet.t), Prop :=
+  Inductive eval_instr: forall (rs1:RegSet.t) (i:Instr.t) (e:option ThreadEvent.t) (rs2:RegSet.t), Prop :=
   | eval_load
       rs lhs rhs ord val:
       eval_instr
         rs
         (Instr.load lhs rhs ord)
-        (Some (Event.rw (RWEvent.read rhs val ord)))
+        (Some (ThreadEvent.rw (RWEvent.read rhs val ord)))
         (Reg.Fun.add lhs val rs)
   | eval_store
       rs lhs rhs ord:
       eval_instr
         rs
         (Instr.store lhs rhs ord)
-        (Some (Event.rw (RWEvent.write lhs (RegSet.eval_value rs rhs) ord)))
+        (Some (ThreadEvent.rw (RWEvent.write lhs (RegSet.eval_value rs rhs) ord)))
         rs
   | eval_fetch_add
       rs lhs loc addendum ord val:
       eval_instr
         rs
         (Instr.fetch_add lhs loc addendum ord)
-        (Some (Event.rw (RWEvent.update loc val (Const.add val (RegSet.eval_value rs addendum)) ord)))
+        (Some (ThreadEvent.rw (RWEvent.update loc val (Const.add val (RegSet.eval_value rs addendum)) ord)))
         (Reg.Fun.add lhs val rs)
   | eval_assign
       rs lhs rhs:
@@ -66,11 +67,18 @@ Module Semantics.
       eval_instr
         rs
         (Instr.fence ord)
-        (Some (Event.fence ord))
+        (Some (ThreadEvent.fence ord))
         rs
+  | eval_syscall
+      rs lhs rhses lhs_val:
+      eval_instr
+        rs
+        (Instr.syscall lhs rhses)
+        (Some (ThreadEvent.syscall (Event.mk lhs_val (map (RegSet.eval_value rs) rhses))))
+        (Reg.Fun.add lhs lhs_val rs)
   .
 
-  Inductive step: forall (s1:state) (e:option Event.t) (s1:state), Prop :=
+  Inductive step: forall (s1:state) (e:option ThreadEvent.t) (s1:state), Prop :=
   | step_instr
       rs1 i e rs2 stmts
       (INSTR: eval_instr rs1 i e rs2):

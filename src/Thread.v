@@ -7,7 +7,7 @@ Module Language.
   Structure t := mk {
     state: Type;
     is_terminal: state -> Prop;
-    step: forall (s1:state) (e:option Event.t) (s2:state), Prop;
+    step: forall (s1:state) (e:option ThreadEvent.t) (s2:state), Prop;
   }.
 End Language.
 
@@ -20,7 +20,7 @@ Module Thread.
   Definition is_terminal (th:t): Prop :=
     th.(lang).(Language.is_terminal) th.(state).
 
-  Inductive step: forall (t1:t) (e:option Event.t) (t2:t), Prop :=
+  Inductive step: forall (t1:t) (e:option ThreadEvent.t) (t2:t), Prop :=
   | step_intro
       lang s1 e s2
       (STEP: lang.(Language.step) s1 e s2):
@@ -38,7 +38,7 @@ Module Threads.
            Thread.is_terminal th)
   .
 
-  Inductive step: forall (p1:t) (i:Ident.t) (e:option Event.t) (p1:t), Prop :=
+  Inductive step: forall (p1:t) (i:Ident.t) (e:option ThreadEvent.t) (p1:t), Prop :=
   | step_intro
       p1 i th1 e th2
       (TH1: Ident.Map.find i p1 = Some th1)

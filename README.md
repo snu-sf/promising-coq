@@ -12,4 +12,3 @@ make
 
 - Liveness counter
 - SC atomics (cf. init = release, now)
-- System call

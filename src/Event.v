@@ -1,3 +1,4 @@
+Require Import List.
 Require Import PeanoNat.
 Require Import Equalities.
 
@@ -63,9 +64,28 @@ Module RWEvent <: DecidableType.
 End RWEvent.
 
 Module Event <: DecidableType.
+  Structure t_ := mk {
+    lhs: Const.t;
+    rhses: list Const.t;
+  }.
+  Definition t := t_.
+
+  Definition eq := @eq t.
+  Program Instance eq_equiv: Equivalence eq.
+  Definition eq_dec (x y:t): {eq x y} + {~ eq x y}.
+  Proof.
+    unfold eq.
+    decide equality;
+      (try apply list_eq_dec);
+      (try apply Const.eq_dec).
+  Qed.
+End Event.
+
+Module ThreadEvent <: DecidableType.
   Inductive t_ :=
   | rw (e:RWEvent.t)
   | fence (ord:Ordering.t)
+  | syscall (e:Event.t)
   .
   Definition t := t_.
 
@@ -76,6 +96,7 @@ Module Event <: DecidableType.
     unfold eq.
     decide equality;
       (try apply RWEvent.eq_dec);
-      (try apply Ordering.eq_dec).
+      (try apply Ordering.eq_dec);
+      (try apply Event.eq_dec).
   Qed.
-End Event.
+End ThreadEvent.

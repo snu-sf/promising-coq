@@ -27,19 +27,19 @@ Module Configuration.
       (MEMORY: forall i, MessageSet.Empty (Ident.Fun.find i c.(memory)).(Buffer.inception))
   .
 
-  Inductive step: forall (c1 c2:t), Prop :=
+  Inductive step: forall (c1:t) (e:option Event.t) (c2:t), Prop :=
   | step_event
       i e
-      c p1 p2 m1 m2 stack
-      (THREADS: Threads.step p1 i e p2)
+      c th1 th2 m1 m2 stack
+      (THREADS: Threads.step th1 i e th2)
       (MEMORY: Memory.step c m1 i e m2)
       (CONSISTENT: Memory.consistent m2):
-      step (mk c p1 m1 stack) (mk c p2 m2 stack)
+      step (mk c th1 m1 stack) None (mk c th2 m2 stack)
   | step_dream
-      c p m stack:
-      step (mk c p m stack) (mk c p m ((p, m)::stack))
+      c th m stack:
+      step (mk c th m stack) None (mk c th m ((th, m)::stack))
   | step_inception
-      c p m p' m' stack
+      c th m th' m' stack
       event ts loc val
       ts' position i
       (WRITING: RWEvent.is_writing event = Some (loc, val))
@@ -57,17 +57,26 @@ Module Configuration.
              (Ident.Fun.find i m).(Buffer.inception)
              (Ident.Fun.find i m').(Buffer.inception)):
       step
-        (mk c p m ((p', m')::stack))
+        (mk c th m ((th', m')::stack))
+        None
         (mk c
-            p'
+            th'
             (Ident.Fun.add i (Buffer.add_inception (Message.rw event ts') (Ident.Fun.find i m')) m')
             stack)
   | step_commit
-      c p m c'
+      c th m c'
       (MEMORY: forall i, MessageSet.Empty (Ident.Fun.find i m).(Buffer.inception))
       (CLOCKS: Clocks.le c c'):
       step
-        (mk c p m nil)
-        (mk c' p m nil)
+        (mk c th m nil)
+        None
+        (mk c' th m nil)
+  | step_syscall
+      c th1 m i e th2
+      (THREADS: Threads.step th1 i (Some (ThreadEvent.syscall e)) th2):
+      step
+        (mk c th1 m nil)
+        (Some e)
+        (mk c th2 m nil)
   .
 End Configuration.

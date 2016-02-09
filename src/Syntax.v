@@ -19,6 +19,13 @@ Module Value.
     | const _ => Reg.Set_.empty
     end.
 
+  Fixpoint regs_of_list (l:list t): Reg.Set_.t :=
+    match l with
+    | nil => Reg.Set_.empty
+    | (reg r)::l => Reg.Set_.add r (regs_of_list l)
+    | (const _)::l => regs_of_list l
+    end.
+
   Definition of_nat (n:nat): t := const n.
 End Value.
 Coercion Value.reg: Reg.t >-> Value.t.
@@ -74,6 +81,7 @@ Module Instr.
   | fetch_add (lhs:Reg.t) (loc:Loc.t) (addendum:Value.t) (ord:Ordering.t)
   | assign (lhs:Reg.t) (rhs:rhs)
   | fence (ord:Ordering.t)
+  | syscall (lhs:Reg.t) (rhses:list Value.t)
   .
 
   Definition ordering_of (i:t): Ordering.t :=
@@ -83,6 +91,7 @@ Module Instr.
     | fetch_add _ _ _ ord => ord
     | assign _ _ => Ordering.relaxed
     | fence ord => ord
+    | syscall _ _ => Ordering.relaxed
     end.
 
   Definition loc_of (i:t): option Loc.t :=
@@ -92,6 +101,7 @@ Module Instr.
     | fetch_add _ loc _ _ => Some loc
     | assign _ _ => None
     | fence _ => None
+    | syscall _ _ => None
     end.
 
   Definition regs_of (i:t): Reg.Set_.t :=
@@ -101,6 +111,7 @@ Module Instr.
     | fetch_add reg _ val _ => Reg.Set_.add reg (Value.regs_of val)
     | assign reg rhs => Reg.Set_.add reg (regs_of_rhs rhs)
     | fence _ => Reg.Set_.empty
+    | syscall lhs rhses => Reg.Set_.add lhs (Value.regs_of_list rhses)
     end.
 End Instr.
 Coercion Instr.rhs_val: Value.t >-> Instr.rhs.
@@ -138,6 +149,7 @@ Module SyntaxNotations.
   Notation "'FETCH_ADD' lhs '<-' loc ',' addendum '@' ord" := (Instr.fetch_add lhs loc addendum ord) (at level 42).
   Notation "lhs '::=' rhs" := (Instr.assign lhs rhs) (at level 42).
   Notation "'FENCE' '@' ord" := (Instr.fence ord) (at level 42).
+  Notation "'SYSCALL' lhs '<-' rhses" := (Instr.syscall lhs rhses) (at level 42).
 
   Notation "'IF' cond 'THEN' c1 'ELSE' c2" := (Stmt.ite cond c1 c2) (at level 43).
   Notation "'DO' c 'WHILE' cond" := (Stmt.dowhile c cond) (at level 43).
@@ -156,6 +168,7 @@ Module SyntaxNotations.
       %r"r2" ::= NOT %r"r1"
     ] WHILE %r"r2";
     FENCE @ acq;
-    LOAD %r"r3" <- %l"x" @ rlx
+    LOAD %r"r3" <- %l"x" @ rlx;
+    SYSCALL %r"r4" <- [%r"r3"; 3; 4]
   ].
 End SyntaxNotations.

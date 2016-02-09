@@ -175,7 +175,7 @@ Module Memory.
       (Buffer.timestamp loc)
       m.
 
-  Inductive step (c:Clocks.t): forall (m1:t) (i:Ident.t) (e:option Event.t) (m2:t), Prop :=
+  Inductive step (c:Clocks.t): forall (m1:t) (i:Ident.t) (e:option ThreadEvent.t) (m2:t), Prop :=
   | step_read
       m read_event ts position
       i loc val ord
@@ -188,7 +188,7 @@ Module Memory.
         c
         m
         i
-        (Some (Event.rw (RWEvent.read loc val ord)))
+        (Some (ThreadEvent.rw (RWEvent.read loc val ord)))
         (Ident.Fun.add
            i
            (Buffer.add_history (Message.rw (RWEvent.read loc val ord) ts) (Ident.Fun.find i m))
@@ -200,7 +200,7 @@ Module Memory.
         c
         m
         i
-        (Some (Event.rw (RWEvent.write loc val ord)))
+        (Some (ThreadEvent.rw (RWEvent.write loc val ord)))
         (Ident.Fun.add
            i
            (Buffer.add_history
@@ -220,7 +220,7 @@ Module Memory.
         c
         m
         i
-        (Some (Event.rw (RWEvent.update loc valr valw ord)))
+        (Some (ThreadEvent.rw (RWEvent.update loc valr valw ord)))
         (Ident.Fun.add
            i
            (Buffer.add_history
@@ -235,12 +235,12 @@ Module Memory.
         c
         m
         i
-        (Some (Event.fence ord))
+        (Some (ThreadEvent.fence ord))
         (Ident.Fun.add i (Buffer.add_history (Message.fence ord) (Ident.Fun.find i m)) m)
   | step_confirm
       m event ts i b'
       (MESSAGE: Buffer.confirm (Message.rw event ts) (Ident.Fun.find i m) = Some b'):
-      step c m i (Some (Event.rw event)) (Ident.Fun.add i b' m)
+      step c m i (Some (ThreadEvent.rw event)) (Ident.Fun.add i b' m)
   .
 
   Section Consistency.
