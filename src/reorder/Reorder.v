@@ -9,6 +9,10 @@ Require Import Semantics.
 Require Import Thread.
 Require Import Memory.
 Require Import Configuration.
+Require Import Program.
+Require Import Simulation.
+
+Set Implicit Arguments.
 
 Inductive reorderable: forall (i1 i2:Instr.t), Prop :=
 | reorderable_intro
@@ -62,6 +66,26 @@ with reordered_stmts: forall (s1 s2:list Stmt.t), Prop :=
 Scheme reordered_stmt_ind_ := Induction for reordered_stmt Sort Prop
 with reordered_stmts_ind_ := Induction for reordered_stmts Sort Prop.
 Combined Scheme reordered_ind from reordered_stmt_ind_, reordered_stmts_ind_.
+
+Inductive reordered_prog_thread: forall (text1 text2:Program.thread_t), Prop :=
+| reordered_prog_thread_intro
+    s1 s2
+    (REORDERED: reordered_stmts s1 s2):
+    reordered_prog_thread
+      (Program.thread_mk lang s1)
+      (Program.thread_mk lang s2)
+.
+
+Inductive reordered_prog (prog1 prog2:Program.t): Prop :=
+| reordered_prog_intro
+    (REORDERED:
+       forall i,
+         <<NONE: IdentMap.find i prog1 = None /\ IdentMap.find i prog2 = None>> \/
+         <<SOME: exists text1 text2,
+             <<PROG1: IdentMap.find i prog1 = Some text1>> /\
+             <<PROG2: IdentMap.find i prog2 = Some text2>> /\
+             <<REORDERED: reordered_prog_thread text1 text2>>>>)
+.
 
 Inductive consumed (i2:Instr.t): forall (c1 c2:list Stmt.t), Prop :=
 | consumed_intro
@@ -139,3 +163,31 @@ Inductive sim_configuration (c1 c2:Configuration.t): Prop :=
          (fun stk1 stk2 => sim_threads_memory stk1.(fst) stk2.(fst) stk1.(snd) stk2.(snd))
          c1.(Configuration.stack) c2.(Configuration.stack))
 .
+
+Lemma sim_load
+      prog_src prog_tgt
+      (REORDERED: reordered_prog prog_src prog_tgt):
+  Simulation.LOAD prog_src prog_tgt sim_configuration.
+Proof.
+Admitted.
+
+Lemma sim_step: Simulation.STEP sim_configuration.
+Proof.
+Admitted.
+
+Lemma sim_observable: Simulation.OBSERVABLE sim_configuration.
+Proof.
+Admitted.
+
+Lemma sim_terminal: Simulation.TERMINAL sim_configuration.
+Proof.
+Admitted.
+
+Definition sim
+           prog_src prog_tgt
+           (REORDERED: reordered_prog prog_src prog_tgt) :=
+  Simulation.mk
+    (sim_load REORDERED)
+    sim_step
+    sim_observable
+    sim_terminal.

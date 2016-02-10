@@ -5,7 +5,10 @@ Set Implicit Arguments.
 
 Module Language.
   Structure t := mk {
+    text: Type;
     state: Type;
+
+    load: forall (t:text) (s:state), Prop;
     is_terminal: state -> Prop;
     step: forall (s1:state) (e:option ThreadEvent.t) (s2:state), Prop;
   }.

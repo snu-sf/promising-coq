@@ -8,7 +8,7 @@ Set Implicit Arguments.
 Module RegFile.
   Definition t := RegFun.t Const.t.
 
-  Definition empty := RegFun.init Const.zero.
+  Definition init := RegFun.init Const.zero.
 
   Definition eval_value (rf:t) (val:Value.t): Const.t :=
     match val with
@@ -75,6 +75,11 @@ Module State.
     stmts: list Stmt.t;
   }.
 
+  Inductive load: forall (text:list Stmt.t) (s:t), Prop :=
+  | load_intro text:
+      load text (mk RegFile.init text)
+  .
+
   Definition is_terminal (s:t): Prop :=
     stmts s = nil.
 
@@ -104,7 +109,7 @@ Module State.
 End State.
 
 Definition lang :=
-  @Language.mk
-    State.t
+  Language.mk
+    State.load
     State.is_terminal
     State.step.

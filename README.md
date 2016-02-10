@@ -11,4 +11,5 @@ make
 ## TODO
 
 - Liveness counter
+- Proper simulation (stationary index, ...)
 - SC atomics (cf. init = release, now)

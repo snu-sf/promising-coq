@@ -1,6 +1,7 @@
 Require Import Orders.
 Require Import List.
 
+Set Implicit Arguments.
 Import ListNotations.
 
 Module Type S.

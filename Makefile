@@ -18,6 +18,7 @@ Makefile.coq: Makefile $(COQTHEORIES)
    echo "-R src/lib $(COQMODULE)"; \
    echo "-R src/mem $(COQMODULE)"; \
    echo "-R src/lang $(COQMODULE)"; \
+   echo "-R src/sim $(COQMODULE)"; \
    echo "-R src/reorder $(COQMODULE)"; \
    \
    echo $(COQTHEORIES)) > _CoqProject

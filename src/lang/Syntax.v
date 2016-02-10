@@ -3,11 +3,12 @@ Require Import List.
 Require Import Basic.
 Require Import Event.
 
+Set Implicit Arguments.
+
 Module Reg := Ident.
 Module RegSet := IdentSet.
 Module RegMap := IdentMap.
 Module RegFun := IdentFun.
-
 
 Module Value.
   Inductive t :=

@@ -5,6 +5,8 @@ Require Import Event.
 Require Import Thread.
 Require Import Memory.
 
+Set Implicit Arguments.
+
 Module Configuration.
   Structure t := mk {
     clocks: Clocks.t;
