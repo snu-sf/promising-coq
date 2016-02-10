@@ -15,6 +15,7 @@ Makefile.coq: Makefile $(COQTHEORIES)
 	(echo "-R lib/sflib sflib"; \
    echo "-R lib/paco/src Paco"; \
    \
+   echo "-R src/lib $(COQMODULE)"; \
    echo "-R src/mem $(COQMODULE)"; \
    echo "-R src/lang $(COQMODULE)"; \
    echo "-R src/reorder $(COQMODULE)"; \

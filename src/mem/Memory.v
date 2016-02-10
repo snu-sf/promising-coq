@@ -1,55 +1,106 @@
 Require Import List.
 Require Import Equalities.
-Require Import MSetWeakList.
 Require Import PeanoNat.
 Require Import Relations.
+Require Import MSetList.
+Require Import Omega.
 
 Require Import sflib.
 Require Import paco.
 
+Require Import DataStructure.
 Require Import Basic.
 Require Import Event.
 Require Import Thread.
-
-Import ListNotations.
+Require Import BoolOrderedType.
 
 Set Implicit Arguments.
+Import ListNotations.
 
 Module Clock.
-  Definition t := Loc.Fun.t nat.
+  Definition t := LocFun.t nat.
 
-  Definition init := Loc.Fun.init 0.
+  Definition init := LocFun.init 0.
 
   Definition le (lhs rhs:t): Prop :=
-    forall loc, Loc.Fun.find loc lhs <= Loc.Fun.find loc rhs.
+    forall loc, LocFun.find loc lhs <= LocFun.find loc rhs.
 End Clock.
 
 Module Clocks.
-  Definition t := Ident.Fun.t Clock.t.
+  Definition t := IdentFun.t Clock.t.
 
-  Definition init := Ident.Fun.init Clock.init.
+  Definition init := IdentFun.init Clock.init.
 
   Definition le (lhs rhs:t): Prop :=
-    forall loc, Clock.le (Ident.Fun.find loc lhs) (Ident.Fun.find loc rhs).
+    forall loc, Clock.le (IdentFun.find loc lhs) (IdentFun.find loc rhs).
 End Clocks.
 
-Module Message <: DecidableType.
+
+Module Message_ <: BoolOrderedType.S.
   Inductive t_ :=
   | rw (event:RWEvent.t) (timestamp:nat)
   | fence (ord:Ordering.t)
   .
   Definition t := t_.
 
-  Definition eq := @eq t.
-  Program Instance eq_equiv: Equivalence eq.
-  Definition eq_dec (x y:t): {eq x y} + {~ eq x y}.
+  Definition eq_dec (x y:t): {x = y} + {x <> y}.
   Proof.
-    unfold eq.
     decide equality;
       (try apply RWEvent.eq_dec);
       (try apply Nat.eq_dec);
       (try apply Ordering.eq_dec).
   Qed.
+
+  Definition ltb (lhs rhs:t): bool :=
+    match lhs, rhs with
+    | rw e1 t1, rw e2 t2 =>
+      compose_comparisons [RWEvent.compare e1 e2; Const.compare t1 t2]
+    | rw _ _, fence _ => true
+    | fence _, rw _ _ => false
+    | fence o1, fence o2 =>
+      compose_comparisons [Ordering.compare o1 o2]
+    end.
+
+  Lemma ltb_trans (x y z:t) (XY: ltb x y = true) (YZ: ltb y z = true): ltb x z = true.
+  Proof.
+    destruct x, y, z; simpl in *; auto;
+      repeat
+        (try congruence;
+         try omega;
+         try RWEvent.ltb_tac;
+         try Const.ltb_tac;
+         try Ordering.ltb_tac;
+         try ltb_des).
+  Qed.
+
+  Lemma ltb_irrefl x: ltb x x = false.
+  Proof.
+    destruct x; simpl in *; auto;
+      repeat
+        (try congruence;
+         try omega;
+         try RWEvent.ltb_tac;
+         try Const.ltb_tac;
+         try Ordering.ltb_tac;
+         try ltb_des).
+  Qed.
+
+  Lemma ltb_eq (lhs rhs:t) (LR: ltb lhs rhs = false) (RL: ltb rhs lhs = false): lhs = rhs.
+  Proof.
+    destruct lhs, rhs; simpl in *; auto;
+      repeat
+      repeat
+        (try congruence;
+         try omega;
+         try RWEvent.ltb_tac;
+         try Const.ltb_tac;
+         try Ordering.ltb_tac;
+         try ltb_des).
+  Qed.
+End Message_.
+
+Module Message <: OrderedTypeWithLeibniz.
+  Include Message_ <+ BoolOrderedType.Make (Message_).
 
   Definition get_ordering (e:t): Ordering.t :=
     match e with
@@ -70,30 +121,7 @@ Module Message <: DecidableType.
     end.
 End Message.
 
-Module MessageSet.
-  Include MSetWeakList.Make (Message).
-
-  Inductive disjoint_add (msgs1:t) (msg:Message.t) (msgs2:t): Prop :=
-  | MessageSet_disjoint_add_intro
-      (ADD: Equal (add msg msgs1) msgs2)
-      (DISJOINT: ~ In msg msgs1)
-  .
-
-  Lemma disjoint_add_spec msgs1 msg msgs2
-        (DISJADD: disjoint_add msgs1 msg msgs2):
-    <<ADD: Equal (add msg msgs1) msgs2>> /\
-    <<REMOVE: Equal (remove msg msgs2) msgs1>>.
-  Proof.
-    inv DISJADD. split; auto.
-    constructor; intro IN.
-    - specialize (ADD a). rewrite add_spec in ADD.
-      apply remove_spec in IN.
-      des. apply ADD0 in IN. des; congruence.
-    - specialize (ADD a). rewrite add_spec in ADD.
-      apply remove_spec. split; try congruence.
-      apply ADD. right. auto.
-  Qed.
-End MessageSet.
+Module MessageSet := UsualSet (Message).
 
 Module Buffer.
   Structure t := mk {
@@ -175,9 +203,9 @@ Module Buffer.
 End Buffer.
 
 Module Memory.
-  Definition t := Ident.Map.t Buffer.t.
+  Definition t := IdentMap.t Buffer.t.
 
-  Definition empty := Ident.Map.empty Buffer.t.
+  Definition empty := IdentMap.empty Buffer.t.
 
   Module Position.
     Inductive t :=
@@ -202,13 +230,13 @@ Module Memory.
       In m (Message.rw (RWEvent.write loc Const.zero Ordering.release) 0) Position.init
   | In_buffer
       b msg i p
-      (BUFFER: Ident.Map.find i m = Some b)
+      (BUFFER: IdentMap.find i m = Some b)
       (IN: Buffer.In msg b p):
       In m msg (Position.buffer i p)
   .
 
   Definition timestamp (loc:Loc.t) (m:t): nat :=
-    PositiveMap_get_max
+    IdentMap.get_max
       (Buffer.timestamp loc)
       m.
 
@@ -219,28 +247,28 @@ Module Memory.
       (MESSAGE: In m (Message.rw read_event ts) position)
       (READ: RWEvent.is_writing read_event = Some (loc, val))
       (POSITION: position <> Position.buffer i (Buffer.Position.inception (Message.rw read_event ts)))
-      (BUFFER: Ident.Map.find i m = Some b)
-      (TS1: Loc.Fun.find loc (Ident.Fun.find i c) <= ts)
+      (BUFFER: IdentMap.find i m = Some b)
+      (TS1: LocFun.find loc (IdentFun.find i c) <= ts)
       (TS2: Buffer.timestamp_history loc b <= ts):
       step
         c
         m
         i
         (Some (ThreadEvent.rw (RWEvent.read loc val ord)))
-        (Ident.Map.add
+        (IdentMap.add
            i
            (Buffer.add_history (Message.rw (RWEvent.read loc val ord) ts) b)
            m)
   | step_write
       m
       i b loc val ord
-      (BUFFER: Ident.Map.find i m = Some b):
+      (BUFFER: IdentMap.find i m = Some b):
       step
         c
         m
         i
         (Some (ThreadEvent.rw (RWEvent.write loc val ord)))
-        (Ident.Map.add
+        (IdentMap.add
            i
            (Buffer.add_history
               (Message.rw
@@ -254,14 +282,14 @@ Module Memory.
       (MESSAGE: In m (Message.rw read_event (timestamp loc m)) position)
       (READ: RWEvent.is_writing read_event = Some (loc, valr))
       (POSITION: position <> Position.buffer i (Buffer.Position.inception (Message.rw read_event (timestamp loc m))))
-      (BUFFER: Ident.Map.find i m = Some b)
-      (TS: Loc.Fun.find loc (Ident.Fun.find i c) <= (timestamp loc m)):
+      (BUFFER: IdentMap.find i m = Some b)
+      (TS: LocFun.find loc (IdentFun.find i c) <= (timestamp loc m)):
       step
         c
         m
         i
         (Some (ThreadEvent.rw (RWEvent.update loc valr valw ord)))
-        (Ident.Map.add
+        (IdentMap.add
            i
            (Buffer.add_history
               (Message.rw
@@ -271,18 +299,18 @@ Module Memory.
            m)
   | step_fence
       m i b ord
-      (BUFFER: Ident.Map.find i m = Some b):
+      (BUFFER: IdentMap.find i m = Some b):
       step
         c
         m
         i
         (Some (ThreadEvent.fence ord))
-        (Ident.Map.add i (Buffer.add_history (Message.fence ord) b) m)
+        (IdentMap.add i (Buffer.add_history (Message.fence ord) b) m)
   | step_confirm
       m event ts i b1 b2
-      (BUFFER: Ident.Map.find i m = Some b1)
+      (BUFFER: IdentMap.find i m = Some b1)
       (MESSAGE: Buffer.confirm (Message.rw event ts) b1 = Some b2):
-      step c m i (Some (ThreadEvent.rw event)) (Ident.Map.add i b2 m)
+      step c m i (Some (ThreadEvent.rw event)) (IdentMap.add i b2 m)
   .
 
   Section Consistency.
@@ -382,8 +410,8 @@ Module Memory.
       (compose rseq (compose rf aseq))
         /2\
         (prod
-           (fun msg => Ordering.le Ordering.release (Message.get_ordering msg))
-           (fun msg => Ordering.le Ordering.acquire (Message.get_ordering msg)))
+           (fun msg => Ordering.weaker Ordering.release (Message.get_ordering msg))
+           (fun msg => Ordering.weaker Ordering.acquire (Message.get_ordering msg)))
     .
 
     Definition hb: relation Position.t := tc (sb \2/ sw).

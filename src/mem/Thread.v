@@ -28,22 +28,22 @@ Module Thread.
 End Thread.
 
 Module Threads.
-  Definition t := Ident.Map.t Thread.t.
+  Definition t := IdentMap.t Thread.t.
 
-  Definition empty := Ident.Map.empty Thread.t.
+  Definition empty := IdentMap.empty Thread.t.
 
   Inductive is_terminal (p:t): Prop :=
   | is_terminal_intro
       (TERMINAL:
-         forall i th (THREAD: Ident.Map.find i p = Some th),
+         forall i th (THREAD: IdentMap.find i p = Some th),
            Thread.is_terminal th)
   .
 
   Inductive step: forall (p1:t) (i:Ident.t) (e:option ThreadEvent.t) (p1:t), Prop :=
   | step_intro
       p1 th1 th2 i e
-      (THREAD: Ident.Map.find i p1 = Some th1)
+      (THREAD: IdentMap.find i p1 = Some th1)
       (STEP: Thread.step th1 e th2):
-      step p1 i e (Ident.Map.add i th2 p1)
+      step p1 i e (IdentMap.add i th2 p1)
   .
 End Threads.

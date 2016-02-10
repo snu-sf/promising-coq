@@ -23,7 +23,7 @@ Module Configuration.
   | is_observable_intro
       (STACK: c.(stack) = nil)
       (MEMORY:
-         forall i b (BUFFER: Ident.Map.find i c.(memory) = Some b),
+         forall i b (BUFFER: IdentMap.find i c.(memory) = Some b),
            MessageSet.Empty b.(Buffer.inception))
   .
 
@@ -51,23 +51,23 @@ Module Configuration.
            <<EVENT0: RWEvent.is_writing event0 = Some (loc, val0)>>)
       (MESSAGE: Memory.In m1 (Message.rw event ts1) pos)
       (POSITION: Memory.Position.is_inception pos = false)
-      (BUFFER: Ident.Map.find i m2 = Some b2)
+      (BUFFER: IdentMap.find i m2 = Some b2)
       (INCEPTION:
-         forall i b1 (BUFFER1: Ident.Map.find i m1 = Some b1),
+         forall i b1 (BUFFER1: IdentMap.find i m1 = Some b1),
          exists b2,
-           <<BUFFER2: Ident.Map.find i m2 = Some b2>> /\
+           <<BUFFER2: IdentMap.find i m2 = Some b2>> /\
            <<SUBSET: MessageSet.Subset b1.(Buffer.inception) b2.(Buffer.inception)>>):
       step
         (mk c th1 m1 ((th2, m2)::stack))
         None
         (mk c
             th2
-            (Ident.Map.add i (Buffer.add_inception (Message.rw event ts2) b2) m2)
+            (IdentMap.add i (Buffer.add_inception (Message.rw event ts2) b2) m2)
             stack)
   | step_commit
       c1 th m c2
       (MEMORY:
-         forall i b (BUFFER: Ident.Map.find i m = Some b),
+         forall i b (BUFFER: IdentMap.find i m = Some b),
            MessageSet.Empty b.(Buffer.inception))
       (CLOCKS: Clocks.le c1 c2):
       step

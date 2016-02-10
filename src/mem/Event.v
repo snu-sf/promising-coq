@@ -1,35 +1,92 @@
 Require Import List.
 Require Import PeanoNat.
-Require Import Equalities.
+Require Import Orders.
+Require Import MSetList.
+Require Import Omega.
 
 Require Import Basic.
+Require Import BoolOrderedType.
 
-Module Loc.
-  Include Ident.
-End Loc.
+Set Implicit Arguments.
+Import ListNotations.
 
-Module Const := Nat.
 
-Module Ordering.
-  Inductive t :=
+Module Loc := Ident.
+Module LocSet := IdentSet.
+Module LocMap := IdentMap.
+Module LocFun := IdentFun.
+
+
+Module Const <: OrderedTypeWithLeibniz.
+  Include Nat.
+
+  Lemma eq_leibniz (x y: t): eq x y -> x = y.
+  Proof. auto. Qed.
+  
+  Ltac ltb_tac :=
+    match goal with
+    | [H: compare ?x1 ?x2 = _ |- _] =>
+      generalize (compare_spec x1 x2); rewrite H; clear H;
+      intro H; inversion H; subst; clear H
+    | [H: lt ?x ?x |- _] =>
+      destruct lt_strorder; congruence
+    | [H: lt ?x ?y |- _] =>
+      rewrite H in *; clear H
+    | [H: eq ?x ?y |- _] =>
+      rewrite H in *; clear H
+    end.
+End Const.
+
+
+Module Ordering_ <: BoolOrderedType.S.
+  Inductive t_ :=
   | relaxed
   | acquire
   | release
   | relacq
   .
-
-  Inductive le: forall (lhs rhs:t), Prop :=
-  | le_refl ord: le ord ord
-  | relaxed_ rhs: le relaxed rhs
-  | acquire_: le acquire relacq
-  | release_: le release relacq
-  .
+  Definition t := t_.
 
   Definition eq_dec (x y:t): {x = y} + {x <> y}.
   Proof. decide equality. Qed.
+
+  Definition ltb (lhs rhs:t): bool :=
+    match lhs, rhs with
+    | relaxed, relaxed => false
+    | relaxed, _ => true
+    | acquire, relaxed => false
+    | acquire, acquire => false
+    | acquire, _ => true
+    | release, relaxed => false
+    | release, acquire => false
+    | release, release => false
+    | release, _ => true
+    | relacq, _ => false
+    end.
+
+  Lemma ltb_trans (x y z:t) (XY: ltb x y = true) (YZ: ltb y z = true): ltb x z = true.
+  Proof. repeat intro. destruct x, y, z; auto. Qed.
+
+  Lemma ltb_irrefl x: ltb x x = false.
+  Proof. repeat intro. destruct x; auto. Qed.
+
+  Lemma ltb_eq (lhs rhs:t) (LR: ltb lhs rhs = false) (RL: ltb rhs lhs = false): lhs = rhs.
+  Proof. repeat intro. destruct lhs, rhs; simpl in *; congruence. Qed.
+End Ordering_.
+
+Module Ordering <: OrderedTypeWithLeibniz.
+  Include Ordering_ <+ BoolOrderedType.Make (Ordering_).
+
+  Inductive weaker: forall (lhs rhs:t), Prop :=
+  | weaker_refl ord: weaker ord ord
+  | weaker_relaxed_ rhs: weaker relaxed rhs
+  | weaker_acquire_: weaker acquire relacq
+  | weaker_release_: weaker release relacq
+  .
 End Ordering.
 
-Module RWEvent <: DecidableType.
+
+Module RWEvent_ <: BoolOrderedType.S.
   Inductive t_ :=
   | read (loc:Loc.t) (val:Const.t) (ord:Ordering.t)
   | write (loc:Loc.t) (val:Const.t) (ord:Ordering.t)
@@ -37,16 +94,67 @@ Module RWEvent <: DecidableType.
   .
   Definition t := t_.
 
-  Definition eq := @eq t.
-  Program Instance eq_equiv: Equivalence eq.
-  Definition eq_dec (x y:t): {eq x y} + {~ eq x y}.
+  Definition eq_dec (x y:t): {x = y} + {x <> y}.
   Proof.
-    unfold eq.
     decide equality;
       (try apply Loc.eq_dec);
       (try apply Const.eq_dec);
       (try apply Ordering.eq_dec).
   Qed.
+
+  Definition ltb (lhs rhs:t): bool :=
+    match lhs, rhs with
+    | read l1 v1 o1, read l2 v2 o2 =>
+      compose_comparisons [Loc.compare l1 l2; Const.compare v1 v2; Ordering.compare o1 o2]
+    | write l1 v1 o1, write l2 v2 o2 =>
+      compose_comparisons [Loc.compare l1 l2; Const.compare v1 v2; Ordering.compare o1 o2]
+    | update l1 r1 w1 o1, update l2 r2 w2 o2 =>
+      compose_comparisons [Loc.compare l1 l2; Const.compare r1 r2; Const.compare w1 w2; Ordering.compare o1 o2]
+    | read _ _ _, _ => true
+    | write _ _ _, read _ _ _ => false
+    | write _ _ _, _ => true
+    | update _ _ _ _, _ => false
+    end.
+
+  Lemma ltb_trans (x y z:t) (XY: ltb x y = true) (YZ: ltb y z = true): ltb x z = true.
+  Proof.
+    destruct x, y, z; simpl in *; auto;
+      repeat
+        (try congruence;
+         try omega;
+         try Loc.ltb_tac;
+         try Const.ltb_tac;
+         try Ordering.ltb_tac;
+         try ltb_des).
+  Qed.
+
+  Lemma ltb_irrefl x: ltb x x = false.
+  Proof.
+    destruct x; simpl in *; auto;
+      repeat
+        (try congruence;
+         try omega;
+         try Loc.ltb_tac;
+         try Const.ltb_tac;
+         try Ordering.ltb_tac;
+         try ltb_des).
+  Qed.
+
+  Lemma ltb_eq (lhs rhs:t) (LR: ltb lhs rhs = false) (RL: ltb rhs lhs = false): lhs = rhs.
+  Proof.
+    destruct lhs, rhs; simpl in *; auto;
+      repeat
+        (try congruence;
+         try omega;
+         try Loc.ltb_tac;
+         try Const.ltb_tac;
+         try Ordering.ltb_tac;
+         try ltb_des).
+  Qed.
+End RWEvent_.
+
+Module RWEvent.
+  Include RWEvent_ <+ BoolOrderedType.Make (RWEvent_).
 
   Definition is_writing (e:t): option (Loc.t * Const.t) :=
     match e with
@@ -63,7 +171,8 @@ Module RWEvent <: DecidableType.
     end.
 End RWEvent.
 
-Module Event <: DecidableType.
+
+Module Event.
   Structure t_ := mk {
     lhs: Const.t;
     rhses: list Const.t;
@@ -81,7 +190,8 @@ Module Event <: DecidableType.
   Qed.
 End Event.
 
-Module ThreadEvent <: DecidableType.
+
+Module ThreadEvent.
   Inductive t_ :=
   | rw (e:RWEvent.t)
   | fence (ord:Ordering.t)

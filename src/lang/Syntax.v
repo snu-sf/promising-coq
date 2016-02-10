@@ -3,9 +3,11 @@ Require Import List.
 Require Import Basic.
 Require Import Event.
 
-Module Reg.
-  Include Ident.
-End Reg.
+Module Reg := Ident.
+Module RegSet := IdentSet.
+Module RegMap := IdentMap.
+Module RegFun := IdentFun.
+
 
 Module Value.
   Inductive t :=
@@ -13,16 +15,16 @@ Module Value.
   | const (const:Const.t)
   .
 
-  Definition regs_of (v:t): Reg.Set_.t :=
+  Definition regs_of (v:t): RegSet.t :=
     match v with
-    | reg r => Reg.Set_.singleton r
-    | const _ => Reg.Set_.empty
+    | reg r => RegSet.singleton r
+    | const _ => RegSet.empty
     end.
 
-  Fixpoint regs_of_list (l:list t): Reg.Set_.t :=
+  Fixpoint regs_of_list (l:list t): RegSet.t :=
     match l with
-    | nil => Reg.Set_.empty
-    | (reg r)::l => Reg.Set_.add r (regs_of_list l)
+    | nil => RegSet.empty
+    | (reg r)::l => RegSet.add r (regs_of_list l)
     | (const _)::l => regs_of_list l
     end.
 
@@ -68,11 +70,11 @@ Module Instr.
   | expr_op2 (op:Op2.t) (op1 op2:Value.t)
   .
 
-  Definition regs_of_expr (r:expr): Reg.Set_.t :=
+  Definition regs_of_expr (r:expr): RegSet.t :=
     match r with
     | expr_val val => Value.regs_of val
     | expr_op1 _ op => Value.regs_of op
-    | expr_op2 _ op1 op2 => Reg.Set_.union (Value.regs_of op1) (Value.regs_of op2)
+    | expr_op2 _ op1 op2 => RegSet.union (Value.regs_of op1) (Value.regs_of op2)
     end.
 
   Inductive t :=
@@ -104,14 +106,14 @@ Module Instr.
     | syscall _ _ => None
     end.
 
-  Definition regs_of (i:t): Reg.Set_.t :=
+  Definition regs_of (i:t): RegSet.t :=
     match i with
-    | load reg _ _ => Reg.Set_.singleton reg
+    | load reg _ _ => RegSet.singleton reg
     | store _ val _ => Value.regs_of val
-    | fetch_add reg _ val _ => Reg.Set_.add reg (Value.regs_of val)
-    | assign reg rhs => Reg.Set_.add reg (regs_of_expr rhs)
-    | fence _ => Reg.Set_.empty
-    | syscall lhs rhses => Reg.Set_.add lhs (Value.regs_of_list rhses)
+    | fetch_add reg _ val _ => RegSet.add reg (Value.regs_of val)
+    | assign reg rhs => RegSet.add reg (regs_of_expr rhs)
+    | fence _ => RegSet.empty
+    | syscall lhs rhses => RegSet.add lhs (Value.regs_of_list rhses)
     end.
 End Instr.
 Coercion Instr.expr_val: Value.t >-> Instr.expr.
