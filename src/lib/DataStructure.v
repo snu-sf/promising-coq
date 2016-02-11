@@ -52,7 +52,7 @@ Module UsualSet (S: OrderedTypeWithLeibniz).
   Include Self.
 
   Definition disjoint (lhs rhs:t): Prop :=
-    forall s, <<DISJ: mem s lhs && mem s rhs = false>>.
+    forall s, <<DISJ: ~ (mem s lhs && mem s rhs)>>.
 
   Inductive disjoint_add lhs a rhs: Prop :=
   | disjoint_add_intro

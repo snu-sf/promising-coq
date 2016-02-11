@@ -24,12 +24,14 @@ Module Program.
 
   Inductive load_threads (text:t) (th:Threads.t): Prop :=
   | load_threads_intro
-      (LOAD: forall i, lift_rel2 load_thread (IdentMap.find i text) (IdentMap.find i th))
+      (LOAD: IdentMap.rel2 load_thread text th)
   .
 
   Inductive load: forall (text:t) (c:Configuration.t), Prop :=
   | load_intro
-      text th (LOAD: load_threads text th):
-      load text (Configuration.mk Clocks.init th Memory.empty nil)
+      text th m
+      (LOAD: load_threads text th)
+      (MEM: IdentMap.rel2 (fun _ b => b = Buffer.empty) th m):
+      load text (Configuration.mk Clocks.init th m nil)
   .
 End Program.

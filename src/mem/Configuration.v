@@ -52,7 +52,7 @@ Module Configuration.
            <<TS: ts0 + 1 = ts1>> /\
            <<EVENT0: RWEvent.is_writing event0 = Some (loc, val0)>>)
       (MESSAGE: Memory.In m1 (Message.rw event ts1) pos)
-      (POSITION: Memory.Position.is_inception pos = false)
+      (POSITION: ~ Memory.Position.is_inception pos)
       (BUFFER: IdentMap.find i m2 = Some b2)
       (INCEPTION:
          forall i b1 (BUFFER1: IdentMap.find i m1 = Some b1),

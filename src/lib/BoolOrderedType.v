@@ -1,6 +1,8 @@
 Require Import Orders.
 Require Import List.
 
+Require Import sflib.
+
 Set Implicit Arguments.
 Import ListNotations.
 
@@ -9,9 +11,9 @@ Module Type S.
   Parameter (eq_dec: forall (lhs rhs:t), {lhs = rhs} + {lhs <> rhs}).
 
   Parameter (ltb: forall (lhs rhs:t), bool).
-  Parameter (ltb_trans: forall (x y z:t) (XY: ltb x y = true) (YZ: ltb y z = true), ltb x z = true).
-  Parameter (ltb_irrefl: forall x, ltb x x = false).
-  Parameter (ltb_eq: forall (lhs rhs:t) (LR: ltb lhs rhs = false) (RL: ltb rhs lhs = false), lhs = rhs).
+  Parameter (ltb_trans: forall (x y z:t) (XY: ltb x y) (YZ: ltb y z), ltb x z).
+  Parameter (ltb_irrefl: forall x, ~ ltb x x).
+  Parameter (ltb_eq: forall (lhs rhs:t) (LR: ~ ltb lhs rhs) (RL: ~ ltb rhs lhs), lhs = rhs).
 End S.
 
 Module Make (O:S).
@@ -20,12 +22,12 @@ Module Make (O:S).
   Lemma eq_leibniz (x y: O.t): eq x y -> x = y.
   Proof. auto. Qed.
 
-  Definition lt (lhs rhs:O.t): Prop := O.ltb lhs rhs = true.
+  Definition lt (lhs rhs:O.t): Prop := O.ltb lhs rhs.
 
   Program Instance lt_strorder: StrictOrder lt.
   Next Obligation.
     repeat intro. unfold lt in H.
-    rewrite O.ltb_irrefl in H. congruence.
+    apply O.ltb_irrefl in H. congruence.
   Qed.
   Next Obligation.
     repeat intro. unfold lt in *.
@@ -52,7 +54,7 @@ Module Make (O:S).
     { constructor. auto. }
     destruct (O.ltb y x) eqn:YX.
     { constructor. auto. }
-    constructor. apply O.ltb_eq; auto.
+    constructor. apply O.ltb_eq; congruence.
   Qed.
 
   Ltac ltb_tac :=

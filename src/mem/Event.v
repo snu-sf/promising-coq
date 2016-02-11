@@ -4,6 +4,8 @@ Require Import Orders.
 Require Import MSetList.
 Require Import Omega.
 
+Require Import sflib.
+
 Require Import Basic.
 Require Import BoolOrderedType.
 
@@ -64,25 +66,27 @@ Module Ordering_ <: BoolOrderedType.S.
     | relacq, _ => false
     end.
 
-  Lemma ltb_trans (x y z:t) (XY: ltb x y = true) (YZ: ltb y z = true): ltb x z = true.
+  Lemma ltb_trans (x y z:t) (XY: ltb x y) (YZ: ltb y z): ltb x z.
   Proof. repeat intro. destruct x, y, z; auto. Qed.
 
-  Lemma ltb_irrefl x: ltb x x = false.
+  Lemma ltb_irrefl x: ~ ltb x x.
   Proof. repeat intro. destruct x; auto. Qed.
 
-  Lemma ltb_eq (lhs rhs:t) (LR: ltb lhs rhs = false) (RL: ltb rhs lhs = false): lhs = rhs.
+  Lemma ltb_eq (lhs rhs:t) (LR: ~ ltb lhs rhs) (RL: ~ ltb rhs lhs): lhs = rhs.
   Proof. repeat intro. destruct lhs, rhs; simpl in *; congruence. Qed.
 End Ordering_.
 
 Module Ordering <: OrderedTypeWithLeibniz.
   Include Ordering_ <+ BoolOrderedType.Make (Ordering_).
 
-  Inductive weaker: forall (lhs rhs:t), Prop :=
-  | weaker_refl ord: weaker ord ord
-  | weaker_relaxed_ rhs: weaker relaxed rhs
-  | weaker_acquire_: weaker acquire relacq
-  | weaker_release_: weaker release relacq
-  .
+  Definition ord (lhs rhs:t): bool :=
+    match lhs, rhs with
+    | acquire, relaxed => false
+    | acquire, release => false
+    | release, relaxed => false
+    | release, acquire => false
+    | _, _ => true
+    end.
 End Ordering.
 
 
@@ -116,7 +120,7 @@ Module RWEvent_ <: BoolOrderedType.S.
     | update _ _ _ _, _ => false
     end.
 
-  Lemma ltb_trans (x y z:t) (XY: ltb x y = true) (YZ: ltb y z = true): ltb x z = true.
+  Lemma ltb_trans (x y z:t) (XY: ltb x y) (YZ: ltb y z): ltb x z.
   Proof.
     destruct x, y, z; simpl in *; auto;
       repeat
@@ -128,7 +132,7 @@ Module RWEvent_ <: BoolOrderedType.S.
          try ltb_des).
   Qed.
 
-  Lemma ltb_irrefl x: ltb x x = false.
+  Lemma ltb_irrefl x: ~ ltb x x.
   Proof.
     destruct x; simpl in *; auto;
       repeat
@@ -140,7 +144,7 @@ Module RWEvent_ <: BoolOrderedType.S.
          try ltb_des).
   Qed.
 
-  Lemma ltb_eq (lhs rhs:t) (LR: ltb lhs rhs = false) (RL: ltb rhs lhs = false): lhs = rhs.
+  Lemma ltb_eq (lhs rhs:t) (LR: ~ ltb lhs rhs) (RL: ~ ltb rhs lhs): lhs = rhs.
   Proof.
     destruct lhs, rhs; simpl in *; auto;
       repeat

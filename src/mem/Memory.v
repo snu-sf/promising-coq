@@ -61,7 +61,7 @@ Module Message_ <: BoolOrderedType.S.
       compose_comparisons [Ordering.compare o1 o2]
     end.
 
-  Lemma ltb_trans (x y z:t) (XY: ltb x y = true) (YZ: ltb y z = true): ltb x z = true.
+  Lemma ltb_trans (x y z:t) (XY: ltb x y) (YZ: ltb y z): ltb x z.
   Proof.
     destruct x, y, z; simpl in *; auto;
       repeat
@@ -73,7 +73,7 @@ Module Message_ <: BoolOrderedType.S.
          try ltb_des).
   Qed.
 
-  Lemma ltb_irrefl x: ltb x x = false.
+  Lemma ltb_irrefl x: ~ ltb x x.
   Proof.
     destruct x; simpl in *; auto;
       repeat
@@ -85,7 +85,7 @@ Module Message_ <: BoolOrderedType.S.
          try ltb_des).
   Qed.
 
-  Lemma ltb_eq (lhs rhs:t) (LR: ltb lhs rhs = false) (RL: ltb rhs lhs = false): lhs = rhs.
+  Lemma ltb_eq (lhs rhs:t) (LR: ~ ltb lhs rhs) (RL: ~ ltb rhs lhs): lhs = rhs.
   Proof.
     destruct lhs, rhs; simpl in *; auto;
       repeat
@@ -410,8 +410,8 @@ Module Memory.
       (compose rseq (compose rf aseq))
         /2\
         (prod
-           (fun msg => Ordering.weaker Ordering.release (Message.get_ordering msg))
-           (fun msg => Ordering.weaker Ordering.acquire (Message.get_ordering msg)))
+           (fun msg => Ordering.ord Ordering.release (Message.get_ordering msg))
+           (fun msg => Ordering.ord Ordering.acquire (Message.get_ordering msg)))
     .
 
     Definition hb: relation Position.t := tc (sb \2/ sw).
