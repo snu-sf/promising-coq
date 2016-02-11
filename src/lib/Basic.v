@@ -158,14 +158,6 @@ Module IdentMap.
     inv AB; constructor; auto.
   Qed.
 
-  Lemma rel2_construct
-        A B (c: A -> B) (ma:t A):
-    rel2 (fun a b => b = c a) ma (map c ma).
-  Proof.
-    intro i. rewrite Facts.map_o.
-    destruct (find i ma); simpl; constructor; auto.
-  Qed.
-
   Definition get_max V (pred: V -> nat) (m:t V): nat :=
     fold
       (fun _ v res => max (pred v) res)

@@ -29,9 +29,8 @@ Module Program.
 
   Inductive load: forall (text:t) (c:Configuration.t), Prop :=
   | load_intro
-      text th m
-      (LOAD: load_threads text th)
-      (MEM: IdentMap.rel2 (fun _ b => b = Buffer.empty) th m):
-      load text (Configuration.mk Clocks.init th m nil)
+      text th
+      (LOAD: load_threads text th):
+      load text (Configuration.mk Clocks.init th (IdentMap.map (fun _ => Buffer.empty) th) nil)
   .
 End Program.

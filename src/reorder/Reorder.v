@@ -224,12 +224,9 @@ Proof.
   apply IdentMap.rel2_intro in REL2. des.
   eexists (Configuration.mk Clocks.init mb _ []).
   repeat econs; simpl; eauto.
-  { apply IdentMap.rel2_construct. }
-  { intro i. rewrite IdentMap.Facts.map_o.
-    specialize (BC i). specialize (MEM i).
-    inv BC; inv MEM; simpl; try constructor; try congruence.
-    repeat econs; eauto.
-  }
+  intro i. rewrite ? IdentMap.Facts.map_o.
+  specialize (BC i). inv BC; simpl; try constructor.
+  repeat econs; eauto.
 Qed.
 
 Lemma sim_step: Simulation.STEP sim_configuration.
