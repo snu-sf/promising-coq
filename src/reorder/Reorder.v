@@ -209,7 +209,7 @@ Lemma sim_load
   Simulation.LOAD prog_src prog_tgt sim_configuration.
 Proof.
   inv TRANS.
-  repeat intro. inv TGT. inv LOAD.
+  ii. inv TGT. inv LOAD.
   generalize (IdentMap.rel2_elim TRANS0 LOAD0). intro REL2.
   eapply (IdentMap.rel2_implies
             (fun text th => exists th', Program.load_thread text th' /\
@@ -234,19 +234,59 @@ Qed.
 
 Lemma sim_step: Simulation.STEP sim_configuration.
 Proof.
+  ii. inv STEP.
+  - admit.
+  - destruct src. inv SIM. simpl in *.
+    eexists. split.
+    + eapply srcsteps_progress.
+      { apply tausteps_nil. }
+      apply Configuration.step_dream.
+    + econs; simpl; auto.
+  - admit.
+  - destruct src. inv SIM. inv STACK. simpl in *. subst.
+    eexists. split.
+    + eapply srcsteps_progress.
+      { apply tausteps_nil. }
+      apply Configuration.step_commit.
+      * admit.
+      * admit.
+    + econs; simpl; eauto.
+  - destruct src. inv SIM. inv STACK. simpl in *. subst.
+    eexists. split.
+    + eapply srcsteps_progress.
+      { apply tausteps_nil. }
+      eapply Configuration.step_syscall.
+      admit.
+    + econs; simpl; eauto.
+      admit.
 Admitted.
 
 Lemma sim_observable: Simulation.OBSERVABLE sim_configuration.
 Proof.
+  (* TODO: bogus step for *each* thread *)
 Admitted.
 
 Lemma sim_terminal: Simulation.TERMINAL sim_configuration.
 Proof.
-Admitted.
+  ii. destruct src, tgt. inv SIM. inv TERM.
+  simpl in *. subst. inv STACK.
+  eexists. split.
+  { apply tausteps_nil. }
+  econs; simpl; eauto.
+  econs. ii. specialize (CUR i). inv CUR; try congruence.
+  rewrite THREAD in H0. inv H0.
+  inv THREADS. symmetry in H. specialize (TERMINAL _ _ H).
+  inv THREAD0.
+  - inv TERMINAL. simpl in *. subst.
+    inv TRANS. econs.
+  - inv TERMINAL. simpl in *. subst.
+    inv CONSUMED.
+Qed.
 
 Definition sim
            prog_src prog_tgt
-           (TRANS: trans_prog prog_src prog_tgt) :=
+           (TRANS: trans_prog prog_src prog_tgt):
+  Simulation.t prog_src prog_tgt :=
   Simulation.mk
     (sim_load TRANS)
     sim_step

@@ -52,10 +52,10 @@ Module Simulation.
     Definition OBSERVABLE: Prop :=
       forall src tgt
         (SIM: sim src tgt)
-        (TERM: Configuration.is_observable tgt),
+        (OBSERVABLE: Configuration.is_observable tgt),
       exists src',
         <<STEP: tausteps src src'>> /\
-        <<TERM: Configuration.is_observable src'>>.
+        <<OBSERVABLE: Configuration.is_observable src'>>.
 
     Definition TERMINAL: Prop :=
       forall src tgt
