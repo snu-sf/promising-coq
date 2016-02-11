@@ -84,3 +84,12 @@ Notation rtc := (clos_refl_trans _). (* reflexive transitive closure *)
 Notation rc := (clos_refl _). (* reflexive transitive closure *)
 Notation tc := (clos_trans _). (* transitive closure *)
 Hint Immediate rt_step rt_refl t_step.
+
+
+Inductive lift_rel2 A B (rel:forall (a:A) (b:B), Prop): forall (a:option A) (b:option B), Prop :=
+| lift_rel2_None:
+    lift_rel2 rel None None
+| lift_rel2_Some
+    a b (REL: rel a b):
+    lift_rel2 rel (Some a) (Some b)
+.

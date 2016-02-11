@@ -24,13 +24,7 @@ Module Program.
 
   Inductive load_threads (text:t) (th:Threads.t): Prop :=
   | load_threads_intro
-      (LOAD:
-         forall i,
-           <<NONE: IdentMap.find i text = None /\ IdentMap.find i th = None>> \/
-           <<SOME: exists text' th',
-                     <<TEXT: IdentMap.find i text = Some text'>> /\
-                     <<THREAD: IdentMap.find i th = Some th'>> /\
-                     <<LOAD: load_thread text' th'>>>>)
+      (LOAD: forall i, lift_rel2 load_thread (IdentMap.find i text) (IdentMap.find i th))
   .
 
   Inductive load: forall (text:t) (c:Configuration.t), Prop :=

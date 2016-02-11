@@ -78,13 +78,7 @@ Inductive reordered_prog_thread: forall (text1 text2:Program.thread_t), Prop :=
 
 Inductive reordered_prog (prog1 prog2:Program.t): Prop :=
 | reordered_prog_intro
-    (REORDERED:
-       forall i,
-         <<NONE: IdentMap.find i prog1 = None /\ IdentMap.find i prog2 = None>> \/
-         <<SOME: exists text1 text2,
-             <<PROG1: IdentMap.find i prog1 = Some text1>> /\
-             <<PROG2: IdentMap.find i prog2 = Some text2>> /\
-             <<REORDERED: reordered_prog_thread text1 text2>>>>)
+    (REORDERED: forall i, lift_rel2 reordered_prog_thread (IdentMap.find i prog1) (IdentMap.find i prog2))
 .
 
 Inductive consumed (i2:Instr.t): forall (c1 c2:list Stmt.t), Prop :=
@@ -164,11 +158,32 @@ Inductive sim_configuration (c1 c2:Configuration.t): Prop :=
          c1.(Configuration.stack) c2.(Configuration.stack))
 .
 
+Lemma sim_load_thread
+      text_src text_tgt th_tgt
+      (REORDERED: reordered_prog_thread text_src text_tgt)
+      (TGT: Program.load_thread text_tgt th_tgt):
+  exists th_src,
+    <<SRC: Program.load_thread text_src th_src>> /\
+    <<SIM: sim_thread None th_src th_tgt>>.
+Proof.
+  inv REORDERED; inv TGT.
+  apply ProofIrrelevance.ProofIrrelevanceTheory.EqdepTheory.inj_pair2 in H1. subst.
+  inv LOAD. exists (Thread.mk lang (State.mk RegFile.init s1)).
+  split; repeat constructor; auto.
+Qed.
+
 Lemma sim_load
       prog_src prog_tgt
       (REORDERED: reordered_prog prog_src prog_tgt):
   Simulation.LOAD prog_src prog_tgt sim_configuration.
 Proof.
+  inv REORDERED.
+  eexists (Configuration.mk Clocks.init _ Memory.empty []).
+  inv TGT. inv LOAD.
+  split; constructor; simpl; auto.
+  - admit.
+  - admit.
+  - admit.
 Admitted.
 
 Lemma sim_step: Simulation.STEP sim_configuration.
