@@ -6,10 +6,10 @@ COQTHEORIES  := src/*/*.v
 all: theories
 
 sflib: lib/sflib
-	make -C lib/sflib
+	$(MAKE) -C lib/sflib
 
 paco: lib/paco/src
-	make -C lib/paco/src
+	$(MAKE) -C lib/paco/src
 
 Makefile.coq: Makefile $(COQTHEORIES)
 	(echo "-R lib/sflib sflib"; \
@@ -32,4 +32,4 @@ theories: sflib paco Makefile.coq
 
 clean:
 	$(MAKE) -f Makefile.coq clean
-	rm -f Makefile.coq
+	rm -f _CoqProject Makefile.coq
