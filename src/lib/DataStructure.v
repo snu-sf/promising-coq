@@ -69,27 +69,18 @@ Module UsualSet (S: OrderedTypeWithLeibniz).
     constructor; auto.
   Qed.
 
-  Lemma disjoint_spec lhs rhs
-        (DISJ: disjoint lhs rhs):
-    lhs = diff (union lhs rhs) rhs.
-  Proof.
-    apply eq_leibniz. intro i. specialize (DISJ i).
-    rewrite ? Facts.mem_iff.
-    rewrite Facts.diff_b, Facts.union_b.
-    destruct (mem i lhs), (mem i rhs); simpl in *;
-      constructor; intro; auto.
-  Qed.
+  Definition remove_if_exists i s :=
+    if mem i s
+    then Some (remove i s)
+    else None.
 
-  Lemma disjoint_add_spec lhs a rhs
-        (DISJ: disjoint_add lhs a rhs):
-    lhs = remove a rhs.
+  Lemma remove_if_exists_spec i s s'
+        (REMOVE: remove_if_exists i s = Some s'):
+    forall i', mem i' s' = mem i' s && if S.eq_dec i i' then false else true.
   Proof.
-    apply eq_leibniz. intro i.
-    inversion DISJ. subst. clear DISJ. specialize (DISJ0 i).
-    rewrite ? Facts.mem_iff.
-    rewrite Facts.singleton_b, Facts.remove_b, Facts.add_b in *.
-    rewrite andb_true_iff in *.
-    destruct (Facts.eqb a i); simpl in *; intuition.
-    rewrite H in DISJ0. auto.
+    i. unfold remove_if_exists in *.
+    destruct (mem i s) eqn:IS; inv REMOVE.
+    rewrite Facts.remove_b. destruct (mem i' s); auto.
+    unfold Facts.eqb, Self.E.eq_dec. destruct (S.eq_dec i i'); auto.
   Qed.
 End UsualSet.

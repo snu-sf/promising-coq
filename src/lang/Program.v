@@ -5,20 +5,28 @@ Set Implicit Arguments.
 
 Module Language.
   Structure t := mk {
-    text: Type;
+    syntax: Type;
     state: Type;
 
-    load: forall (t:text) (s:state), Prop;
+    load: syntax -> state;
     is_terminal: state -> Prop;
     step: forall (s1:state) (e:option ThreadEvent.t) (s2:state), Prop;
   }.
 End Language.
 
 Module Thread.
+  Structure syntax := mk_syntax {
+    syntax_lang: Language.t;
+    syntax_syntax: syntax_lang.(Language.syntax);
+  }.
+
   Structure t := mk {
     lang: Language.t;
     state: lang.(Language.state)
   }.
+
+  Definition load (s:syntax): t :=
+    mk s.(syntax_lang) (s.(syntax_lang).(Language.load) s.(syntax_syntax)).
 
   Definition is_terminal (th:t): Prop :=
     th.(lang).(Language.is_terminal) th.(state).
@@ -30,10 +38,15 @@ Module Thread.
       step (mk lang s1) e (mk lang s2).
 End Thread.
 
-Module Threads.
+Module Program.
+  Definition syntax := IdentMap.t Thread.syntax.
+
   Definition t := IdentMap.t Thread.t.
 
   Definition empty := IdentMap.empty Thread.t.
+
+  Definition load (s:syntax): t :=
+    IdentMap.map Thread.load s.
 
   Inductive is_terminal (p:t): Prop :=
   | is_terminal_intro
@@ -49,4 +62,4 @@ Module Threads.
       (STEP: Thread.step th1 e th2):
       step p1 i e (IdentMap.add i th2 p1)
   .
-End Threads.
+End Program.

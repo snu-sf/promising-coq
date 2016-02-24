@@ -32,14 +32,10 @@ Inductive srcsteps: forall (src:Configuration.t) (e:option Event.t) (src':Config
 (* TODO: proper use of indexes *)
 Module Simulation.
   Section Simulation.
-    Variable (prog_src prog_tgt:Program.t).
+    Variable (prog_src prog_tgt:Program.syntax).
     Variable (sim: forall (src tgt:Configuration.t), Prop).
 
-    Definition LOAD: Prop :=
-      forall tgt (TGT: Program.load prog_tgt tgt),
-      exists src,
-        <<SRC: Program.load prog_src src>> /\
-        <<SIM: sim src tgt>>.
+    Definition LOAD: Prop := sim (Configuration.load prog_src) (Configuration.load prog_tgt).
 
     Definition STEP: Prop :=
       forall src tgt e tgt'
@@ -48,14 +44,6 @@ Module Simulation.
       exists src',
         <<STEP: srcsteps src e src'>> /\
                 <<SIM: sim src' tgt'>>.
-
-    Definition OBSERVABLE: Prop :=
-      forall src tgt
-        (SIM: sim src tgt)
-        (OBSERVABLE: Configuration.is_observable tgt),
-      exists src',
-        <<STEP: tausteps src src'>> /\
-        <<OBSERVABLE: Configuration.is_observable src'>>.
 
     Definition TERMINAL: Prop :=
       forall src tgt
@@ -66,12 +54,11 @@ Module Simulation.
         <<TERM: Configuration.is_terminal src'>>.
   End Simulation.
 
-  Structure t (prog_src prog_tgt:Program.t) := mk {
+  Structure t (prog_src prog_tgt:Program.syntax) := mk {
     sim: forall (src tgt:Configuration.t), Prop;
 
     load: LOAD prog_src prog_tgt sim;
     step: STEP sim;
-    observable: OBSERVABLE sim;
     terminal: TERMINAL sim;
   }.
 End Simulation.

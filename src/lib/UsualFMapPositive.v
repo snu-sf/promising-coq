@@ -1,10 +1,12 @@
-Require Import Bool OrderedType ZArith OrderedType OrderedTypeEx FMapInterface FMapPositive ProofIrrelevance EqdepFacts.
+Require Import Bool OrderedType ZArith OrderedType OrderedTypeEx FMapInterface FMapPositive FMapFacts ProofIrrelevance EqdepFacts.
+
+Require Import sflib.
 
 Set Implicit Arguments.
 Local Open Scope positive_scope.
 Local Unset Elimination Schemes.
 
-Module UsualPositiveMap <: S with Module E:=PositiveOrderedTypeBits.
+Module UsualPositiveMap' <: S with Module E:=PositiveOrderedTypeBits.
 
   Module E:=PositiveOrderedTypeBits.
   Module ME:=KeyOrderedType E.
@@ -133,10 +135,10 @@ Module UsualPositiveMap <: S with Module E:=PositiveOrderedTypeBits.
     - destruct m1; tac.
     - destruct m1; tac.
     - destruct m1; tac; try (apply IHi; tac; fail).
-      specialize (IHi m2 (wf_inhabited R)). 
+      specialize (IHi m2 (wf_inhabited R)).
       destruct (Raw.remove i m2); tac.
     - destruct m2; tac; try (apply IHi; tac; fail).
-      specialize (IHi m1 (wf_inhabited L)). 
+      specialize (IHi m1 (wf_inhabited L)).
       destruct (Raw.remove i m1); tac.
     - destruct m2; tac.
     - destruct m1, m2; tac.
@@ -575,14 +577,47 @@ Module UsualPositiveMap <: S with Module E:=PositiveOrderedTypeBits.
   { simpl. eapply wf_l. eauto. }
   Qed.
 
-End UsualPositiveMap.
+  Definition get_max V (pred: V -> nat) (m:t V): nat :=
+    fold
+      (fun _ v res => max (pred v) res)
+      m
+      0%nat.
+
+  Lemma get_max_spec V (pred: V -> nat) m:
+    forall i v (FIND: find i m = Some v), (pred v <= get_max pred m)%nat.
+  Proof.
+    unfold find, get_max.
+    rewrite fold_1, <- fold_left_rev_right.
+    intros.
+    apply elements_correct in FIND.
+    apply in_rev in FIND.
+    revert FIND.
+    match goal with
+    | [|- context[@rev ?A ?l]] => generalize (@rev A l)
+    end.
+    induction l; intros; inversion FIND; subst; simpl.
+    - apply Max.le_max_l.
+    - rewrite <- Max.le_max_r. apply IHl. auto.
+  Qed.
+End UsualPositiveMap'.
 
 (** Here come some additional facts about this implementation.
   Most are facts that cannot be derivable from the general interface. *)
 
+Module UsualPositiveMap <: S with Module E:=PositiveOrderedTypeBits.
+  Include UsualPositiveMap'.
 
-Module UsualPositiveMapAdditionalFacts.
-  Import UsualPositiveMap.
+  Module Facts := FMapFacts.Facts (UsualPositiveMap').
+  Module Properties := FMapFacts.Properties (UsualPositiveMap').
+
+  Lemma map_add A B (f:A -> B) i v m:
+    map f (add i v m) = add i (f v) (map f m).
+  Proof.
+    apply eq_leibniz. intro.
+    rewrite ? Facts.map_o, ? Properties.F.add_o.
+    destruct (Properties.F.eq_dec i y); auto.
+    rewrite Facts.map_o. auto.
+  Qed.
 
   (* Derivable from the Map interface *)
   Theorem gsspec:
@@ -604,4 +639,4 @@ Module UsualPositiveMapAdditionalFacts.
     auto.
   Qed.
 
-End UsualPositiveMapAdditionalFacts.
+End UsualPositiveMap.
