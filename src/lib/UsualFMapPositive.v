@@ -616,4 +616,13 @@ Module UsualPositiveMap <: S with Module E:=PositiveOrderedTypeBits.
     auto.
   Qed.
 
+  Lemma add_add V k1 k2 (v1 v2:V) m
+        (KEY: k1 <> k2):
+    add k1 v1 (add k2 v2 m) = add k2 v2 (add k1 v1 m).
+  Proof.
+    apply eq_leibniz. ii.
+    rewrite ? Facts.add_o.
+    destruct (E.eq_dec k1 y), (E.eq_dec k2 y); auto.
+    congruence.
+  Qed.
 End UsualPositiveMap.

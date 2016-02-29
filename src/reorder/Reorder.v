@@ -95,16 +95,6 @@ Inductive consumed_stmts (i2:Instr.t): forall (c1 c2:list Stmt.t), Prop :=
     consumed_stmts i2 ((Stmt.instr i1)::(Stmt.instr i2)::c1) ((Stmt.instr i1)::c2)
 .
 
-Inductive consumed_thread i: forall (text1 text2:Thread.syntax), Prop :=
-| consumed_thread_intro
-    s1 s2
-    (CONSUME: consumed_stmts i s1 s2):
-    consumed_thread
-      i
-      (Thread.mk_syntax lang s1)
-      (Thread.mk_syntax lang s2)
-.
-
 Inductive sim_thread: forall (th1 th2:Thread.t), Prop :=
 | sim_thread_intro
     rs s1 s2
@@ -124,6 +114,17 @@ Inductive sim_consumed_thread (e:option RWEvent.t): forall (th1 th2:Thread.t), P
       (Thread.mk lang (State.mk rs1 s1))
       (Thread.mk lang (State.mk rs2 s2))
 .
+
+Lemma sim_consumed_thread_inv
+      e th1 th2 (SIM: sim_consumed_thread e th1 th2):
+  exists rs1 rs2 s1 s2 i,
+    th1 = Thread.mk lang (State.mk rs1 s1) /\
+    th2 = Thread.mk lang (State.mk rs2 s2) /\
+    consumed_stmts i s1 s2 /\
+    RegFile.eval_instr rs1 i (option_map (ThreadEvent.mem <*> ThreadEvent.rw) e) rs2.
+Proof.
+  inv SIM. eexists _, _, _, _, _. splits; eauto.
+Qed.
 
 Definition sim_message (msg1 msg2:Message.t): bool :=
   match msg1, msg2 with
@@ -172,85 +173,140 @@ Inductive sim_inceptions i: forall (e:option (RWEvent.t * nat)) (inceptions1 inc
       inceptions2
 .
 
-Inductive sim_configuration: forall (conf1 conf2:Configuration.t), Prop :=
-| sim_configuration_reordered
-    i c1 c2 p1 p2 bs1 bs2 inceptions1 inceptions2
-    th1 th2 b1 b2
-    (THREAD1: IdentMap.find i p1 = Some th1)
-    (BUFFER1: IdentMap.find i bs1 = Some b1)
-    (THREAD2: sim_thread th1 th2)
-    (BUFFER2: sim_buffer b1 b2)
+Inductive sim_context i:
+  forall (c1 c2:Clock.t)
+    (th1 th2:Thread.t)
+    (b1 b2:Buffer.t)
+    (inceptions1 inceptions2:InceptionSet.t), Prop :=
+| sim_context_reordered
+    c1 c2 th1 th2 b1 b2 inceptions1 inceptions2
     (CLOCK: c1 = c2)
-    (PROGRAMS: p2 = IdentMap.add i th2 p1)
-    (BUFFERS: bs2 = IdentMap.add i b2 bs1)
+    (THREAD: sim_thread th1 th2)
+    (BUFFER: sim_buffer b1 b2)
     (INCEPTIONS: inceptions1 = inceptions2):
-    sim_configuration
-      (Configuration.mk c1 p1 (Memory.mk bs1 inceptions1))
-      (Configuration.mk c2 p2 (Memory.mk bs2 inceptions2))
-| sim_configuration_consumed
-    i e c1 c2 p1 p2 bs1 bs2 inceptions1 inceptions2
-    th1 th2 b1 b2
+    sim_context i c1 c2 th1 th2 b1 b2 inceptions1 inceptions2
+| sim_context_consumed
+    c1 c2 th1 th2 b1 b2 inceptions1 inceptions2
+    e
     (CLOCK: Clock.le c1 c2)
-    (THREAD1: IdentMap.find i p1 = Some th1)
-    (BUFFER1: IdentMap.find i bs1 = Some b1)
     (THREAD2: sim_consumed_thread (option_map fst e) th1 th2)
     (BUFFER2: sim_consumed_buffer e b1 b2)
-    (PROGRAMS: p2 = IdentMap.add i th2 p1)
-    (BUFFERS: bs2 = IdentMap.add i b2 bs1)
     (INCEPTIONS: sim_inceptions i e inceptions1 inceptions2):
+    sim_context i c1 c2 th1 th2 b1 b2 inceptions1 inceptions2
+.
+
+Inductive sim_configuration i: forall (conf1 conf2:Configuration.t), Prop :=
+| sim_configuration_intro
+    c1 c2 th1 th2 b1 b2 inceptions1 inceptions2
+    p1 p2 bs1 bs2
+    (PROGRAM1: IdentMap.find i p1 = Some th1)
+    (BUFFER1: IdentMap.find i bs1 = Some b1)
+    (PROGRAM2: p2 = IdentMap.add i th2 p1)
+    (BUFFER2: bs2 = IdentMap.add i b2 bs1)
+    (CONTEXT: sim_context i c1 c2 th1 th2 b1 b2 inceptions1 inceptions2):
     sim_configuration
+      i
       (Configuration.mk c1 p1 (Memory.mk bs1 inceptions1))
-      (Configuration.mk c2 p1 (Memory.mk bs2 inceptions2))
+      (Configuration.mk c2 p2 (Memory.mk bs2 inceptions2))
 .
 
 Lemma sim_load
       i prog_src prog_tgt
       (REORDER: reordered_program i prog_src prog_tgt):
-  Simulation.LOAD prog_src prog_tgt sim_configuration.
+  Simulation.LOAD prog_src prog_tgt (sim_configuration i).
 Proof.
-  inv REORDER. econs 1; eauto.
+  inv REORDER. repeat econs.
   - unfold Program.load.
     rewrite IdentMap.Facts.map_o, TH1.
     simpl. eauto.
-  - rewrite IdentMap.Facts.map_o, TH1.
+  - unfold Program.load.
+    rewrite IdentMap.Facts.map_o, TH1.
     simpl. eauto.
-  - instantiate (1 := Thread.load th2).
-    inv REORDER0. econs. auto.
-  - econs.
   - apply IdentMap.map_add.
   - apply IdentMap.map_add.
+  - inv REORDER0. econs. eauto.
 Qed.
 
-Lemma sim_feasible: Simulation.FEASIBLE sim_configuration.
+Lemma sim_feasible i: Simulation.FEASIBLE (sim_configuration i).
+Proof.
+  ii. inv SIM. simpl in *.
+  inv CONTEXT.
+  { repeat econs. auto. }
+  inv INCEPTIONS.
+  { repeat econs. auto. }
+  simpl in *. inv THREAD2. inv BUFFER2. inv CONSUMED. simpl in *.
+  econs; [econs 2; [|econs 2; [|econs 1]]|].
+  - admit. (* we can execute i1 *)
+  - admit. (* we can execute i2 *)
+  - admit. (* the execution of i2 removes the only inception *)
+Admitted.
+
+Lemma sim_base i: Simulation.BASE_STEP (sim_configuration i).
+Proof.
+  ii. inv SIM. inv STEP.
+  - destruct (Ident.eq_dec i i0).
+    + subst i0. inv PROGRAM.
+      rewrite IdentMap.Facts.add_eq_o in *; auto.
+      inv THREAD. inv STEP. inv CONTEXT.
+      * admit. (* program step, sim *)
+      * apply sim_consumed_thread_inv in THREAD2. des. subst.
+        inv THREAD0. apply inj_pair2 in H1. subst.
+        inv THREAD1.
+        admit. (* reordered instr should emit mem events: REORDER & STEP0 *)
+    + inv PROGRAM. rewrite IdentMap.Facts.add_neq_o in *; auto.
+      eexists _, _. splits.
+      * econs 1.
+      * econs 1. econs. econs; eauto.
+      * econs; eauto.
+        { rewrite IdentMap.Facts.add_neq_o; auto. }
+        { apply IdentMap.add_add. auto. }
+  - admit. (* mem step *)
+  - inv CONTEXT.
+    + eexists _, _. splits.
+      * econs 1.
+      * econs 1. econs 3. eauto.
+      * econs; eauto. econs 1; eauto.
+    + eexists _, _. splits.
+      * econs 1.
+      * econs 1. econs 3. eauto.
+      * econs; eauto. econs 2; eauto.
+Admitted.
+
+Lemma sim_inception i: Simulation.INCEPTION_STEP (sim_configuration i).
 Proof.
 Admitted.
 
-Lemma sim_base: Simulation.BASE_STEP sim_configuration.
+Lemma sim_syscall i: Simulation.SYSCALL_STEP (sim_configuration i).
 Proof.
+  ii. inv STEP. inv PROGRAM. inv STEP. inv SIM. simpl in *.
+  rewrite IdentMap.Facts.add_o in *. destruct (IdentMap.Facts.eq_dec i i0).
+  - subst. 
+    admit. (* the reordered thread syscalled *)
+  - eexists _, _. splits.
+    + econs 1.
+    + econs 2; simpl in *.
+      * econs; eauto. econs. eauto.
+      * admit. (* inceptions *)
+      * admit. (* feasible *)
+    + econs; eauto.
+      * rewrite IdentMap.Facts.add_neq_o; auto.
+      * apply IdentMap.add_add. auto.
 Admitted.
 
-Lemma sim_inception: Simulation.INCEPTION_STEP sim_configuration.
-Proof.
-Admitted.
-
-Lemma sim_syscall: Simulation.SYSCALL_STEP sim_configuration.
-Proof.
-Admitted.
-
-Lemma sim_terminal: Simulation.TERMINAL sim_configuration.
+Lemma sim_terminal i: Simulation.TERMINAL (sim_configuration i).
 Proof.
   ii. eexists. split.
   { apply Configuration.steps_nil. }
-  econs. econs. intros.
-  inv TERM. inv PROGRAM. specialize (TERMINAL i).
-  inv SIM; simpl in *.
-  - rewrite IdentMap.Facts.add_o in *.
-    destruct (IdentMap.Properties.F.eq_dec i0 i).
-    + exploit TERMINAL; eauto. intro X.
-      inv THREAD2. inv X. simpl in *. subst.
-      inv REORDER. rewrite THREAD in THREAD1. inv THREAD1. auto.
-    + apply TERMINAL. auto.
-  - apply TERMINAL. auto.
+  econs. econs. i.
+  inv TERM. inv PROGRAM. specialize (TERMINAL i0).
+  inv SIM. simpl in *.
+  rewrite IdentMap.Facts.add_o in *.
+  destruct (IdentMap.Facts.eq_dec i i0); auto.
+  subst. exploit TERMINAL; eauto. intro X.
+  rewrite PROGRAM1 in THREAD. inv THREAD.
+  inv CONTEXT.
+  - inv THREAD. inv X. simpl in *. subst. inv REORDER. auto.
+  - inv THREAD2. inv X. simpl in *. subst. inv CONSUMED.
 Qed.
 
 Definition sim
@@ -260,5 +316,9 @@ Definition sim
   Simulation.mk
     _ _
     (sim_load REORDER)
-    (Simulation.step_lemma sim_feasible sim_base sim_inception sim_syscall)
-    sim_terminal.
+    (Simulation.step_lemma
+       (@sim_feasible _)
+       (@sim_base _)
+       (@sim_inception _)
+       (@sim_syscall _))
+    (@sim_terminal _).

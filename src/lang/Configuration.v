@@ -91,6 +91,9 @@ Module Configuration.
   | step_syscall
       c th1 m i e th2
       (PROGRAM: Program.step th1 i (Some (ThreadEvent.syscall e)) th2)
+      (INCEPTIONS: InceptionSet.For_all
+                     (fun inception => negb (IdentSet.mem i inception.(Inception.threads)))
+                     m.(Memory.inceptions))
       (FEASIBLE: feasible (mk c th2 m)):
       step (mk c th1 m) (Some e) (mk c th2 m)
   .

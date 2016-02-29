@@ -46,7 +46,7 @@ Module Simulation.
     Definition FEASIBLE: Prop :=
       forall src tgt
         (SIM: sim src tgt)
-        (FEASIBLE: Configuration.feasible tgt),
+        (FEASIBLE: InceptionSet.Empty tgt.(Configuration.memory).(Memory.inceptions)),
         Configuration.feasible src.
 
     Definition BASE_STEP: Prop :=
@@ -119,6 +119,10 @@ Module Simulation.
       - exploit internal_step; eauto. i. des.
         eexists _, _. splits; eauto.
         econs; eauto.
+        inv FEASIBLE0. exploit internal_steps; eauto. i. des.
+        exploit F; eauto. intro FEASIBLE. inv FEASIBLE.
+        econs; [|eauto].
+        eapply Configuration.internal_steps_append; eauto.
       - exploit S; eauto.
         econs; eauto.
     Qed.
