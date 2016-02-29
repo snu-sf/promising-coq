@@ -274,19 +274,14 @@ Module Memory.
         prod pred1 pred2 pos1 pos2
     .
 
-    Inductive acyclic (rel:relation Position.t): Prop :=
-    | acyclic_intro
-        (ACYCLIC: Irreflexive (tc rel))
-    .
-
     Inductive sbw: relation Position.t :=
     | sbw_writing
-        pos1 pos2 e1 e2 ts1 ts2 loc val1 val2
+        pos1 pos2 e1 e2 ts1 ts2 loc val1 val2 ord1 ord2
         (SB: Position.sb pos1 pos2)
         (POS1: In (Message.rw e1 ts1) pos1)
         (POS2: In (Message.rw e2 ts2) pos2)
-        (WRITE1: RWEvent.is_writing e1 = Some (loc, val1))
-        (WRITE2: RWEvent.is_writing e2 = Some (loc, val2)):
+        (WRITE1: RWEvent.is_writing e1 = Some (loc, val1, ord1))
+        (WRITE2: RWEvent.is_writing e2 = Some (loc, val2, ord2)):
         sbw pos1 pos2
     | sbw_fence
         pos1 pos2 ord1 e2 ts2
@@ -294,6 +289,17 @@ Module Memory.
         (POS1: In (Message.fence ord1) pos1)
         (POS2: In (Message.rw e2 ts2) pos2):
         sbw pos1 pos2
+    .
+
+    Inductive mo: relation Position.t :=
+    | mo_intro
+        pos1 pos2 e1 e2 ts1 ts2 loc val1 val2 ord1 ord2
+        (TIMESTAMP: ts1 < ts2)
+        (POS1: In (Message.rw e1 ts1) pos1)
+        (POS2: In (Message.rw e2 ts2) pos2)
+        (WRITE1: RWEvent.is_writing e1 = Some (loc, val1, ord1))
+        (WRITE2: RWEvent.is_writing e2 = Some (loc, val2, ord2)):
+        mo pos1 pos2
     .
 
     Inductive rfr: relation Position.t :=
@@ -345,8 +351,9 @@ Module Memory.
 
     Inductive consistent: Prop :=
     | consistent_intro
-        (CoHB: acyclic hb)
-        (CoRF: acyclic (compose hb rf))
+        (CoHB: Irreflexive hb)
+        (CoRF: Irreflexive (compose hb rf))
+        (CoMO: Irreflexive (compose hb mo))
         (RF: forall msgr posr
                (IN: In msgr posr)
                (READING: Message.is_reading msgr),
