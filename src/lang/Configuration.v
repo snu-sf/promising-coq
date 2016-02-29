@@ -25,17 +25,28 @@ Module Configuration.
       (PROGRAM: Program.is_terminal c.(program))
   .
 
-  Inductive internal_step: forall (c1 c2:t), Prop :=
+  Inductive base_step: forall (c1 c2:t), Prop :=
   | step_tau
       c th1 th2 i m
       (PROGRAM: Program.step th1 i None th2):
-      internal_step (mk c th1 m) (mk c th2 m)
+      base_step (mk c th1 m) (mk c th2 m)
   | step_mem
       i e
       c1 c2 th1 th2 m1 m2
       (PROGRAM: Program.step th1 i (Some (ThreadEvent.mem e)) th2)
       (MEMORY: Memory.step c1 m1 i e c2 m2):
-      internal_step (mk c1 th1 m1) (mk c2 th2 m2)
+      base_step (mk c1 th1 m1) (mk c2 th2 m2)
+  | step_commit
+      c1 th m c2
+      (CLOCK: Clock.le c1 c2):
+      base_step (mk c1 th m) (mk c2 th m)
+  .
+
+  Inductive internal_step: forall (c1 c2:t), Prop :=
+  | step_base
+      c1 c2
+      (BASE: base_step c1 c2):
+      internal_step c1 c2
   | step_inception
       c1 c2 th1 th2 m1 m2 inception
       (STEPS: internal_steps (mk c1 th1 m1) (mk c2 th2 m2))
@@ -43,11 +54,6 @@ Module Configuration.
       (CONSISTENT: Memory.consistent (Memory.mk m1.(Memory.buffers) (InceptionSet.add inception m1.(Memory.inceptions)))):
       internal_step (mk c1 th1 m1)
                     (mk c1 th1 (Memory.mk m1.(Memory.buffers) (InceptionSet.add inception m1.(Memory.inceptions))))
-  | step_commit
-      c1 th m c2
-      (CLOCK: Clock.le c1 c2):
-      internal_step (mk c1 th m)
-                    (mk c2 th m)
 
   with internal_steps: forall (c1 c2:t), Prop :=
   | steps_nil c:
@@ -58,6 +64,16 @@ Module Configuration.
       (STEPS: internal_steps c2 c3):
       internal_steps c1 c3
   .
+
+  Lemma internal_steps_append
+        c1 c2 c3
+        (STEPS12: internal_steps c1 c2)
+        (STEPS23: internal_steps c2 c3):
+    internal_steps c1 c3.
+  Proof.
+    revert STEPS23. induction STEPS12; auto.
+    i. econs; eauto.
+  Qed.
 
   Inductive feasible (c:t): Prop :=
   | feasible_intro
@@ -70,7 +86,6 @@ Module Configuration.
   | step_internal
       c1 c2
       (STEP: internal_step c1 c2)
-      (CONSISTENT: Memory.consistent c2.(memory))
       (FEASIBLE: feasible c2):
       step c1 None c2
   | step_syscall

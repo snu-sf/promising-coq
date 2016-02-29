@@ -221,14 +221,26 @@ Proof.
   - apply IdentMap.map_add.
 Qed.
 
-Lemma sim_step: Simulation.STEP sim_configuration.
+Lemma sim_feasible: Simulation.FEASIBLE sim_configuration.
+Proof.
+Admitted.
+
+Lemma sim_base: Simulation.BASE_STEP sim_configuration.
+Proof.
+Admitted.
+
+Lemma sim_inception: Simulation.INCEPTION_STEP sim_configuration.
+Proof.
+Admitted.
+
+Lemma sim_syscall: Simulation.SYSCALL_STEP sim_configuration.
 Proof.
 Admitted.
 
 Lemma sim_terminal: Simulation.TERMINAL sim_configuration.
 Proof.
   ii. eexists. split.
-  { apply tausteps_nil. }
+  { apply Configuration.steps_nil. }
   econs. econs. intros.
   inv TERM. inv PROGRAM. specialize (TERMINAL i).
   inv SIM; simpl in *.
@@ -248,5 +260,5 @@ Definition sim
   Simulation.mk
     _ _
     (sim_load REORDER)
-    sim_step
+    (Simulation.step_lemma sim_feasible sim_base sim_inception sim_syscall)
     sim_terminal.
