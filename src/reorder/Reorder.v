@@ -118,7 +118,7 @@ Inductive sim_consumed_thread (e:option RWEvent.t): forall (th1 th2:Thread.t), P
 | sim_consumed_thread_intro
     rs1 rs2 s1 s2 i
     (CONSUMED: consumed_stmts i s1 s2)
-    (EVAL: RegFile.eval_instr rs1 i (option_map (compose ThreadEvent.mem ThreadEvent.rw) e) rs2):
+    (EVAL: RegFile.eval_instr rs1 i (option_map (ThreadEvent.mem <*> ThreadEvent.rw) e) rs2):
     sim_consumed_thread
       e
       (Thread.mk lang (State.mk rs1 s1))
@@ -180,7 +180,7 @@ Inductive sim_configuration: forall (conf1 conf2:Configuration.t), Prop :=
     (BUFFER1: IdentMap.find i bs1 = Some b1)
     (THREAD2: sim_thread th1 th2)
     (BUFFER2: sim_buffer b1 b2)
-    (CLOCKS: c1 = c2)
+    (CLOCK: c1 = c2)
     (PROGRAMS: p2 = IdentMap.add i th2 p1)
     (BUFFERS: bs2 = IdentMap.add i b2 bs1)
     (INCEPTIONS: inceptions1 = inceptions2):
@@ -190,7 +190,7 @@ Inductive sim_configuration: forall (conf1 conf2:Configuration.t), Prop :=
 | sim_configuration_consumed
     i e c1 c2 p1 p2 bs1 bs2 inceptions1 inceptions2
     th1 th2 b1 b2
-    (CLOCKS: Clocks.le c1 c2)
+    (CLOCK: Clock.le c1 c2)
     (THREAD1: IdentMap.find i p1 = Some th1)
     (BUFFER1: IdentMap.find i bs1 = Some b1)
     (THREAD2: sim_consumed_thread (option_map fst e) th1 th2)

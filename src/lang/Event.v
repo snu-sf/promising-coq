@@ -24,7 +24,7 @@ Module Const <: OrderedTypeWithLeibniz.
 
   Lemma eq_leibniz (x y: t): eq x y -> x = y.
   Proof. auto. Qed.
-  
+
   Ltac ltb_tac :=
     match goal with
     | [H: compare ?x1 ?x2 = _ |- _] =>
@@ -160,11 +160,18 @@ Module RWEvent <: OrderedTypeWithLeibniz.
 
   Include Raw <+ BoolOrderedType.Make (Raw).
 
-  Definition is_writing (e:t): option (Loc.t * Const.t) :=
+  Definition is_writing (e:t): option (Loc.t * Const.t * Ordering.t) :=
     match e with
     | read _ _ _ => None
-    | write loc val _ => Some (loc, val)
-    | update loc _ val _ => Some (loc, val)
+    | write loc val ord => Some (loc, val, ord)
+    | update loc _ val ord => Some (loc, val, ord)
+    end.
+
+  Definition is_reading (e:t): option (Loc.t * Const.t * Ordering.t) :=
+    match e with
+    | read loc val ord => Some (loc, val, ord)
+    | write _ _ _ => None
+    | update loc val _ ord => Some (loc, val, ord)
     end.
 
   Definition get_ordering (e:t): Ordering.t :=

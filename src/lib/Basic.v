@@ -61,3 +61,11 @@ Notation rtc := (clos_refl_trans _). (* reflexive transitive closure *)
 Notation rc := (clos_refl _). (* reflexive transitive closure *)
 Notation tc := (clos_trans _). (* transitive closure *)
 Hint Immediate rt_step rt_refl t_step.
+
+Inductive compose A (rel1 rel2:relation A): relation A :=
+| compose_intro
+    x y z
+    (REL1: rel1 x y)
+    (REL2: rel2 y z):
+    compose rel1 rel2 x z
+.
