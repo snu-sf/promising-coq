@@ -43,6 +43,11 @@ Module Configuration.
       (CONSISTENT: Memory.consistent (Memory.mk m1.(Memory.buffers) (InceptionSet.add inception m1.(Memory.inceptions)))):
       internal_step (mk c1 th1 m1)
                     (mk c1 th1 (Memory.mk m1.(Memory.buffers) (InceptionSet.add inception m1.(Memory.inceptions))))
+  | step_commit
+      c1 th m c2
+      (CLOCK: Clock.le c1 c2):
+      internal_step (mk c1 th m)
+                    (mk c2 th m)
 
   with internal_steps: forall (c1 c2:t), Prop :=
   | steps_nil c:
@@ -68,12 +73,6 @@ Module Configuration.
       (CONSISTENT: Memory.consistent c2.(memory))
       (FEASIBLE: feasible c2):
       step c1 None c2
-  | step_commit
-      c1 th m c2
-      (MEMORY: InceptionSet.Empty m.(Memory.inceptions))
-      (CLOCK: Clock.le c1 c2)
-      (FEASIBLE: feasible (mk c2 th m)):
-      step (mk c1 th m) None (mk c2 th m)
   | step_syscall
       c th1 m i e th2
       (PROGRAM: Program.step th1 i (Some (ThreadEvent.syscall e)) th2)
