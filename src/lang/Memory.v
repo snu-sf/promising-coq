@@ -375,56 +375,62 @@ Module Memory.
                   m.(inceptions)))
     end.
 
-  Definition timestamp (loc:Loc.t) (m:t): nat :=
+  Definition timestamp (i:Ident.t) (loc:Loc.t) (m:t): nat :=
+    match IdentMap.find i m.(buffers) with
+    | Some b => Buffer.timestamp loc b
+    | None => 0
+    end.
+
+  Definition timestamp_buffers (loc:Loc.t) (m:t): nat :=
     IdentMap.fold
       (fun _ b res => max (Buffer.timestamp loc b) res)
       m.(buffers)
       0%nat.
 
-  Inductive message (c1:Clock.t) (m1:t) (i:Ident.t): forall (e:ThreadEvent.mem_t) (c2:Clock.t) (msg:Message.t), Prop :=
+  Inductive message (c:Clock.t) (m1:t) (i:Ident.t): forall (e:ThreadEvent.mem_t) (msg:Message.t), Prop :=
   | message_read
       ew ts posw loc val ordw
       ordr
       (MESSAGE: In m1 (Message.rw ew ts) posw)
       (READ: RWEvent.is_writing ew = Some (loc, val, ordw))
       (POSITION: ~ Position.is_inception_of posw i)
-      (TIMESTAMP: Clock.timestamp i loc c1 <= ts):
-      message c1 m1 i
+      (TIMESTAMP1: Clock.timestamp i loc c <= ts)
+      (TIMESTAMP2: timestamp i loc m1 <= ts):
+      message c m1 i
            (ThreadEvent.rw (RWEvent.read loc val ordr))
-           c1
            (Message.rw (RWEvent.read loc val ordr) ts)
   | message_write
       loc val ord ts
-      (TIMESTAMP: timestamp loc m1 < ts):
-      message c1 m1 i
+      (TIMESTAMP: timestamp_buffers loc m1 < ts):
+      message c m1 i
            (ThreadEvent.rw (RWEvent.write loc val ord))
-           (Clock.add i loc ts c1)
            (Message.rw (RWEvent.write loc val ord) ts)
   | message_update
       ew posw loc valr valw ordw
       ordu
-      (MESSAGE: In m1 (Message.rw ew (timestamp loc m1)) posw)
+      (MESSAGE: In m1 (Message.rw ew (timestamp_buffers loc m1)) posw)
       (READ: RWEvent.is_writing ew = Some (loc, valr, ordw))
       (POSITION: ~ Position.is_inception_of posw i):
-      message c1 m1 i
+      message c m1 i
            (ThreadEvent.rw (RWEvent.update loc valr valw ordu))
-           (Clock.add i loc ((timestamp loc m1) + 1) c1)
-           (Message.rw (RWEvent.update loc valr valw ordu) ((timestamp loc m1) + 1))
+           (Message.rw (RWEvent.update loc valr valw ordu) ((timestamp_buffers loc m1) + 1))
   | message_fence
       ordf:
-      message c1 m1 i (ThreadEvent.fence ordf) c1 (Message.fence ordf)
+      message c m1 i (ThreadEvent.fence ordf) (Message.fence ordf)
   .
 
-  Inductive step (c1:Clock.t) (m1:t) (i:Ident.t): forall (e:ThreadEvent.mem_t) (c2:Clock.t) (m2:t), Prop :=
-  | step_intro
-      e c2 msg pos m2
-      (MESSAGE: message c1 m1 i e c2 msg)
+  Inductive step (c:Clock.t) (m1:t) (i:Ident.t): forall (e:option ThreadEvent.mem_t) (m2:t), Prop :=
+  | step_None:
+      step c m1 i None m1
+  | step_Some
+      e msg pos m2
+      (MESSAGE: message c m1 i e msg)
       (ADD: Memory.add_message i msg m1 = Some (pos, m2))
       (NRSEQ: InceptionSet.For_all
                 (fun inception => ~ Memory.rseq m2 pos (Memory.Position.inception inception))
                 m2.(Memory.inceptions))
       (CONSISTENT: Memory.consistent m2):
-      step c1 m1 i e c2 m2
+      step c m1 i (Some e) m2
   .
 
   Inductive inception (m:t): forall inception, Prop :=
@@ -436,5 +442,12 @@ Module Memory.
       (NRELEASE: ~ Ordering.ord Ordering.release (RWEvent.get_ordering ew))
       (PROGRAM: IdentSet.mem i ths):
       inception m (Inception.mk (Message.rw ew ts) ths)
+  .
+
+  Inductive inceptionless i (m:t): Prop :=
+  | inceptionness_intro
+      (INCEPTIONLESS: InceptionSet.For_all
+                        (fun inception => negb (IdentSet.mem i inception.(Inception.threads)))
+                        m.(Memory.inceptions))
   .
 End Memory.

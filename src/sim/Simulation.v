@@ -74,13 +74,13 @@ Module Simulation.
         <<STEP: Configuration.internal_step src1 src2>> /\
         <<SIM: sim src2 (Configuration.mk c0_tgt th0_tgt (Memory.mk m0_tgt.(Memory.buffers) (InceptionSet.add inception m0_tgt.(Memory.inceptions))))>>.
 
-    Definition SYSCALL_STEP: Prop :=
+    Definition EXTERNAL_STEP: Prop :=
       forall src0 tgt0 e tgt2
         (SIM: sim src0 tgt0)
-        (STEP: Configuration.step tgt0 (Some e) tgt2),
+        (STEP: Configuration.external_step tgt0 e tgt2),
       exists src1 src2,
         <<INTERNAL: Configuration.internal_steps src0 src1>> /\
-        <<STEP: Configuration.step src1 (Some e) src2>> /\
+        <<STEP: Configuration.external_step src1 e src2>> /\
         <<SIM: sim src2 tgt2>>.
 
     Lemma internal_step (B:BASE_STEP) (I:INCEPTION_STEP):
@@ -113,18 +113,29 @@ Module Simulation.
           econs; eauto. econs.
     Qed.
 
-    Lemma step_lemma (F:FEASIBLE) (B:BASE_STEP) (I:INCEPTION_STEP) (S:SYSCALL_STEP): STEP.
+    Lemma feasible_lemma (F:FEASIBLE) (B:BASE_STEP) (I:INCEPTION_STEP)
+          src tgt
+          (SIM: sim src tgt)
+          (FEASIBLE: Configuration.feasible tgt):
+      Configuration.feasible src.
+    Proof.
+      inv FEASIBLE. exploit internal_steps; eauto. i. des.
+      exploit F; eauto. intro X. inv X.
+      econs; [|eauto].
+      eapply Configuration.internal_steps_append; eauto.
+    Qed.
+
+    Lemma step_lemma (F:FEASIBLE) (B:BASE_STEP) (I:INCEPTION_STEP) (E:EXTERNAL_STEP): STEP.
     Proof.
       ii. inv STEP0.
       - exploit internal_step; eauto. i. des.
         eexists _, _. splits; eauto.
         econs; eauto.
-        inv FEASIBLE0. exploit internal_steps; eauto. i. des.
-        exploit F; eauto. intro FEASIBLE. inv FEASIBLE.
-        econs; [|eauto].
-        eapply Configuration.internal_steps_append; eauto.
-      - exploit S; eauto.
+        eapply feasible_lemma; eauto.
+      - exploit E; eauto. i. des.
+        eexists _, _. splits; eauto.
         econs; eauto.
+        eapply feasible_lemma; eauto.
     Qed.
   End Simulation.
 

@@ -244,53 +244,52 @@ Admitted.
 Lemma sim_base i: Simulation.BASE_STEP (sim_configuration i).
 Proof.
   ii. inv SIM. inv STEP.
-  - destruct (Ident.eq_dec i i0).
-    + subst i0. inv PROGRAM.
-      rewrite IdentMap.Facts.add_eq_o in *; auto.
-      inv THREAD. inv STEP. inv CONTEXT.
-      * admit. (* program step, sim *)
-      * apply sim_consumed_thread_inv in THREAD2. des. subst.
-        inv THREAD0. apply inj_pair2 in H1. subst.
-        inv THREAD1.
-        admit. (* reordered instr should emit mem events: REORDER & STEP0 *)
-    + inv PROGRAM. rewrite IdentMap.Facts.add_neq_o in *; auto.
-      eexists _, _. splits.
+  destruct (Ident.eq_dec i i0).
+  - subst i0. inv PROGRAM.
+    rewrite IdentMap.Facts.add_eq_o in *; auto.
+    inv THREAD. inv STEP. inv CONTEXT.
+    + admit. (* program step, sim *)
+    + apply sim_consumed_thread_inv in THREAD2. des. subst.
+      inv THREAD0. apply inj_pair2 in H1. subst.
+      inv THREAD1.
+      admit. (* reordered instr should emit mem events: REORDER & STEP0 *)
+  - inv PROGRAM. rewrite IdentMap.Facts.add_neq_o in *; auto.
+    inv MEMORY.
+    + eexists _, _. splits.
       * econs 1.
-      * econs 1. econs. econs; eauto.
+      * econs 1. repeat (econs; eauto).
       * econs; eauto.
         { rewrite IdentMap.Facts.add_neq_o; auto. }
         { apply IdentMap.add_add. auto. }
-  - admit. (* mem step *)
-  - inv CONTEXT.
-    + eexists _, _. splits.
-      * econs 1.
-      * econs 1. econs 3. eauto.
-      * econs; eauto. econs 1; eauto.
-    + eexists _, _. splits.
-      * econs 1.
-      * econs 1. econs 3. eauto.
-      * econs; eauto. econs 2; eauto.
+    + admit. (* mem step *)
 Admitted.
 
 Lemma sim_inception i: Simulation.INCEPTION_STEP (sim_configuration i).
 Proof.
 Admitted.
 
-Lemma sim_syscall i: Simulation.SYSCALL_STEP (sim_configuration i).
+Lemma sim_external i: Simulation.EXTERNAL_STEP (sim_configuration i).
 Proof.
-  ii. inv STEP. inv PROGRAM. inv STEP. inv SIM. simpl in *.
-  rewrite IdentMap.Facts.add_o in *. destruct (IdentMap.Facts.eq_dec i i0).
-  - subst. 
-    admit. (* the reordered thread syscalled *)
+  ii. inv SIM. inv STEP.
   - eexists _, _. splits.
     + econs 1.
-    + econs 2; simpl in *.
-      * econs; eauto. econs. eauto.
-      * admit. (* inceptions *)
-      * admit. (* feasible *)
+    + econs 1. inv CONTEXT; eauto.
+      admit. (* Clock.le transitive *)
     + econs; eauto.
-      * rewrite IdentMap.Facts.add_neq_o; auto.
-      * apply IdentMap.add_add. auto.
+      inv CONTEXT; [econs 1|econs 2]; eauto.
+      admit. (* Clock.le reflexive *)
+  - inv PROGRAM. inv STEP. simpl in *.
+    rewrite IdentMap.Facts.add_o in *. destruct (IdentMap.Facts.eq_dec i i0).
+    + subst. 
+      admit. (* the reordered thread syscalled *)
+    + eexists _, _. splits.
+      * econs 1.
+      * econs 2; simpl in *.
+        { econs; eauto. econs. eauto. }
+        { admit. (* inceptions *) }
+      * econs; eauto.
+        { rewrite IdentMap.Facts.add_neq_o; auto. }
+        { apply IdentMap.add_add. auto. }
 Admitted.
 
 Lemma sim_terminal i: Simulation.TERMINAL (sim_configuration i).
@@ -320,5 +319,5 @@ Definition sim
        (@sim_feasible _)
        (@sim_base _)
        (@sim_inception _)
-       (@sim_syscall _))
+       (@sim_external _))
     (@sim_terminal _).

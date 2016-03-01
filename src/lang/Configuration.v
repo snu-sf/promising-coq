@@ -26,20 +26,12 @@ Module Configuration.
   .
 
   Inductive base_step: forall (c1 c2:t), Prop :=
-  | step_tau
-      c th1 th2 i m
-      (PROGRAM: Program.step th1 i None th2):
-      base_step (mk c th1 m) (mk c th2 m)
-  | step_mem
-      i e
-      c1 c2 th1 th2 m1 m2
-      (PROGRAM: Program.step th1 i (Some (ThreadEvent.mem e)) th2)
-      (MEMORY: Memory.step c1 m1 i e c2 m2):
-      base_step (mk c1 th1 m1) (mk c2 th2 m2)
-  | step_commit
-      c1 th m c2
-      (CLOCK: Clock.le c1 c2):
-      base_step (mk c1 th m) (mk c2 th m)
+  | base_step_intro
+      c i e
+      th1 th2 m1 m2
+      (PROGRAM: Program.step th1 i (option_map ThreadEvent.mem e) th2)
+      (MEMORY: Memory.step c m1 i e m2):
+      base_step (mk c th1 m1) (mk c th2 m2)
   .
 
   Inductive internal_step: forall (c1 c2:t), Prop :=
@@ -82,19 +74,29 @@ Module Configuration.
       (INCEPTIONS: InceptionSet.Empty c'.(memory).(Memory.inceptions))
   .
 
+  Inductive external_step: forall (c1:t) (e:option Event.t) (c2:t), Prop :=
+  | step_commit
+      c1 th m c2
+      (CLOCK: Clock.le c1 c2):
+      external_step (Configuration.mk c1 th m) None (Configuration.mk c2 th m)
+  | step_syscall
+      c th1 m i e th2
+      (PROGRAM: Program.step th1 i (Some (ThreadEvent.syscall e)) th2)
+      (INCEPTIONS: Memory.inceptionless i m):
+      external_step (mk c th1 m) (Some e) (mk c th2 m)
+  .
+
   Inductive step: forall (c1:t) (e:option Event.t) (c2:t), Prop :=
   | step_internal
       c1 c2
       (STEP: internal_step c1 c2)
       (FEASIBLE: feasible c2):
       step c1 None c2
-  | step_syscall
-      c th1 m i e th2
-      (PROGRAM: Program.step th1 i (Some (ThreadEvent.syscall e)) th2)
-      (INCEPTIONS: InceptionSet.For_all
-                     (fun inception => negb (IdentSet.mem i inception.(Inception.threads)))
-                     m.(Memory.inceptions))
-      (FEASIBLE: feasible (mk c th2 m)):
-      step (mk c th1 m) (Some e) (mk c th2 m)
+  | step_external
+      c1 c2
+      e
+      (STEP: external_step c1 e c2)
+      (FEASIBLE: feasible c2):
+      step c1 e c2
   .
 End Configuration.
