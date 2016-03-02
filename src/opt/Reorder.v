@@ -211,9 +211,9 @@ Inductive sim_configuration i: forall (conf1 conf2:Configuration.t), Prop :=
     c1 c2 th1 th2 b1 b2 inceptions1 inceptions2
     p1 p2 bs1 bs2
     (PROGRAM1: IdentMap.find i p1 = Some th1)
-    (BUFFER1: IdentMap.find i bs1 = Some b1)
+    (BUFFER1: IdentFun.find i bs1 = b1)
     (PROGRAM2: p2 = IdentMap.add i th2 p1)
-    (BUFFER2: bs2 = IdentMap.add i b2 bs1)
+    (BUFFER2: bs2 = IdentFun.add i b2 bs1)
     (CONTEXT: sim_context i c1 c2 th1 th2 b1 b2 inceptions1 inceptions2):
     sim_configuration
       i
@@ -230,11 +230,8 @@ Proof.
   - unfold Program.load.
     rewrite IdentMap.Facts.map_o, TH1.
     simpl. eauto.
-  - unfold Program.load.
-    rewrite IdentMap.Facts.map_o, TH1.
-    simpl. eauto.
   - apply IdentMap.map_add.
-  - apply IdentMap.map_add.
+  - rewrite IdentFun.add_init. auto.
   - inv REORDER0. econs. eauto.
 Qed.
 
@@ -290,32 +287,24 @@ Proof.
       * econs; eauto.
         { rewrite IdentMap.Facts.add_neq_o; auto. }
         { apply IdentMap.add_add. auto. }
-    + unfold Memory.add_message in ADD. simpl in *.
-      rewrite IdentMap.Facts.add_neq_o in *; auto.
-      destruct (IdentMap.find i0 bs1) eqn:BUFFER; inv ADD. simpl in *.
+    + inv ADD. rewrite IdentFun.add_spec_neq in *; auto.
       eexists _, _. splits; eauto.
       * econs 1.
       * econs 1. econs.
-        { repeat (econs; eauto).
-          instantiate (2 := Some _).
-          apply STEP.
-        }
+        { repeat (econs; eauto). }
         econs.
         { 
 
 admit. (* Memory.message *) }
-        { unfold Memory.add_message. simpl in *.
-          rewrite BUFFER. f_equal.
-        }
+        { unfold Memory.add_message. simpl in *. eauto. }
         { simpl in *.
           admit.
         }
         { admit. }
       * econs; eauto.
         { rewrite IdentMap.Facts.add_neq_o; eauto. }
-        { rewrite IdentMap.Facts.add_neq_o; eauto. }
         { apply IdentMap.add_add. auto. }
-        { apply IdentMap.add_add. auto. }
+        { apply IdentFun.add_add. auto. }
         admit. (* sim_context *)
 Admitted.
 

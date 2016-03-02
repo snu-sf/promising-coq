@@ -34,13 +34,43 @@ Module UsualFun (A:UsualDecidableType).
       else find a' f.
     Proof. auto. Qed.
 
-    Lemma add_twice a1 a2 b1 b2 f
+    Lemma add_spec_eq a b f:
+      find a (add a b f) = b.
+    Proof.
+      rewrite add_spec.
+      destruct (A.eq_dec a a); auto.
+      congruence.
+    Qed.
+
+    Lemma add_spec_neq a' a b f (NEQ: a' <> a):
+      find a' (add a b f) = find a' f.
+    Proof.
+      rewrite add_spec.
+      destruct (A.eq_dec a' a); auto.
+      congruence.
+    Qed.
+
+    Lemma extensionality lhs rhs
+          (EQ: forall i, find i lhs = find i rhs):
+      lhs = rhs.
+    Proof. extensionality i. apply EQ. Qed.
+
+    Lemma add_add a1 a2 b1 b2 f
           (DIFF: a1 <> a2):
       add a1 b1 (add a2 b2 f) = add a2 b2 (add a1 b1 f).
     Proof.
-      extensionality i. unfold add, find.
+      apply extensionality. i.
+      rewrite ? add_spec.
       destruct (A.eq_dec i a1), (A.eq_dec i a2); auto.
       congruence.
+    Qed.
+
+    Lemma add_init a b:
+      add a b (init b) = init b.
+    Proof.
+      apply extensionality. i.
+      rewrite add_spec.
+      destruct (A.eq_dec i a); auto.
     Qed.
   End UsualFun.
 End UsualFun.
