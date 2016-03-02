@@ -26,6 +26,7 @@ Module Simulation.
 
     Definition LOAD: Prop := sim (Configuration.load prog_src) (Configuration.load prog_tgt).
 
+    (* TODO: too weak a step lemma *)
     Definition STEP: Prop :=
       forall src0 tgt0 e tgt2
         (SIM: sim src0 tgt0)
@@ -64,8 +65,7 @@ Module Simulation.
         c1_tgt th1_tgt m1_tgt
         inception
         (STEPS_TGT: Configuration.internal_steps (Configuration.mk c0_tgt th0_tgt m0_tgt) (Configuration.mk c1_tgt th1_tgt m1_tgt))
-        (INCEPTION: Memory.inception m1_tgt inception)
-        (CONSISTENT: Memory.consistent (Memory.mk m0_tgt.(Memory.buffers) (InceptionSet.add inception m0_tgt.(Memory.inceptions))))
+        (INCEPTION: Memory.inception m0_tgt m1_tgt inception)
         (SIM0: sim src0 (Configuration.mk c0_tgt th0_tgt m0_tgt))
         (STEPS_SRC: Configuration.internal_steps src0 src1)
         (SIM1: sim src1 (Configuration.mk c1_tgt th1_tgt m1_tgt)),

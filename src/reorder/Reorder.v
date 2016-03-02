@@ -18,17 +18,16 @@ Set Implicit Arguments.
 
 (* TODO: now supporting only the reordering of load and store *)
 
-Definition reordered_instr (i1 i2:Instr.t): bool :=
-  match i1, i2 with
-  | Instr.load r1 l1 o1,
-    Instr.store l2 v2 o2 =>
-    (negb (Loc.eqb l1 l2)) &&
-    (RegSet.is_empty (RegSet.inter (Instr.regs_of i1) (Instr.regs_of i2))) &&
-    (negb (Ordering.ord Ordering.acquire o1)) &&
-    (negb (Ordering.ord Ordering.release o2))
-  | _, _ =>
-    false
-  end.
+Inductive reordered_instr: forall (i1 i2:Instr.t), Prop :=
+| reordered_instr_load_store
+    r1 l1 o1
+    l2 v2 o2
+    (LOC: l1 <> l2)
+    (DISJOINT: RegSet.disjoint (Instr.regs_of (Instr.load r1 l1 o1)) (Instr.regs_of (Instr.store l2 v2 o2)))
+    (ORDERING1: ~ Ordering.ord Ordering.acquire o1)
+    (ORDERING1: ~ Ordering.ord Ordering.release o2):
+    reordered_instr (Instr.load r1 l1 o1) (Instr.store l2 v2 o2)
+.
 
 Inductive reordered_stmt: forall (s1 s2:Stmt.t), Prop :=
 | reordered_stmt_instr i:
@@ -104,6 +103,17 @@ Inductive sim_thread: forall (th1 th2:Thread.t), Prop :=
       (Thread.mk lang (State.mk rs s2))
 .
 
+(* TODO: refactoring *)
+Lemma sim_thread_inv
+      th1 th2 (SIM: sim_thread th1 th2):
+  exists rs s1 s2,
+    th1 = Thread.mk lang (State.mk rs s1) /\
+    th2 = Thread.mk lang (State.mk rs s2) /\
+    reordered_stmts s1 s2.
+Proof.
+  inv SIM. eexists _, _, _. splits; eauto.
+Qed.
+
 Inductive sim_consumed_thread (e:option RWEvent.t): forall (th1 th2:Thread.t), Prop :=
 | sim_consumed_thread_intro
     rs1 rs2 s1 s2 i
@@ -115,6 +125,7 @@ Inductive sim_consumed_thread (e:option RWEvent.t): forall (th1 th2:Thread.t), P
       (Thread.mk lang (State.mk rs2 s2))
 .
 
+(* TODO: refactoring *)
 Lemma sim_consumed_thread_inv
       e th1 th2 (SIM: sim_consumed_thread e th1 th2):
   exists rs1 rs2 s1 s2 i,
@@ -229,7 +240,7 @@ Qed.
 
 Lemma sim_feasible i: Simulation.FEASIBLE (sim_configuration i).
 Proof.
-  ii. inv SIM. simpl in *.
+  ii. inversion SIM. subst. simpl in *.
   inv CONTEXT.
   { repeat econs. auto. }
   inv INCEPTIONS.
@@ -237,8 +248,24 @@ Proof.
   simpl in *. inv THREAD2. inv BUFFER2. inv CONSUMED. simpl in *.
   econs; [econs 2; [|econs 2; [|econs 1]]|].
   - admit. (* we can execute i1 *)
-  - admit. (* we can execute i2 *)
-  - admit. (* the execution of i2 removes the only inception *)
+  - admit. (* we can execute i0 *)
+  - admit. (* the execution of i0 removes the only inception *)
+Admitted.
+
+Lemma sim_Memory_message c1 c2 m1 m2 i e msg
+      (CLOCK: Clock.le c1 c2)
+      (MESSAGE: Memory.message c2 m2 i e msg):
+  Memory.message c1 m1 i e msg.
+Proof.
+  inv MESSAGE.
+  - econs.
+    admit.
+  - econs.
+    admit.
+  - econs.
+    admit.
+    admit.
+  - econs.
 Admitted.
 
 Lemma sim_base i: Simulation.BASE_STEP (sim_configuration i).
@@ -248,7 +275,9 @@ Proof.
   - subst i0. inv PROGRAM.
     rewrite IdentMap.Facts.add_eq_o in *; auto.
     inv THREAD. inv STEP. inv CONTEXT.
-    + admit. (* program step, sim *)
+    + apply sim_thread_inv in THREAD. des. subst.
+      inv THREAD0. apply inj_pair2 in H1. subst.
+      admit. (* program step, sim *)
     + apply sim_consumed_thread_inv in THREAD2. des. subst.
       inv THREAD0. apply inj_pair2 in H1. subst.
       inv THREAD1.
@@ -261,7 +290,33 @@ Proof.
       * econs; eauto.
         { rewrite IdentMap.Facts.add_neq_o; auto. }
         { apply IdentMap.add_add. auto. }
-    + admit. (* mem step *)
+    + unfold Memory.add_message in ADD. simpl in *.
+      rewrite IdentMap.Facts.add_neq_o in *; auto.
+      destruct (IdentMap.find i0 bs1) eqn:BUFFER; inv ADD. simpl in *.
+      eexists _, _. splits; eauto.
+      * econs 1.
+      * econs 1. econs.
+        { repeat (econs; eauto).
+          instantiate (2 := Some _).
+          apply STEP.
+        }
+        econs.
+        { 
+
+admit. (* Memory.message *) }
+        { unfold Memory.add_message. simpl in *.
+          rewrite BUFFER. f_equal.
+        }
+        { simpl in *.
+          admit.
+        }
+        { admit. }
+      * econs; eauto.
+        { rewrite IdentMap.Facts.add_neq_o; eauto. }
+        { rewrite IdentMap.Facts.add_neq_o; eauto. }
+        { apply IdentMap.add_add. auto. }
+        { apply IdentMap.add_add. auto. }
+        admit. (* sim_context *)
 Admitted.
 
 Lemma sim_inception i: Simulation.INCEPTION_STEP (sim_configuration i).

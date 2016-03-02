@@ -42,8 +42,7 @@ Module Configuration.
   | step_inception
       c1 c2 th1 th2 m1 m2 inception
       (STEPS: internal_steps (mk c1 th1 m1) (mk c2 th2 m2))
-      (INCEPTION: Memory.inception m2 inception)
-      (CONSISTENT: Memory.consistent (Memory.mk m1.(Memory.buffers) (InceptionSet.add inception m1.(Memory.inceptions)))):
+      (INCEPTION: Memory.inception m1 m2 inception):
       internal_step (mk c1 th1 m1)
                     (mk c1 th1 (Memory.mk m1.(Memory.buffers) (InceptionSet.add inception m1.(Memory.inceptions))))
 

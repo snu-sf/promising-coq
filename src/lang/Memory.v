@@ -18,6 +18,25 @@ Set Implicit Arguments.
 Import ListNotations.
 
 
+Module Clock.
+  Definition t := IdentFun.t (LocFun.t nat).
+
+  Definition init := IdentFun.init (LocFun.init 0).
+
+  Definition le (lhs rhs:t): Prop :=
+    forall tid loc, LocFun.find loc (IdentFun.find tid lhs) <= LocFun.find loc (IdentFun.find tid rhs).
+
+  Definition add tid loc ts (c:t): t :=
+    IdentFun.add
+      tid
+      (LocFun.add loc ts (IdentFun.find tid c))
+      c.
+
+  Definition timestamp tid loc (c:t) :=
+    LocFun.find loc (IdentFun.find tid c).
+End Clock.
+
+
 Module Message <: OrderedTypeWithLeibniz.
   Module Raw <: BoolOrderedType.S.
     Inductive t_ :=
@@ -102,17 +121,42 @@ Module Message <: OrderedTypeWithLeibniz.
     | fence _ => false
     end.
 
+  Inductive rseq: relation Message.t :=
+  | rseq_writing
+      e1 e2 ts1 ts2 loc val1 val2 ord1 ord2
+      (WRITE1: RWEvent.is_writing e1 = Some (loc, val1, ord1))
+      (WRITE2: RWEvent.is_writing e2 = Some (loc, val2, ord2))
+      (ORDERING: Ordering.ord Ordering.release ord1):
+      rseq (rw e1 ts1) (rw e1 ts2)
+  | rseq_fence
+      ord msg2
+      (ORDERING: Ordering.ord Ordering.release ord):
+      rseq (fence ord) msg2
+  .
+
   Definition get_memevent (msg:t): ThreadEvent.mem_t :=
     match msg with
     | rw e _ => ThreadEvent.rw e
     | fence ord => ThreadEvent.fence ord
+    end.
+
+  Definition timestamp (loc:Loc.t) (msg:t): option nat :=
+    match msg with
+    | rw event ts =>
+      if option_eq_dec
+           Loc.eq_dec
+           (option_map (fst <*> fst) (RWEvent.is_writing event))
+           (Some loc)
+      then Some ts
+      else None
+    | _ => None
     end.
 End Message.
 
 Module Inception <: OrderedTypeWithLeibniz.
   Module Raw <: BoolOrderedType.S.
     Structure t_ := mk {
-      msg: Message.t;
+      message: Message.t;
       threads: IdentSet.t;
     }.
     Definition t := t_.
@@ -127,7 +171,7 @@ Module Inception <: OrderedTypeWithLeibniz.
     Qed.
 
     Definition ltb (lhs rhs:t): bool :=
-      compose_comparisons [Message.compare lhs.(msg) rhs.(msg); IdentSet.compare lhs.(threads) rhs.(threads)].
+      compose_comparisons [Message.compare lhs.(message) rhs.(message); IdentSet.compare lhs.(threads) rhs.(threads)].
 
     Lemma ltb_trans (x y z:t) (XY: ltb x y) (YZ: ltb y z): ltb x z.
     Proof.
@@ -143,46 +187,23 @@ Module Inception <: OrderedTypeWithLeibniz.
   End Raw.
 
   Include Raw <+ BoolOrderedType.Make (Raw).
+
+  Definition timestamp (loc:Loc.t) (inception:t): option nat :=
+    Message.timestamp loc inception.(message).
 End Inception.
 
 Module InceptionSet.
   Include UsualSet (Inception).
 
-  Definition timestamp (loc:Loc.t) (inceptions:t): nat :=
-    fold
-      (fun inception res =>
-         match inception with
-         | Inception.mk (Message.rw event timestamp) _ =>
-           if option_eq_dec
-                Loc.eq_dec
-                (option_map (fst <*> fst) (RWEvent.is_writing event))
-                (Some loc)
-           then max timestamp res
-           else res
-         | _ => res
+  Definition has_timestamp (loc:Loc.t) (ts:nat) (inceptions:t): bool :=
+    exists_
+      (fun inception =>
+         match Inception.timestamp loc inception with
+         | None => false
+         | Some ts' => Nat.eqb ts' ts
          end)
-      inceptions
-      0.
+      inceptions.
 End InceptionSet.
-
-
-Module Clock.
-  Definition t := IdentFun.t (LocFun.t nat).
-
-  Definition init := IdentFun.init (LocFun.init 0).
-
-  Definition le (lhs rhs:t): Prop :=
-    forall i loc, LocFun.find loc (IdentFun.find i lhs) <= LocFun.find loc (IdentFun.find i rhs).
-
-  Definition add i loc ts (c:t): t :=
-    IdentFun.add
-      i
-      (LocFun.add loc ts (IdentFun.find i c))
-      c.
-
-  Definition timestamp i loc (c:t) :=
-    LocFun.find loc (IdentFun.find i c).
-End Clock.
 
 
 Module Buffer.
@@ -190,21 +211,14 @@ Module Buffer.
 
   Definition empty: t := nil.
 
-  Definition timestamp (loc:Loc.t) (b:t): nat :=
-    List.fold_left
-      (fun res msg =>
-         match msg with
-         | Message.rw event timestamp =>
-           if option_eq_dec
-                Loc.eq_dec
-                (option_map (fst <*> fst) (RWEvent.is_writing event))
-                (Some loc)
-           then max timestamp res
-           else res
-         | _ => res
+  Definition has_timestamp (loc:Loc.t) (ts:nat) (b:t): bool :=
+    List.existsb
+      (fun msg =>
+         match Message.timestamp loc msg with
+         | Some timestamp => Nat.eqb timestamp ts
+         | None => false
          end)
-      b
-      0.
+      b.
 End Buffer.
 
 Module Memory.
@@ -221,24 +235,24 @@ Module Memory.
   Module Position.
     Inductive t :=
     | init
-    | buffer (i:Ident.t) (pos:nat)
-    | inception (i:Inception.t)
+    | buffer (tid:Ident.t) (pos:nat)
+    | inception (inception:Inception.t)
     .
 
-    Definition is_inception_of (p:t) (i:Ident.t): bool :=
+    Definition is_inception_of (p:t) (tid:Ident.t): bool :=
       match p with
-      | inception (Inception.mk _ threads) => IdentSet.mem i threads
+      | inception (Inception.mk _ threads) => IdentSet.mem tid threads
       | _ => false
       end.
 
     Inductive sb: relation t :=
     | sb_init
-        i pos:
-        sb init (buffer i pos)
+        tid pos:
+        sb init (buffer tid pos)
     | sb_buffer
-        i pos1 pos2
+        tid pos1 pos2
         (LT: pos1 < pos2):
-        sb (buffer i pos1) (buffer i pos2)
+        sb (buffer tid pos1) (buffer tid pos2)
     | sb_inception
         i1 pos1 inception2
         (INCEPTION: IdentSet.mem i1 inception2.(Inception.threads)):
@@ -254,10 +268,10 @@ Module Memory.
         loc:
         In (Message.rw (RWEvent.write loc Const.zero Ordering.release) 0) Position.init
     | In_buffer
-        b msg i n
-        (BUFFER: IdentMap.find i m.(buffers) = Some b)
+        b msg tid n
+        (BUFFER: IdentMap.find tid m.(buffers) = Some b)
         (IN: List.nth_error b n = Some msg):
-        In msg (Position.buffer i n)
+        In msg (Position.buffer tid n)
     | In_inception
         msg threads
         (INCEPTION: InceptionSet.mem (Inception.mk msg threads) m.(inceptions)):
@@ -272,23 +286,6 @@ Module Memory.
         (MSG1: pred1 msg1)
         (MSG2: pred2 msg2):
         prod pred1 pred2 pos1 pos2
-    .
-
-    Inductive sbw: relation Position.t :=
-    | sbw_writing
-        pos1 pos2 e1 e2 ts1 ts2 loc val1 val2 ord1 ord2
-        (SB: Position.sb pos1 pos2)
-        (POS1: In (Message.rw e1 ts1) pos1)
-        (POS2: In (Message.rw e2 ts2) pos2)
-        (WRITE1: RWEvent.is_writing e1 = Some (loc, val1, ord1))
-        (WRITE2: RWEvent.is_writing e2 = Some (loc, val2, ord2)):
-        sbw pos1 pos2
-    | sbw_fence
-        pos1 pos2 ord1 e2 ts2
-        (SB: Position.sb pos1 pos2)
-        (POS1: In (Message.fence ord1) pos1)
-        (POS2: In (Message.rw e2 ts2) pos2):
-        sbw pos1 pos2
     .
 
     Inductive mo: relation Position.t :=
@@ -326,26 +323,35 @@ Module Memory.
 
     Definition rf: relation Position.t := rfr \2/ rfu.
 
-    Definition rseq: relation Position.t := compose (rc sbw) (rtc rfu).
+    Inductive rseq_base: relation Position.t :=
+    | rseq_base_intro
+        msg_rel msg_w
+        pos_rel pos_w
+        (REL: In msg_rel pos_rel)
+        (W: In msg_w pos_w)
+        (RSEQ: Message.rseq msg_rel msg_w)
+        (SB: rc Position.sb pos_rel pos_w):
+        rseq_base pos_rel pos_w
+    .
 
+    Definition rseq := compose rseq_base (rtc rfu).
+
+    (* TODO: tight up? *)
     Inductive aseq: relation Position.t :=
     | aseq_refl
-        pos:
+        msg pos
+        (IN: In msg pos)
+        (ORDERING: Ordering.ord Ordering.acquire (Message.get_ordering msg)):
         aseq pos pos
     | aseq_fence
         pos1 pos2 ord2
         (SB: Position.sb pos1 pos2)
-        (POS2: In (Message.fence ord2) pos2):
+        (IN: In (Message.fence ord2) pos2)
+        (ORDERING: Ordering.ord Ordering.acquire ord2):
         aseq pos1 pos2
     .
 
-    Definition sw: relation Position.t :=
-      (compose rseq (compose rf aseq))
-        /2\
-        (prod
-           (fun msg => Ordering.ord Ordering.release (Message.get_ordering msg))
-           (fun msg => Ordering.ord Ordering.acquire (Message.get_ordering msg)))
-    .
+    Definition sw: relation Position.t := compose rseq (compose rf aseq).
 
     Definition hb: relation Position.t := tc (Position.sb \2/ sw).
 
@@ -361,93 +367,129 @@ Module Memory.
     .
   End Consistency.
 
-  Definition add_message i msg m: option (Position.t * t) :=
-    match IdentMap.find i m.(buffers) with
+  Definition add_message tid msg m: option (Position.t * t) :=
+    match IdentMap.find tid m.(buffers) with
     | None => None
     | Some b =>
-      Some (Position.buffer i (List.length b),
-            mk (IdentMap.add i (b ++ [msg]) m.(buffers))
+      Some (Position.buffer tid (List.length b),
+            mk (IdentMap.add tid (b ++ [msg]) m.(buffers))
                (InceptionSet.filter
                   (fun inception =>
-                     if Message.eq_dec msg inception.(Inception.msg)
-                     then negb (IdentSet.mem i inception.(Inception.threads))
+                     if Message.eq_dec msg inception.(Inception.message)
+                     then negb (IdentSet.mem tid inception.(Inception.threads))
                      else true)
                   m.(inceptions)))
     end.
 
-  Definition timestamp (i:Ident.t) (loc:Loc.t) (m:t): nat :=
-    match IdentMap.find i m.(buffers) with
-    | Some b => Buffer.timestamp loc b
-    | None => 0
-    end.
+  Definition has_timestamp (loc:Loc.t) (ts:nat) (m:t): bool :=
+    IdentMap.Properties.exists_ (fun _ => Buffer.has_timestamp loc ts) m.(buffers) ||
+    InceptionSet.has_timestamp loc ts m.(inceptions).
 
-  Definition timestamp_buffers (loc:Loc.t) (m:t): nat :=
-    IdentMap.fold
-      (fun _ b res => max (Buffer.timestamp loc b) res)
-      m.(buffers)
-      0%nat.
+  Definition acquirable (c:Clock.t) (tid:Ident.t) (m:t) (pos_w:Position.t): Prop :=
+    forall e ts loc val ord pos pos_rel
+      (MESSAGE: In m (Message.rw e ts) pos)
+      (WRITING: RWEvent.is_writing e = Some (loc, val, ord))
+      (SB: rc Position.sb pos pos_rel)
+      (RSEQ: rseq m pos_rel pos_w),
+      ts <= Clock.timestamp tid loc c.
 
-  Inductive message (c:Clock.t) (m1:t) (i:Ident.t): forall (e:ThreadEvent.mem_t) (msg:Message.t), Prop :=
+  Definition releasable (c:Clock.t) (tid:Ident.t) (m:t) (loc:Loc.t): Prop :=
+    forall e val ord ts threads
+      (WRITING: RWEvent.is_writing e = Some (loc, val, ord))
+      (THREADS: IdentSet.mem tid threads)
+      (INCEPTION: InceptionSet.mem (Inception.mk (Message.rw e ts) threads) m.(inceptions)),
+      False.
+
+  Inductive readable (c:Clock.t) (tid:Ident.t) (m:t) (loc:Loc.t) (val:Const.t) (ts:nat) (ord:Ordering.t): Prop :=
+  | readable_intro
+      e ordw pos
+      (WRITING: RWEvent.is_writing e = Some (loc, val, ordw))
+      (POS: In m (Message.rw e ts) pos)
+      (NINCEPTION: ~ Position.is_inception_of pos tid)
+      (TIMESTAMP: Clock.timestamp tid loc c <= ts)
+      (ACQUIRE: forall (ORDERING: Ordering.ord Ordering.acquire ord), acquirable c tid m pos)
+  .
+
+  Inductive writable (c:Clock.t) (tid:Ident.t) (m:t) (loc:Loc.t) (ts:nat) (ord:Ordering.t): Prop :=
+  | writable_intro
+      (CLOCK: forall i, Clock.timestamp i loc c < ts)
+      (UNIQUE: ~ has_timestamp loc ts m)
+      (TIMESTAMP1: forall msg n timestamp
+                     (IN: In m msg (Position.buffer tid n))
+                     (TIMESTAMP: Message.timestamp loc msg = Some timestamp),
+          timestamp < ts)
+      (TIMESTAMP2: forall msg threads timestamp
+                     (IN: InceptionSet.mem (Inception.mk msg threads) m.(inceptions))
+                     (THREADS: IdentSet.mem tid threads)
+                     (TIMESTAMP: Message.timestamp loc msg = Some timestamp),
+          ts < timestamp)
+      (RELEASE: forall (ORDERING: Ordering.ord Ordering.release ord), releasable c tid m loc)
+  .
+
+  Inductive fencable (c:Clock.t) (tid:Ident.t) (m:t) (ord:Ordering.t): Prop :=
+  | fencable_intro
+      (ACQUIRE: forall pos_w n (RF: rf m pos_w (Position.buffer tid n)), acquirable c tid m pos_w)
+      (RELEASE: forall loc, releasable c tid m loc)
+  .
+
+  Inductive message (c:Clock.t) (m1:t) (tid:Ident.t): forall (e:ThreadEvent.mem_t) (msg:Message.t), Prop :=
   | message_read
-      ew ts posw loc val ordw
-      ordr
-      (MESSAGE: In m1 (Message.rw ew ts) posw)
-      (READ: RWEvent.is_writing ew = Some (loc, val, ordw))
-      (POSITION: ~ Position.is_inception_of posw i)
-      (TIMESTAMP1: Clock.timestamp i loc c <= ts)
-      (TIMESTAMP2: timestamp i loc m1 <= ts):
-      message c m1 i
-           (ThreadEvent.rw (RWEvent.read loc val ordr))
-           (Message.rw (RWEvent.read loc val ordr) ts)
+      loc val ts ord
+      (READABLE: readable c tid m1 loc val ts ord):
+      message c m1 tid
+           (ThreadEvent.rw (RWEvent.read loc val ord))
+           (Message.rw (RWEvent.read loc val ord) ts)
   | message_write
       loc val ord ts
-      (TIMESTAMP: timestamp_buffers loc m1 < ts):
-      message c m1 i
+      (WRITABLE: writable c tid m1 loc ts ord):
+      message c m1 tid
            (ThreadEvent.rw (RWEvent.write loc val ord))
            (Message.rw (RWEvent.write loc val ord) ts)
   | message_update
-      ew posw loc valr valw ordw
-      ordu
-      (MESSAGE: In m1 (Message.rw ew (timestamp_buffers loc m1)) posw)
-      (READ: RWEvent.is_writing ew = Some (loc, valr, ordw))
-      (POSITION: ~ Position.is_inception_of posw i):
-      message c m1 i
-           (ThreadEvent.rw (RWEvent.update loc valr valw ordu))
-           (Message.rw (RWEvent.update loc valr valw ordu) ((timestamp_buffers loc m1) + 1))
+      loc val ts valu ord
+      (READABLE: readable c tid m1 loc val ts ord)
+      (WRITABLE: writable c tid m1 loc (ts + 1) ord):
+      message c m1 tid
+           (ThreadEvent.rw (RWEvent.update loc val valu ord))
+           (Message.rw (RWEvent.update loc val valu ord) (ts + 1))
   | message_fence
-      ordf:
-      message c m1 i (ThreadEvent.fence ordf) (Message.fence ordf)
+      ord
+      (FENCABLE: fencable c tid m1 ord):
+      message c m1 tid (ThreadEvent.fence ord) (Message.fence ord)
   .
 
-  Inductive step (c:Clock.t) (m1:t) (i:Ident.t): forall (e:option ThreadEvent.mem_t) (m2:t), Prop :=
+  Inductive step (c:Clock.t) (m1:t) (tid:Ident.t): forall (e:option ThreadEvent.mem_t) (m2:t), Prop :=
   | step_None:
-      step c m1 i None m1
+      step c m1 tid None m1
   | step_Some
       e msg pos m2
-      (MESSAGE: message c m1 i e msg)
-      (ADD: Memory.add_message i msg m1 = Some (pos, m2))
+      (MESSAGE: message c m1 tid e msg)
+      (ADD: add_message tid msg m1 = Some (pos, m2))
       (NRSEQ: InceptionSet.For_all
-                (fun inception => ~ Memory.rseq m2 pos (Memory.Position.inception inception))
-                m2.(Memory.inceptions))
-      (CONSISTENT: Memory.consistent m2):
-      step c m1 i (Some e) m2
+                (fun inception => ~ rseq m2 pos (Position.inception inception))
+                m2.(inceptions))
+      (CONSISTENT: consistent m2):
+      step c m1 tid (Some e) m2
   .
 
-  Inductive inception (m:t): forall inception, Prop :=
+  Inductive inception (m1 m2:t): forall inception, Prop :=
   | inception_intro
-      ew ts i n ths
-      (INCEPTIONS: InceptionSet.Empty m.(inceptions))
-      (MESSAGE: In m (Message.rw ew ts) (Position.buffer i n))
+      b1 tid n ew ts ths
+      (INCEPTIONS: InceptionSet.Empty m2.(inceptions))
+      (BUFFER: IdentMap.find tid m1.(buffers) = Some b1)
+      (LENGTH: length b1 <= n)
+      (MESSAGE: In m2 (Message.rw ew ts) (Position.buffer tid n))
       (WRITING: if RWEvent.is_writing ew then true else false)
+      (READING: forall pos (RF: rf m2 pos (Position.buffer tid n)), exists msg, In m1 msg pos)
       (NRELEASE: ~ Ordering.ord Ordering.release (RWEvent.get_ordering ew))
-      (PROGRAM: IdentSet.mem i ths):
-      inception m (Inception.mk (Message.rw ew ts) ths)
+      (PROGRAM: IdentSet.mem tid ths):
+      inception m1 m2 (Inception.mk (Message.rw ew ts) ths)
   .
 
-  Inductive inceptionless i (m:t): Prop :=
+  Inductive inceptionless tid (m:t): Prop :=
   | inceptionness_intro
       (INCEPTIONLESS: InceptionSet.For_all
-                        (fun inception => negb (IdentSet.mem i inception.(Inception.threads)))
-                        m.(Memory.inceptions))
+                        (fun inception => negb (IdentSet.mem tid inception.(Inception.threads)))
+                        m.(inceptions))
   .
 End Memory.
