@@ -24,7 +24,7 @@ Module Simulation.
     Variable (prog_src prog_tgt:Program.syntax).
     Variable (sim: forall (src tgt:Configuration.t), Prop).
 
-    Definition LOAD: Prop := sim (Configuration.load prog_src) (Configuration.load prog_tgt).
+    Definition INIT: Prop := sim (Configuration.init prog_src) (Configuration.init prog_tgt).
 
     (* TODO: too weak a step lemma *)
     Definition STEP: Prop :=
@@ -142,7 +142,7 @@ Module Simulation.
   Structure t (prog_src prog_tgt:Program.syntax) := mk {
     sim: forall (src tgt:Configuration.t), Prop;
 
-    load: LOAD prog_src prog_tgt sim;
+    init: INIT prog_src prog_tgt sim;
     step: STEP sim;
     terminal: TERMINAL sim;
   }.

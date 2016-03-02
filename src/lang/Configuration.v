@@ -14,10 +14,10 @@ Module Configuration.
     memory: Memory.t;
   }.
 
-  Definition load (s:Program.syntax): Configuration.t :=
+  Definition init (s:Program.syntax): Configuration.t :=
     Configuration.mk
       Clock.init
-      (Program.load s)
+      (Program.init s)
       (Memory.init s).
 
   Inductive is_terminal (c:t): Prop :=

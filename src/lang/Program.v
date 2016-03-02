@@ -8,7 +8,7 @@ Module Language.
     syntax: Type;
     state: Type;
 
-    load: syntax -> state;
+    init: syntax -> state;
     is_terminal: state -> Prop;
     step: forall (s1:state) (e:option ThreadEvent.t) (s2:state), Prop;
   }.
@@ -25,8 +25,8 @@ Module Thread.
     state: lang.(Language.state)
   }.
 
-  Definition load (s:syntax): t :=
-    mk s.(syntax_lang) (s.(syntax_lang).(Language.load) s.(syntax_syntax)).
+  Definition init (s:syntax): t :=
+    mk s.(syntax_lang) (s.(syntax_lang).(Language.init) s.(syntax_syntax)).
 
   Definition is_terminal (th:t): Prop :=
     th.(lang).(Language.is_terminal) th.(state).
@@ -45,8 +45,8 @@ Module Program.
 
   Definition empty := IdentMap.empty Thread.t.
 
-  Definition load (s:syntax): t :=
-    IdentMap.map Thread.load s.
+  Definition init (s:syntax): t :=
+    IdentMap.map Thread.init s.
 
   Inductive is_terminal (p:t): Prop :=
   | is_terminal_intro

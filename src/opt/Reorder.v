@@ -221,13 +221,13 @@ Inductive sim_configuration i: forall (conf1 conf2:Configuration.t), Prop :=
       (Configuration.mk c2 p2 (Memory.mk bs2 inceptions2))
 .
 
-Lemma sim_load
+Lemma sim_init
       i prog_src prog_tgt
       (REORDER: reordered_program i prog_src prog_tgt):
-  Simulation.LOAD prog_src prog_tgt (sim_configuration i).
+  Simulation.INIT prog_src prog_tgt (sim_configuration i).
 Proof.
   inv REORDER. repeat econs.
-  - unfold Program.load.
+  - unfold Program.init.
     rewrite IdentMap.Facts.map_o, TH1.
     simpl. eauto.
   - apply IdentMap.map_add.
@@ -358,7 +358,7 @@ Definition sim
   Simulation.t prog_src prog_tgt :=
   Simulation.mk
     _ _
-    (sim_load REORDER)
+    (sim_init REORDER)
     (Simulation.step_lemma
        (@sim_feasible _)
        (@sim_base _)
