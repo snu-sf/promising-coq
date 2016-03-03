@@ -94,18 +94,18 @@ Inductive consumed_stmts (i2:Instr.t): forall (c1 c2:list Stmt.t), Prop :=
     consumed_stmts i2 ((Stmt.instr i1)::(Stmt.instr i2)::c1) ((Stmt.instr i1)::c2)
 .
 
-Inductive sim_thread: forall (th1 th2:Thread.t), Prop :=
-| sim_thread_intro
+Inductive sim_reordered_thread: forall (th1 th2:Thread.t), Prop :=
+| sim_reordered_thread_intro
     rs s1 s2
     (REORDER: reordered_stmts s1 s2):
-    sim_thread
+    sim_reordered_thread
       (Thread.mk lang (State.mk rs s1))
       (Thread.mk lang (State.mk rs s2))
 .
 
 (* TODO: refactoring *)
-Lemma sim_thread_inv
-      th1 th2 (SIM: sim_thread th1 th2):
+Lemma sim_reordered_thread_inv
+      th1 th2 (SIM: sim_reordered_thread th1 th2):
   exists rs s1 s2,
     th1 = Thread.mk lang (State.mk rs s1) /\
     th2 = Thread.mk lang (State.mk rs s2) /\
@@ -180,7 +180,7 @@ Inductive sim_inceptions i: forall (e:option (RWEvent.t * nat)) (inceptions1 inc
     e ts inceptions2:
     sim_inceptions
       i (Some (e, ts))
-      (InceptionSet.add (Inception.mk (Message.rw e ts) (IdentSet.singleton i)) inceptions2)
+      (InceptionSet.add (Inception.mk e ts (IdentSet.singleton i)) inceptions2)
       inceptions2
 .
 
@@ -192,7 +192,7 @@ Inductive sim_context i:
 | sim_context_reordered
     c1 c2 th1 th2 b1 b2 inceptions1 inceptions2
     (CLOCK: c1 = c2)
-    (THREAD: sim_thread th1 th2)
+    (THREAD: sim_reordered_thread th1 th2)
     (BUFFER: sim_buffer b1 b2)
     (INCEPTIONS: inceptions1 = inceptions2):
     sim_context i c1 c2 th1 th2 b1 b2 inceptions1 inceptions2
@@ -272,7 +272,7 @@ Proof.
   - subst i0. inv PROGRAM.
     rewrite IdentMap.Facts.add_eq_o in *; auto.
     inv THREAD. inv STEP. inv CONTEXT.
-    + apply sim_thread_inv in THREAD. des. subst.
+    + apply sim_reordered_thread_inv in THREAD. des. subst.
       inv THREAD0. apply inj_pair2 in H1. subst.
       admit. (* program step, sim *)
     + apply sim_consumed_thread_inv in THREAD2. des. subst.
@@ -287,24 +287,16 @@ Proof.
       * econs; eauto.
         { rewrite IdentMap.Facts.add_neq_o; auto. }
         { apply IdentMap.add_add. auto. }
-    + inv ADD. rewrite IdentFun.add_spec_neq in *; auto.
-      eexists _, _. splits; eauto.
+    + eexists _, _. splits; eauto.
       * econs 1.
       * econs 1. econs.
         { repeat (econs; eauto). }
         econs.
-        { 
-
-admit. (* Memory.message *) }
+        { admit. (* Memory.message *) }
         { unfold Memory.add_message. simpl in *. eauto. }
-        { simpl in *.
-          admit.
-        }
-        { admit. }
       * econs; eauto.
         { rewrite IdentMap.Facts.add_neq_o; eauto. }
         { apply IdentMap.add_add. auto. }
-        { apply IdentFun.add_add. auto. }
         admit. (* sim_context *)
 Admitted.
 

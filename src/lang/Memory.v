@@ -143,20 +143,18 @@ Module Message <: OrderedTypeWithLeibniz.
   Definition timestamp (loc:Loc.t) (msg:t): option nat :=
     match msg with
     | rw event ts =>
-      if option_eq_dec
-           Loc.eq_dec
-           (option_map (fst <*> fst) (RWEvent.is_writing event))
-           (Some loc)
+      if RWEvent.is_writing_to loc event
       then Some ts
       else None
-    | _ => None
+    | fence _ => None
     end.
 End Message.
 
 Module Inception <: OrderedTypeWithLeibniz.
   Module Raw <: BoolOrderedType.S.
     Structure t_ := mk {
-      message: Message.t;
+      event: RWEvent.t;
+      ts: nat;
       threads: IdentSet.t;
     }.
     Definition t := t_.
@@ -167,11 +165,15 @@ Module Inception <: OrderedTypeWithLeibniz.
       - destruct (IdentSet.eq_dec threads0 threads1).
         + left. apply IdentSet.eq_leibniz. auto.
         + right. contradict n. auto. subst. reflexivity.
-      - apply Message.eq_dec.
+      - apply Nat.eq_dec.
+      - apply RWEvent.eq_dec.
     Qed.
 
     Definition ltb (lhs rhs:t): bool :=
-      compose_comparisons [Message.compare lhs.(message) rhs.(message); IdentSet.compare lhs.(threads) rhs.(threads)].
+      compose_comparisons
+        [RWEvent.compare lhs.(event) rhs.(event);
+           Nat.compare lhs.(ts) rhs.(ts);
+           IdentSet.compare lhs.(threads) rhs.(threads)].
 
     Lemma ltb_trans (x y z:t) (XY: ltb x y) (YZ: ltb y z): ltb x z.
     Proof.
@@ -189,7 +191,9 @@ Module Inception <: OrderedTypeWithLeibniz.
   Include Raw <+ BoolOrderedType.Make (Raw).
 
   Definition timestamp (loc:Loc.t) (inception:t): option nat :=
-    Message.timestamp loc inception.(message).
+    if RWEvent.is_writing_to loc inception.(event)
+    then Some (inception.(ts))
+    else None.
 End Inception.
 
 Module InceptionSet.
@@ -241,7 +245,7 @@ Module Memory.
 
     Definition is_inception_of (p:t) (tid:Ident.t): bool :=
       match p with
-      | inception (Inception.mk _ threads) => IdentSet.mem tid threads
+      | inception (Inception.mk _ _ threads) => IdentSet.mem tid threads
       | _ => false
       end.
 
@@ -272,9 +276,9 @@ Module Memory.
         (IN: List.nth_error (IdentFun.find tid m.(buffers)) n = Some msg):
         In msg (Position.buffer tid n)
     | In_inception
-        msg threads
-        (INCEPTION: InceptionSet.mem (Inception.mk msg threads) m.(inceptions)):
-        In msg (Position.inception (Inception.mk msg threads))
+        event ts threads
+        (INCEPTION: InceptionSet.mem (Inception.mk event ts threads) m.(inceptions)):
+        In (Message.rw event ts) (Position.inception (Inception.mk event ts threads))
     .
 
     Inductive prod (pred1 pred2: Message.t -> Prop): relation Position.t :=
@@ -366,16 +370,14 @@ Module Memory.
     .
   End Consistency.
 
-  Definition add_message tid msg m: Position.t * t :=
-    let b := IdentFun.find tid m.(buffers) in
-    (Position.buffer tid (List.length b),
-     mk (IdentFun.add tid (b ++ [msg]) m.(buffers))
-        (InceptionSet.filter
-           (fun inception =>
-              if Message.eq_dec msg inception.(Inception.message)
-              then negb (IdentSet.mem tid inception.(Inception.threads))
-              else true)
-           m.(inceptions))).
+  Definition add_message tid msg m: t :=
+    mk (IdentFun.add tid (IdentFun.find tid m.(buffers) ++ [msg]) m.(buffers))
+       (InceptionSet.filter
+          (fun inception =>
+             if Message.eq_dec msg (Message.rw inception.(Inception.event) inception.(Inception.ts))
+             then negb (IdentSet.mem tid inception.(Inception.threads))
+             else true)
+          m.(inceptions)).
 
   Inductive has_timestamp (loc:Loc.t) (ts:nat) (m:t): Prop :=
   | has_timestamp_buffer
@@ -396,7 +398,7 @@ Module Memory.
     forall e val ord ts threads
       (WRITING: RWEvent.is_writing e = Some (loc, val, ord))
       (THREADS: IdentSet.mem tid threads)
-      (INCEPTION: InceptionSet.mem (Inception.mk (Message.rw e ts) threads) m.(inceptions)),
+      (INCEPTION: InceptionSet.mem (Inception.mk e ts threads) m.(inceptions)),
       False.
 
   Inductive readable (c:Clock.t) (tid:Ident.t) (m:t) (loc:Loc.t) (val:Const.t) (ts:nat) (ord:Ordering.t): Prop :=
@@ -417,10 +419,10 @@ Module Memory.
                      (IN: In m msg (Position.buffer tid n))
                      (TIMESTAMP: Message.timestamp loc msg = Some timestamp),
           timestamp < ts)
-      (TIMESTAMP2: forall msg threads timestamp
-                     (IN: InceptionSet.mem (Inception.mk msg threads) m.(inceptions))
+      (TIMESTAMP2: forall event timestamp threads
+                     (IN: InceptionSet.mem (Inception.mk event timestamp threads) m.(inceptions))
                      (THREADS: IdentSet.mem tid threads)
-                     (TIMESTAMP: Message.timestamp loc msg = Some timestamp),
+                     (WRITING: if RWEvent.is_writing_to loc event then true else false),
           ts < timestamp)
       (RELEASE: forall (ORDERING: Ordering.ord Ordering.release ord), releasable c tid m loc)
   .
@@ -461,13 +463,9 @@ Module Memory.
   | step_None:
       step c m1 tid None m1
   | step_Some
-      e msg pos m2
+      e msg m2
       (MESSAGE: message c m1 tid e msg)
-      (ADD: add_message tid msg m1 = (pos, m2))
-      (NRSEQ: InceptionSet.For_all
-                (fun inception => ~ rseq m2 pos (Position.inception inception))
-                m2.(inceptions))
-      (CONSISTENT: consistent m2):
+      (ADD: add_message tid msg m1 = m2):
       step c m1 tid (Some e) m2
   .
 
@@ -475,13 +473,12 @@ Module Memory.
   | inception_intro
       tid n ew ts ths
       (INCEPTIONS: InceptionSet.Empty m2.(inceptions))
+      (INCEPTIONABLE: RWEvent.is_inceptionable ew)
       (LENGTH: length (IdentFun.find tid m1.(buffers)) <= n)
       (MESSAGE: In m2 (Message.rw ew ts) (Position.buffer tid n))
-      (WRITING: if RWEvent.is_writing ew then true else false)
       (READING: forall pos (RF: rf m2 pos (Position.buffer tid n)), exists msg, In m1 msg pos)
-      (NRELEASE: ~ Ordering.ord Ordering.release (RWEvent.get_ordering ew))
       (PROGRAM: IdentSet.mem tid ths):
-      inception m1 m2 (Inception.mk (Message.rw ew ts) ths)
+      inception m1 m2 (Inception.mk ew ts ths)
   .
 
   Inductive inceptionless tid (m:t): Prop :=

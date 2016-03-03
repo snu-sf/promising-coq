@@ -167,6 +167,15 @@ Module RWEvent <: OrderedTypeWithLeibniz.
     | update loc _ val ord => Some (loc, val, ord)
     end.
 
+  Definition is_writing_to (loc:Loc.t) (e:t): option(Const.t * Ordering.t) :=
+    match is_writing e with
+    | None => None
+    | Some (loc', val, ord) =>
+      if Loc.eq_dec loc' loc
+      then Some (val, ord)
+      else None
+    end.
+
   Definition is_reading (e:t): option (Loc.t * Const.t * Ordering.t) :=
     match e with
     | read loc val ord => Some (loc, val, ord)
@@ -180,6 +189,11 @@ Module RWEvent <: OrderedTypeWithLeibniz.
     | write _ _ ord => ord
     | update _ _ _ ord => ord
     end.
+
+  Definition is_inceptionable (e:t): bool :=
+    if is_writing e
+    then negb (Ordering.ord Ordering.release (get_ordering e))
+    else false.
 End RWEvent.
 
 
