@@ -55,11 +55,11 @@ Module Program.
            Thread.is_terminal th)
   .
 
-  Inductive step: forall (p1:t) (i:Ident.t) (e:option ThreadEvent.t) (p1:t), Prop :=
+  Inductive step (tid:Ident.t): forall (p1:t) (e:option ThreadEvent.t) (p2:t), Prop :=
   | step_intro
-      p1 th1 th2 i e
-      (THREAD: IdentMap.find i p1 = Some th1)
+      p1 th1 th2 e
+      (THREAD: IdentMap.find tid p1 = Some th1)
       (STEP: Thread.step th1 e th2):
-      step p1 i e (IdentMap.add i th2 p1)
+      step tid p1 e (IdentMap.add tid th2 p1)
   .
 End Program.

@@ -9,58 +9,96 @@ Set Implicit Arguments.
 
 Module Configuration.
   Structure t := mk {
-    clock: Clock.t;
     program: Program.t;
     memory: Memory.t;
   }.
 
   Definition init (s:Program.syntax): Configuration.t :=
     Configuration.mk
-      Clock.init
       (Program.init s)
-      (Memory.init s).
+      Memory.init.
 
   Inductive is_terminal (c:t): Prop :=
   | is_terminal_intro
       (PROGRAM: Program.is_terminal c.(program))
   .
 
-  Inductive base_step: forall (c1 c2:t), Prop :=
-  | base_step_intro
-      c i e
+  Inductive base_step (tid:Ident.t): forall (c1 c2:t), Prop :=
+  | step_mem
+      e
       th1 th2 m1 m2
-      (PROGRAM: Program.step th1 i (option_map ThreadEvent.mem e) th2)
-      (MEMORY: Memory.step c m1 i e m2):
-      base_step (mk c th1 m1) (mk c th2 m2)
+      (PROGRAM: Program.step tid th1 (option_map ThreadEvent.mem e) th2)
+      (MEMORY: Memory.step tid m1 e m2):
+      base_step tid (mk th1 m1) (mk th2 m2)
+  | step_commit
+      th1 messages1 threads1 threads2
+      (THREADS: forall i, Thread.le (IdentFun.find i threads1) (IdentFun.find i threads2)):
+      base_step tid
+                (mk th1 (Memory.mk messages1 threads1))
+                (mk th1 (Memory.mk messages1 threads2))
   .
 
-  Inductive internal_step: forall (c1 c2:t), Prop :=
+  Inductive internal_step: forall (threads:IdentSet.t) (c1 c2:t), Prop :=
   | step_base
-      c1 c2
-      (BASE: base_step c1 c2):
-      internal_step c1 c2
-  | step_inception
-      c1 c2 th1 th2 m1 m2 inception
-      (STEPS: internal_steps (mk c1 th1 m1) (mk c2 th2 m2))
-      (INCEPTION: Memory.inception m1 m2 inception):
-      internal_step (mk c1 th1 m1)
-                    (mk c1 th1 (Memory.mk m1.(Memory.buffers) (InceptionSet.add inception m1.(Memory.inceptions))))
+      threads tid c1 c2
+      (TID: IdentSet.In tid threads)
+      (BASE: base_step tid c1 c2):
+      internal_step threads c1 c2
+  | step_declare
+      threads threads' tid
+      c1 c1'
+      loc ts val released
+      (THREADS: IdentSet.Subset threads' threads)
+      (STEPS: internal_steps threads' c1 c1')
+      (GET: Messages.get loc ts c1'.(memory).(Memory.messages) = None)
+      (GET': Messages.get loc ts c1'.(memory).(Memory.messages) = Some (Message.mk val released None)):
+      internal_step
+        threads
+        c1
+        (mk
+           c1.(program)
+           (Memory.mk
+              (Messages.add tid loc ts (Message.mk val released (Some threads')) c1.(memory).(Memory.messages))
+              c1.(memory).(Memory.threads)))
 
-  with internal_steps: forall (c1 c2:t), Prop :=
-  | steps_nil c:
-      internal_steps c c
+  with internal_steps: forall (threads:IdentSet.t) (c1 c2:t), Prop :=
+  | steps_nil
+      threads c:
+      internal_steps threads c c
   | steps_cons
-      c1 c2 c3
-      (STEP: internal_step c1 c2)
-      (STEPS: internal_steps c2 c3):
-      internal_steps c1 c3
+      threads c1 c2 c3
+      (STEP: internal_step threads c1 c2)
+      (STEPS: internal_steps threads c2 c3):
+      internal_steps threads c1 c3
   .
+
+  Lemma internal_step_congr
+        threads1 threads2
+        c1 c2
+        (THREADS: IdentSet.Subset threads1 threads2)
+        (STEP: internal_step threads1 c1 c2):
+    internal_step threads2 c1 c2
+  with internal_steps_congr
+         threads1 threads2
+         c1 c2
+         (THREADS: IdentSet.Subset threads1 threads2)
+         (STEP: internal_steps threads1 c1 c2):
+         internal_steps threads2 c1 c2.
+  Proof.
+    - inv STEP.
+      + econs 1; eauto.
+      + econs 2; eauto.
+        etransitivity; eauto.
+    - inv STEP.
+      + econs 1.
+      + econs 2; eauto.
+  Qed.
 
   Lemma internal_steps_append
-        c1 c2 c3
-        (STEPS12: internal_steps c1 c2)
-        (STEPS23: internal_steps c2 c3):
-    internal_steps c1 c3.
+        threads c1 c2 c3
+        (STEPS12: internal_steps threads c1 c2)
+        (STEPS23: internal_steps threads c2 c3):
+    internal_steps threads c1 c3.
   Proof.
     revert STEPS23. induction STEPS12; auto.
     i. econs; eauto.
@@ -68,27 +106,22 @@ Module Configuration.
 
   Inductive feasible (c:t): Prop :=
   | feasible_intro
-      c'
-      (STEP: internal_steps c c')
-      (INCEPTIONS: InceptionSet.Empty c'.(memory).(Memory.inceptions))
+      threads c'
+      (STEP: internal_steps threads c c')
+      (NODECLARE: ~ Messages.is_declared c'.(memory).(Memory.messages))
   .
 
-  Inductive external_step: forall (c1:t) (e:option Event.t) (c2:t), Prop :=
-  | step_commit
-      c1 th m c2
-      (CLOCK: Clock.le c1 c2):
-      external_step (Configuration.mk c1 th m) None (Configuration.mk c2 th m)
+  Inductive external_step: forall (c1:t) (e:Event.t) (c2:t), Prop :=
   | step_syscall
-      c th1 m i e th2
-      (PROGRAM: Program.step th1 i (Some (ThreadEvent.syscall e)) th2)
-      (INCEPTIONS: Memory.inceptionless i m):
-      external_step (mk c th1 m) (Some e) (mk c th2 m)
+      tid th1 e th2 m
+      (PROGRAM: Program.step tid th1 (Some (ThreadEvent.syscall e)) th2):
+      external_step (mk th1 m) e (mk th2 m)
   .
 
   Inductive step: forall (c1:t) (e:option Event.t) (c2:t), Prop :=
   | step_internal
-      c1 c2
-      (STEP: internal_step c1 c2)
+      threads c1 c2
+      (STEP: internal_step threads c1 c2)
       (FEASIBLE: feasible c2):
       step c1 None c2
   | step_external
@@ -96,6 +129,6 @@ Module Configuration.
       e
       (STEP: external_step c1 e c2)
       (FEASIBLE: feasible c2):
-      step c1 e c2
+      step c1 (Some e) c2
   .
 End Configuration.

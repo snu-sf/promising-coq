@@ -12,479 +12,190 @@ Require Import DataStructure.
 Require Import Basic.
 Require Import Event.
 Require Import Program.
-Require Import BoolOrderedType.
+Require Import UsualFMapPositive.
 
 Set Implicit Arguments.
 Import ListNotations.
 
 
 Module Clock.
-  Definition t := IdentFun.t (LocFun.t nat).
+  Definition t := LocFun.t positive.
 
-  Definition init := IdentFun.init (LocFun.init 0).
+  Definition bot: t := LocFun.init 1%positive.
 
   Definition le (lhs rhs:t): Prop :=
-    forall tid loc, LocFun.find loc (IdentFun.find tid lhs) <= LocFun.find loc (IdentFun.find tid rhs).
+    forall loc, (LocFun.find loc lhs <= LocFun.find loc rhs)%positive.
 
-  Definition add tid loc ts (c:t): t :=
-    IdentFun.add
-      tid
-      (LocFun.add loc ts (IdentFun.find tid c))
-      c.
+  Definition add (loc:Loc.t) (ts:positive) (c:t) :=
+    LocFun.add loc (Pos.max (LocFun.find loc c) ts) c.
 
-  Definition timestamp tid loc (c:t) :=
-    LocFun.find loc (IdentFun.find tid c).
+  Definition get (loc:Loc.t) (c:t) :=
+    LocFun.find loc c.
 End Clock.
 
 
-Module Message <: OrderedTypeWithLeibniz.
-  Module Raw <: BoolOrderedType.S.
-    Inductive t_ :=
-    | rw (event:RWEvent.t) (timestamp:nat)
-    | fence (ord:Ordering.t)
-    .
-    Definition t := t_.
+Module Legacy.
+  Structure t := mk {
+    writes: Clock.t;
+    reads: Clock.t;
+  }.
 
-    Definition eq_dec (x y:t): {x = y} + {x <> y}.
-    Proof.
-      decide equality;
-        (try apply RWEvent.eq_dec);
-        (try apply Nat.eq_dec);
-        (try apply Ordering.eq_dec).
-    Qed.
+  Definition bot: t := mk Clock.bot Clock.bot.
 
-    Definition ltb (lhs rhs:t): bool :=
-      match lhs, rhs with
-      | rw e1 t1, rw e2 t2 =>
-        compose_comparisons [RWEvent.compare e1 e2; Const.compare t1 t2]
-      | rw _ _, fence _ => true
-      | fence _, rw _ _ => false
-      | fence o1, fence o2 =>
-        compose_comparisons [Ordering.compare o1 o2]
-      end.
-
-    Lemma ltb_trans (x y z:t) (XY: ltb x y) (YZ: ltb y z): ltb x z.
-    Proof.
-      destruct x, y, z; simpl in *; auto;
-        repeat
-          (try congruence;
-           try omega;
-           try RWEvent.ltb_tac;
-           try Const.ltb_tac;
-           try Ordering.ltb_tac;
-           try ltb_des).
-    Qed.
-
-    Lemma ltb_irrefl x: ~ ltb x x.
-    Proof.
-      destruct x; simpl in *; auto;
-        repeat
-          (try congruence;
-           try omega;
-           try RWEvent.ltb_tac;
-           try Const.ltb_tac;
-           try Ordering.ltb_tac;
-           try ltb_des).
-    Qed.
-
-    Lemma ltb_eq (lhs rhs:t) (LR: ~ ltb lhs rhs) (RL: ~ ltb rhs lhs): lhs = rhs.
-    Proof.
-      destruct lhs, rhs; simpl in *; auto;
-        repeat
-          repeat
-          (try congruence;
-           try omega;
-           try RWEvent.ltb_tac;
-           try Const.ltb_tac;
-           try Ordering.ltb_tac;
-           try ltb_des).
-    Qed.
-  End Raw.
-
-  Include Raw <+ BoolOrderedType.Make (Raw).
-
-  Definition get_ordering (e:t): Ordering.t :=
-    match e with
-    | rw e _ => RWEvent.get_ordering e
-    | fence ord => ord
-    end.
-
-  Definition is_writing (msg:t): bool :=
-    match msg with
-    | rw e _ => if RWEvent.is_writing e then true else false
-    | fence _ => false
-    end.
-
-  Definition is_reading (msg:t): bool :=
-    match msg with
-    | rw e _ => if RWEvent.is_reading e then true else false
-    | fence _ => false
-    end.
-
-  Inductive rseq: relation Message.t :=
-  | rseq_writing
-      e1 e2 ts1 ts2 loc val1 val2 ord1 ord2
-      (WRITE1: RWEvent.is_writing e1 = Some (loc, val1, ord1))
-      (WRITE2: RWEvent.is_writing e2 = Some (loc, val2, ord2))
-      (ORDERING: Ordering.ord Ordering.release ord1):
-      rseq (rw e1 ts1) (rw e1 ts2)
-  | rseq_fence
-      ord msg2
-      (ORDERING: Ordering.ord Ordering.release ord):
-      rseq (fence ord) msg2
+  Inductive le (lhs rhs:t): Prop :=
+  | le_intro
+      (WRITES: Clock.le lhs.(writes) rhs.(writes))
+      (READS: Clock.le lhs.(reads) rhs.(reads))
   .
 
-  Definition get_memevent (msg:t): ThreadEvent.mem_t :=
-    match msg with
-    | rw e _ => ThreadEvent.rw e
-    | fence ord => ThreadEvent.fence ord
-    end.
+  Inductive read (loc:Loc.t) (ts:positive) (l1 l2:t): Prop :=
+  | read_intro
+      (WRITES1: (Clock.get loc l1.(writes) <= ts)%positive)
+      (READ2: (ts <= Clock.get loc l2.(reads))%positive)
+  .
 
-  Definition timestamp (loc:Loc.t) (msg:t): option nat :=
-    match msg with
-    | rw event ts =>
-      if RWEvent.is_writing_to loc event
-      then Some ts
-      else None
-    | fence _ => None
-    end.
+  Inductive write (loc:Loc.t) (ts:positive) (l1 l2:t): Prop :=
+  | write_intro
+      (WRITES1: (Clock.get loc l1.(writes) < ts)%positive)
+      (READS1: (Clock.get loc l1.(reads) < ts)%positive)
+      (WRITE2: (ts <= Clock.get loc l2.(writes))%positive)
+  .
+End Legacy.
+
+
+Module Thread.
+  Structure t := mk {
+    commit: Legacy.t;
+    released: LocFun.t Legacy.t;
+    acquirable: Legacy.t;
+  }.
+
+  Definition init: t :=
+    mk Legacy.bot (LocFun.init Legacy.bot) Legacy.bot.
+
+  Inductive le (lhs rhs:t): Prop :=
+  | le_intro
+      (COMMIT: Legacy.le lhs.(commit) rhs.(commit))
+      (RELEASED: forall (loc:Loc.t), Legacy.le (LocFun.find loc lhs.(released)) (LocFun.find loc rhs.(released)))
+      (ACQUIRABLE: Legacy.le lhs.(acquirable) rhs.(acquirable))
+  .
+
+  Inductive fence (ord:Ordering.t) (th:t): Prop :=
+  | fence_intro
+      (ACQUIRE: forall (ORDERING: Ordering.ord Ordering.acquire ord),
+          Legacy.le th.(acquirable) th.(commit))
+      (RELEASE: forall (ORDERING: Ordering.ord Ordering.release ord) loc,
+          Legacy.le th.(commit) (LocFun.find loc th.(released)))
+  .
+End Thread.
+
+
+Module Message.
+  Structure t := mk {
+    val: Const.t;
+    released: Legacy.t;
+    is_declared: option (IdentSet.t);
+  }.
+
+  Inductive lt (tid:Ident.t) (lhs rhs:t): Prop :=
+  | lt_intro
+      declared
+      (VAL: lhs.(val) = rhs.(val))
+      (RELEASED: lhs.(released) = rhs.(released))
+      (DECLARED: lhs.(is_declared) = Some declared)
+      (TID: IdentSet.In tid declared)
+      (UNDECLARED: rhs.(is_declared) = None)
+  .
 End Message.
 
-Module Inception <: OrderedTypeWithLeibniz.
-  Module Raw <: BoolOrderedType.S.
-    Structure t_ := mk {
-      event: RWEvent.t;
-      ts: nat;
-      threads: IdentSet.t;
-    }.
-    Definition t := t_.
 
-    Definition eq_dec (x y:t): {x = y} + {x <> y}.
-    Proof.
-      decide equality.
-      - destruct (IdentSet.eq_dec threads0 threads1).
-        + left. apply IdentSet.eq_leibniz. auto.
-        + right. contradict n. auto. subst. reflexivity.
-      - apply Nat.eq_dec.
-      - apply RWEvent.eq_dec.
-    Qed.
+Module Messages.
+  Definition t := LocFun.t (UsualPositiveMap.t Message.t).
 
-    Definition ltb (lhs rhs:t): bool :=
-      compose_comparisons
-        [RWEvent.compare lhs.(event) rhs.(event);
-           Nat.compare lhs.(ts) rhs.(ts);
-           IdentSet.compare lhs.(threads) rhs.(threads)].
+  Definition init: t :=
+    LocFun.init
+      (UsualPositiveMap.add
+         1%positive
+         (Message.mk 0 Legacy.bot None)
+         (UsualPositiveMap.empty _)).
 
-    Lemma ltb_trans (x y z:t) (XY: ltb x y) (YZ: ltb y z): ltb x z.
-    Proof.
-    Admitted.
+  Definition get (loc:Loc.t) (ts:positive) (m:t): option Message.t :=
+    UsualPositiveMap.find ts (LocFun.find loc m).
 
-    Lemma ltb_irrefl x: ~ ltb x x.
-    Proof.
-    Admitted.
+  Definition add (tid:Ident.t) (loc:Loc.t) (ts:positive) (message:Message.t) (m1:t): t :=
+    LocFun.add loc (UsualPositiveMap.add ts message (LocFun.find loc m1)) m1.
 
-    Lemma ltb_eq (lhs rhs:t) (LR: ~ ltb lhs rhs) (RL: ~ ltb rhs lhs): lhs = rhs.
-    Proof.
-    Admitted.
-  End Raw.
+  Inductive is_declared (m:t): Prop :=
+  | declared_intro
+      loc ts message declared
+      (GET: get loc ts m = Some message)
+      (DECLARED: message.(Message.is_declared) = Some declared)
+  .
+End Messages.
 
-  Include Raw <+ BoolOrderedType.Make (Raw).
-
-  Definition timestamp (loc:Loc.t) (inception:t): option nat :=
-    if RWEvent.is_writing_to loc inception.(event)
-    then Some (inception.(ts))
-    else None.
-End Inception.
-
-Module InceptionSet.
-  Include UsualSet (Inception).
-
-  Definition has_timestamp (loc:Loc.t) (ts:nat) (inceptions:t): bool :=
-    exists_
-      (fun inception =>
-         match Inception.timestamp loc inception with
-         | None => false
-         | Some ts' => Nat.eqb ts' ts
-         end)
-      inceptions.
-End InceptionSet.
-
-
-Module Buffer.
-  Definition t := list Message.t.
-
-  Definition empty: t := nil.
-
-  Definition has_timestamp (loc:Loc.t) (ts:nat) (b:t): bool :=
-    List.existsb
-      (fun msg =>
-         match Message.timestamp loc msg with
-         | Some timestamp => Nat.eqb timestamp ts
-         | None => false
-         end)
-      b.
-End Buffer.
 
 Module Memory.
   Structure t := mk {
-    buffers: IdentFun.t Buffer.t;
-    inceptions: InceptionSet.t;
+    messages: Messages.t;
+    threads: IdentFun.t Thread.t;
   }.
 
-  Definition init (syntax:Program.syntax) :=
-    mk
-      (IdentFun.init Buffer.empty)
-      InceptionSet.empty.
+  Definition init: t :=
+    mk Messages.init (IdentFun.init Thread.init).
 
-  Module Position.
-    Inductive t :=
-    | init
-    | buffer (tid:Ident.t) (pos:nat)
-    | inception (inception:Inception.t)
-    .
-
-    Definition is_inception_of (p:t) (tid:Ident.t): bool :=
-      match p with
-      | inception (Inception.mk _ _ threads) => IdentSet.mem tid threads
-      | _ => false
-      end.
-
-    Inductive sb: relation t :=
-    | sb_init
-        tid pos:
-        sb init (buffer tid pos)
-    | sb_buffer
-        tid pos1 pos2
-        (LT: pos1 < pos2):
-        sb (buffer tid pos1) (buffer tid pos2)
-    | sb_inception
-        i1 pos1 inception2
-        (INCEPTION: IdentSet.mem i1 inception2.(Inception.threads)):
-        sb (buffer i1 pos1) (inception inception2)
-    .
-  End Position.
-
-  Section Consistency.
-    Variable (m:t).
-
-    Inductive In: forall (msg:Message.t) (p:Position.t), Prop :=
-    | In_init
-        loc:
-        In (Message.rw (RWEvent.write loc Const.zero Ordering.release) 0) Position.init
-    | In_buffer
-        msg tid n
-        (IN: List.nth_error (IdentFun.find tid m.(buffers)) n = Some msg):
-        In msg (Position.buffer tid n)
-    | In_inception
-        event ts threads
-        (INCEPTION: InceptionSet.mem (Inception.mk event ts threads) m.(inceptions)):
-        In (Message.rw event ts) (Position.inception (Inception.mk event ts threads))
-    .
-
-    Inductive prod (pred1 pred2: Message.t -> Prop): relation Position.t :=
-    | prod_intro
-        pos1 pos2 msg1 msg2
-        (POS1: In msg1 pos1)
-        (POS2: In msg2 pos2)
-        (MSG1: pred1 msg1)
-        (MSG2: pred2 msg2):
-        prod pred1 pred2 pos1 pos2
-    .
-
-    Inductive mo: relation Position.t :=
-    | mo_intro
-        pos1 pos2 e1 e2 ts1 ts2 loc val1 val2 ord1 ord2
-        (TIMESTAMP: ts1 < ts2)
-        (POS1: In (Message.rw e1 ts1) pos1)
-        (POS2: In (Message.rw e2 ts2) pos2)
-        (WRITE1: RWEvent.is_writing e1 = Some (loc, val1, ord1))
-        (WRITE2: RWEvent.is_writing e2 = Some (loc, val2, ord2)):
-        mo pos1 pos2
-    .
-
-    Inductive rfr: relation Position.t :=
-    | rfr_intro
-        posw posr
-        ew ts ordw
-        loc val ordr
-        (WRITEPOS: In (Message.rw ew ts) posw)
-        (WRITE: RWEvent.is_writing ew = Some (loc, val, ordw))
-        (READPOS: In (Message.rw (RWEvent.read loc val ordr) ts) posr):
-        rfr posw posr
-    .
-
-    Inductive rfu: relation Position.t :=
-    | rfu_intro
-        posw posu
-        ew ts ordw
-        loc valr valw ordu
-        (WRITEPOS: In (Message.rw ew ts) posw)
-        (WRITE: RWEvent.is_writing ew = Some (loc, valr, ordw))
-        (UPDATEPOS: In (Message.rw (RWEvent.update loc valr valw ordu) (ts + 1)) posu):
-        rfu posw posu
-    .
-
-    Definition rf: relation Position.t := rfr \2/ rfu.
-
-    Inductive rseq_base: relation Position.t :=
-    | rseq_base_intro
-        msg_rel msg_w
-        pos_rel pos_w
-        (REL: In msg_rel pos_rel)
-        (W: In msg_w pos_w)
-        (RSEQ: Message.rseq msg_rel msg_w)
-        (SB: rc Position.sb pos_rel pos_w):
-        rseq_base pos_rel pos_w
-    .
-
-    Definition rseq := compose rseq_base (rtc rfu).
-
-    (* TODO: tight up? *)
-    Inductive aseq: relation Position.t :=
-    | aseq_refl
-        msg pos
-        (IN: In msg pos)
-        (ORDERING: Ordering.ord Ordering.acquire (Message.get_ordering msg)):
-        aseq pos pos
-    | aseq_fence
-        pos1 pos2 ord2
-        (SB: Position.sb pos1 pos2)
-        (IN: In (Message.fence ord2) pos2)
-        (ORDERING: Ordering.ord Ordering.acquire ord2):
-        aseq pos1 pos2
-    .
-
-    Definition sw: relation Position.t := compose rseq (compose rf aseq).
-
-    Definition hb: relation Position.t := tc (Position.sb \2/ sw).
-
-    Inductive consistent: Prop :=
-    | consistent_intro
-        (CoHB: Irreflexive hb)
-        (CoRF: Irreflexive (compose hb rf))
-        (CoMO: Irreflexive (compose hb mo))
-        (RF: forall msgr posr
-               (IN: In msgr posr)
-               (READING: Message.is_reading msgr),
-            exists posw, rf posw posr)
-    .
-  End Consistency.
-
-  Definition add_message tid msg m: t :=
-    mk (IdentFun.add tid (IdentFun.find tid m.(buffers) ++ [msg]) m.(buffers))
-       (InceptionSet.filter
-          (fun inception =>
-             if Message.eq_dec msg (Message.rw inception.(Inception.event) inception.(Inception.ts))
-             then negb (IdentSet.mem tid inception.(Inception.threads))
-             else true)
-          m.(inceptions)).
-
-  Inductive has_timestamp (loc:Loc.t) (ts:nat) (m:t): Prop :=
-  | has_timestamp_buffer
-      i (TIMESTAMP: Buffer.has_timestamp loc ts (IdentFun.find i m.(buffers)))
-  | has_timestamp_inception
-      (TIMESTAMP: InceptionSet.has_timestamp loc ts m.(inceptions))
+  Inductive read (tid:Ident.t) (loc:Loc.t) (ts:positive) (message:Message.t) (ord:Ordering.t) (m:t) (th:Thread.t): Prop :=
+  | read_intro
+      (MESSAGE: Messages.get loc ts m.(messages) = Some message)
+      (LE: Thread.le (IdentFun.find tid m.(threads)) th)
+      (READ: Legacy.read loc ts (IdentFun.find tid m.(threads)).(Thread.commit) th.(Thread.commit))
+      (ACQUIRE: forall (ORDERING: Ordering.ord Ordering.acquire ord),
+          Legacy.le message.(Message.released) th.(Thread.commit))
+      (ACQUIRABLE: Legacy.le message.(Message.released) th.(Thread.acquirable))
   .
 
-  Definition acquirable (c:Clock.t) (tid:Ident.t) (m:t) (pos_w:Position.t): Prop :=
-    forall e ts loc val ord pos pos_rel
-      (MESSAGE: In m (Message.rw e ts) pos)
-      (WRITING: RWEvent.is_writing e = Some (loc, val, ord))
-      (SB: rc Position.sb pos pos_rel)
-      (RSEQ: rseq m pos_rel pos_w),
-      ts <= Clock.timestamp tid loc c.
-
-  Definition releasable (c:Clock.t) (tid:Ident.t) (m:t) (loc:Loc.t): Prop :=
-    forall e val ord ts threads
-      (WRITING: RWEvent.is_writing e = Some (loc, val, ord))
-      (THREADS: IdentSet.mem tid threads)
-      (INCEPTION: InceptionSet.mem (Inception.mk e ts threads) m.(inceptions)),
-      False.
-
-  Inductive readable (c:Clock.t) (tid:Ident.t) (m:t) (loc:Loc.t) (val:Const.t) (ts:nat) (ord:Ordering.t): Prop :=
-  | readable_intro
-      e ordw pos
-      (WRITING: RWEvent.is_writing e = Some (loc, val, ordw))
-      (POS: In m (Message.rw e ts) pos)
-      (NINCEPTION: ~ Position.is_inception_of pos tid)
-      (TIMESTAMP: Clock.timestamp tid loc c <= ts)
-      (ACQUIRE: forall (ORDERING: Ordering.ord Ordering.acquire ord), acquirable c tid m pos)
+  Inductive write (tid:Ident.t) (loc:Loc.t) (ts:positive) (message:Message.t) (ord:Ordering.t) (m:t) (th:Thread.t): Prop :=
+  | write_intro
+      (LE: Thread.le (IdentFun.find tid m.(threads)) th)
+      (WRITE: Legacy.write loc ts (IdentFun.find tid m.(threads)).(Thread.commit) th.(Thread.commit))
+      (RELEASE: forall (ORDERING: Ordering.ord Ordering.release ord),
+          Legacy.le th.(Thread.commit) (LocFun.find loc th.(Thread.released)))
+      (RELEASED: Legacy.le (LocFun.find loc th.(Thread.released)) message.(Message.released))
+      (REPLACE: forall message0 (GET: Messages.get loc ts m.(messages) = Some message0), Message.lt tid message0 message)
   .
 
-  Inductive writable (c:Clock.t) (tid:Ident.t) (m:t) (loc:Loc.t) (ts:nat) (ord:Ordering.t): Prop :=
-  | writable_intro
-      (CLOCK: forall i, Clock.timestamp i loc c < ts)
-      (UNIQUE: ~ has_timestamp loc ts m)
-      (TIMESTAMP1: forall msg n timestamp
-                     (IN: In m msg (Position.buffer tid n))
-                     (TIMESTAMP: Message.timestamp loc msg = Some timestamp),
-          timestamp < ts)
-      (TIMESTAMP2: forall event timestamp threads
-                     (IN: InceptionSet.mem (Inception.mk event timestamp threads) m.(inceptions))
-                     (THREADS: IdentSet.mem tid threads)
-                     (WRITING: if RWEvent.is_writing_to loc event then true else false),
-          ts < timestamp)
-      (RELEASE: forall (ORDERING: Ordering.ord Ordering.release ord), releasable c tid m loc)
-  .
-
-  Inductive fencable (c:Clock.t) (tid:Ident.t) (m:t) (ord:Ordering.t): Prop :=
-  | fencable_intro
-      (ACQUIRE: forall pos_w n (RF: rf m pos_w (Position.buffer tid n)), acquirable c tid m pos_w)
-      (RELEASE: forall loc, releasable c tid m loc)
-  .
-
-  Inductive message (c:Clock.t) (m1:t) (tid:Ident.t): forall (e:ThreadEvent.mem_t) (msg:Message.t), Prop :=
-  | message_read
-      loc val ts ord
-      (READABLE: readable c tid m1 loc val ts ord):
-      message c m1 tid
-           (ThreadEvent.rw (RWEvent.read loc val ord))
-           (Message.rw (RWEvent.read loc val ord) ts)
-  | message_write
-      loc val ord ts
-      (WRITABLE: writable c tid m1 loc ts ord):
-      message c m1 tid
-           (ThreadEvent.rw (RWEvent.write loc val ord))
-           (Message.rw (RWEvent.write loc val ord) ts)
-  | message_update
-      loc val ts valu ord
-      (READABLE: readable c tid m1 loc val ts ord)
-      (WRITABLE: writable c tid m1 loc (ts + 1) ord):
-      message c m1 tid
-           (ThreadEvent.rw (RWEvent.update loc val valu ord))
-           (Message.rw (RWEvent.update loc val valu ord) (ts + 1))
-  | message_fence
+  Inductive step (tid:Ident.t) (m1:t): forall (e:option MemEvent.t) (m2:t), Prop :=
+  | step_read
+      loc ts message ord
+      th2
+      (READ: read tid loc ts message ord m1 th2):
+      step tid m1
+           (Some (MemEvent.read loc message.(Message.val) ord))
+           (mk m1.(messages) (IdentFun.add tid th2 m1.(threads)))
+  | step_write
+      loc ts message ord
+      th2
+      (WRITE: write tid loc ts message ord m1 th2):
+      step tid m1
+           (Some (MemEvent.write loc message.(Message.val) ord))
+           (mk
+              (Messages.add tid loc ts message m1.(messages))
+              (IdentFun.add tid th2 m1.(threads)))
+  | step_update
+      loc ts messager messagew ord
+      th2
+      (READ: read tid loc ts messager ord m1 th2)
+      (WRITE: write tid loc (ts + 1) messagew ord m1 th2)
+      (RELEASE: Legacy.le messager.(Message.released) messagew.(Message.released)):
+      step tid m1
+           (Some (MemEvent.update loc messager.(Message.val) messagew.(Message.val) ord))
+           (mk
+              (Messages.add tid loc (ts + 1) messagew m1.(messages))
+              (IdentFun.add tid th2 m1.(threads)))
+  | step_fence
       ord
-      (FENCABLE: fencable c tid m1 ord):
-      message c m1 tid (ThreadEvent.fence ord) (Message.fence ord)
-  .
-
-  Inductive step (c:Clock.t) (m1:t) (tid:Ident.t): forall (e:option ThreadEvent.mem_t) (m2:t), Prop :=
-  | step_None:
-      step c m1 tid None m1
-  | step_Some
-      e msg m2
-      (MESSAGE: message c m1 tid e msg)
-      (ADD: add_message tid msg m1 = m2):
-      step c m1 tid (Some e) m2
-  .
-
-  Inductive inception (m1 m2:t): forall inception, Prop :=
-  | inception_intro
-      tid n ew ts ths
-      (INCEPTIONS: InceptionSet.Empty m2.(inceptions))
-      (INCEPTIONABLE: RWEvent.is_inceptionable ew)
-      (LENGTH: length (IdentFun.find tid m1.(buffers)) <= n)
-      (MESSAGE: In m2 (Message.rw ew ts) (Position.buffer tid n))
-      (READING: forall pos (RF: rf m2 pos (Position.buffer tid n)), exists msg, In m1 msg pos)
-      (PROGRAM: IdentSet.mem tid ths):
-      inception m1 m2 (Inception.mk ew ts ths)
-  .
-
-  Inductive inceptionless tid (m:t): Prop :=
-  | inceptionness_intro
-      (INCEPTIONLESS: InceptionSet.For_all
-                        (fun inception => negb (IdentSet.mem tid inception.(Inception.threads)))
-                        m.(inceptions))
+      (FENCE: Thread.fence ord (IdentFun.find tid m1.(threads))):
+      step tid m1
+           (Some (MemEvent.fence ord))
+           m1
   .
 End Memory.

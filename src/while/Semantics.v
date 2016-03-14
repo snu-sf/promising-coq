@@ -29,21 +29,21 @@ Module RegFile.
       eval_instr
         rf
         (Instr.load lhs rhs ord)
-        (Some (ThreadEvent.mem (ThreadEvent.rw (RWEvent.read rhs val ord))))
+        (Some (ThreadEvent.mem (MemEvent.read rhs val ord)))
         (RegFun.add lhs val rf)
   | eval_store
       rf lhs rhs ord:
       eval_instr
         rf
         (Instr.store lhs rhs ord)
-        (Some (ThreadEvent.mem (ThreadEvent.rw (RWEvent.write lhs (eval_value rf rhs) ord))))
+        (Some (ThreadEvent.mem (MemEvent.write lhs (eval_value rf rhs) ord)))
         rf
   | eval_fetch_add
       rf lhs loc addendum ord val:
       eval_instr
         rf
         (Instr.fetch_add lhs loc addendum ord)
-        (Some (ThreadEvent.mem (ThreadEvent.rw (RWEvent.update loc val (Const.add val (eval_value rf addendum)) ord))))
+        (Some (ThreadEvent.mem (MemEvent.update loc val (Const.add val (eval_value rf addendum)) ord)))
         (RegFun.add lhs val rf)
   | eval_assign
       rf lhs rhs:
@@ -57,7 +57,7 @@ Module RegFile.
       eval_instr
         rf
         (Instr.fence ord)
-        (Some (ThreadEvent.mem (ThreadEvent.fence ord)))
+        (Some (ThreadEvent.mem (MemEvent.fence ord)))
         rf
   | eval_syscall
       rf lhs rhses lhs_val:
