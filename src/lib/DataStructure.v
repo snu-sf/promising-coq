@@ -8,16 +8,16 @@ Require Import sflib.
 Set Implicit Arguments.
 
 Module UsualFun (A:UsualDecidableType).
+  Polymorphic Definition t (B:Type) := forall (a:A.t), B.
+
   Section UsualFun.
     Variable (B:Type).
 
-    Definition t := forall (a:A.t), B.
+    Definition init (b:B): t B := fun _ => b.
 
-    Definition init (b:B): t := fun _ => b.
+    Definition find (a:A.t) (f:t B): B := f a.
 
-    Definition find (a:A.t) (f:t): B := f a.
-
-    Definition add (a:A.t) (b:B) (f:t): t :=
+    Definition add (a:A.t) (b:B) (f:t B): t B :=
       fun a' =>
         if A.eq_dec a' a
         then b

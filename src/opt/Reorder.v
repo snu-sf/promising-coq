@@ -7,7 +7,7 @@ Require Import sflib.
 
 Require Import Basic.
 Require Import Event.
-Require Import Program.
+Require Import Thread.
 Require Import Configuration.
 Require Import Simulation.
 Require Import Syntax.
@@ -16,6 +16,7 @@ Require Import Semantics.
 Set Implicit Arguments.
 
 (* TODO: now supporting only the reordering of load and store *)
+(* TODO: now supporting only the reordering of single thread *)
 
 Inductive reordered_instr: forall (i1 i2:Instr.t), Prop :=
 | reordered_instr_load_store
@@ -77,7 +78,7 @@ Inductive reordered_thread: forall (text1 text2:Thread.syntax), Prop :=
       (Thread.mk_syntax lang s2)
 .
 
-Inductive reordered_program i: forall (prog1 prog2:Program.syntax), Prop :=
+Inductive reordered_program i: forall (prog1 prog2:Configuration.syntax), Prop :=
 | reordered_program_intro
     prog1 th1 th2
     (TH1: IdentMap.find i prog1 = Some th1)

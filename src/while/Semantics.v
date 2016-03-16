@@ -70,12 +70,12 @@ Module RegFile.
 End RegFile.
 
 Module State.
-  Structure t: Type := mk {
+  Structure t := mk {
     regs: RegFile.t;
     stmts: list Stmt.t;
   }.
 
-  Definition load (text:list Stmt.t): t :=
+  Definition init (text:list Stmt.t): t :=
     mk RegFile.init text.
 
   Definition is_terminal (s:t): Prop :=
@@ -108,6 +108,6 @@ End State.
 
 Definition lang :=
   Language.mk
-    State.load
+    State.init
     State.is_terminal
     State.step.
