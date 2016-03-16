@@ -37,29 +37,3 @@ Module Thread.
       (STEP: lang.(Language.step) s1 e s2):
       step (mk lang s1) e (mk lang s2).
 End Thread.
-
-Module Program.
-  Definition syntax := IdentMap.t Thread.syntax.
-
-  Definition t := IdentMap.t Thread.t.
-
-  Definition empty := IdentMap.empty Thread.t.
-
-  Definition init (s:syntax): t :=
-    IdentMap.map Thread.init s.
-
-  Inductive is_terminal (p:t): Prop :=
-  | is_terminal_intro
-      (TERMINAL:
-         forall i th (THREAD: IdentMap.find i p = Some th),
-           Thread.is_terminal th)
-  .
-
-  Inductive step (tid:Ident.t): forall (p1:t) (e:option ThreadEvent.t) (p2:t), Prop :=
-  | step_intro
-      p1 th1 th2 e
-      (THREAD: IdentMap.find tid p1 = Some th1)
-      (STEP: Thread.step th1 e th2):
-      step tid p1 e (IdentMap.add tid th2 p1)
-  .
-End Program.

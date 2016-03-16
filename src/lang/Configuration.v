@@ -1,127 +1,263 @@
-Require Import sflib.
+Require Import List.
+Require Import Equalities.
+Require Import PeanoNat.
+Require Import Relations.
+Require Import MSetList.
+Require Import Omega.
 
+Require Import sflib.
+Require Import paco.
+
+Require Import DataStructure.
 Require Import Basic.
 Require Import Event.
-Require Import Program.
-Require Import Memory.
+Require Import Thread.
+Require Import UsualFMapPositive.
 
 Set Implicit Arguments.
+Import ListNotations.
 
-Module Configuration.
+
+Module Clock.
+  Definition t := LocFun.t positive.
+
+  Definition bot: t := LocFun.init 1%positive.
+
+  Definition le (lhs rhs:t): Prop :=
+    forall loc, (LocFun.find loc lhs <= LocFun.find loc rhs)%positive.
+
+  Definition add (loc:Loc.t) (ts:positive) (c:t) :=
+    LocFun.add loc (Pos.max (LocFun.find loc c) ts) c.
+
+  Definition get (loc:Loc.t) (c:t) :=
+    LocFun.find loc c.
+End Clock.
+
+
+Module Legacy.
   Structure t := mk {
-    program: Program.t;
-    memory: Memory.t;
+    writes: Clock.t;
+    reads: Clock.t;
   }.
 
-  Definition init (s:Program.syntax): Configuration.t :=
-    Configuration.mk
-      (Program.init s)
-      Memory.init.
+  Definition bot: t := mk Clock.bot Clock.bot.
+
+  Inductive le (lhs rhs:t): Prop :=
+  | le_intro
+      (WRITES: Clock.le lhs.(writes) rhs.(writes))
+      (READS: Clock.le lhs.(reads) rhs.(reads))
+  .
+End Legacy.
+
+
+Module Commit.
+  Structure t := mk {
+    current: Legacy.t;
+    released: LocFun.t Legacy.t;
+    acquirable: Legacy.t;
+  }.
+
+  Definition bot: t :=
+    mk Legacy.bot (LocFun.init Legacy.bot) Legacy.bot.
+
+  Inductive le (lhs rhs:t): Prop :=
+  | le_intro
+      (CURRENT: Legacy.le lhs.(current) rhs.(current))
+      (RELEASED: forall (loc:Loc.t), Legacy.le (LocFun.find loc lhs.(released)) (LocFun.find loc rhs.(released)))
+      (ACQUIRABLE: Legacy.le lhs.(acquirable) rhs.(acquirable))
+  .
+
+  Inductive fence (ord:Ordering.t) (th:t): Prop :=
+  | fence_intro
+      (ACQUIRE: forall (ORDERING: Ordering.ord Ordering.acquire ord),
+          Legacy.le th.(acquirable) th.(current))
+      (RELEASE: forall (ORDERING: Ordering.ord Ordering.release ord) loc,
+          Legacy.le th.(current) (LocFun.find loc th.(released)))
+  .
+End Commit.
+
+
+Module Message.
+  Structure t := mk {
+    val: Const.t;
+    released: Legacy.t;
+    confirmed: bool;
+  }.
+End Message.
+
+
+Module Messages.
+  Definition t := LocFun.t (UsualPositiveMap.t Message.t).
+
+  Definition init: t :=
+    LocFun.init
+      (UsualPositiveMap.add
+         1%positive
+         (Message.mk 0 Legacy.bot true)
+         (UsualPositiveMap.empty _)).
+
+  Definition get (loc:Loc.t) (ts:positive) (m:t): option Message.t :=
+    UsualPositiveMap.find ts (LocFun.find loc m).
+
+  Inductive declare (loc:Loc.t) (ts:positive) (val:Const.t) (released:Legacy.t) (m1:t): forall (m2:t), Prop :=
+  | declare_intro
+      (GET: get loc ts m1 = None):
+      declare loc ts val released m1
+              (LocFun.add loc (UsualPositiveMap.add ts (Message.mk val released false) (LocFun.find loc m1)) m1)
+  .
+
+  Inductive read (commit:Commit.t) (loc:Loc.t) (ts:positive) (ord:Ordering.t) (m:t) (val:Const.t): Prop :=
+  | read_intro
+      released confirmed
+      (COMMIT0: (Clock.get loc commit.(Commit.current).(Legacy.writes) <= ts)%positive)
+      (COMMIT1: (ts <= Clock.get loc commit.(Commit.current).(Legacy.reads))%positive)
+      (GET: Messages.get loc ts m = Some (Message.mk val released confirmed))
+      (ACQUIRE: forall (ORDERING: Ordering.ord Ordering.acquire ord),
+          Legacy.le commit.(Commit.current) released)
+      (ACQUIRABLE: Legacy.le released commit.(Commit.acquirable)):
+      read commit loc ts ord m val
+  .
+
+  Inductive write (commit1:Commit.t) (loc:Loc.t) (ts:positive) (val:Const.t) (ord:Ordering.t) (m1:t) (commit2:Commit.t): forall (m2:t), Prop :=
+  | write_intro
+      released
+      (DECLARE: Messages.get loc ts m1 = Some (Message.mk val released false))
+      (COMMIT0: Commit.le commit1 commit2)
+      (COMMIT1: (Clock.get loc commit1.(Commit.current).(Legacy.writes) < ts)%positive)
+      (COMMIT2: (Clock.get loc commit1.(Commit.current).(Legacy.reads) < ts)%positive)
+      (COMMIT3: (ts <= Clock.get loc commit2.(Commit.current).(Legacy.writes))%positive)
+      (RELEASE: forall (ORDERING: Ordering.ord Ordering.release ord),
+          Legacy.le commit1.(Commit.current) (LocFun.find loc commit1.(Commit.released)))
+      (RELEASED: Legacy.le (LocFun.find loc commit1.(Commit.released)) released):
+      write commit1 loc ts val ord m1
+            commit2
+            (LocFun.add loc (UsualPositiveMap.add ts (Message.mk val released true) (LocFun.find loc m1)) m1)
+  .
+
+  Inductive confirmed (m:t): Prop :=
+  | confirmed_intro
+      (CONFIRM: forall loc ts message (GET: Messages.get loc ts m = Some message),
+          message.(Message.confirmed) = true)
+  .
+End Messages.
+
+
+Module Configuration.
+  Definition syntax := IdentMap.t Thread.syntax.
+
+  Structure t := mk {
+    messages: Messages.t;
+    threads: IdentMap.t (Commit.t * Thread.t);
+  }.
+
+  Definition init (s:syntax): t :=
+    mk Messages.init (IdentMap.map (fun th => (Commit.bot, Thread.init th)) s).
 
   Inductive is_terminal (c:t): Prop :=
   | is_terminal_intro
-      (PROGRAM: Program.is_terminal c.(program))
+      (TERMINAL:
+         forall tid commit th (FIND: IdentMap.find tid c.(threads) = Some (commit, th)),
+           Thread.is_terminal th)
   .
 
-  Inductive base_step (tid:Ident.t): forall (c1 c2:t), Prop :=
-  | step_mem
-      e
-      th1 th2 m1 m2
-      (PROGRAM: Program.step tid th1 (option_map ThreadEvent.mem e) th2)
-      (MEMORY: Memory.step tid m1 e m2):
-      base_step tid (mk th1 m1) (mk th2 m2)
-  | step_commit
-      th1 messages1 threads1 threads2
-      (THREADS: forall i, Thread.le (IdentFun.find i threads1) (IdentFun.find i threads2)):
-      base_step tid
-                (mk th1 (Memory.mk messages1 threads1))
-                (mk th1 (Memory.mk messages1 threads2))
-  .
+  Inductive base_step (c1:t): forall (e:option (Commit.t * Loc.t * positive)) (c2:t), Prop :=
+  | step_tau
+      tid commit th1 th2
+      (TID: IdentMap.find tid c1.(threads) = Some (commit, th1))
+      (THREAD: Thread.step th1 None th2):
+      base_step
+        c1 None
+        (mk c1.(messages) (IdentMap.add tid (commit, th2) c1.(threads)))
+  | step_read
+      tid commit th1 th2
+      loc ts ord val
+      (TID: IdentMap.find tid c1.(threads) = Some (commit, th1))
+      (READ: Messages.read commit loc ts ord c1.(messages) val)
+      (THREAD: Thread.step th1 (Some (ThreadEvent.mem (MemEvent.read loc val ord))) th2):
+      base_step
+        c1 (Some (commit, loc, ts))
+        (mk c1.(messages) (IdentMap.add tid (commit, th2) c1.(threads)))
+  | step_write
+      tid commit1 commit2 th1 th2
+      loc ts ord val messages2
+      (TID: IdentMap.find tid c1.(threads) = Some (commit1, th1))
+      (WRITE: Messages.write commit1 loc ts val ord c1.(messages) commit2 messages2)
+      (THREAD: Thread.step th1 (Some (ThreadEvent.mem (MemEvent.write loc val ord))) th2):
+      base_step
+        c1 None
+        (mk messages2 (IdentMap.add tid (commit2, th2) c1.(threads)))
+  | step_update
+      tid commit1 commit2 th1 th2
+      loc ts ord valr valw messages2
+      (TID: IdentMap.find tid c1.(threads) = Some (commit1, th1))
+      (READ: Messages.read commit1 loc ts ord c1.(messages) valr)
+      (WRITE: Messages.write commit1 loc (ts + 1) valw ord c1.(messages) commit2 messages2)
+      (RELEASE_TODO: True) (* (RELEASE: Legacy.le messager.(Message.released) messagew.(Message.released)): *)
+      (THREAD: Thread.step th1 (Some (ThreadEvent.mem (MemEvent.update loc valr valw ord))) th2):
+      base_step
+        c1 None
+        (mk messages2 (IdentMap.add tid (commit2, th2) c1.(threads)))
+  | step_fence
+      tid commit th1 th2
+      ord
+      (TID: IdentMap.find tid c1.(threads) = Some (commit, th1))
+      (FENCE: Commit.fence ord commit)
+      (THREAD: Thread.step th1 (Some (ThreadEvent.mem (MemEvent.fence ord))) th2):
+      base_step
+        c1 None
+        (mk c1.(messages) (IdentMap.add tid (commit, th2) c1.(threads)))
 
-  Inductive internal_step: forall (threads:IdentSet.t) (c1 c2:t), Prop :=
-  | step_base
-      threads tid c1 c2
-      (TID: IdentSet.In tid threads)
-      (BASE: base_step tid c1 c2):
-      internal_step threads c1 c2
   | step_declare
-      threads threads' tid
-      c1 c1'
-      loc ts val released
-      (THREADS: IdentSet.Subset threads' threads)
-      (STEPS: internal_steps threads' c1 c1')
-      (GET: Messages.get loc ts c1'.(memory).(Memory.messages) = None)
-      (GET': Messages.get loc ts c1'.(memory).(Memory.messages) = Some (Message.mk val released None)):
-      internal_step
-        threads
-        c1
-        (mk
-           c1.(program)
-           (Memory.mk
-              (Messages.add tid loc ts (Message.mk val released (Some threads')) c1.(memory).(Memory.messages))
-              c1.(memory).(Memory.threads)))
-
-  with internal_steps: forall (threads:IdentSet.t) (c1 c2:t), Prop :=
-  | steps_nil
-      threads c:
-      internal_steps threads c c
-  | steps_cons
-      threads c1 c2 c3
-      (STEP: internal_step threads c1 c2)
-      (STEPS: internal_steps threads c2 c3):
-      internal_steps threads c1 c3
+      loc ts val released messages2
+      (DECLARE: Messages.declare loc ts val released c1.(messages) messages2):
+      base_step
+        c1 None
+        (mk messages2 c1.(threads))
+  | step_commit
+      tid commit1 commit2 th
+      (TID: IdentMap.find tid c1.(threads) = Some (commit1, th))
+      (COMMIT: Commit.le commit1 commit2):
+      base_step
+        c1 None
+        (mk c1.(messages) (IdentMap.add tid (commit2, th) c1.(threads)))
   .
 
-  Lemma internal_step_congr
-        threads1 threads2
-        c1 c2
-        (THREADS: IdentSet.Subset threads1 threads2)
-        (STEP: internal_step threads1 c1 c2):
-    internal_step threads2 c1 c2
-  with internal_steps_congr
-         threads1 threads2
-         c1 c2
-         (THREADS: IdentSet.Subset threads1 threads2)
-         (STEP: internal_steps threads1 c1 c2):
-         internal_steps threads2 c1 c2.
-  Proof.
-    - inv STEP.
-      + econs 1; eauto.
-      + econs 2; eauto.
-        etransitivity; eauto.
-    - inv STEP.
-      + econs 1.
-      + econs 2; eauto.
-  Qed.
+  Inductive internal_step: forall (c1 c2:t), Prop :=
+  | step_immediate
+      c1 c2
+      (STEP: base_step c1 None c2):
+      internal_step c1 c2
+  | step_validation
+      c1 commit loc ts c2
+      c1'
+      (STEP: base_step c1 (Some (commit, loc, ts)) c2)
+      (STEPS: rtc internal_step c1 c1')
+      (CONFIRM: Messages.confirmed c1'.(messages)):
+      internal_step c1 c2
+  .
 
-  Lemma internal_steps_append
-        threads c1 c2 c3
-        (STEPS12: internal_steps threads c1 c2)
-        (STEPS23: internal_steps threads c2 c3):
-    internal_steps threads c1 c3.
-  Proof.
-    revert STEPS23. induction STEPS12; auto.
-    i. econs; eauto.
-  Qed.
-
-  Inductive feasible (c:t): Prop :=
+  Inductive feasible (c1:t): Prop :=
   | feasible_intro
-      threads c'
-      (STEP: internal_steps threads c c')
-      (NODECLARE: ~ Messages.is_declared c'.(memory).(Memory.messages))
+      c2
+      (STEPS: rtc internal_step c1 c2)
+      (CONFIRM: Messages.confirmed c2.(messages))
   .
 
-  Inductive external_step: forall (c1:t) (e:Event.t) (c2:t), Prop :=
+  Inductive external_step (c1:t): forall (e:Event.t) (c2:t), Prop :=
   | step_syscall
-      tid th1 e th2 m
-      (PROGRAM: Program.step tid th1 (Some (ThreadEvent.syscall e)) th2):
-      external_step (mk th1 m) e (mk th2 m)
+      tid commit th1 th2
+      e
+      (TID: IdentMap.find tid c1.(threads) = Some (commit, th1))
+      (THREAD: Thread.step th1 (Some (ThreadEvent.syscall e)) th2):
+      external_step
+        c1 e
+        (mk c1.(messages) (IdentMap.add tid (commit, th2) c1.(threads)))
   .
 
   Inductive step: forall (c1:t) (e:option Event.t) (c2:t), Prop :=
   | step_internal
-      threads c1 c2
-      (STEP: internal_step threads c1 c2)
+      c1 c2
+      (STEP: internal_step c1 c2)
       (FEASIBLE: feasible c2):
       step c1 None c2
   | step_external
