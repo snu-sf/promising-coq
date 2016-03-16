@@ -8,7 +8,6 @@ Require Import sflib.
 Require Import Basic.
 Require Import Event.
 Require Import Program.
-Require Import Memory.
 Require Import Configuration.
 Require Import Simulation.
 Require Import Syntax.

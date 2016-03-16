@@ -38,34 +38,3 @@ End Ident.
 Module IdentFun := UsualFun (Ident).
 Module IdentSet := UsualSet (Ident).
 Module IdentMap := UsualPositiveMap.
-
-
-Definition option_eq_dec
-           A (eq_dec: forall (l r:A), {l = r} + {l <> r})
-           (l r: option A): {l = r} + {l <> r}.
-Proof.
-  refine
-    (match l, r with
-     | Some l, Some r => _
-     | None, None => _
-     | _, _ => _
-     end);
-    try (left; auto; fail);
-    try (right; congruence; fail).
-  destruct (eq_dec l r).
-  - subst. left. auto.
-  - right. contradict n. inversion n. auto.
-Defined.
-
-Notation rtc := (clos_refl_trans _). (* reflexive transitive closure *)
-Notation rc := (clos_refl _). (* reflexive transitive closure *)
-Notation tc := (clos_trans _). (* transitive closure *)
-Hint Immediate rt_step rt_refl t_step.
-
-Inductive compose A (rel1 rel2:relation A): relation A :=
-| compose_intro
-    x y z
-    (REL1: rel1 x y)
-    (REL2: rel2 y z):
-    compose rel1 rel2 x z
-.

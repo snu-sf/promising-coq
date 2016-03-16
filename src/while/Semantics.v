@@ -1,7 +1,7 @@
 Require Import List.
 Require Import Event.
 Require Import Syntax.
-Require Import Program.
+Require Import Thread.
 
 Set Implicit Arguments.
 

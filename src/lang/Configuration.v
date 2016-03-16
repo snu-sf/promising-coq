@@ -134,10 +134,10 @@ Module Messages.
             (LocFun.add loc (UsualPositiveMap.add ts (Message.mk val released true) (LocFun.find loc m1)) m1)
   .
 
-  Inductive confirmed (m:t): Prop :=
+  Inductive declared (m:t): Prop :=
   | confirmed_intro
-      (CONFIRM: forall loc ts message (GET: Messages.get loc ts m = Some message),
-          message.(Message.confirmed) = true)
+      loc ts val released
+      (GET: Messages.get loc ts m = Some (Message.mk val released false))
   .
 End Messages.
 
@@ -160,13 +160,13 @@ Module Configuration.
            Thread.is_terminal th)
   .
 
-  Inductive base_step (c1:t): forall (e:option (Commit.t * Loc.t * positive)) (c2:t), Prop :=
+  Inductive base_step (c1:t): forall (reading:bool) (c2:t), Prop :=
   | step_tau
       tid commit th1 th2
       (TID: IdentMap.find tid c1.(threads) = Some (commit, th1))
       (THREAD: Thread.step th1 None th2):
       base_step
-        c1 None
+        c1 false
         (mk c1.(messages) (IdentMap.add tid (commit, th2) c1.(threads)))
   | step_read
       tid commit th1 th2
@@ -175,7 +175,7 @@ Module Configuration.
       (READ: Messages.read commit loc ts ord c1.(messages) val)
       (THREAD: Thread.step th1 (Some (ThreadEvent.mem (MemEvent.read loc val ord))) th2):
       base_step
-        c1 (Some (commit, loc, ts))
+        c1 true
         (mk c1.(messages) (IdentMap.add tid (commit, th2) c1.(threads)))
   | step_write
       tid commit1 commit2 th1 th2
@@ -184,7 +184,7 @@ Module Configuration.
       (WRITE: Messages.write commit1 loc ts val ord c1.(messages) commit2 messages2)
       (THREAD: Thread.step th1 (Some (ThreadEvent.mem (MemEvent.write loc val ord))) th2):
       base_step
-        c1 None
+        c1 false
         (mk messages2 (IdentMap.add tid (commit2, th2) c1.(threads)))
   | step_update
       tid commit1 commit2 th1 th2
@@ -195,7 +195,7 @@ Module Configuration.
       (RELEASE_TODO: True) (* (RELEASE: Legacy.le messager.(Message.released) messagew.(Message.released)): *)
       (THREAD: Thread.step th1 (Some (ThreadEvent.mem (MemEvent.update loc valr valw ord))) th2):
       base_step
-        c1 None
+        c1 true
         (mk messages2 (IdentMap.add tid (commit2, th2) c1.(threads)))
   | step_fence
       tid commit th1 th2
@@ -204,43 +204,60 @@ Module Configuration.
       (FENCE: Commit.fence ord commit)
       (THREAD: Thread.step th1 (Some (ThreadEvent.mem (MemEvent.fence ord))) th2):
       base_step
-        c1 None
+        c1 false
         (mk c1.(messages) (IdentMap.add tid (commit, th2) c1.(threads)))
 
   | step_declare
       loc ts val released messages2
       (DECLARE: Messages.declare loc ts val released c1.(messages) messages2):
       base_step
-        c1 None
+        c1 false
         (mk messages2 c1.(threads))
   | step_commit
       tid commit1 commit2 th
       (TID: IdentMap.find tid c1.(threads) = Some (commit1, th))
       (COMMIT: Commit.le commit1 commit2):
       base_step
-        c1 None
+        c1 false
         (mk c1.(messages) (IdentMap.add tid (commit2, th) c1.(threads)))
   .
 
   Inductive internal_step: forall (c1 c2:t), Prop :=
   | step_immediate
       c1 c2
-      (STEP: base_step c1 None c2):
+      (STEP: base_step c1 false c2):
       internal_step c1 c2
   | step_validation
-      c1 commit loc ts c2
+      c1 c2
       c1'
-      (STEP: base_step c1 (Some (commit, loc, ts)) c2)
-      (STEPS: rtc internal_step c1 c1')
-      (CONFIRM: Messages.confirmed c1'.(messages)):
+      (STEP: base_step c1 true c2)
+      (STEPS: internal_steps c1 c1')
+      (CONFIRM: ~ Messages.declared c1'.(messages)):
       internal_step c1 c2
+  with internal_steps: forall (c1 c2:t), Prop :=
+  | steps_nil c:
+      internal_steps c c
+  | steps_cons
+      c1 c2 c3
+      (STEP: internal_step c1 c2)
+      (STEPS: internal_steps c2 c3):
+      internal_steps c1 c3
   .
+
+  Lemma internal_steps_append c1 c2 c3
+        (STEPS12: internal_steps c1 c2)
+        (STEPS23: internal_steps c2 c3):
+    internal_steps c1 c3.
+  Proof.
+    revert c3 STEPS23. induction STEPS12; auto. i.
+    econs 2; eauto.
+  Qed.
 
   Inductive feasible (c1:t): Prop :=
   | feasible_intro
       c2
-      (STEPS: rtc internal_step c1 c2)
-      (CONFIRM: Messages.confirmed c2.(messages))
+      (STEPS: internal_steps c1 c2)
+      (CONFIRM: ~ Messages.declared c2.(messages))
   .
 
   Inductive external_step (c1:t): forall (e:Event.t) (c2:t), Prop :=
