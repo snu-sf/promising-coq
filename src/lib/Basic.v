@@ -4,7 +4,6 @@ Require Import PArith.
 Require Import UsualFMapPositive.
 Require Import FMapFacts.
 Require Import MSetList.
-Require Import FunctionalExtensionality.
 
 Require Import sflib.
 
@@ -36,6 +35,6 @@ Module Ident <: OrderedTypeWithLeibniz.
     end.
 End Ident.
 
+Module IdentFun := UsualFun (Ident).
 Module IdentSet := UsualSet (Ident).
 Module IdentMap := UsualPositiveMap.
-Module IdentFun := UsualFun (Ident).
