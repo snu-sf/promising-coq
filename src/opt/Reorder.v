@@ -223,15 +223,15 @@ Proof.
     eapply TERMINAL. rewrite <- FIND0. eauto.
 Admitted.
 
-Definition sim
-           tid prog_src prog_tgt
-           (REORDER: reordered_program tid prog_src prog_tgt):
-  Simulation.t prog_src prog_tgt :=
-  Simulation.mk
-    _ _
-    (sim_init REORDER)
-    (Simulation.step_lemma
-       (@sim_feasible _)
-       (@sim_base _)
-       (@sim_external _))
-    (@sim_terminal _).
+Lemma sim
+      tid prog_src prog_tgt
+      (REORDER: reordered_program tid prog_src prog_tgt):
+  Simulation.t prog_src prog_tgt.
+Proof.
+  eapply Simulation.sim_lemma.
+  - apply sim_init. eauto.
+  - apply sim_feasible.
+  - apply sim_base.
+  - apply sim_external.
+  - apply sim_terminal.
+Qed.

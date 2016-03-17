@@ -229,10 +229,8 @@ Module Configuration.
       internal_step c1 c2
   | step_validation
       c1 c2
-      c1'
       (STEP: base_step c1 true c2)
-      (STEPS: internal_steps c1 c1')
-      (CONFIRM: ~ Messages.declared c1'.(messages)):
+      (FEASIBLE: feasible c1):
       internal_step c1 c2
   with internal_steps: forall (c1 c2:t), Prop :=
   | steps_nil c:
@@ -242,6 +240,12 @@ Module Configuration.
       (STEP: internal_step c1 c2)
       (STEPS: internal_steps c2 c3):
       internal_steps c1 c3
+  with feasible: forall (c1:t), Prop :=
+  | feasible_intro
+      c1 c2
+      (STEPS: internal_steps c1 c2)
+      (CONFIRM: ~ Messages.declared c2.(messages)):
+      feasible c1
   .
 
   Lemma internal_steps_append c1 c2 c3
@@ -253,12 +257,29 @@ Module Configuration.
     econs 2; eauto.
   Qed.
 
-  Inductive feasible (c1:t): Prop :=
-  | feasible_intro
-      c2
-      (STEPS: internal_steps c1 c2)
-      (CONFIRM: ~ Messages.declared c2.(messages))
-  .
+  Lemma internal_steps_feasible c1 c2
+        (STEPS: internal_steps c1 c2)
+        (FEASIBLE: feasible c2):
+    feasible c1.
+  Proof.
+    inv FEASIBLE. econs; [|eauto].
+    eapply internal_steps_append; eauto.
+  Qed.
+
+  Lemma init_feasible s: feasible (init s).
+  Proof.
+    econs.
+    - econs 1.
+    - unfold init. simpl. intro X. inv X.
+      unfold Messages.get, Messages.init in *.
+      rewrite LocFun.init_spec in *.
+      rewrite IdentMap.Facts.add_o in *.
+      match goal with
+      | [H: context[if ?cond then _ else _] |- _] =>
+        destruct cond; inv H
+      end.
+      rewrite IdentMap.Facts.empty_o in *. inv H0.
+  Qed.
 
   Inductive external_step (c1:t): forall (e:Event.t) (c2:t), Prop :=
   | step_syscall
