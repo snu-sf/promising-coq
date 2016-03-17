@@ -59,10 +59,10 @@ Module Simulation.
         Configuration.feasible src.
 
     Definition BASE_STEP: Prop :=
-      forall src0 tgt0 reading tgt2
+      forall src0 tgt0 confirmed tgt2
         (SIM: sim src0 tgt0)
-        (STEP: Configuration.base_step tgt0 reading tgt2)
-        (SRC0: reading -> Configuration.feasible src0)
+        (STEP: Configuration.base_step tgt0 confirmed tgt2)
+        (SRC0: ~ confirmed -> Configuration.feasible src0)
         (TGT0: Configuration.feasible tgt0)
         (TGT2: Configuration.feasible tgt2),
       exists src1 src2,
