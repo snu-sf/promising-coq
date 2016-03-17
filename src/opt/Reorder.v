@@ -197,7 +197,6 @@ Proof.
   - admit. (* update *)
   - admit. (* fence *)
   - admit. (* declare *)
-  - admit. (* commit *)
 Admitted.
 
 Lemma sim_external tid: Simulation.EXTERNAL_STEP (sim_configuration tid).
