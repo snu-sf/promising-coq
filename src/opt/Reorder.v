@@ -4,6 +4,7 @@ Require Import List.
 Require Import ProofIrrelevance.
 
 Require Import sflib.
+Require Import paco.
 
 Require Import Basic.
 Require Import Event.
@@ -166,7 +167,7 @@ Inductive sim_configuration tid (conf1 conf2:Configuration.t): Prop :=
 Lemma sim_init
       tid prog_src prog_tgt
       (REORDER: reordered_program tid prog_src prog_tgt):
-  Simulation.INIT prog_src prog_tgt (sim_configuration tid).
+  Simulation.INIT (sim_configuration tid) prog_src prog_tgt.
 Proof.
   inv REORDER. unfold Simulation.INIT, Configuration.init.
   econs; simpl; eauto.
@@ -222,12 +223,10 @@ Proof.
     eapply TERMINAL. rewrite <- FIND0. eauto.
 Admitted.
 
-Lemma sim
-      tid prog_src prog_tgt
-      (REORDER: reordered_program tid prog_src prog_tgt):
-  Simulation.t prog_src prog_tgt.
+Lemma sim tid:
+  reordered_program tid <2= Simulation.t.
 Proof.
-  eapply Simulation.sim_lemma.
+  i. eapply Simulation.sim_lemma.
   - apply sim_init. eauto.
   - apply sim_feasible.
   - apply sim_base.

@@ -10,10 +10,10 @@ Set Implicit Arguments.
 (* TODO: liveness *)
 Module Simulation.
   Section Simulation.
-    Variable (prog_src prog_tgt:Configuration.syntax).
     Variable (sim: forall (src tgt:Configuration.t), Prop).
 
-    Definition INIT: Prop := sim (Configuration.init prog_src) (Configuration.init prog_tgt).
+    Definition INIT (prog_src prog_tgt:Configuration.syntax): Prop :=
+      sim (Configuration.init prog_src) (Configuration.init prog_tgt).
 
     (* TODO: too weak a step lemma *)
     Definition STEP: Prop :=
@@ -36,13 +36,12 @@ Module Simulation.
 
   Structure t (prog_src prog_tgt:Configuration.syntax): Prop := mk {
     sim: forall (src tgt:Configuration.t), Prop;
-    init: INIT prog_src prog_tgt sim;
+    init: INIT sim prog_src prog_tgt;
     step: STEP sim;
     terminal: TERMINAL sim;
   }.
 
   Section BaseSimulation.
-    Variable (prog_src prog_tgt:Configuration.syntax).
     Variable (sim: forall (src tgt:Configuration.t), Prop).
 
     Inductive sim_lift (src tgt:Configuration.t): Prop :=
@@ -129,11 +128,11 @@ Module Simulation.
     Qed.
 
     Lemma sim_lemma
-          src tgt
-          (I:INIT src tgt sim)
+          (prog_src prog_tgt:Configuration.syntax)
+          (I:INIT sim prog_src prog_tgt)
           (F:FEASIBLE) (B:BASE_STEP) (E:EXTERNAL_STEP)
           (T:TERMINAL sim):
-      Simulation.t src tgt.
+      Simulation.t prog_src prog_tgt.
     Proof.
       econs; try apply step_lemma; auto.
       - econs; auto.
