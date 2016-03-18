@@ -151,7 +151,7 @@ Inductive sim_thread
     (TODO: False)
 .
 
-Inductive sim_configuration tid (conf1 conf2:Configuration.t): Prop :=
+Inductive sim_configuration (tid:Ident.t) (idx:nat) (conf1 conf2:Configuration.t): Prop :=
 | sim_configuration_intro
     commit1 commit2 th1 th2
     (CONTEXT: forall i (TID: i <> tid),
@@ -170,6 +170,7 @@ Lemma sim_init
   Simulation.INIT (sim_configuration tid) prog_src prog_tgt.
 Proof.
   inv REORDER. unfold Simulation.INIT, Configuration.init.
+  exists 0.
   econs; simpl; eauto.
   - i. rewrite ? IdentMap.Facts.map_o.
     rewrite IdentMap.Facts.add_neq_o; auto.
