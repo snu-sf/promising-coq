@@ -107,17 +107,17 @@ Module Messages.
   .
 
   Inductive read
-            (commit1:Commit.t) (loc:Loc.t) (ts:positive) (ord:Ordering.t) (m:t)
-            (commit2:Commit.t) (val:Const.t) (released:Legacy.t) (confirmed:bool): Prop :=
+            (commit:Commit.t) (loc:Loc.t) (ts:positive) (ord:Ordering.t) (m:t)
+            (val:Const.t) (released:Legacy.t) (confirmed:bool): Prop :=
   | read_intro
-      (COMMIT0: Commit.le commit1 commit2)
-      (COMMIT1: (Clock.get loc commit1.(Commit.current).(Legacy.reads) <= ts)%positive)
-      (COMMIT2: (ts <= Clock.get loc commit2.(Commit.current).(Legacy.writes))%positive)
+      (COMMIT0: (Clock.get loc commit.(Commit.current).(Legacy.reads) <= ts)%positive)
+      (COMMIT1: (ts <= Clock.get loc commit.(Commit.current).(Legacy.writes))%positive)
       (GET: Messages.get loc ts m = Some (Message.mk val released confirmed))
       (ACQUIRE: forall (ORDERING: Ordering.ord Ordering.acquire ord),
-          Legacy.le commit1.(Commit.current) released)
-      (ACQUIRABLE: Legacy.le released commit1.(Commit.acquirable)):
-      read commit1 loc ts ord m commit2 val released confirmed
+          Legacy.le commit.(Commit.current) released)
+      (ACQUIRABLE: Legacy.le released commit.(Commit.acquirable)):
+      read commit loc ts ord m
+           val released confirmed
   .
 
   Inductive write
@@ -133,8 +133,7 @@ Module Messages.
           Legacy.le commit1.(Commit.current) (LocFun.find loc commit1.(Commit.released)))
       (RELEASED: Legacy.le (LocFun.find loc commit1.(Commit.released)) released):
       write commit1 loc ts val released ord m1
-            commit2
-            (LocFun.add loc (UsualPositiveMap.add ts (Message.mk val released true) (LocFun.find loc m1)) m1)
+            commit2 (LocFun.add loc (UsualPositiveMap.add ts (Message.mk val released true) (LocFun.find loc m1)) m1)
   .
 
   Inductive declared (m:t): Prop :=
@@ -172,14 +171,14 @@ Module Configuration.
         c1 true
         (mk c1.(messages) (IdentMap.add tid (commit, th2) c1.(threads)))
   | step_read
-      tid commit1 commit2 th1 th2
+      tid commit th1 th2
       loc ts ord val released confirmed
-      (TID: IdentMap.find tid c1.(threads) = Some (commit1, th1))
-      (READ: Messages.read commit1 loc ts ord c1.(messages) commit2 val released confirmed)
+      (TID: IdentMap.find tid c1.(threads) = Some (commit, th1))
+      (READ: Messages.read commit loc ts ord c1.(messages) val released confirmed)
       (THREAD: Thread.step th1 (Some (ThreadEvent.mem (MemEvent.read loc val ord))) th2):
       base_step
         c1 confirmed
-        (mk c1.(messages) (IdentMap.add tid (commit2, th2) c1.(threads)))
+        (mk c1.(messages) (IdentMap.add tid (commit, th2) c1.(threads)))
   | step_write
       tid commit1 commit2 th1 th2
       loc ts ord val released messages2
@@ -190,32 +189,38 @@ Module Configuration.
         c1 true
         (mk messages2 (IdentMap.add tid (commit2, th2) c1.(threads)))
   | step_update
-      tid commit1 commiti commit2 th1 th2
+      tid commit1 commit2 th1 th2
       loc ts ord valr valw releasedr releasedw confirmedr messages2
       (TID: IdentMap.find tid c1.(threads) = Some (commit1, th1))
-      (READ: Messages.read commit1 loc ts ord c1.(messages) commiti valr releasedr confirmedr)
-      (WRITE: Messages.write commiti loc (ts + 1) valw releasedw ord c1.(messages) commit2 messages2)
+      (READ: Messages.read commit1 loc ts ord c1.(messages) valr releasedr confirmedr)
+      (WRITE: Messages.write commit1 loc (ts + 1) valw releasedw ord c1.(messages) commit2 messages2)
       (RELEASE: Legacy.le releasedr releasedw)
       (THREAD: Thread.step th1 (Some (ThreadEvent.mem (MemEvent.update loc valr valw ord))) th2):
       base_step
         c1 confirmedr
         (mk messages2 (IdentMap.add tid (commit2, th2) c1.(threads)))
   | step_fence
-      tid commit1 commit2 th1 th2
+      tid commit th1 th2
       ord
-      (TID: IdentMap.find tid c1.(threads) = Some (commit1, th1))
-      (COMMIT: Commit.le commit1 commit2)
-      (FENCE: Commit.fence ord commit2)
+      (TID: IdentMap.find tid c1.(threads) = Some (commit, th1))
+      (FENCE: Commit.fence ord commit)
       (THREAD: Thread.step th1 (Some (ThreadEvent.mem (MemEvent.fence ord))) th2):
       base_step
         c1 true
-        (mk c1.(messages) (IdentMap.add tid (commit2, th2) c1.(threads)))
+        (mk c1.(messages) (IdentMap.add tid (commit, th2) c1.(threads)))
   | step_declare
       loc ts val released messages2
       (DECLARE: Messages.declare loc ts val released c1.(messages) messages2):
       base_step
         c1 true
         (mk messages2 c1.(threads))
+  | step_commit
+      tid commit1 commit2 th
+      (TID: IdentMap.find tid c1.(threads) = Some (commit1, th))
+      (COMMIT: Commit.le commit1 commit2):
+      base_step
+        c1 true
+        (mk c1.(messages) (IdentMap.add tid (commit2, th) c1.(threads)))
   .
 
   Inductive internal_step: forall (c1 c2:t), Prop :=

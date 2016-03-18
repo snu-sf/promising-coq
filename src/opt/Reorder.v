@@ -4,6 +4,7 @@ Require Import List.
 Require Import ProofIrrelevance.
 
 Require Import sflib.
+Require Import paco.
 
 Require Import Basic.
 Require Import Event.
@@ -150,7 +151,7 @@ Inductive sim_thread
     (TODO: False)
 .
 
-Inductive sim_configuration tid (conf1 conf2:Configuration.t): Prop :=
+Inductive sim_configuration (tid:Ident.t) (idx:nat) (conf1 conf2:Configuration.t): Prop :=
 | sim_configuration_intro
     commit1 commit2 th1 th2
     (CONTEXT: forall i (TID: i <> tid),
@@ -166,9 +167,10 @@ Inductive sim_configuration tid (conf1 conf2:Configuration.t): Prop :=
 Lemma sim_init
       tid prog_src prog_tgt
       (REORDER: reordered_program tid prog_src prog_tgt):
-  Simulation.INIT prog_src prog_tgt (sim_configuration tid).
+  Simulation.INIT (sim_configuration tid) prog_src prog_tgt.
 Proof.
   inv REORDER. unfold Simulation.INIT, Configuration.init.
+  exists 0.
   econs; simpl; eauto.
   - i. rewrite ? IdentMap.Facts.map_o.
     rewrite IdentMap.Facts.add_neq_o; auto.
@@ -222,12 +224,10 @@ Proof.
     eapply TERMINAL. rewrite <- FIND0. eauto.
 Admitted.
 
-Lemma sim
-      tid prog_src prog_tgt
-      (REORDER: reordered_program tid prog_src prog_tgt):
-  Simulation.t prog_src prog_tgt.
+Lemma sim tid:
+  reordered_program tid <2= Simulation.t.
 Proof.
-  eapply Simulation.sim_lemma.
+  i. eapply Simulation.sim_lemma.
   - apply sim_init. eauto.
   - apply sim_feasible.
   - apply sim_base.
