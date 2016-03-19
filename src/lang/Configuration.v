@@ -231,7 +231,7 @@ Module Configuration.
   | step_unconfirmed
       c1 c2
       (STEP: base_step c1 false c2)
-      (FEASIBLE: feasible c1):
+      (CONSISTENT: consistent c1):
       internal_step c1 c2
   with internal_steps: forall (c1 c2:t), Prop :=
   | steps_nil c:
@@ -241,12 +241,12 @@ Module Configuration.
       (STEP: internal_step c1 c2)
       (STEPS: internal_steps c2 c3):
       internal_steps c1 c3
-  with feasible: forall (c1:t), Prop :=
-  | feasible_intro
+  with consistent: forall (c1:t), Prop :=
+  | consistent_intro
       c1 c2
       (STEPS: internal_steps c1 c2)
       (CONFIRM: ~ Messages.declared c2.(messages)):
-      feasible c1
+      consistent c1
   .
 
   Lemma internal_steps_append c1 c2 c3
@@ -258,16 +258,16 @@ Module Configuration.
     econs 2; eauto.
   Qed.
 
-  Lemma internal_steps_feasible c1 c2
+  Lemma internal_steps_consistent c1 c2
         (STEPS: internal_steps c1 c2)
-        (FEASIBLE: feasible c2):
-    feasible c1.
+        (CONSISTENT: consistent c2):
+    consistent c1.
   Proof.
-    inv FEASIBLE. econs; [|eauto].
+    inv CONSISTENT. econs; [|eauto].
     eapply internal_steps_append; eauto.
   Qed.
 
-  Lemma init_feasible s: feasible (init s).
+  Lemma init_consistent s: consistent (init s).
   Proof.
     econs.
     - econs 1.
@@ -297,13 +297,13 @@ Module Configuration.
   | step_internal
       c1 c2
       (STEP: internal_step c1 c2)
-      (FEASIBLE: feasible c2):
+      (CONSISTENT: consistent c2):
       step c1 None c2
   | step_external
       c1 c2
       e
       (STEP: external_step c1 e c2)
-      (FEASIBLE: feasible c2):
+      (CONSISTENT: consistent c2):
       step c1 (Some e) c2
   .
 End Configuration.

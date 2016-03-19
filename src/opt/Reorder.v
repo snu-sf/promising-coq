@@ -181,7 +181,7 @@ Proof.
   - econs 1; auto. inv REORDER0. econs; eauto.
 Qed.
 
-Lemma sim_feasible tid: Simulation.FEASIBLE (sim_configuration tid).
+Lemma sim_consistent tid: Simulation.CONSISTENT (sim_configuration tid).
 Proof.
   ii. inv SIM. inv TH.
   - econs.
@@ -229,7 +229,7 @@ Lemma sim tid:
 Proof.
   i. eapply Simulation.sim_lemma.
   - apply sim_init. eauto.
-  - apply sim_feasible.
+  - apply sim_consistent.
   - apply sim_base.
   - apply sim_external.
   - apply sim_terminal.

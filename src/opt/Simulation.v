@@ -67,23 +67,23 @@ Module Simulation.
     Inductive sim_lift (idx:nat) (src tgt:Configuration.t): Prop :=
     | sim_lift_intro
         (SIM: sim idx src tgt)
-        (SRC: Configuration.feasible src)
-        (TGT: Configuration.feasible tgt)
+        (SRC: Configuration.consistent src)
+        (TGT: Configuration.consistent tgt)
     .
 
-    Definition FEASIBLE: Prop :=
+    Definition CONSISTENT: Prop :=
       forall idx src tgt
         (SIM: sim idx src tgt)
         (CONFIRM: ~ Messages.declared tgt.(Configuration.messages)),
-        Configuration.feasible src.
+        Configuration.consistent src.
 
     Definition BASE_STEP: Prop :=
       forall idx0 src0 tgt0 confirmed tgt2
         (SIM: sim idx0 src0 tgt0)
         (STEP: Configuration.base_step tgt0 confirmed tgt2)
-        (SRC0: ~ confirmed -> Configuration.feasible src0)
-        (TGT0: Configuration.feasible tgt0)
-        (TGT2: Configuration.feasible tgt2),
+        (SRC0: ~ confirmed -> Configuration.consistent src0)
+        (TGT0: Configuration.consistent tgt0)
+        (TGT2: Configuration.consistent tgt2),
       exists idx2 src1 src2,
         <<INTERNAL: Configuration.internal_steps src0 src1>> /\
         <<STEP: internal_step src1 idx0 src2 idx2>> /\
@@ -93,47 +93,47 @@ Module Simulation.
       forall idx0 src0 tgt0 e tgt2
         (SIM: sim idx0 src0 tgt0)
         (STEP: Configuration.external_step tgt0 e tgt2)
-        (SRC0: Configuration.feasible src0)
-        (TGT0: Configuration.feasible tgt0)
-        (TGT2: Configuration.feasible tgt2),
+        (SRC0: Configuration.consistent src0)
+        (TGT0: Configuration.consistent tgt0)
+        (TGT2: Configuration.consistent tgt2),
       exists idx2 src1 src2,
         <<INTERNAL: Configuration.internal_steps src0 src1>> /\
         <<STEP: Configuration.external_step src1 e src2>> /\
         <<SIM: sim idx2 src2 tgt2>>.
 
-    Lemma I (F:FEASIBLE) (B:BASE_STEP):
+    Lemma I (C:CONSISTENT) (B:BASE_STEP):
       forall idx0 src0 tgt0 tgt2
         (SIM: sim idx0 src0 tgt0)
         (STEP: Configuration.internal_step tgt0 tgt2)
-        (TGT2: Configuration.feasible tgt2),
+        (TGT2: Configuration.consistent tgt2),
       exists idx2 src1 src2,
         <<INTERNAL: Configuration.internal_steps src0 src1>> /\
         <<STEP: internal_step src1 idx0 src2 idx2>> /\
         <<SIM: sim idx2 src2 tgt2>>
-    with F' (F:FEASIBLE) (B:BASE_STEP):
+    with F' (C:CONSISTENT) (B:BASE_STEP):
       forall idx0 src0 tgt0
         (SIM: sim idx0 src0 tgt0)
-        (TGT0: Configuration.feasible tgt0),
-        Configuration.feasible src0.
+        (TGT0: Configuration.consistent tgt0),
+        Configuration.consistent src0.
     Proof.
       - i. inv STEP0; eapply B; eauto.
-        eapply Configuration.internal_steps_feasible; eauto.
+        eapply Configuration.internal_steps_consistent; eauto.
         econs 2; eauto.
         + econs 1. eauto.
         + econs 1.
       - i. inv TGT0. revert idx0 src0 SIM CONFIRM. induction STEPS.
-        + i. eapply F; eauto.
+        + i. eapply C; eauto.
         + i. exploit I; eauto.
           { econs; eauto. }
           i. des.
-          eapply Configuration.internal_steps_feasible; eauto.
+          eapply Configuration.internal_steps_consistent; eauto.
           exploit IHSTEPS; eauto. intro SRC0.
           inv STEP1; auto.
-          eapply Configuration.internal_steps_feasible; eauto.
+          eapply Configuration.internal_steps_consistent; eauto.
           econs 2; eauto. econs 1.
     Qed.
 
-    Lemma step_lemma (F:FEASIBLE) (B:BASE_STEP) (E:EXTERNAL_STEP): STEP (sim_lift).
+    Lemma step_lemma (C:CONSISTENT) (B:BASE_STEP) (E:EXTERNAL_STEP): STEP (sim_lift).
     Proof.
       ii. inv SIM. inv STEP0.
       - exploit I; eauto. i. des.
@@ -151,15 +151,15 @@ Module Simulation.
     Lemma sim_lemma
           (prog_src prog_tgt:Configuration.syntax)
           (I:INIT sim prog_src prog_tgt)
-          (F:FEASIBLE) (B:BASE_STEP) (E:EXTERNAL_STEP)
+          (C:CONSISTENT) (B:BASE_STEP) (E:EXTERNAL_STEP)
           (T:TERMINAL sim):
       Simulation.t prog_src prog_tgt.
     Proof.
       econs; try apply step_lemma; auto.
       - unfold INIT in *. des.
         eexists. econs; eauto.
-        + apply Configuration.init_feasible.
-        + apply Configuration.init_feasible.
+        + apply Configuration.init_consistent.
+        + apply Configuration.init_consistent.
       - ii. inv SIM. exploit T; eauto.
     Qed.
   End BaseSimulation.
