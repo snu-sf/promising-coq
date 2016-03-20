@@ -38,3 +38,17 @@ End Ident.
 Module IdentFun := UsualFun (Ident).
 Module IdentSet := UsualSet (Ident).
 Module IdentMap := UsualPositiveMap.
+
+Notation rtc := (clos_refl_trans_1n _). (* reflexive transitive closure *)
+Notation rc := (clos_refl _). (* reflexive transitive closure *)
+Notation tc := (clos_trans _). (* transitive closure *)
+Hint Immediate rt1n_refl rt1n_trans t_step.
+
+Lemma rtc_trans A R (x y z:A)
+      (XY: rtc R x y) (YZ: rtc R y z):
+  rtc R x z.
+Proof.
+  revert YZ. induction XY; auto. i.
+  exploit IHXY; eauto. i.
+  econs 2; eauto.
+Qed.

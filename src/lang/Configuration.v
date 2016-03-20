@@ -18,7 +18,9 @@ Set Implicit Arguments.
 Import ListNotations.
 
 
-Module Clock.
+(* TODO: how about using functor in defining structures with bot/le?
+ *)
+Module Timestamps.
   Definition t := LocFun.t positive.
 
   Definition bot: t := LocFun.init 1%positive.
@@ -26,134 +28,131 @@ Module Clock.
   Definition le (lhs rhs:t): Prop :=
     forall loc, (LocFun.find loc lhs <= LocFun.find loc rhs)%positive.
 
-  Definition add (loc:Loc.t) (ts:positive) (c:t) :=
-    LocFun.add loc (Pos.max (LocFun.find loc c) ts) c.
-
   Definition get (loc:Loc.t) (c:t) :=
     LocFun.find loc c.
-End Clock.
+End Timestamps.
 
 
-Module Legacy.
+Module Capability.
   Structure t := mk {
-    writes: Clock.t;
-    reads: Clock.t;
+    writes: Timestamps.t;
+    reads: Timestamps.t;
   }.
 
-  Definition bot: t := mk Clock.bot Clock.bot.
+  Definition bot: t := mk Timestamps.bot Timestamps.bot.
 
   Inductive le (lhs rhs:t): Prop :=
   | le_intro
-      (WRITES: Clock.le lhs.(writes) rhs.(writes))
-      (READS: Clock.le lhs.(reads) rhs.(reads))
+      (WRITES: Timestamps.le lhs.(writes) rhs.(writes))
+      (READS: Timestamps.le lhs.(reads) rhs.(reads))
   .
-End Legacy.
-
-
-Module Commit.
-  Structure t := mk {
-    current: Legacy.t;
-    released: LocFun.t Legacy.t;
-    acquirable: Legacy.t;
-  }.
-
-  Definition bot: t :=
-    mk Legacy.bot (LocFun.init Legacy.bot) Legacy.bot.
-
-  Inductive le (lhs rhs:t): Prop :=
-  | le_intro
-      (CURRENT: Legacy.le lhs.(current) rhs.(current))
-      (RELEASED: forall (loc:Loc.t), Legacy.le (LocFun.find loc lhs.(released)) (LocFun.find loc rhs.(released)))
-      (ACQUIRABLE: Legacy.le lhs.(acquirable) rhs.(acquirable))
-  .
-
-  Inductive fence (ord:Ordering.t) (th:t): Prop :=
-  | fence_intro
-      (ACQUIRE: forall (ORDERING: Ordering.ord Ordering.acquire ord),
-          Legacy.le th.(acquirable) th.(current))
-      (RELEASE: forall (ORDERING: Ordering.ord Ordering.release ord) loc,
-          Legacy.le th.(current) (LocFun.find loc th.(released)))
-  .
-End Commit.
+End Capability.
 
 
 Module Message.
   Structure t := mk {
     val: Const.t;
-    released: Legacy.t;
+    released: Capability.t;
     confirmed: bool;
   }.
 End Message.
 
 
-Module Messages.
+Module MessageSet.
   Definition t := LocFun.t (UsualPositiveMap.t Message.t).
 
   Definition init: t :=
     LocFun.init
       (UsualPositiveMap.add
          1%positive
-         (Message.mk 0 Legacy.bot true)
+         (Message.mk 0 Capability.bot true)
          (UsualPositiveMap.empty _)).
 
   Definition get (loc:Loc.t) (ts:positive) (m:t): option Message.t :=
     UsualPositiveMap.find ts (LocFun.find loc m).
 
-  Inductive declare (loc:Loc.t) (ts:positive) (val:Const.t) (released:Legacy.t) (m1:t): forall (m2:t), Prop :=
+  Inductive declare (loc:Loc.t) (ts:positive) (val:Const.t) (released:Capability.t) (m1:t): forall (m2:t), Prop :=
   | declare_intro
       (GET: get loc ts m1 = None):
       declare loc ts val released m1
               (LocFun.add loc (UsualPositiveMap.add ts (Message.mk val released false) (LocFun.find loc m1)) m1)
   .
 
+  Inductive declared (m:t): Prop :=
+  | confirmed_intro
+      loc ts val released
+      (GET: MessageSet.get loc ts m = Some (Message.mk val released false))
+  .
+End MessageSet.
+
+
+Module Commit.
+  Structure t := mk {
+    current: Capability.t;
+    released: LocFun.t Capability.t;
+    acquirable: Capability.t;
+  }.
+
+  Definition bot: t :=
+    mk Capability.bot (LocFun.init Capability.bot) Capability.bot.
+
+  Inductive le (lhs rhs:t): Prop :=
+  | le_intro
+      (CURRENT: Capability.le lhs.(current) rhs.(current))
+      (RELEASED: forall (loc:Loc.t), Capability.le (LocFun.find loc lhs.(released)) (LocFun.find loc rhs.(released)))
+      (ACQUIRABLE: Capability.le lhs.(acquirable) rhs.(acquirable))
+  .
+
   Inductive read
-            (commit:Commit.t) (loc:Loc.t) (ts:positive) (ord:Ordering.t) (m:t)
-            (val:Const.t) (released:Legacy.t) (confirmed:bool): Prop :=
+            (commit:t) (loc:Loc.t) (ts:positive) (ord:Ordering.t) (m:MessageSet.t)
+            (val:Const.t) (released:Capability.t) (confirmed:bool): Prop :=
   | read_intro
-      (COMMIT0: (Clock.get loc commit.(Commit.current).(Legacy.reads) <= ts)%positive)
-      (COMMIT1: (ts <= Clock.get loc commit.(Commit.current).(Legacy.writes))%positive)
-      (GET: Messages.get loc ts m = Some (Message.mk val released confirmed))
-      (ACQUIRE: forall (ORDERING: Ordering.ord Ordering.acquire ord),
-          Legacy.le commit.(Commit.current) released)
-      (ACQUIRABLE: Legacy.le released commit.(Commit.acquirable)):
+      (COMMIT0: (Timestamps.get loc commit.(current).(Capability.reads) <= ts)%positive)
+      (COMMIT1: (ts <= Timestamps.get loc commit.(current).(Capability.writes))%positive)
+      (GET: MessageSet.get loc ts m = Some (Message.mk val released confirmed))
+      (ACQUIRE: forall (ORDERING: Ordering.le Ordering.acquire ord),
+          Capability.le commit.(current) released)
+      (ACQUIRABLE: Capability.le released commit.(acquirable)):
       read commit loc ts ord m
            val released confirmed
   .
 
   Inductive write
-            (commit1:Commit.t) (loc:Loc.t) (ts:positive) (val:Const.t) (released:Legacy.t) (ord:Ordering.t) (m1:t)
-            (commit2:Commit.t): forall (m2:t), Prop :=
+            (commit1:t) (loc:Loc.t) (ts:positive) (val:Const.t) (released:Capability.t) (ord:Ordering.t) (m1:MessageSet.t)
+            (commit2:t): forall (m2:MessageSet.t), Prop :=
   | write_intro
-      (DECLARE: Messages.get loc ts m1 = Some (Message.mk val released false))
-      (COMMIT0: Commit.le commit1 commit2)
-      (COMMIT1: (Clock.get loc commit1.(Commit.current).(Legacy.writes) < ts)%positive)
-      (COMMIT2: (ts <= Clock.get loc commit2.(Commit.current).(Legacy.writes))%positive)
-      (COMMIT3: (ts <= Clock.get loc commit2.(Commit.current).(Legacy.reads))%positive)
-      (RELEASE: forall (ORDERING: Ordering.ord Ordering.release ord),
-          Legacy.le commit1.(Commit.current) (LocFun.find loc commit1.(Commit.released)))
-      (RELEASED: Legacy.le (LocFun.find loc commit1.(Commit.released)) released):
+      (DECLARE: MessageSet.get loc ts m1 = Some (Message.mk val released false))
+      (COMMIT0: le commit1 commit2)
+      (COMMIT1: (Timestamps.get loc commit1.(current).(Capability.writes) < ts)%positive)
+      (COMMIT2: (ts <= Timestamps.get loc commit2.(current).(Capability.writes))%positive)
+      (COMMIT3: (ts <= Timestamps.get loc commit2.(current).(Capability.reads))%positive)
+      (RELEASE: forall (ORDERING: Ordering.le Ordering.release ord),
+          Capability.le commit1.(current) (LocFun.find loc commit1.(Commit.released)))
+      (RELEASED: Capability.le (LocFun.find loc commit1.(Commit.released)) released):
       write commit1 loc ts val released ord m1
             commit2 (LocFun.add loc (UsualPositiveMap.add ts (Message.mk val released true) (LocFun.find loc m1)) m1)
   .
 
-  Inductive declared (m:t): Prop :=
-  | confirmed_intro
-      loc ts val released
-      (GET: Messages.get loc ts m = Some (Message.mk val released false))
+  Inductive fence (ord:Ordering.t) (th:t): Prop :=
+  | fence_intro
+      (ACQUIRE: forall (ORDERING: Ordering.le Ordering.acquire ord),
+          Capability.le th.(acquirable) th.(current))
+      (RELEASE: forall (ORDERING: Ordering.le Ordering.release ord) loc,
+          Capability.le th.(current) (LocFun.find loc th.(released)))
   .
-End Messages.
+End Commit.
 
 
 Module Configuration.
   Definition syntax := IdentMap.t Thread.syntax.
 
   Structure t := mk {
-    messages: Messages.t;
+    messages: MessageSet.t;
     threads: IdentMap.t (Commit.t * Thread.t);
   }.
 
   Definition init (s:syntax): t :=
-    mk Messages.init (IdentMap.map (fun th => (Commit.bot, Thread.init th)) s).
+    mk MessageSet.init (IdentMap.map (fun th => (Commit.bot, Thread.init th)) s).
 
   Inductive is_terminal (c:t): Prop :=
   | is_terminal_intro
@@ -162,6 +161,8 @@ Module Configuration.
            Thread.is_terminal th)
   .
 
+  (* TODO: to check the liveness, the step should be annotated with the thread id.
+   *)
   Inductive base_step (c1:t): forall (confirmed:bool) (c2:t), Prop :=
   | step_tau
       tid commit th1 th2
@@ -174,7 +175,7 @@ Module Configuration.
       tid commit th1 th2
       loc ts ord val released confirmed
       (TID: IdentMap.find tid c1.(threads) = Some (commit, th1))
-      (READ: Messages.read commit loc ts ord c1.(messages) val released confirmed)
+      (READ: Commit.read commit loc ts ord c1.(messages) val released confirmed)
       (THREAD: Thread.step th1 (Some (ThreadEvent.mem (MemEvent.read loc val ord))) th2):
       base_step
         c1 confirmed
@@ -183,7 +184,7 @@ Module Configuration.
       tid commit1 commit2 th1 th2
       loc ts ord val released messages2
       (TID: IdentMap.find tid c1.(threads) = Some (commit1, th1))
-      (WRITE: Messages.write commit1 loc ts val released ord c1.(messages) commit2 messages2)
+      (WRITE: Commit.write commit1 loc ts val released ord c1.(messages) commit2 messages2)
       (THREAD: Thread.step th1 (Some (ThreadEvent.mem (MemEvent.write loc val ord))) th2):
       base_step
         c1 true
@@ -192,9 +193,9 @@ Module Configuration.
       tid commit1 commit2 th1 th2
       loc ts ord valr valw releasedr releasedw confirmedr messages2
       (TID: IdentMap.find tid c1.(threads) = Some (commit1, th1))
-      (READ: Messages.read commit1 loc ts ord c1.(messages) valr releasedr confirmedr)
-      (WRITE: Messages.write commit1 loc (ts + 1) valw releasedw ord c1.(messages) commit2 messages2)
-      (RELEASE: Legacy.le releasedr releasedw)
+      (READ: Commit.read commit1 loc ts ord c1.(messages) valr releasedr confirmedr)
+      (WRITE: Commit.write commit1 loc (ts + 1) valw releasedw ord c1.(messages) commit2 messages2)
+      (RELEASE: Capability.le releasedr releasedw)
       (THREAD: Thread.step th1 (Some (ThreadEvent.mem (MemEvent.update loc valr valw ord))) th2):
       base_step
         c1 confirmedr
@@ -210,7 +211,7 @@ Module Configuration.
         (mk c1.(messages) (IdentMap.add tid (commit, th2) c1.(threads)))
   | step_declare
       loc ts val released messages2
-      (DECLARE: Messages.declare loc ts val released c1.(messages) messages2):
+      (DECLARE: MessageSet.declare loc ts val released c1.(messages) messages2):
       base_step
         c1 true
         (mk messages2 c1.(threads))
@@ -223,48 +224,35 @@ Module Configuration.
         (mk c1.(messages) (IdentMap.add tid (commit2, th) c1.(threads)))
   .
 
-  Inductive internal_step: forall (c1 c2:t), Prop :=
+  Inductive internal_step_gen (consistent:forall (c:t), Prop): forall (c1 c2:t), Prop :=
   | step_confirmed
       c1 c2
       (STEP: base_step c1 true c2):
-      internal_step c1 c2
+      internal_step_gen consistent c1 c2
   | step_unconfirmed
       c1 c2
       (STEP: base_step c1 false c2)
       (CONSISTENT: consistent c1):
-      internal_step c1 c2
-  with internal_steps: forall (c1 c2:t), Prop :=
-  | steps_nil c:
-      internal_steps c c
-  | steps_cons
-      c1 c2 c3
-      (STEP: internal_step c1 c2)
-      (STEPS: internal_steps c2 c3):
-      internal_steps c1 c3
-  with consistent: forall (c1:t), Prop :=
+      internal_step_gen consistent c1 c2
+  .
+
+  Inductive consistent: forall (c1:t), Prop :=
   | consistent_intro
       c1 c2
-      (STEPS: internal_steps c1 c2)
-      (CONFIRM: ~ Messages.declared c2.(messages)):
+      (STEPS: rtc (internal_step_gen consistent) c1 c2)
+      (CONFIRM: ~ MessageSet.declared c2.(messages)):
       consistent c1
   .
 
-  Lemma internal_steps_append c1 c2 c3
-        (STEPS12: internal_steps c1 c2)
-        (STEPS23: internal_steps c2 c3):
-    internal_steps c1 c3.
-  Proof.
-    revert c3 STEPS23. induction STEPS12; auto. i.
-    econs 2; eauto.
-  Qed.
+  Definition internal_step := internal_step_gen consistent.
 
   Lemma internal_steps_consistent c1 c2
-        (STEPS: internal_steps c1 c2)
+        (STEPS: rtc internal_step c1 c2)
         (CONSISTENT: consistent c2):
     consistent c1.
   Proof.
     inv CONSISTENT. econs; [|eauto].
-    eapply internal_steps_append; eauto.
+    eapply rtc_trans; eauto.
   Qed.
 
   Lemma init_consistent s: consistent (init s).
@@ -272,7 +260,7 @@ Module Configuration.
     econs.
     - econs 1.
     - unfold init. simpl. intro X. inv X.
-      unfold Messages.get, Messages.init in *.
+      unfold MessageSet.get, MessageSet.init in *.
       rewrite LocFun.init_spec in *.
       rewrite IdentMap.Facts.add_o in *.
       match goal with

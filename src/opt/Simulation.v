@@ -41,7 +41,7 @@ Module Simulation.
         (SIM: sim idx0 src0 tgt0)
         (STEP: Configuration.step tgt0 e tgt2),
       exists idx2 src1 src2,
-        <<INTERNAL: Configuration.internal_steps src0 src1>> /\
+        <<INTERNAL: rtc Configuration.internal_step src0 src1>> /\
         <<STEP: step src1 idx0 e src2 idx2>> /\
         <<SIM: sim idx2 src2 tgt2>>.
 
@@ -50,7 +50,7 @@ Module Simulation.
         (SIM: sim idx0 src0 tgt0)
         (TERM: Configuration.is_terminal tgt0),
       exists src1,
-        <<INTERNAL: Configuration.internal_steps src0 src1>> /\
+        <<INTERNAL: rtc Configuration.internal_step src0 src1>> /\
         <<TERM: Configuration.is_terminal src1>>.
   End Simulation.
 
@@ -74,7 +74,7 @@ Module Simulation.
     Definition CONSISTENT: Prop :=
       forall idx src tgt
         (SIM: sim idx src tgt)
-        (CONFIRM: ~ Messages.declared tgt.(Configuration.messages)),
+        (CONFIRM: ~ MessageSet.declared tgt.(Configuration.messages)),
         Configuration.consistent src.
 
     Definition BASE_STEP: Prop :=
@@ -85,7 +85,7 @@ Module Simulation.
         (TGT0: Configuration.consistent tgt0)
         (TGT2: Configuration.consistent tgt2),
       exists idx2 src1 src2,
-        <<INTERNAL: Configuration.internal_steps src0 src1>> /\
+        <<INTERNAL: rtc Configuration.internal_step src0 src1>> /\
         <<STEP: internal_step src1 idx0 src2 idx2>> /\
         <<SIM: sim idx2 src2 tgt2>>.
 
@@ -97,7 +97,7 @@ Module Simulation.
         (TGT0: Configuration.consistent tgt0)
         (TGT2: Configuration.consistent tgt2),
       exists idx2 src1 src2,
-        <<INTERNAL: Configuration.internal_steps src0 src1>> /\
+        <<INTERNAL: rtc Configuration.internal_step src0 src1>> /\
         <<STEP: Configuration.external_step src1 e src2>> /\
         <<SIM: sim idx2 src2 tgt2>>.
 
@@ -107,7 +107,7 @@ Module Simulation.
         (STEP: Configuration.internal_step tgt0 tgt2)
         (TGT2: Configuration.consistent tgt2),
       exists idx2 src1 src2,
-        <<INTERNAL: Configuration.internal_steps src0 src1>> /\
+        <<INTERNAL: rtc Configuration.internal_step src0 src1>> /\
         <<STEP: internal_step src1 idx0 src2 idx2>> /\
         <<SIM: sim idx2 src2 tgt2>>
     with F' (C:CONSISTENT) (B:BASE_STEP):
@@ -117,21 +117,19 @@ Module Simulation.
         Configuration.consistent src0.
     Proof.
       - i. inv STEP0; eapply B; eauto.
-        eapply Configuration.internal_steps_consistent; eauto.
-        econs 2; eauto.
-        + econs 1. eauto.
-        + econs 1.
+        eapply Configuration.internal_steps_consistent; [|eauto].
+        econs 2; eauto. econs 1. eauto.
       - i. inv TGT0. revert idx0 src0 SIM CONFIRM. induction STEPS.
         + i. eapply C; eauto.
         + i. exploit I; eauto.
           { econs; eauto. }
           i. des.
-          eapply Configuration.internal_steps_consistent; eauto.
-          exploit IHSTEPS; eauto. intro SRC0.
-          inv STEP1; auto.
-          eapply Configuration.internal_steps_consistent; eauto.
-          econs 2; eauto. econs 1.
-    Qed.
+          eapply Configuration.internal_steps_consistent; [|eauto].
+          eapply rtc_trans; eauto.
+          inv STEP0.
+          * econs 2; eauto.
+          * econs 1.
+    Admitted.
 
     Lemma step_lemma (C:CONSISTENT) (B:BASE_STEP) (E:EXTERNAL_STEP): STEP (sim_lift).
     Proof.

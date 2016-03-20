@@ -32,7 +32,7 @@ Module Ordering.
   | relacq
   .
 
-  Definition ord (lhs rhs:t): bool :=
+  Definition le (lhs rhs:t): bool :=
     match lhs, rhs with
     | acquire, relaxed => false
     | acquire, release => false
@@ -47,7 +47,7 @@ Module MemEvent.
   Inductive t :=
   | read (loc:Loc.t) (val:Const.t) (ord:Ordering.t)
   | write (loc:Loc.t) (val:Const.t) (ord:Ordering.t)
-  | update (loc:Loc.t) (rval wval:Const.t) (ord:Ordering.t)
+  | update (loc:Loc.t) (valr valw:Const.t) (ord:Ordering.t)
   | fence (ord:Ordering.t)
   .
 
@@ -86,10 +86,16 @@ Module MemEvent.
 End MemEvent.
 
 
+(* TODO: In reality, on the contrary to what is currently defined,
+ * syscalls may change the memory.
+ *)
+(* NOTE: Syscall's results are not predictable.
+ * Hence we disallow syscalls in the consistency check.
+ *)
 Module Event.
   Structure t := mk {
-    lhs: Const.t;
-    rhses: list Const.t;
+    output: Const.t;
+    inputs: list Const.t;
   }.
 End Event.
 

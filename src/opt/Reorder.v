@@ -25,8 +25,8 @@ Inductive reordered_instr: forall (i1 i2:Instr.t), Prop :=
     l2 v2 o2
     (LOC: l1 <> l2)
     (DISJOINT: RegSet.disjoint (Instr.regs_of (Instr.load r1 l1 o1)) (Instr.regs_of (Instr.store l2 v2 o2)))
-    (ORDERING1: ~ Ordering.ord Ordering.acquire o1)
-    (ORDERING1: ~ Ordering.ord Ordering.release o2):
+    (ORDERING1: ~ Ordering.le Ordering.acquire o1)
+    (ORDERING1: ~ Ordering.le Ordering.release o2):
     reordered_instr (Instr.load r1 l1 o1) (Instr.store l2 v2 o2)
 .
 
@@ -142,7 +142,7 @@ Qed.
 Inductive sim_thread
           (commit1 commit2:Commit.t)
           (th1 th2:Thread.t)
-          (messages1 messages2:Messages.t): Prop :=
+          (messages1 messages2:MessageSet.t): Prop :=
 | sim_thread_reordered
     (COMMIT: commit1 = commit2)
     (TH: sim_reordered_thread th1 th2)
@@ -185,7 +185,7 @@ Lemma sim_consistent tid: Simulation.CONSISTENT (sim_configuration tid).
 Proof.
   ii. inv SIM. inv TH.
   - econs.
-    + apply Configuration.steps_nil.
+    + econs 1.
     + rewrite MESSAGES. auto.
   - admit. (* consumed *)
 Admitted.
@@ -208,7 +208,7 @@ Admitted.
 Lemma sim_terminal tid: Simulation.TERMINAL (sim_configuration tid).
 Proof.
   ii. eexists. split.
-  { apply Configuration.steps_nil. }
+  { econs 1. }
   econs. i. inv TERM. specialize (TERMINAL tid0).
   destruct (Ident.eq_dec tid0 tid); subst.
   - inv SIM. inv TH.
