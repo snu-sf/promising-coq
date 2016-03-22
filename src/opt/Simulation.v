@@ -4,7 +4,7 @@ Require Import paco.
 Require Import Basic.
 Require Import Event.
 Require Import Thread.
-Require Import Configuration.
+Require Import ConfigurationRR.
 
 Set Implicit Arguments.
 
