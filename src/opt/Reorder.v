@@ -86,14 +86,6 @@ Inductive reordered_program tid: forall (prog1 prog2:Configuration.syntax), Prop
     reordered_program tid prog1 (IdentMap.add tid th2 prog1)
 .
 
-Inductive consumed_stmts (i2:Instr.t): forall (c1 c2:list Stmt.t), Prop :=
-| consumed_stmts_intro
-    i1 c1 c2
-    (REORDER: reordered_instr i1 i2)
-    (REORDER: reordered_stmts c1 c2):
-    consumed_stmts i2 ((Stmt.instr i1)::(Stmt.instr i2)::c1) ((Stmt.instr i1)::c2)
-.
-
 Inductive sim_reordered_thread: forall (th1 th2:Thread.t), Prop :=
 | sim_reordered_thread_intro
     rs s1 s2
@@ -114,15 +106,38 @@ Proof.
   inv SIM. eexists _, _, _. splits; eauto.
 Qed.
 
+Inductive sim_reordered_configuration (tid:Ident.t) (conf1 conf2:Configuration.t): Prop :=
+| sim_reordered_configuration_intro
+    commit1 commit2 th1 th2
+    (CONTEXT: forall i (TID: i <> tid),
+        IdentMap.find i conf1.(Configuration.threads) = IdentMap.find i conf2.(Configuration.threads))
+    (TH1: IdentMap.find tid conf1.(Configuration.threads) = Some (commit1, th1))
+    (TH2: IdentMap.find tid conf2.(Configuration.threads) = Some (commit2, th2))
+    (COMMIT: commit1 = commit2)
+    (TH: sim_reordered_thread th1 th2)
+.
+
 Inductive sim_consumed_thread (e:option MemEvent.t): forall (th1 th2:Thread.t), Prop :=
 | sim_consumed_thread_intro
-    rs1 rs2 s1 s2 tid
-    (CONSUMED: consumed_stmts tid s1 s2)
+    i1 i2 rs1 rs2 s1 s2 tid
+    (REORDER: reordered_instr i1 i2)
+    (REORDER: reordered_stmts s1 s2)
     (EVAL: RegFile.eval_instr rs1 tid (option_map ThreadEvent.mem e) rs2):
     sim_consumed_thread
       e
-      (Thread.mk lang (State.mk rs1 s1))
-      (Thread.mk lang (State.mk rs2 s2))
+      (Thread.mk lang (State.mk rs1 ((Stmt.instr i1)::(Stmt.instr i2)::s1)))
+      (Thread.mk lang (State.mk rs2 ((Stmt.instr i1)::s2)))
+.
+
+Inductive sim_consumed_configuration (tid:Ident.t) (conf1 conf2:Configuration.t): Prop :=
+| sim_consumed_configuration_intro
+    commit1 commit2 th1 th2
+    (CONTEXT: forall i (TID: i <> tid),
+        IdentMap.find i conf1.(Configuration.threads) = IdentMap.find i conf2.(Configuration.threads))
+    (TH1: IdentMap.find tid conf1.(Configuration.threads) = Some (commit1, th1))
+    (TH2: IdentMap.find tid conf2.(Configuration.threads) = Some (commit2, th2))
+    (COMMIT: Commit.le commit1 commit2)
+    (TH: sim_reordered_thread th1 th2)
 .
 
 (* TODO: refactoring *)

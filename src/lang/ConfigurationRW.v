@@ -109,7 +109,7 @@ Module Commit.
   .
 
   Inductive read
-            (commit1:t) (loc:Loc.t) (ts:positive) (ord:Ordering.t) (m:MessageSet.t)
+            (commit1:t) (m:MessageSet.t) (loc:Loc.t) (ts:positive) (ord:Ordering.t)
             (commit2:t) (val:Const.t) (released:Capability.t) (confirmed:bool): Prop :=
   | read_intro
       (COMMIT0: le commit1 commit2)
@@ -118,12 +118,12 @@ Module Commit.
       (ACQUIRE: forall (ORDERING: Ordering.le Ordering.acquire ord),
           Capability.le released commit2.(current))
       (ACQUIRABLE: Capability.le released commit2.(acquirable)):
-      read commit1 loc ts ord m
+      read commit1 m loc ts ord
            commit2 val released confirmed
   .
 
   Inductive write
-            (commit1:t) (loc:Loc.t) (ts:positive) (val:Const.t) (released:Capability.t) (ord:Ordering.t) (m1:MessageSet.t)
+            (commit1:t) (m1:MessageSet.t) (loc:Loc.t) (ts:positive) (val:Const.t) (released:Capability.t) (ord:Ordering.t)
             (commit2:t): forall (m2:MessageSet.t), Prop :=
   | write_intro
       (DECLARE: MessageSet.get loc ts m1 = Some (Message.mk val released false))
@@ -134,7 +134,7 @@ Module Commit.
       (RELEASE: forall (ORDERING: Ordering.le Ordering.release ord),
           Capability.le commit1.(current) (LocFun.find loc commit1.(Commit.released)))
       (RELEASED: Capability.le (LocFun.find loc commit1.(Commit.released)) released):
-      write commit1 loc ts val released ord m1
+      write commit1 m1 loc ts val released ord
             commit2 (LocFun.add loc (UsualPositiveMap.add ts (Message.mk val released true) (LocFun.find loc m1)) m1)
   .
 
@@ -147,6 +147,35 @@ Module Commit.
           Capability.le commit2.(acquirable) commit2.(current))
       (RELEASE: forall (ORDERING: Ordering.le Ordering.release ord) loc,
           Capability.le commit2.(current) (LocFun.find loc commit2.(released)))
+  .
+
+  Inductive step (commit1:t) (m1:MessageSet.t): forall (reading:option (Loc.t * positive)) (e:MemEvent.t) (commit2:t) (m2:MessageSet.t), Prop :=
+  | step_read
+      loc ts ord val released confirmed commit2
+      (READ: read commit1 m1 loc ts ord commit2 val released confirmed):
+      step commit1 m1
+           (Some (loc, ts)) (MemEvent.read loc val ord)
+           commit2 m1
+  | step_write
+      loc ts val released ord commit2 m2
+      (WRITE: write commit1 m1 loc ts val released ord commit2 m2):
+      step commit1 m1
+           None (MemEvent.write loc val ord)
+           commit2 m2
+  | step_update
+      loc ts ord valr releasedr confirmedr valw releasedw commiti commit2 m2
+      (READ: read commit1 m1 loc ts ord commiti valr releasedr confirmedr)
+      (WRITE: write commiti m1 loc (ts + 1) valw releasedw ord commit2 m2)
+      (RELEASE: Capability.le releasedr releasedw):
+      step commit1 m1
+           (Some (loc, ts)) (MemEvent.update loc valr valw ord)
+           commit2 m2
+  | step_fence
+      ord commit2
+      (FENCE: Commit.fence commit1 ord commit2):
+      step commit1 m1
+           None (MemEvent.fence ord)
+           commit2 m1
   .
 End Commit.
 
@@ -180,44 +209,14 @@ Module Configuration.
       base_step
         c1 (Some tid) None
         (mk c1.(messages) (IdentMap.add tid (commit2, th2) c1.(threads)))
-  | step_read
-      tid commit1 commit2 th1 th2
-      loc ts ord val released confirmed
+  | step_mem
+      tid commit1 commit2 th1 th2 messages2 reading e
       (TID: IdentMap.find tid c1.(threads) = Some (commit1, th1))
-      (READ: Commit.read commit1 loc ts ord c1.(messages) commit2 val released confirmed)
-      (THREAD: Thread.step th1 (Some (ThreadEvent.mem (MemEvent.read loc val ord))) th2):
+      (MEM: Commit.step commit1 c1.(messages) reading e commit2 messages2)
+      (THREAD: Thread.step th1 (Some (ThreadEvent.mem e)) th2):
       base_step
-        c1 (Some tid) (Some (loc, ts))
-        (mk c1.(messages) (IdentMap.add tid (commit2, th2) c1.(threads)))
-  | step_write
-      tid commit1 commit2 th1 th2
-      loc ts ord val released messages2
-      (TID: IdentMap.find tid c1.(threads) = Some (commit1, th1))
-      (WRITE: Commit.write commit1 loc ts val released ord c1.(messages) commit2 messages2)
-      (THREAD: Thread.step th1 (Some (ThreadEvent.mem (MemEvent.write loc val ord))) th2):
-      base_step
-        c1 (Some tid) None
+        c1 (Some tid) reading
         (mk messages2 (IdentMap.add tid (commit2, th2) c1.(threads)))
-  | step_update
-      tid commit1 commiti commit2 th1 th2
-      loc ts ord valr valw releasedr releasedw confirmedr messages2
-      (TID: IdentMap.find tid c1.(threads) = Some (commit1, th1))
-      (READ: Commit.read commit1 loc ts ord c1.(messages) commiti valr releasedr confirmedr)
-      (WRITE: Commit.write commiti loc (ts + 1) valw releasedw ord c1.(messages) commit2 messages2)
-      (RELEASE: Capability.le releasedr releasedw)
-      (THREAD: Thread.step th1 (Some (ThreadEvent.mem (MemEvent.update loc valr valw ord))) th2):
-      base_step
-        c1 (Some tid) (Some (loc, ts))
-        (mk messages2 (IdentMap.add tid (commit2, th2) c1.(threads)))
-  | step_fence
-      tid commit1 commit2 th1 th2
-      ord
-      (TID: IdentMap.find tid c1.(threads) = Some (commit1, th1))
-      (FENCE: Commit.fence commit1 ord commit2)
-      (THREAD: Thread.step th1 (Some (ThreadEvent.mem (MemEvent.fence ord))) th2):
-      base_step
-        c1 (Some tid) None
-        (mk c1.(messages) (IdentMap.add tid (commit2, th2) c1.(threads)))
   | step_declare
       loc ts val released messages2
       (DECLARE: MessageSet.declare loc ts val released c1.(messages) messages2):
