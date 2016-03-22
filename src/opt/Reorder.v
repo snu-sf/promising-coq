@@ -106,18 +106,7 @@ Proof.
   inv SIM. eexists _, _, _. splits; eauto.
 Qed.
 
-Inductive sim_reordered_configuration (tid:Ident.t) (conf1 conf2:Configuration.t): Prop :=
-| sim_reordered_configuration_intro
-    commit1 commit2 th1 th2
-    (CONTEXT: forall i (TID: i <> tid),
-        IdentMap.find i conf1.(Configuration.threads) = IdentMap.find i conf2.(Configuration.threads))
-    (TH1: IdentMap.find tid conf1.(Configuration.threads) = Some (commit1, th1))
-    (TH2: IdentMap.find tid conf2.(Configuration.threads) = Some (commit2, th2))
-    (COMMIT: commit1 = commit2)
-    (TH: sim_reordered_thread th1 th2)
-.
-
-Inductive sim_consumed_thread (e:option MemEvent.t): forall (th1 th2:Thread.t), Prop :=
+Inductive sim_consumed_thread (e:option MemEvent.t): forall (th1 th2' th2:Thread.t), Prop :=
 | sim_consumed_thread_intro
     i1 i2 rs1 rs2 s1 s2 tid
     (REORDER: reordered_instr i1 i2)
@@ -126,43 +115,33 @@ Inductive sim_consumed_thread (e:option MemEvent.t): forall (th1 th2:Thread.t), 
     sim_consumed_thread
       e
       (Thread.mk lang (State.mk rs1 ((Stmt.instr i1)::(Stmt.instr i2)::s1)))
+      (Thread.mk lang (State.mk rs1 ((Stmt.instr i2)::(Stmt.instr i1)::s2)))
       (Thread.mk lang (State.mk rs2 ((Stmt.instr i1)::s2)))
-.
-
-Inductive sim_consumed_configuration (tid:Ident.t) (conf1 conf2:Configuration.t): Prop :=
-| sim_consumed_configuration_intro
-    commit1 commit2 th1 th2
-    (CONTEXT: forall i (TID: i <> tid),
-        IdentMap.find i conf1.(Configuration.threads) = IdentMap.find i conf2.(Configuration.threads))
-    (TH1: IdentMap.find tid conf1.(Configuration.threads) = Some (commit1, th1))
-    (TH2: IdentMap.find tid conf2.(Configuration.threads) = Some (commit2, th2))
-    (COMMIT: Commit.le commit1 commit2)
-    (TH: sim_reordered_thread th1 th2)
 .
 
 (* TODO: refactoring *)
 Lemma sim_consumed_thread_inv
-      e th1 th2 (SIM: sim_consumed_thread e th1 th2):
-  exists rs1 rs2 s1 s2 tid,
-    th1 = Thread.mk lang (State.mk rs1 s1) /\
-    th2 = Thread.mk lang (State.mk rs2 s2) /\
-    consumed_stmts tid s1 s2 /\
+      e th1 th2' th2 (SIM: sim_consumed_thread e th1 th2' th2):
+  exists i1 i2 rs1 rs2 s1 s2 tid,
+    th1 = Thread.mk lang (State.mk rs1 ((Stmt.instr i1)::(Stmt.instr i2)::s1)) /\
+    th2' = Thread.mk lang (State.mk rs1 ((Stmt.instr i2)::(Stmt.instr i1)::s2)) /\
+    th2 = Thread.mk lang (State.mk rs2 ((Stmt.instr i1)::s2)) /\
+    reordered_instr i1 i2 /\
+    reordered_stmts s1 s2 /\
     RegFile.eval_instr rs1 tid (option_map ThreadEvent.mem e) rs2.
 Proof.
-  inv SIM. eexists _, _, _, _, _. splits; eauto.
+  inv SIM. eexists _, _, _, _, _, _, _. splits; eauto.
 Qed.
 
-(* TODO *)
-Inductive sim_thread
-          (commit1 commit2:Commit.t)
-          (th1 th2:Thread.t)
-          (messages1 messages2:MessageSet.t): Prop :=
+Inductive sim_thread m1 m2 commit1 commit2 th1 th2: Prop :=
 | sim_thread_reordered
-    (COMMIT: commit1 = commit2)
     (TH: sim_reordered_thread th1 th2)
-    (MESSAGES: messages1 = messages2)
+    (MESSAGES: m1 = m2)
+    (COMMIT: commit1 = commit2)
 | sim_thread_consumed
-    (TODO: False)
+    th2' reading e
+    (TH: sim_consumed_thread e th1 th2' th2)
+    (MESSAGES: Commit.step commit1 m1 reading e commit2 m2)
 .
 
 Inductive sim_configuration (tid:Ident.t) (conf1 conf2:Configuration.t): Prop :=
@@ -172,10 +151,7 @@ Inductive sim_configuration (tid:Ident.t) (conf1 conf2:Configuration.t): Prop :=
         IdentMap.find i conf1.(Configuration.threads) = IdentMap.find i conf2.(Configuration.threads))
     (TH1: IdentMap.find tid conf1.(Configuration.threads) = Some (commit1, th1))
     (TH2: IdentMap.find tid conf2.(Configuration.threads) = Some (commit2, th2))
-    (TH: sim_thread
-           commit1 commit2
-           th1 th2
-           conf1.(Configuration.messages) conf2.(Configuration.messages))
+    (TH: sim_thread conf1.(Configuration.messages) conf2.(Configuration.messages) commit1 commit2 th1 th2)
 .
 
 Lemma sim_init
@@ -191,7 +167,7 @@ Proof.
     rewrite TH1. simpl. eauto.
   - rewrite IdentMap.Facts.map_o.
     rewrite IdentMap.Facts.add_eq_o; auto. simpl. eauto.
-  - econs 1; auto. inv REORDER0. econs; eauto.
+  - inv REORDER0. econs; eauto. econs; eauto.
 Qed.
 
 Lemma sim_consistent tid: Simulation.CONSISTENT (sim_configuration tid).
@@ -205,13 +181,10 @@ Admitted.
 
 Lemma sim_base tid: Simulation.BASE_STEP (sim_configuration tid).
 Proof.
-  ii. inv SIM. inv STEP.
-  - admit. (* tau *)
-  - admit. (* read *)
-  - admit. (* write *)
-  - admit. (* update *)
-  - admit. (* fence *)
+  ii. inv STEP.
+  - admit. (* thread *)
   - admit. (* declare *)
+  - admit. (* commit *)
 Admitted.
 
 Lemma sim_external tid: Simulation.EXTERNAL_STEP (sim_configuration tid).
@@ -224,18 +197,19 @@ Proof.
   { econs 1. }
   econs. i. inv TERM. specialize (TERMINAL tid0).
   destruct (Ident.eq_dec tid0 tid); subst.
-  - inv SIM. inv TH.
-    + rewrite FIND in TH1. inv TH1.
-      exploit TERMINAL; eauto.
-      unfold Thread.is_terminal. inv TH0. simpl.
+  - inv SIM. rewrite FIND in TH1. inv TH1.
+    exploit TERMINAL; eauto. inv TH.
+    + inv TH0.
+      unfold Thread.is_terminal. simpl.
       unfold State.is_terminal. simpl.
       inv REORDER; congruence.
-    + rewrite FIND in TH1. inv TH1.
-      exploit TERMINAL; eauto.
-      admit. (* consumed *)
+    + inv TH0.
+      unfold Thread.is_terminal. simpl.
+      unfold State.is_terminal. simpl.
+      congruence.
   - inv SIM. exploit CONTEXT; eauto. intro FIND0.
     eapply TERMINAL. rewrite <- FIND0. eauto.
-Admitted.
+Qed.
 
 Lemma sim tid:
   reordered_program tid <2= Simulation.t.
