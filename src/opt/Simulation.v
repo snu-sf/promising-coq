@@ -1,4 +1,5 @@
 Require Import sflib.
+Require Import paco.
 
 Require Import Basic.
 Require Import Event.
@@ -11,139 +12,109 @@ Set Implicit Arguments.
 (* TODO: maybe `BASE_STEP` is too weak to prove some hand-optimizations. *)
 Module Simulation.
   Section Simulation.
-    Variable (sim: forall (idx:nat) (src tgt:Configuration.t), Prop).
+    Variable (sim: forall (src tgt:Configuration.t), Prop).
 
     Definition INIT (prog_src prog_tgt:Configuration.syntax): Prop :=
-      exists idx,
-        sim idx (Configuration.init prog_src) (Configuration.init prog_tgt).
-
-    Inductive internal_step (conf0:Configuration.t) (idx0:nat) (conf1:Configuration.t) (idx1:nat): Prop :=
-    | internal_step_step
-        (CONF: Configuration.internal_step conf0 conf1)
-    | internal_step_stop
-        (CONF: conf0 = conf1)
-        (IDX: idx0 > idx1)
-    .
-
-    Inductive step (conf0:Configuration.t) (idx0:nat): forall (e:option Event.t) (conf1:Configuration.t) (idx1:nat), Prop :=
-    | step_internal
-        conf1 idx1
-        (STEP: internal_step conf0 idx0 conf1 idx1):
-        step conf0 idx0 None conf1 idx1
-    | step_external
-        e conf1 idx1
-        (STEP: Configuration.external_step conf0 e conf1):
-        step conf0 idx0 (Some e) conf1 idx1
-    .
+      sim (Configuration.init prog_src) (Configuration.init prog_tgt).
 
     Definition STEP: Prop :=
-      forall idx0 src0 tgt0 e tgt2
-        (SIM: sim idx0 src0 tgt0)
+      forall src0 tgt0 e tgt2
+        (SIM: sim src0 tgt0)
         (STEP: Configuration.step tgt0 e tgt2),
-      exists idx2 src1 src2,
+      exists src1 src2,
         <<INTERNAL: rtc Configuration.internal_step src0 src1>> /\
-        <<STEP: step src1 idx0 e src2 idx2>> /\
-        <<SIM: sim idx2 src2 tgt2>>.
+        <<STEP: Configuration.step src1 e src2>> /\
+        <<SIM: sim src2 tgt2>>.
 
     Definition TERMINAL: Prop :=
-      forall idx0 src0 tgt0
-        (SIM: sim idx0 src0 tgt0)
+      forall src0 tgt0
+        (SIM: sim src0 tgt0)
         (TERM: Configuration.is_terminal tgt0),
       exists src1,
         <<INTERNAL: rtc Configuration.internal_step src0 src1>> /\
         <<TERM: Configuration.is_terminal src1>>.
   End Simulation.
 
-  Structure t (prog_src prog_tgt:Configuration.syntax): Prop := mk {
-    sim: forall (idx:nat) (src tgt:Configuration.t), Prop;
-    init: INIT sim prog_src prog_tgt;
-    step: STEP sim;
-    terminal: TERMINAL sim;
-  }.
+  Inductive t (prog_src prog_tgt:Configuration.syntax): Prop :=
+  | t_intro
+    sim
+    (I: INIT sim prog_src prog_tgt)
+    (S: STEP sim)
+    (T: TERMINAL sim)
+  .
 
   Section BaseSimulation.
-    Variable (sim: forall (idx:nat) (src tgt:Configuration.t), Prop).
-
-    Inductive sim_lift (idx:nat) (src tgt:Configuration.t): Prop :=
-    | sim_lift_intro
-        (SIM: sim idx src tgt)
-        (SRC: Configuration.consistent src)
-        (TGT: Configuration.consistent tgt)
-    .
+    Variable (sim: forall (src tgt:Configuration.t), Prop).
 
     Definition CONSISTENT: Prop :=
-      forall idx src tgt
-        (SIM: sim idx src tgt)
-        (CONFIRM: ~ MessageSet.declared tgt.(Configuration.messages)),
+      forall src tgt
+        (SIM: sim src tgt)
+        (CONFIRM: MessageSet.confirmed tgt.(Configuration.messages)),
         Configuration.consistent src.
 
     Definition BASE_STEP: Prop :=
-      forall idx0 src0 tgt0 confirmed tgt2
-        (SIM: sim idx0 src0 tgt0)
-        (STEP: Configuration.base_step tgt0 confirmed tgt2)
-        (SRC0: ~ confirmed -> Configuration.consistent src0)
-        (TGT0: Configuration.consistent tgt0)
-        (TGT2: Configuration.consistent tgt2),
-      exists idx2 src1 src2,
+      forall src0 tgt0 reading tgt2
+        (SIM: sim src0 tgt0)
+        (STEP: Configuration.base_step tgt0 reading tgt2)
+        (READING:
+           forall loc ts (READING: reading = Some (loc, ts)),
+           exists (src0' tgt0':Configuration.t),
+             <<SIM: sim src0' tgt0'>> /\
+             <<SRC: rtc Configuration.internal_step src0 src0'>> /\
+             <<TGT: rtc Configuration.internal_step tgt0 tgt0'>> /\
+             <<DECLARE: MessageSet.declared tgt0'.(Configuration.messages) <2= MessageSet.declared tgt0.(Configuration.messages)>> /\
+             <<NODECLARE: ~ MessageSet.declared tgt0'.(Configuration.messages) loc ts>>),
+      exists src1 src2,
         <<INTERNAL: rtc Configuration.internal_step src0 src1>> /\
-        <<STEP: internal_step src1 idx0 src2 idx2>> /\
-        <<SIM: sim idx2 src2 tgt2>>.
+        <<STEP: Configuration.internal_step src1 src2>> /\
+        <<SIM: sim src2 tgt2>>.
 
     Definition EXTERNAL_STEP: Prop :=
-      forall idx0 src0 tgt0 e tgt2
-        (SIM: sim idx0 src0 tgt0)
-        (STEP: Configuration.external_step tgt0 e tgt2)
-        (SRC0: Configuration.consistent src0)
-        (TGT0: Configuration.consistent tgt0)
-        (TGT2: Configuration.consistent tgt2),
-      exists idx2 src1 src2,
+      forall src0 tgt0 e tgt2
+        (SIM: sim src0 tgt0)
+        (STEP: Configuration.external_step tgt0 e tgt2),
+      exists src1 src2,
         <<INTERNAL: rtc Configuration.internal_step src0 src1>> /\
         <<STEP: Configuration.external_step src1 e src2>> /\
-        <<SIM: sim idx2 src2 tgt2>>.
+        <<SIM: sim src2 tgt2>>.
 
-    Lemma I (C:CONSISTENT) (B:BASE_STEP):
-      forall idx0 src0 tgt0 tgt2
-        (SIM: sim idx0 src0 tgt0)
-        (STEP: Configuration.internal_step tgt0 tgt2)
-        (TGT2: Configuration.consistent tgt2),
-      exists idx2 src1 src2,
+    Lemma internal_step (B:BASE_STEP):
+      forall src0 tgt0 tgt2
+        (SIM: sim src0 tgt0)
+        (STEP: Configuration.internal_step tgt0 tgt2),
+      exists src1 src2,
         <<INTERNAL: rtc Configuration.internal_step src0 src1>> /\
-        <<STEP: internal_step src1 idx0 src2 idx2>> /\
-        <<SIM: sim idx2 src2 tgt2>>
-    with F' (C:CONSISTENT) (B:BASE_STEP):
-      forall idx0 src0 tgt0
-        (SIM: sim idx0 src0 tgt0)
+        <<STEP: Configuration.internal_step src1 src2>> /\
+        <<SIM: sim src2 tgt2>>.
+    Proof.
+      i. revert src0 SIM.
+      induction STEP0 using Configuration.internal_step_strong_ind; i.
+      - eapply B; eauto. congruence.
+      - eapply B; eauto. i. inv READING.
+        cut (exists src0', sim src0' c1' /\ rtc Configuration.internal_step src0 src0').
+        { i. des. eexists _, _. splits; eauto. }
+        revert src0 SIM. clear -PROP. induction PROP; i.
+        + eexists. splits; eauto.
+        + exploit H; eauto. i. des.
+          exploit IHPROP; eauto. i. des.
+          eexists. splits; eauto.
+          eapply rtc_trans; eauto.
+          econs 2; eauto.
+    Qed.
+
+    Lemma consistent (C:CONSISTENT) (B:BASE_STEP):
+      forall src0 tgt0
+        (SIM: sim src0 tgt0)
         (TGT0: Configuration.consistent tgt0),
         Configuration.consistent src0.
     Proof.
-      - i. inv STEP0; eapply B; eauto.
-        eapply Configuration.internal_steps_consistent; [|eauto].
-        econs 2; eauto. econs 1. eauto.
-      - i. inv TGT0. revert idx0 src0 SIM CONFIRM. induction STEPS.
-        + i. eapply C; eauto.
-        + i. exploit I; eauto.
-          { econs; eauto. }
-          i. des.
-          eapply Configuration.internal_steps_consistent; [|eauto].
-          eapply rtc_trans; eauto.
-          inv STEP0.
-          * econs 2; eauto.
-          * econs 1.
-    Admitted.
-
-    Lemma step_lemma (C:CONSISTENT) (B:BASE_STEP) (E:EXTERNAL_STEP): STEP (sim_lift).
-    Proof.
-      ii. inv SIM. inv STEP0.
-      - exploit I; eauto. i. des.
-        exploit F'; eauto. intro SRC2.
-        eexists _, _, _. splits; eauto.
-        + econs 1. eauto.
-        + econs; eauto.
-      - exploit E; eauto. i. des.
-        exploit F'; eauto. intro SRC2.
-        eexists _, _, _. splits; eauto.
-        + econs; eauto.
-        + econs; eauto.
+      i. inv TGT0. revert src0 SIM. induction STEPS; i.
+      - eapply C; eauto.
+      - exploit internal_step; eauto. i. des.
+        exploit IHSTEPS; eauto. intro X. inv X.
+        econs; [|eauto].
+        eapply rtc_trans; eauto.
+        econs 2; eauto.
     Qed.
 
     Lemma sim_lemma
@@ -153,12 +124,16 @@ Module Simulation.
           (T:TERMINAL sim):
       Simulation.t prog_src prog_tgt.
     Proof.
-      econs; try apply step_lemma; auto.
-      - unfold INIT in *. des.
-        eexists. econs; eauto.
-        + apply Configuration.init_consistent.
-        + apply Configuration.init_consistent.
-      - ii. inv SIM. exploit T; eauto.
+      econs; eauto.
+      ii. inv STEP0.
+      - exploit internal_step; eauto. i. des.
+        eexists _, _. splits; eauto.
+        econs; auto.
+        eapply consistent; eauto.
+      - exploit E; eauto. i. des.
+        eexists _, _. splits; eauto.
+        econs; auto.
+        eapply consistent; eauto.
     Qed.
   End BaseSimulation.
 End Simulation.

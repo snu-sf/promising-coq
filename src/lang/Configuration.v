@@ -78,10 +78,15 @@ Module MessageSet.
               (LocFun.add loc (UsualPositiveMap.add ts (Message.mk val released false) (LocFun.find loc m1)) m1)
   .
 
-  Inductive declared (m:t): Prop :=
-  | confirmed_intro
-      loc ts val released
+  Inductive declared (m:t) (loc:Loc.t) (ts:positive): Prop :=
+  | declared_intro
+      val released
       (GET: MessageSet.get loc ts m = Some (Message.mk val released false))
+  .
+
+  Inductive confirmed (m:t): Prop :=
+  | confirmed_intro
+      (CONFIRM: forall loc ts, ~ declared m loc ts)
   .
 End MessageSet.
 
@@ -163,13 +168,13 @@ Module Configuration.
 
   (* TODO: to check the liveness, the step should be annotated with the thread id.
    *)
-  Inductive base_step (c1:t): forall (confirmed:bool) (c2:t), Prop :=
+  Inductive base_step (c1:t): forall (validation:option (Loc.t * positive)) (c2:t), Prop :=
   | step_tau
       tid commit th1 th2
       (TID: IdentMap.find tid c1.(threads) = Some (commit, th1))
       (THREAD: Thread.step th1 None th2):
       base_step
-        c1 true
+        c1 None
         (mk c1.(messages) (IdentMap.add tid (commit, th2) c1.(threads)))
   | step_read
       tid commit th1 th2
@@ -178,7 +183,7 @@ Module Configuration.
       (READ: Commit.read commit loc ts ord c1.(messages) val released confirmed)
       (THREAD: Thread.step th1 (Some (ThreadEvent.mem (MemEvent.read loc val ord))) th2):
       base_step
-        c1 confirmed
+        c1 (Some (loc, ts))
         (mk c1.(messages) (IdentMap.add tid (commit, th2) c1.(threads)))
   | step_write
       tid commit1 commit2 th1 th2
@@ -187,7 +192,7 @@ Module Configuration.
       (WRITE: Commit.write commit1 loc ts val released ord c1.(messages) commit2 messages2)
       (THREAD: Thread.step th1 (Some (ThreadEvent.mem (MemEvent.write loc val ord))) th2):
       base_step
-        c1 true
+        c1 None
         (mk messages2 (IdentMap.add tid (commit2, th2) c1.(threads)))
   | step_update
       tid commit1 commit2 th1 th2
@@ -198,7 +203,7 @@ Module Configuration.
       (RELEASE: Capability.le releasedr releasedw)
       (THREAD: Thread.step th1 (Some (ThreadEvent.mem (MemEvent.update loc valr valw ord))) th2):
       base_step
-        c1 confirmedr
+        c1 (Some (loc, ts))
         (mk messages2 (IdentMap.add tid (commit2, th2) c1.(threads)))
   | step_fence
       tid commit th1 th2
@@ -207,44 +212,79 @@ Module Configuration.
       (FENCE: Commit.fence ord commit)
       (THREAD: Thread.step th1 (Some (ThreadEvent.mem (MemEvent.fence ord))) th2):
       base_step
-        c1 true
+        c1 None
         (mk c1.(messages) (IdentMap.add tid (commit, th2) c1.(threads)))
   | step_declare
       loc ts val released messages2
       (DECLARE: MessageSet.declare loc ts val released c1.(messages) messages2):
       base_step
-        c1 true
+        c1 None
         (mk messages2 c1.(threads))
   | step_commit
       tid commit1 commit2 th
       (TID: IdentMap.find tid c1.(threads) = Some (commit1, th))
       (COMMIT: Commit.le commit1 commit2):
       base_step
-        c1 true
+        c1 None
         (mk c1.(messages) (IdentMap.add tid (commit2, th) c1.(threads)))
   .
 
-  Inductive internal_step_gen (consistent:forall (c:t), Prop): forall (c1 c2:t), Prop :=
+  Inductive internal_step: forall (c1 c2:t), Prop :=
   | step_confirmed
       c1 c2
-      (STEP: base_step c1 true c2):
-      internal_step_gen consistent c1 c2
+      (STEP: base_step c1 None c2):
+      internal_step c1 c2
   | step_unconfirmed
-      c1 c2
-      (STEP: base_step c1 false c2)
-      (CONSISTENT: consistent c1):
-      internal_step_gen consistent c1 c2
+      c1 c2 loc ts
+      (STEP: base_step c1 (Some (loc, ts)) c2)
+      (VALID: valid loc ts c1):
+      internal_step c1 c2
+  with valid: forall (loc:Loc.t) (ts:positive) (c1:t), Prop :=
+  | valid_intro
+      c1 c2 loc ts
+      (STEPS: rtc internal_step c1 c2)
+      (DECLARE: MessageSet.declared c2.(messages) <2= MessageSet.declared c1.(messages))
+      (NODECLARE: ~ MessageSet.declared c2.(messages) loc ts):
+      valid loc ts c1
   .
+
+  Lemma internal_step_strong_ind
+        (P : t -> t -> Prop)
+        (CASE1:
+           forall c1 c2
+             (STEP: base_step c1 None c2),
+             P c1 c2)
+        (CASE2:
+           forall (c1 c2 c1' : t) (loc : Loc.t) (ts : positive)
+             (STEP: base_step c1 (Some (loc, ts)) c2)
+             (STEPS: rtc internal_step c1 c1')
+             (PROP: rtc P c1 c1')
+             (DECLARE: (MessageSet.declared (messages c1') <2= MessageSet.declared (messages c1)))
+             (NODECLARE: ~ MessageSet.declared (messages c1') loc ts),
+             P c1 c2)
+        c1 c2
+        (STEP: internal_step c1 c2):
+    P c1 c2.
+  Proof.
+    revert c1 c2 STEP. fix IH 3. intros c1 c2 H. inv H.
+    - apply CASE1. auto.
+    - inv VALID. eapply CASE2.
+      + eauto.
+      + eauto.
+      + clear -IH STEPS.
+        induction STEPS; eauto.
+        econs 2; eauto.
+      + eauto.
+      + eauto.
+  Qed.
 
   Inductive consistent: forall (c1:t), Prop :=
   | consistent_intro
       c1 c2
-      (STEPS: rtc (internal_step_gen consistent) c1 c2)
-      (CONFIRM: ~ MessageSet.declared c2.(messages)):
+      (STEPS: rtc internal_step c1 c2)
+      (CONFIRM: MessageSet.confirmed c2.(messages)):
       consistent c1
   .
-
-  Definition internal_step := internal_step_gen consistent.
 
   Lemma internal_steps_consistent c1 c2
         (STEPS: rtc internal_step c1 c2)
@@ -259,7 +299,7 @@ Module Configuration.
   Proof.
     econs.
     - econs 1.
-    - unfold init. simpl. intro X. inv X.
+    - unfold init. simpl. econs. i. intro X. inv X.
       unfold MessageSet.get, MessageSet.init in *.
       rewrite LocFun.init_spec in *.
       rewrite IdentMap.Facts.add_o in *.
