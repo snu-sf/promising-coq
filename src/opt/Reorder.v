@@ -181,10 +181,81 @@ Admitted.
 
 Lemma sim_base tid: Simulation.BASE_STEP (sim_configuration tid).
 Proof.
-  ii. inv STEP.
-  - admit. (* thread *)
-  - admit. (* declare *)
-  - admit. (* commit *)
+  ii. inv SIM. inv TH.
+  - (* reordered *)
+    inv STEP.
+    + (* thread *)
+      admit.
+    + (* declare *)
+      eexists _, _. splits; eauto.
+      * apply Configuration.step_confirmed.
+        eapply Configuration.step_declare.
+        rewrite MESSAGES. eauto.
+      * econs; eauto. apply sim_thread_reordered; eauto.
+    + (* commit *)
+      destruct (Ident.eq_dec tid0 tid).
+      * subst. rewrite TH2 in TID. inv TID.
+        eexists _, _. splits; eauto.
+        { apply Configuration.step_confirmed.
+          eapply Configuration.step_commit; eauto.
+        }
+        { econs; simpl; eauto.
+          - i. rewrite ? IdentMap.Facts.add_neq_o; eauto.
+          - rewrite IdentMap.Facts.add_eq_o; eauto.
+          - rewrite IdentMap.Facts.add_eq_o; eauto.
+          - apply sim_thread_reordered; eauto.
+        }
+      * exploit CONTEXT; eauto. intro X.
+        eexists _, _. splits; eauto.
+        { apply Configuration.step_confirmed.
+          eapply Configuration.step_commit; [|eauto].
+          rewrite X. eauto.
+        }
+        { econs; simpl; eauto.
+          - i. rewrite ? IdentMap.Facts.add_o.
+            destruct (IdentMap.Facts.eq_dec tid0 i); eauto.
+          - rewrite IdentMap.Facts.add_neq_o; eauto.
+          - rewrite IdentMap.Facts.add_neq_o; eauto.
+          - apply sim_thread_reordered; eauto.
+        }
+  - (* consumed *)
+    inv STEP.
+    + (* thread *)
+      admit.
+    + (* declare *)
+      admit.
+    + (* commit *)
+      destruct (Ident.eq_dec tid0 tid).
+      * subst. rewrite TH2 in TID. inv TID.
+        eexists _, _. splits; eauto.
+        { apply Configuration.step_confirmed.
+          eapply Configuration.step_commit; eauto.
+          admit.
+        }
+        { econs; simpl; eauto.
+          - i. rewrite ? IdentMap.Facts.add_neq_o; eauto.
+          - rewrite IdentMap.Facts.add_eq_o; eauto.
+          - rewrite IdentMap.Facts.add_eq_o; eauto.
+          - apply sim_thread_reordered; eauto.
+            admit.
+            admit.
+        }
+      * exploit CONTEXT; eauto. intro X.
+        eexists _, _. splits; eauto.
+        { apply Configuration.step_confirmed.
+          eapply Configuration.step_commit; [|eauto].
+          rewrite X. eauto.
+        }
+        { econs; simpl; eauto.
+          - i. rewrite ? IdentMap.Facts.add_o.
+            destruct (IdentMap.Facts.eq_dec tid0 i); eauto.
+          - rewrite IdentMap.Facts.add_neq_o; eauto.
+          - rewrite IdentMap.Facts.add_neq_o; eauto.
+          - apply sim_thread_reordered; eauto.
+            admit.
+            admit.
+            admit.
+        }
 Admitted.
 
 Lemma sim_external tid: Simulation.EXTERNAL_STEP (sim_configuration tid).
