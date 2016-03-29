@@ -7,7 +7,6 @@ Require Import Omega.
 Require Import sflib.
 
 Require Import Basic.
-Require Import BoolOrderedType.
 
 Set Implicit Arguments.
 Import ListNotations.

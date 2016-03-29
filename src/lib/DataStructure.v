@@ -7,6 +7,79 @@ Require Import sflib.
 
 Set Implicit Arguments.
 
+
+Module UsualOrderedTypeWithLeibniz (S: UsualOrderedType) <: OrderedTypeWithLeibniz.
+  Include S.
+
+  Lemma eq_leibniz : forall x y : t, eq x y -> x = y.
+  Proof.
+    i. unfold eq in *. auto.
+  Qed.
+End UsualOrderedTypeWithLeibniz.
+
+
+Module UsualProd (A B:UsualOrderedType) <: UsualOrderedType.
+  Definition t := (A.t * B.t)%type.
+
+  Definition eq := @eq t.
+  Global Program Instance eq_equiv : Equivalence eq.
+
+  Inductive lt_ (lhs rhs:t): Prop :=
+  | lt_hd
+      (HD: A.lt lhs.(fst) rhs.(fst))
+  | lt_tl
+      (HD: lhs.(fst) = rhs.(fst))
+      (TL: B.lt lhs.(snd) rhs.(snd))
+  .
+  Definition lt := lt_.
+  Global Program Instance lt_strorder: StrictOrder lt.
+  Next Obligation.
+    ii. inv H.
+    - eapply A.lt_strorder; eauto.
+    - eapply B.lt_strorder; eauto.
+  Qed.
+  Next Obligation.
+    ii. inv H; inv H0.
+    - econs 1. etransitivity; eauto.
+    - econs 1. rewrite <- HD0. eauto.
+    - econs 1. rewrite HD. eauto.
+    - econs 2; etransitivity; eauto.
+  Qed.
+  Global Program Instance lt_compat: Proper (eq ==> eq ==> iff) lt.
+  Next Obligation.
+    ii. unfold eq in *. subst. auto.
+  Qed.
+  Definition compare (lhs rhs:t): comparison :=
+    match A.compare lhs.(fst) rhs.(fst) with
+    | Eq =>
+      B.compare lhs.(snd) rhs.(snd)
+    | Lt => Lt
+    | Gt => Gt
+    end.
+   Lemma compare_spec :
+     forall x y : t,
+       CompareSpec (x = y) (lt x y) (lt y x) (compare x y).
+   Proof.
+     i. destruct x, y. unfold compare. simpl.
+     destruct (A.compare_spec t0 t2);
+       try (econs; econs 1; eauto).
+     destruct (B.compare_spec t1 t3); subst; econs; auto.
+     - econs 2; auto.
+     - econs 2; auto.
+   Qed.
+
+   Lemma eq_dec: forall x y : t, {x = y} + {x <> y}.
+   Proof.
+     i. destruct x, y.
+     destruct (A.eq_dec t0 t2).
+     - destruct (B.eq_dec t1 t3).
+       + left. subst. auto.
+       + right. contradict n. inv n. auto.
+     - right. contradict n. inv n. auto.
+   Qed.
+End UsualProd.
+
+
 Module UsualFun (A:UsualDecidableType).
   Polymorphic Definition t (B:Type) := forall (a:A.t), B.
 
@@ -76,19 +149,17 @@ Module UsualFun (A:UsualDecidableType).
 End UsualFun.
 
 
-Module UsualSet (S: OrderedTypeWithLeibniz).
-  Module Self := MSetList.MakeWithLeibniz (S).
+Module UsualSet (S: UsualOrderedType).
+  Module S' := UsualOrderedTypeWithLeibniz (S).
+  Module Self := MSetList.MakeWithLeibniz (S').
   Module Facts := MSetFacts.Facts (Self).
   Include Self.
 
   Definition disjoint (lhs rhs:t): Prop :=
-    forall s, <<DISJ: ~ (mem s lhs && mem s rhs)>>.
-
-  Inductive disjoint_add lhs a rhs: Prop :=
-  | disjoint_add_intro
-      (DISJ: disjoint lhs (singleton a))
-      (ADD: add a lhs = rhs)
-  .
+    forall s
+      (LHS: mem s lhs)
+      (RHS: mem s rhs),
+      False.
 
   Lemma ext lhs rhs
         (EXT: forall i, mem i lhs = mem i rhs):
