@@ -149,13 +149,6 @@ Module ThreadLocal.
   }.
 
   Definition init := mk Commit.init Permission.bot DeclareSet.empty.
-
-  Inductive step (lhs rhs:t): Prop :=
-  | step_intro
-      (COMMIT: Commit.le lhs.(commit) rhs.(commit))
-      (PERMISSION: lhs.(permission) = rhs.(permission))
-      (DECLARES: lhs.(declares) = rhs.(declares))
-  .
 End ThreadLocal.
 
 
@@ -200,13 +193,14 @@ Module Memory.
       add perm loc ts0 ts msg lhs (set loc ts msg lhs)
   .
 
-  Inductive step (thl1:ThreadLocal.t) (mem1:t): forall (e:MemEvent.t) (thl2:ThreadLocal.t), Prop :=
+  Inductive step (thl1:ThreadLocal.t) (mem1:t): forall (e:option MemEvent.t) (thl2:ThreadLocal.t), Prop :=
   | step_read
       loc val ts released ord commit2
       (COMMIT: Commit.read thl1.(ThreadLocal.commit) loc ts released ord commit2)
       (DECLARES: DeclareSet.get loc ts thl1.(ThreadLocal.declares) = false)
       (MEMORY: get loc ts mem1 = Some (Message.mk val released)):
-      step thl1 mem1 (MemEvent.read loc val ord)
+      step thl1 mem1
+           (Some (MemEvent.read loc val ord))
            (ThreadLocal.mk commit2 thl1.(ThreadLocal.permission) thl1.(ThreadLocal.declares))
   | step_write
       loc val ts released ord commit2 declares2
@@ -215,7 +209,7 @@ Module Memory.
       (DECLARES: DeclareSet.remove loc ts thl1.(ThreadLocal.declares) = Some declares2)
       (MEMORY: get loc ts mem1 = Some (Message.mk val released)):
       step thl1 mem1
-           (MemEvent.write loc val ord)
+           (Some (MemEvent.write loc val ord))
            (ThreadLocal.mk commit2 thl1.(ThreadLocal.permission) declares2)
   | step_update
       loc valr tsr releasedr valw tsw releasedw ord commit2 commit3 declares3
@@ -227,13 +221,19 @@ Module Memory.
       (MEMORY1: get loc tsr mem1 = Some (Message.mk valr releasedr))
       (MEMORY2: get loc tsw mem1 = Some (Message.mk valw releasedw)):
       step thl1 mem1
-           (MemEvent.update loc valr valw ord)
+           (Some (MemEvent.update loc valr valw ord))
            (ThreadLocal.mk commit3 thl1.(ThreadLocal.permission) declares3)
   | step_fence
       ord commit2
       (COMMIT: Commit.fence thl1.(ThreadLocal.commit) ord commit2):
       step thl1 mem1
-           (MemEvent.fence ord)
+           (Some (MemEvent.fence ord))
+           (ThreadLocal.mk commit2 thl1.(ThreadLocal.permission) thl1.(ThreadLocal.declares))
+  | step_None
+      commit2
+      (COMMIT: Commit.le thl1.(ThreadLocal.commit) commit2):
+      step thl1 mem1
+           None
            (ThreadLocal.mk commit2 thl1.(ThreadLocal.permission) thl1.(ThreadLocal.declares))
   .
 
