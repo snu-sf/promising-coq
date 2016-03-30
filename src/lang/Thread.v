@@ -1,5 +1,8 @@
+Require Import sflib.
+
 Require Import Basic.
 Require Import Event.
+Require Import Time.
 
 Set Implicit Arguments.
 
@@ -14,7 +17,7 @@ Module Language.
   }.
 End Language.
 
-Module Thread.
+Module ThreadState.
   Structure syntax := mk_syntax {
     syntax_lang: Language.t;
     syntax_syntax: syntax_lang.(Language.syntax);
@@ -36,4 +39,4 @@ Module Thread.
       lang s1 e s2
       (STEP: lang.(Language.step) s1 e s2):
       step (mk lang s1) e (mk lang s2).
-End Thread.
+End ThreadState.
