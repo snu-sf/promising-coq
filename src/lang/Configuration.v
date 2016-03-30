@@ -70,7 +70,7 @@ Module Configuration.
   Definition consistent (conf:t): Prop :=
     forall tid th1 thl1 mem1
       (FIND: IdentMap.find tid conf.(threads) = Some (th1, thl1))
-      (FUTURE: Memory.future thl1.(ThreadLocal.permission) conf.(memory) mem1),
+      (FUTURE: Memory.future thl1.(ThreadLocal.declares) conf.(memory) mem1),
     exists th2 thl2 mem2,
       <<STEPS: rtc Context.step (Context.mk th1 thl1 mem1) (Context.mk th2 thl2 mem2)>> /\
       <<NODECLARE: thl2.(ThreadLocal.declares) = DeclareSet.empty>>.

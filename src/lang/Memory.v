@@ -113,42 +113,36 @@ Module Permission.
     forall loc ts (LHS: IntervalSet.time_mem ts (LocFun.find loc lhs)),
       IntervalSet.time_mem ts (LocFun.find loc rhs).
 
+  Definition allocatable (loc:Loc.t) (ts0 ts:Time.t) (perm:t): Prop :=
+    forall x (ITV: Interval.time_mem x (ts0, ts)),
+      ~ has_perm loc x perm.
+
   Definition add (loc:Loc.t) (ts0 ts:Time.t) (perm:t): t :=
     LocFun.add loc (IntervalSet.add (ts0, ts) (LocFun.find loc perm)) perm.
 End Permission.
 
 Module DeclareSet.
-  Definition t := LocFun.t TimeSet.t.
-  Definition empty: t := LocFun.init TimeSet.empty.
+  Definition t := LocFun.t (TimeFun.t (option Time.t)).
+  Definition empty: t := LocFun.init (TimeFun.init None).
 
-	Definition get loc ts (ds:t): bool :=
-    TimeSet.mem ts (LocFun.find loc ds).
+	Definition get loc ts (ds:t): option Time.t :=
+    TimeFun.find ts (LocFun.find loc ds).
 
-	Definition set loc ts (ds:t): t :=
-    LocFun.add loc (TimeSet.add ts (LocFun.find loc ds)) ds.
+	Definition set loc ts0 ts (ds:t): t :=
+    LocFun.add loc (TimeFun.add ts (Some ts0) (LocFun.find loc ds)) ds.
 
 	Definition unset loc ts (ds:t): t :=
-    LocFun.add loc (TimeSet.remove ts (LocFun.find loc ds)) ds.
-
-	Definition add loc ts (ds:t): option t :=
-    if get loc ts ds
-    then None
-    else Some (set loc ts ds).
-
-	Definition remove loc ts (ds:t): option t :=
-    if get loc ts ds
-    then Some (unset loc ts ds)
-    else None.
+    LocFun.add loc (TimeFun.add ts None (LocFun.find loc ds)) ds.
 End DeclareSet.
 
+(* TODO: merge with Module Thread *)
 Module ThreadLocal.
   Structure t := mk {
     commit: Commit.t;
-    permission: Permission.t;
     declares: DeclareSet.t;
   }.
 
-  Definition init := mk Commit.init Permission.bot DeclareSet.empty.
+  Definition init := mk Commit.init DeclareSet.empty.
 End ThreadLocal.
 
 
@@ -166,95 +160,103 @@ Module Message.
   .
 End Message.
 
+Module MessageSet.
+  Definition t := LocFun.t (TimeFun.t (option Message.t)).
+  Definition empty: t := LocFun.init (TimeFun.init None).
+
+  Definition get (loc:Loc.t) (ts:Time.t) (m:t): option Message.t :=
+    TimeFun.find ts (LocFun.find loc m).
+
+  Definition set (loc:Loc.t) (ts:Time.t) (msg:Message.t) (m:t): t :=
+    LocFun.add loc (TimeFun.add ts (Some msg) (LocFun.find loc m)) m.
+
+  Definition add (loc:Loc.t) (ts:Time.t) (msg:Message.t) (m:t): option t :=
+    if get loc ts m
+    then None
+    else Some (set loc ts msg m).
+End MessageSet.
+
 Module Memory.
   Structure t := mk {
-    messages: LocFun.t (TimeFun.t (option Message.t));
+    messages: MessageSet.t;
     permission: Permission.t;
   }.
 
-  Definition init: t :=
-    mk (LocFun.init (TimeFun.add Time.elt (Some (Message.mk 0 History.init)) (TimeFun.init None)))
-       Permission.bot.
-
-  Definition get (loc:Loc.t) (ts:Time.t) (m:t): option Message.t :=
-    TimeFun.find ts (LocFun.find loc m.(messages)).
-
-  Definition set (loc:Loc.t) (ts:Time.t) (msg:Message.t) (m:t): t :=
-    mk (LocFun.add loc (TimeFun.add ts (Some msg) (LocFun.find loc m.(messages))) m.(messages))
-       m.(permission).
-
-  Inductive add (perm:Permission.t) (loc:Loc.t) (ts0 ts:Time.t) (msg:Message.t) (lhs:t): forall (rhs:t), Prop :=
-  | add_intro
-      (PERM: forall x
-               (ITV: Interval.time_mem x (ts0, ts))
-               (MEM: Permission.has_perm loc x lhs.(permission)),
-          Permission.has_perm loc x perm)
-      (LHS: get loc ts lhs = None):
-      add perm loc ts0 ts msg lhs (set loc ts msg lhs)
-  .
+  Definition init: t := mk MessageSet.empty Permission.bot.
 
   Inductive step (thl1:ThreadLocal.t) (mem1:t): forall (e:option MemEvent.t) (thl2:ThreadLocal.t), Prop :=
   | step_read
       loc val ts released ord commit2
-      (COMMIT: Commit.read thl1.(ThreadLocal.commit) loc ts released ord commit2)
-      (DECLARES: DeclareSet.get loc ts thl1.(ThreadLocal.declares) = false)
-      (MEMORY: get loc ts mem1 = Some (Message.mk val released)):
+      (READ: Commit.read thl1.(ThreadLocal.commit) loc ts released ord commit2)
+      (DECLARE: DeclareSet.get loc ts thl1.(ThreadLocal.declares) = None)
+      (MESSAGE: MessageSet.get loc ts mem1.(messages) = Some (Message.mk val released)):
       step thl1 mem1
            (Some (MemEvent.read loc val ord))
-           (ThreadLocal.mk commit2 thl1.(ThreadLocal.permission) thl1.(ThreadLocal.declares))
+           (ThreadLocal.mk commit2 thl1.(ThreadLocal.declares))
   | step_write
-      loc val ts released ord commit2 declares2
-      (COMMIT: Commit.write thl1.(ThreadLocal.commit) loc ts released ord commit2)
-      (PERMISSION: Permission.has_perm loc ts thl1.(ThreadLocal.permission))
-      (DECLARES: DeclareSet.remove loc ts thl1.(ThreadLocal.declares) = Some declares2)
-      (MEMORY: get loc ts mem1 = Some (Message.mk val released)):
+      loc val ts0 ts released ord commit2
+      (WRITE: Commit.write thl1.(ThreadLocal.commit) loc ts released ord commit2)
+      (DECLARE: DeclareSet.get loc ts thl1.(ThreadLocal.declares) = Some ts0)
+      (MESSAGE: MessageSet.get loc ts mem1.(messages) = Some (Message.mk val released)):
       step thl1 mem1
            (Some (MemEvent.write loc val ord))
-           (ThreadLocal.mk commit2 thl1.(ThreadLocal.permission) declares2)
+           (ThreadLocal.mk commit2 (DeclareSet.unset loc ts thl1.(ThreadLocal.declares)))
   | step_update
-      loc valr tsr releasedr valw tsw releasedw ord commit2 commit3 declares3
-      (COMMIT1: Commit.read thl1.(ThreadLocal.commit) loc tsr releasedr ord commit2)
-      (COMMIT2: Commit.write commit2 loc tsw releasedw ord commit3)
-      (RELEASED: History.le releasedr releasedw)
-      (PERMISSION: forall x (ITV: Interval.time_mem x (tsr, tsw)), IntervalSet.time_mem x (LocFun.find loc thl1.(ThreadLocal.permission)))
-      (DECLARES: DeclareSet.remove loc tsw thl1.(ThreadLocal.declares) = Some declares3)
-      (MEMORY1: get loc tsr mem1 = Some (Message.mk valr releasedr))
-      (MEMORY2: get loc tsw mem1 = Some (Message.mk valw releasedw)):
+      loc valr tsr releasedr valw tsw0 tsw releasedw ord commit2 commit3
+      (READ: Commit.read thl1.(ThreadLocal.commit) loc tsr releasedr ord commit2)
+      (WRITE: Commit.write commit2 loc tsw releasedw ord commit3)
+      (RELEASE: History.le releasedr releasedw)
+      (DECLARE: DeclareSet.get loc tsw thl1.(ThreadLocal.declares) = Some tsw0)
+      (PERMISSION: Time.le tsw0 tsr)
+      (MESSAGE1: MessageSet.get loc tsr mem1.(messages) = Some (Message.mk valr releasedr))
+      (MESSAGE2: MessageSet.get loc tsw mem1.(messages) = Some (Message.mk valw releasedw)):
       step thl1 mem1
            (Some (MemEvent.update loc valr valw ord))
-           (ThreadLocal.mk commit3 thl1.(ThreadLocal.permission) declares3)
+           (ThreadLocal.mk commit3 (DeclareSet.unset loc tsw thl1.(ThreadLocal.declares)))
   | step_fence
       ord commit2
-      (COMMIT: Commit.fence thl1.(ThreadLocal.commit) ord commit2):
+      (FENCE: Commit.fence thl1.(ThreadLocal.commit) ord commit2):
       step thl1 mem1
            (Some (MemEvent.fence ord))
-           (ThreadLocal.mk commit2 thl1.(ThreadLocal.permission) thl1.(ThreadLocal.declares))
+           (ThreadLocal.mk commit2 thl1.(ThreadLocal.declares))
   | step_None
       commit2
       (COMMIT: Commit.le thl1.(ThreadLocal.commit) commit2):
       step thl1 mem1
            None
-           (ThreadLocal.mk commit2 thl1.(ThreadLocal.permission) thl1.(ThreadLocal.declares))
+           (ThreadLocal.mk commit2 thl1.(ThreadLocal.declares))
+  .
+
+  Inductive declarable (loc:Loc.t) (ts0 ts:Time.t) (decls:DeclareSet.t) (perm:Permission.t): Prop :=
+  | declarable_declares
+      ts0' ts'
+      (DECL:DeclareSet.get loc ts' decls = Some ts0')
+      (TS0: Time.le ts0' ts0)
+      (TS0: Time.lt ts ts')
+  | declarable_alloc
+      (ALLOC: Permission.allocatable loc ts0 ts perm)
   .
 
   Inductive declare (thl1:ThreadLocal.t) (mem1:t): forall (thl2:ThreadLocal.t) (mem2:t), Prop :=
   | declare_intro
-      loc ts val released ts0 thl2
-      (TS: Time.le ts0 ts)
-      (COMMIT: Commit.le thl1.(ThreadLocal.commit) thl2.(ThreadLocal.commit))
-      (PERMISSION: Permission.add loc ts0 ts thl1.(ThreadLocal.permission) = thl2.(ThreadLocal.permission))
-      (DECLARE: DeclareSet.add loc ts thl1.(ThreadLocal.declares) = Some thl2.(ThreadLocal.declares))
-      (PERM: forall x (ITV: Interval.time_mem x (ts0, ts)) (MEM: Permission.has_perm loc x mem1.(permission)),
-          Permission.has_perm loc x thl1.(ThreadLocal.permission))
-      (GET: get loc ts mem1 = None):
-      declare thl1 mem1 thl2 (set loc ts (Message.mk val released) mem1)
+      loc ts val released ts0 commit2
+      (TS: Time.lt ts0 ts)
+      (COMMIT: Commit.le thl1.(ThreadLocal.commit) commit2)
+      (PERMISSION: declarable loc ts0 ts thl1.(ThreadLocal.declares) mem1.(permission))
+      (GET: MessageSet.get loc ts mem1.(messages) = None):
+      declare thl1 mem1
+              (ThreadLocal.mk commit2 (DeclareSet.set loc ts0 ts thl1.(ThreadLocal.declares)))
+              (mk (MessageSet.set loc ts (Message.mk val released) mem1.(messages))
+                  (Permission.add loc ts0 ts mem1.(permission)))
   .
 
-  Inductive future (perm:Permission.t) (lhs rhs:t): Prop :=
+  Inductive future (decls:DeclareSet.t) (lhs rhs:t): Prop :=
   | future_intro
-      (MESSAGE: forall loc ts, Message.future (get loc ts lhs) (get loc ts rhs))
-      (NONPERM: forall loc ts (NONPERM: Permission.has_perm loc ts perm),
-          get loc ts lhs = get loc ts rhs)
+      (MESSAGE: forall loc ts, Message.future (MessageSet.get loc ts lhs.(messages)) (MessageSet.get loc ts rhs.(messages)))
+      (NONPERM:
+         forall loc ts0 ts (DECL: DeclareSet.get loc ts decls = Some ts0),
+         forall x (ITV: Interval.time_mem x (ts0, ts)),
+           MessageSet.get loc x lhs.(messages) = MessageSet.get loc x rhs.(messages))
       (PERM: Permission.le lhs.(permission) rhs.(permission))
   .
 End Memory.
