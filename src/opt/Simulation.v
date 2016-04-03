@@ -4,12 +4,11 @@ Require Import paco.
 Require Import Basic.
 Require Import Event.
 Require Import Thread.
-Require Import ConfigurationRR.
+Require Import Configuration.
 
 Set Implicit Arguments.
 
 (* TODO: liveness *)
-(* TODO: maybe `BASE_STEP` is too weak to prove some hand-optimizations. *)
 Module Simulation.
   Section Simulation.
     Variable (sim: forall (src tgt:Configuration.t), Prop).

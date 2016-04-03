@@ -6,13 +6,14 @@ Require Import paco.
 Require Import Basic.
 Require Import DataStructure.
 
-Module Type HasMiddle (Import T:EqLt).
+Module Type IsDense (Import T:EqLtLe).
   Parameter elt: t.
 
-  Axiom unbounded:
-    forall (x:t),
-    exists (y:t),
-      lt x y.
+  Parameter decr: t -> t.
+  Axiom decr_spec: forall x, lt (decr x) x.
+
+  Parameter incr: t -> t.
+  Axiom incr_spec: forall x, lt x (incr x).
 
   Parameter middle: forall (lhs rhs:t), t.
   Axiom middle_spec:
@@ -20,11 +21,11 @@ Module Type HasMiddle (Import T:EqLt).
       (LT: lt lhs rhs),
       lt lhs (middle lhs rhs) /\
       lt (middle lhs rhs) rhs.
-End HasMiddle.
+End IsDense.
 
-Module Type DenseOrderType := UsualOrderedTypeFull <+ HasMiddle.
+Module Type DenseOrderType := UsualOrderedTypeFull <+ IsDense.
 
-Module DenseOrder: DenseOrderType.
+Module DenseOrder <: DenseOrderType.
   Definition t := list bool.
   Definition elt: t := nil.
 
@@ -103,21 +104,24 @@ Module DenseOrder: DenseOrderType.
    Lemma le_lteq : forall x y : t, le x y <-> lt x y \/ x = y.
    Proof. auto. Qed.
 
-   Lemma unbounded:
-     forall (x:t),
-     exists (y:t),
-       lt x y.
-   Proof.
-     i. exists (x ++ [true]). induction x; econs; auto.
-   Qed.
+  Definition decr (x:t) := x ++ [false].
+  Lemma decr_spec: forall x, lt (decr x) x.
+    induction x; econs. auto.
+  Qed.
 
-   Fixpoint middle (lhs rhs:t): t :=
-     match lhs, rhs with
-     | [], rhs => rhs ++ [false]
-     | lhs, [] => lhs ++ [true]
-     | false::ltl, true::rtl => []
-     | lhd::ltl, rhd::rtl => lhd::(middle ltl rtl)
-     end.
+  Definition incr (x:t) := x ++ [true].
+  Lemma incr_spec: forall x, lt x (incr x).
+    induction x; econs. auto.
+  Qed.
+
+  Fixpoint middle (lhs rhs:t): t :=
+    match lhs, rhs with
+    | [], rhs => rhs ++ [false]
+    | lhs, [] => lhs ++ [true]
+    | false::ltl, true::rtl => []
+    | lhd::ltl, rhd::rtl => lhd::(middle ltl rtl)
+    end.
+
   Lemma middle_spec:
     forall (lhs rhs:t)
       (LT: lt lhs rhs),

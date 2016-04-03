@@ -51,7 +51,7 @@ Module Configuration.
   Inductive internal_step (c1:t): forall (c2:t), Prop :=
   | internal_step_intro
       tid th1 thl1 th2 thl2 memory2
-      (FIND: IdentMap.find tid c1.(threads) = Some (th1, thl1))
+      (TID: IdentMap.find tid c1.(threads) = Some (th1, thl1))
       (STEP: tc Context.step (Context.mk th1 thl1 c1.(memory)) (Context.mk th2 thl2 memory2)):
       internal_step c1 (mk (IdentMap.add tid (th2, thl2) c1.(threads)) memory2)
   .
@@ -59,8 +59,8 @@ Module Configuration.
   Inductive external_step (c1:t): forall (e:Event.t) (c2:t), Prop :=
   | external_step_intro
       tid th1 thl1 th2 thl2 e
-      (FIND: IdentMap.find tid c1.(threads) = Some (th1, thl1))
-      (NODECLARE: thl1.(ThreadLocal.declares) = IntervalSets.bot)
+      (TID: IdentMap.find tid c1.(threads) = Some (th1, thl1))
+      (DECLARE: thl1.(ThreadLocal.declares) = IntervalSets.bot)
       (THREAD: ThreadState.step th1 (Some (ThreadEvent.syscall e)) th2):
       external_step
         c1 e
@@ -73,7 +73,7 @@ Module Configuration.
       (FUTURE: Memory.future thl1.(ThreadLocal.declares) conf.(memory) mem1),
     exists th2 thl2 mem2,
       <<STEPS: rtc Context.step (Context.mk th1 thl1 mem1) (Context.mk th2 thl2 mem2)>> /\
-      <<NODECLARE: thl2.(ThreadLocal.declares) = IntervalSets.bot>>.
+      <<DECLARE: thl2.(ThreadLocal.declares) = IntervalSets.bot>>.
 
   Inductive step: forall (c1:t) (e:option Event.t) (c2:t), Prop :=
   | step_internal
