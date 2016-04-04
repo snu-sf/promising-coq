@@ -23,11 +23,11 @@ Module Context.
   | step_thread
       e th2 thl2
       (THREAD: ThreadState.step ctx1.(state) (option_map ThreadEvent.mem e) th2)
-      (MEM: Memory.step ctx1.(local) ctx1.(memory) e thl2):
+      (MEM: ThreadLocal.step ctx1.(local) ctx1.(memory) e thl2):
       step ctx1 (mk th2 thl2 ctx1.(memory))
   | step_declare
       thl2 mem2
-      (MEM: Memory.declare ctx1.(local) ctx1.(memory) thl2 mem2):
+      (MEM: ThreadLocal.declare ctx1.(local) ctx1.(memory) thl2 mem2):
       step ctx1 (mk ctx1.(state) thl2 mem2)
   .
 End Context.
@@ -60,7 +60,7 @@ Module Configuration.
   | external_step_intro
       tid th1 thl1 th2 thl2 e
       (TID: IdentMap.find tid c1.(threads) = Some (th1, thl1))
-      (DECLARE: thl1.(ThreadLocal.declares) = IntervalSets.bot)
+      (DECLARE: thl1.(ThreadLocal.local) = Memory.init)
       (THREAD: ThreadState.step th1 (Some (ThreadEvent.syscall e)) th2):
       external_step
         c1 e
@@ -70,10 +70,11 @@ Module Configuration.
   Definition consistent (conf:t): Prop :=
     forall tid th1 thl1 mem1
       (FIND: IdentMap.find tid conf.(threads) = Some (th1, thl1))
-      (FUTURE: Memory.future thl1.(ThreadLocal.declares) conf.(memory) mem1),
+      (PRIVATE: Memory.le thl1.(ThreadLocal.local) mem1)
+      (FUTURE: Memory.future conf.(memory) mem1),
     exists th2 thl2 mem2,
       <<STEPS: rtc Context.step (Context.mk th1 thl1 mem1) (Context.mk th2 thl2 mem2)>> /\
-      <<DECLARE: thl2.(ThreadLocal.declares) = IntervalSets.bot>>.
+      <<DECLARE: thl2.(ThreadLocal.local) = Memory.init>>.
 
   Inductive step: forall (c1:t) (e:option Event.t) (c2:t), Prop :=
   | step_internal
