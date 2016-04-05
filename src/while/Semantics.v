@@ -1,7 +1,9 @@
 Require Import List.
 Require Import Event.
 Require Import Syntax.
-Require Import Thread.
+Require Import Language.
+
+Require Import sflib.
 
 Set Implicit Arguments.
 
@@ -106,8 +108,13 @@ Module State.
   .
 End State.
 
-Definition lang :=
+Program Definition lang :=
   Language.mk
     State.init
     State.is_terminal
-    State.step.
+    State.step
+    _.
+Next Obligation.
+  inv TERMINAL. destruct s1. simpl in *. subst.
+  inv STEP.
+Qed.

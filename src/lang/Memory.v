@@ -1,4 +1,5 @@
 Require Import Omega.
+Require Import RelationClasses.
 
 Require Import sflib.
 Require Import paco.
@@ -19,6 +20,10 @@ Module Times.
   Definition le (lhs rhs:t): Prop :=
     forall loc, Time.le (LocFun.find loc lhs) (LocFun.find loc rhs).
 
+  Global Program Instance le_PreOrder: PreOrder le.
+  Next Obligation. ii. reflexivity. Qed.
+  Next Obligation. ii. etransitivity; eauto. Qed.
+
   Definition get (loc:Loc.t) (c:t) :=
     LocFun.find loc c.
 End Times.
@@ -36,6 +41,14 @@ Module Snapshot.
       (READS: Times.le lhs.(reads) rhs.(reads))
       (WRITES: Times.le lhs.(writes) rhs.(writes))
   .
+
+  Global Program Instance le_PreOrder: PreOrder le.
+  Next Obligation.
+    ii. econs; reflexivity.
+  Qed.
+  Next Obligation.
+    ii. inv H. inv H0. econs; etransitivity; eauto.
+  Qed.
 
   Inductive readable (history:t) (loc:Loc.t) (ts:Time.t): Prop :=
   | readable_intro
@@ -94,6 +107,10 @@ Module Cell.
   Definition le (lhs rhs:t): Prop :=
     forall to from msg (MSG: lhs.(messages) to = Some (from, msg)),
       rhs.(messages) to = Some (from, msg).
+
+  Global Program Instance le_PreOrder: PreOrder le.
+  Next Obligation. ii. auto. Qed.
+  Next Obligation. ii. apply H0. apply H. auto. Qed.
 
   Inductive own (cell:t) (ts:Time.t): Prop :=
   | own_intro
@@ -167,17 +184,33 @@ Module Cell.
                               (TimeFun.add to (Some (middle, msg)) cell1.(messages)))
   .
 
-  Definition future: forall (lhs rhs:t), Prop :=
-    rtc (fun c1 c2 => exists from to msg, declare from to msg c1 c2).
+  Inductive future (lhs rhs:t): Prop :=
+  | future_intro
+      (MESSAGES:
+         forall to from_lhs msg
+           (LHS: lhs.(messages) to = Some (from_lhs, msg)),
+         exists from_rhs,
+           rhs.(messages) to = Some (from_rhs, msg))
+      (OWNERSHIP: own lhs <1= own rhs)
+  .
+
+  Global Program Instance future_PreOrder: PreOrder future.
+  Next Obligation.
+    ii. econs; i; eauto.
+  Qed.
+  Next Obligation.
+    ii. inv H; inv H0. econs; i.
+    - exploit MESSAGES; eauto. i. des.
+      eapply MESSAGES0; eauto.
+    - exploit OWNERSHIP; eauto.
+  Qed.
 
   Lemma declare_future
         from to msg cell1 cell2
         (DECLARE: declare from to msg cell1 cell2):
     future cell1 cell2.
   Proof.
-    econs 2; [|econs 1].
-    eexists _, _, _. eauto.
-  Qed.
+  Admitted.
 
   Program Definition remove (to:Time.t) (cell:t): t :=
     mk (TimeFun.add to None cell.(messages)) _ _ _.
@@ -212,6 +245,13 @@ Module Memory.
 
   Definition le (lhs rhs:t): Prop := forall loc, Cell.le (lhs loc) (rhs loc).
 
+  Global Program Instance le_PreOrder: PreOrder le.
+  Next Obligation. intros x loc. reflexivity. Qed.
+  Next Obligation. intros x y z XY YZ loc. etransitivity; eauto. Qed.
+
+  Definition own (mem:t) (loc:Loc.t) (to:Time.t): Prop :=
+    Cell.own (mem loc) to.
+
   Definition disjoint (lhs rhs:t): Prop :=
     forall loc, Cell.disjoint (lhs loc) (rhs loc).
 
@@ -232,128 +272,26 @@ Module Memory.
       declare loc from to msg mem1 (LocFun.add loc cell2 mem1)
   .
 
-  Definition future: forall (lhs rhs:t), Prop :=
-    rtc (fun c1 c2 => exists loc from to msg, declare loc from to msg c1 c2).
+  Definition future (lhs rhs:t): Prop :=
+    forall loc, Cell.future (lhs loc) (rhs loc).
+
+  Global Program Instance future_PreOrder: PreOrder future.
+  Next Obligation. intros x loc. reflexivity. Qed.
+  Next Obligation. intros x y z XY YZ loc. etransitivity; eauto. Qed.
 
   Lemma declare_future
         loc from to msg mem1 mem2
         (DECLARE: declare loc from to msg mem1 mem2):
     future mem1 mem2.
   Proof.
-    econs 2; [|econs 1].
-    eexists _, _, _. eauto.
+    inv DECLARE. intro loc'. unfold LocFun.add.
+    match goal with
+    | [|- context[if ?c then _ else _]] => destruct c
+    end.
+    - subst. eapply Cell.declare_future; eauto.
+    - reflexivity.
   Qed.
 
   Definition remove (loc:Loc.t) (to:Time.t) (mem:t): t :=
     LocFun.add loc (Cell.remove to (mem loc)) mem.
 End Memory.
-
-
-Module Commit.
-  Structure t := mk {
-    current: Snapshot.t;
-    released: LocFun.t Snapshot.t;
-    acquirable: Snapshot.t;
-  }.
-
-  Definition init: t := mk Snapshot.init (LocFun.init Snapshot.init) Snapshot.init.
-
-  Inductive le (lhs rhs:t): Prop :=
-  | le_intro
-      (CURRENT: Snapshot.le lhs.(current) rhs.(current))
-      (RELEASED: forall (loc:Loc.t), Snapshot.le (LocFun.find loc lhs.(released)) (LocFun.find loc rhs.(released)))
-      (ACQUIRABLE: Snapshot.le lhs.(acquirable) rhs.(acquirable))
-  .
-
-  Inductive read
-            (tc1:t) (loc:Loc.t) (ts:Time.t) (released:Snapshot.t) (ord:Ordering.t)
-            (tc2:t): Prop :=
-  | read_intro
-      (MONOTONE: le tc1 tc2)
-      (READABLE: Snapshot.readable tc1.(current) loc ts)
-      (READ: Time.le ts (Times.get loc tc2.(current).(Snapshot.reads)))
-      (ACQUIRE: forall (ORDERING: Ordering.le Ordering.acquire ord),
-          Snapshot.le released tc2.(current))
-      (ACQUIRABLE: Snapshot.le released tc2.(acquirable))
-  .
-
-  Inductive write
-            (tc1:t) (loc:Loc.t) (ts:Time.t) (released:Snapshot.t) (ord:Ordering.t)
-            (tc2:t): Prop :=
-  | write_intro
-      (MONOTONE: le tc1 tc2)
-      (WRITABLE: Snapshot.writable tc1.(current) loc ts)
-      (WRITE: Time.le ts (Times.get loc tc2.(current).(Snapshot.writes)))
-      (RELEASE: forall (ORDERING: Ordering.le Ordering.release ord),
-          Snapshot.le tc2.(current) released)
-      (RELEASED: Snapshot.le (LocFun.find loc tc2.(Commit.released)) released)
-  .
-
-  Inductive fence
-            (tc1:t) (ord:Ordering.t)
-            (tc2:t): Prop :=
-  | fence_intro
-      (MONOTONE: le tc1 tc2)
-      (ACQUIRE: forall (ORDERING: Ordering.le Ordering.acquire ord),
-          Snapshot.le tc2.(acquirable) tc2.(current))
-      (RELEASE: forall (ORDERING: Ordering.le Ordering.release ord) loc,
-          Snapshot.le tc2.(current) (LocFun.find loc tc2.(released)))
-  .
-End Commit.
-
-Module ThreadLocal.
-  Structure t := mk {
-    commit: Commit.t;
-    local: Memory.t;
-  }.
-
-  Definition init := mk Commit.init Memory.init.
-
-  Inductive step (thl1:t) (mem1:Memory.t): forall (e:option MemEvent.t) (thl2:t), Prop :=
-  | step_read
-      loc val ts released ord commit2
-      (READ: Commit.read thl1.(commit) loc ts released ord commit2)
-      (MESSAGE: Memory.get loc ts mem1 = Some (Message.mk val released))
-      (LOCAL: Memory.get loc ts thl1.(local) = None):
-      step thl1 mem1
-           (Some (MemEvent.read loc val ord))
-           (mk commit2 thl1.(local))
-  | step_write
-      loc val ts released ord commit2
-      (WRITE: Commit.write thl1.(commit) loc ts released ord commit2)
-      (MESSAGE: Memory.get loc ts thl1.(local) = Some (Message.mk val released)):
-      step thl1 mem1
-           (Some (MemEvent.write loc val ord))
-           (mk commit2 (Memory.remove loc ts thl1.(local)))
-  | step_update
-      loc valr tsr releasedr valw tsw releasedw ord commit2 commit3
-      (READ: Commit.read thl1.(commit) loc tsr releasedr ord commit2)
-      (WRITE: Commit.write commit2 loc tsw releasedw ord commit3)
-      (RELEASE: Snapshot.le releasedr releasedw)
-      (MESSAGE1: Memory.get loc tsr mem1 = Some (Message.mk valr releasedr))
-      (MESSAGE2: Memory.get loc tsw thl1.(local) = Some (Message.mk valw releasedw)):
-      step thl1 mem1
-           (Some (MemEvent.update loc valr valw ord))
-           (mk commit3 (Memory.remove loc tsw thl1.(local)))
-  | step_fence
-      ord commit2
-      (FENCE: Commit.fence thl1.(commit) ord commit2):
-      step thl1 mem1
-           (Some (MemEvent.fence ord))
-           (mk commit2 thl1.(local))
-  | step_None
-      commit2
-      (COMMIT: Commit.le thl1.(commit) commit2):
-      step thl1 mem1
-           None
-           (mk commit2 thl1.(local))
-  .
-
-  Inductive declare (thl1:t) (mem1:Memory.t) (thl2:t) (mem2:Memory.t): Prop :=
-  | declare_intro
-      loc from to msg
-      (COMMIT: Commit.le thl1.(commit) thl2.(commit))
-      (LOCAL: Memory.declare loc from to msg thl1.(local) thl2.(local))
-      (MEMORY: Memory.declare loc from to msg mem1 mem2)
-  .
-End ThreadLocal.

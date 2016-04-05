@@ -6,87 +6,44 @@ Require Import Basic.
 Require Import DataStructure.
 Require Import Time.
 Require Import Event.
-Require Import Thread.
+Require Import Language.
 Require Import Memory.
+Require Import Thread.
 
 Set Implicit Arguments.
 
 
-Module Context.
-  Structure t := mk {
-    state: ThreadState.t;
-    local: ThreadLocal.t;
-    memory: Memory.t;
-  }.
-
-  Inductive step (ctx1:t): forall (ctx2:t), Prop :=
-  | step_thread
-      e th2 thl2
-      (THREAD: ThreadState.step ctx1.(state) (option_map ThreadEvent.mem e) th2)
-      (MEM: ThreadLocal.step ctx1.(local) ctx1.(memory) e thl2):
-      step ctx1 (mk th2 thl2 ctx1.(memory))
-  | step_declare
-      thl2 mem2
-      (MEM: ThreadLocal.declare ctx1.(local) ctx1.(memory) thl2 mem2):
-      step ctx1 (mk ctx1.(state) thl2 mem2)
-  .
-End Context.
-
 Module Configuration.
-  Definition syntax := IdentMap.t ThreadState.syntax.
+  Definition syntax := IdentMap.t State.syntax.
 
   Structure t := mk {
-    threads: IdentMap.t (ThreadState.t * ThreadLocal.t);
+    threads: IdentMap.t Thread.t;
     memory: Memory.t;
   }.
 
   Definition init (s:syntax): t :=
-    mk (IdentMap.map (fun th => (ThreadState.init th, ThreadLocal.init)) s)
-       Memory.init.
+    mk (IdentMap.map Thread.init s) Memory.init.
 
   Definition is_terminal (conf:t): Prop :=
-    forall tid th thl (FIND: IdentMap.find tid conf.(threads) = Some (th, thl)),
-      ThreadState.is_terminal th.
+    forall tid th (FIND: IdentMap.find tid conf.(threads) = Some th),
+      Thread.is_terminal th.
 
-  Inductive internal_step (c1:t): forall (c2:t), Prop :=
-  | internal_step_intro
-      tid th1 thl1 th2 thl2 memory2
-      (TID: IdentMap.find tid c1.(threads) = Some (th1, thl1))
-      (STEP: tc Context.step (Context.mk th1 thl1 c1.(memory)) (Context.mk th2 thl2 memory2)):
-      internal_step c1 (mk (IdentMap.add tid (th2, thl2) c1.(threads)) memory2)
-  .
-
-  Inductive external_step (c1:t): forall (e:Event.t) (c2:t), Prop :=
-  | external_step_intro
-      tid th1 thl1 th2 thl2 e
-      (TID: IdentMap.find tid c1.(threads) = Some (th1, thl1))
-      (DECLARE: thl1.(ThreadLocal.local) = Memory.init)
-      (THREAD: ThreadState.step th1 (Some (ThreadEvent.syscall e)) th2):
-      external_step
-        c1 e
-        (mk (IdentMap.add tid (th2, thl2) c1.(threads)) c1.(memory))
+  Inductive step (e:option Event.t) (c1:t): forall (c2:t), Prop :=
+  | step_intro
+      tid th1 th2 memory2 th3 memory3
+      (TID: IdentMap.find tid c1.(threads) = Some th1)
+      (STEPS: rtc Thread.internal_step (th1, c1.(memory)) (th2, memory2))
+      (STEP: Thread.step e th2 memory2 th3 memory3)
+      (CONSISTENT: Thread.consistent th3 memory3):
+      step e c1 (mk (IdentMap.add tid th3 c1.(threads)) memory3)
   .
 
   Definition consistent (conf:t): Prop :=
-    forall tid th1 thl1 mem1
-      (FIND: IdentMap.find tid conf.(threads) = Some (th1, thl1))
-      (PRIVATE: Memory.le thl1.(ThreadLocal.local) mem1)
+    forall tid th1 mem1
+      (FIND: IdentMap.find tid conf.(threads) = Some th1)
+      (LOCAL: Memory.le th1.(Thread.local) mem1)
       (FUTURE: Memory.future conf.(memory) mem1),
-    exists th2 thl2 mem2,
-      <<STEPS: rtc Context.step (Context.mk th1 thl1 mem1) (Context.mk th2 thl2 mem2)>> /\
-      <<DECLARE: thl2.(ThreadLocal.local) = Memory.init>>.
-
-  Inductive step: forall (c1:t) (e:option Event.t) (c2:t), Prop :=
-  | step_internal
-      c1 c2
-      (STEP: internal_step c1 c2)
-      (CONSISTENT: consistent c2):
-      step c1 None c2
-  | step_external
-      c1 c2
-      e
-      (STEP: external_step c1 e c2)
-      (CONSISTENT: consistent c2):
-      step c1 (Some e) c2
-  .
+    exists th2 mem2,
+      <<STEPS: rtc Thread.internal_step (th1, mem1) (th2, mem2)>> /\
+      <<DECLARE: th2.(Thread.local) = Memory.init>>.
 End Configuration.

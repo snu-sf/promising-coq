@@ -1,4 +1,5 @@
 Require Import Orders.
+Require Import RelationClasses.
 
 Require Import sflib.
 Require Import paco.
@@ -25,7 +26,7 @@ End IsDense.
 
 Module Type DenseOrderType := UsualOrderedTypeFull <+ IsDense.
 
-Module DenseOrder <: DenseOrderType.
+Module DenseOrder: DenseOrderType.
   Definition t := list bool.
   Definition elt: t := nil.
 
@@ -139,3 +140,15 @@ Module DenseOrder <: DenseOrderType.
       destruct a; econs; auto.
   Qed.
 End DenseOrder.
+
+Program Instance DenseOrder_le_PreOrder: PreOrder DenseOrder.le.
+Next Obligation.
+  ii. apply DenseOrder.le_lteq. right. auto.
+Qed.
+Next Obligation.
+  ii. apply DenseOrder.le_lteq.
+  apply DenseOrder.le_lteq in H.
+  apply DenseOrder.le_lteq in H0.
+  des; subst; auto.
+  left. rewrite H. auto.
+Qed.

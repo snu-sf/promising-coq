@@ -32,7 +32,6 @@ Module Interval <: UsualOrderedType.
         lb ub (LT: Time.lt lb ub):
     mem (lb, ub) ub.
   Proof.
-    econs; simpl; auto.
-    right. apply Time.eq_equiv.
+    econs; simpl; auto. reflexivity.
   Qed.
 End Interval.
