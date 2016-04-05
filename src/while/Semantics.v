@@ -112,9 +112,4 @@ Program Definition lang :=
   Language.mk
     State.init
     State.is_terminal
-    State.step
-    _.
-Next Obligation.
-  inv TERMINAL. destruct s1. simpl in *. subst.
-  inv STEP.
-Qed.
+    State.step.

@@ -14,12 +14,6 @@ Module Language.
     init: syntax -> state;
     is_terminal: state -> Prop;
     step: forall (s1:state) (e:option ThreadEvent.t) (s2:state), Prop;
-
-    IS_TERMINAL_STEP:
-      forall s1 e s2
-        (TERMINAL: is_terminal s1)
-        (STEP: step s1 e s2),
-        False;
   }.
 End Language.
 

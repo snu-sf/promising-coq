@@ -12,6 +12,7 @@ Require Import Memory.
 Require Import Thread.
 Require Import Configuration.
 Require Import Simulation.
+Require Import UptoContext.
 
 Require Import Syntax.
 Require Import Semantics.
@@ -35,8 +36,7 @@ Inductive reorder: forall (i1 i2:Instr.t), Prop :=
 Lemma reorder_sim_thread
       i1 i2
       (REORDER: reorder i1 i2):
-  sim_thread_init
-    (State.mk_syntax lang [Stmt.instr i1; Stmt.instr i2])
-    (State.mk_syntax lang [Stmt.instr i2; Stmt.instr i1]).
+  sim_ctx_init [Stmt.instr i1; Stmt.instr i2]
+               [Stmt.instr i2; Stmt.instr i1].
 Proof.
 Admitted.

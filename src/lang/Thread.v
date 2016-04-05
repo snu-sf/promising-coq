@@ -84,7 +84,11 @@ Module Thread.
 
   Definition init (s:State.syntax) := mk (State.init s) Commit.init Memory.init.
 
-  Definition is_terminal (th:t): Prop := State.is_terminal th.(state).
+  Inductive is_terminal (th:t): Prop :=
+  | is_terminal_intro
+      (STATE: State.is_terminal th.(state))
+      (LOCAL: th.(local) = Memory.init)
+  .
 
   Inductive memory_step (th1:t) (mem1:Memory.t): forall (th2:t), Prop :=
   | step_read
