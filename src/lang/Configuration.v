@@ -35,17 +35,38 @@ Module Threads.
       (TH2: IdentMap.find tid2 ths = Some (existT _ lang2 th2)),
       Memory.disjoint th1.(Thread.local) th2.(Thread.local).
 
-  Definition disjoint (ths1 ths2:t): Prop :=
-    forall tid1 lang1 th1
-      tid2 lang2 th2
-      (TH1: IdentMap.find tid1 ths1 = Some (existT _ lang1 th1))
-      (TH2: IdentMap.find tid2 ths2 = Some (existT _ lang2 th2)),
-      Memory.disjoint th1.(Thread.local) th2.(Thread.local).
+  Inductive disjoint (ths1 ths2:t): Prop :=
+  | disjoint_intro
+      (THREAD:
+         forall tid lth1 lth2
+           (TH1: IdentMap.find tid ths1 = Some lth1)
+           (TH2: IdentMap.find tid ths2 = Some lth2),
+           False)
+      (MEMORY:
+         forall tid1 lang1 th1
+           tid2 lang2 th2
+           (TH1: IdentMap.find tid1 ths1 = Some (existT _ lang1 th1))
+           (TH2: IdentMap.find tid2 ths2 = Some (existT _ lang2 th2)),
+           Memory.disjoint th1.(Thread.local) th2.(Thread.local))
+  .
 
   Definition le (ths:t) (mem:Memory.t): Prop :=
     forall tid lang th
       (TH: IdentMap.find tid ths = Some (existT _ lang th)),
       Memory.le th.(Thread.local) mem.
+
+  Definition compose_option {A} (th1 th2:option A) :=
+    match th1 with
+    | None => th2
+    | Some _ => th1
+    end.
+
+  Definition compose (ths1 ths2:t): t :=
+    IdentMap.map2 compose_option ths1 ths2.
+
+  Lemma compose_spec ths1 ths2 tid:
+    IdentMap.find tid (compose ths1 ths2) = compose_option (IdentMap.find tid ths1) (IdentMap.find tid ths2).
+  Proof. apply IdentMap.Facts.map2_1bis; auto. Qed.
 End Threads.
 
 
@@ -69,8 +90,9 @@ Module Configuration.
   .
 
   Definition consistent (conf:t): Prop :=
-    forall tid lang th1 mem1
+    forall tid lang th1
       (FIND: IdentMap.find tid conf.(threads) = Some (existT _ lang th1))
+      mem1
       (LOCAL: Memory.le th1.(Thread.local) mem1)
       (FUTURE: Memory.future conf.(memory) mem1),
     exists th2 mem2,

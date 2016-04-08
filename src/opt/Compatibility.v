@@ -226,8 +226,8 @@ Inductive ctx (sim_thread:SIM_THREAD lang): SIM_THREAD lang :=
     (RS: sim_regs rs_src rs_tgt):
     ctx sim_thread
         (sim_terminal sim_regs)
-        (Thread.mk lang (State.mk rs_src nil) commit local) mem_k_src
-        (Thread.mk lang (State.mk rs_tgt nil) commit local) mem_k_tgt
+        (Thread.mk lang (State.mk rs_src []) commit local) mem_k_src
+        (Thread.mk lang (State.mk rs_tgt []) commit local) mem_k_tgt
 | ctx_instr
     (sim_regs:SIM_REGS)
     instr
