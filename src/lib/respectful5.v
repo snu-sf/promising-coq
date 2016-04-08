@@ -215,5 +215,5 @@ Section Respectful5.
   Qed.
 End Respectful5.
 
-Ltac pupto_init := apply upto5_init; eauto with paco.
-Ltac pupto H := eapply upto5_step; [|exact H|]; eauto with paco.
+Ltac pupto5_init := apply upto5_init; eauto with paco.
+Ltac pupto5 H := eapply upto5_step; [|exact H|]; eauto with paco.

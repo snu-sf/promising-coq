@@ -13,7 +13,10 @@ Require Import Thread.
 Require Import Configuration.
 Require Import Simulation.
 
-Require Import Syntax.
-Require Import Semantics.
-
 Set Implicit Arguments.
+
+(* TODO *)
+Lemma sim_compose:
+  True.
+Proof.
+Admitted.

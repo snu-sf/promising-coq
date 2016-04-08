@@ -418,7 +418,7 @@ Definition sim_stmts := @_sim_stmts (paco5 (@_sim_thread lang <*> grespectful5 (
 Lemma sim_stmts_nil sim_regs:
   sim_stmts sim_regs [] [] sim_regs.
 Proof.
-  ii. pupto ctx_weak_respectful.
+  ii. pupto5 ctx_weak_respectful.
 Qed.
 
 Lemma sim_stmts_instr
@@ -428,7 +428,7 @@ Lemma sim_stmts_instr
           rs_src reg = rs_tgt reg):
   sim_stmts sim_regs [Stmt.instr instr] [Stmt.instr instr] sim_regs.
 Proof.
-  ii. pupto ctx_weak_respectful.
+  ii. pupto5 ctx_weak_respectful.
 Qed.
 
 Lemma sim_stmts_seq
@@ -439,7 +439,7 @@ Lemma sim_stmts_seq
       (SIM2: sim_stmts sim_regs1 stmts2_src stmts2_tgt sim_regs2):
   sim_stmts sim_regs0 (stmts1_src ++ stmts2_src) (stmts1_tgt ++ stmts2_tgt) sim_regs2.
 Proof.
-  ii. pupto ctx_weak_respectful.
+  ii. pupto5 ctx_weak_respectful.
 Qed.
 
 Lemma sim_stmts_ite
@@ -451,7 +451,7 @@ Lemma sim_stmts_ite
       (SIM2: sim_stmts sim_regs0 stmts2_src stmts2_tgt sim_regs1):
   sim_stmts sim_regs0 [Stmt.ite cond_src stmts1_src stmts2_src] [Stmt.ite cond_tgt stmts1_tgt stmts2_tgt] sim_regs1.
 Proof.
-  ii. pupto ctx_weak_respectful.
+  ii. pupto5 ctx_weak_respectful.
 Qed.
 
 Lemma sim_stmts_dowhile
@@ -462,5 +462,5 @@ Lemma sim_stmts_dowhile
       (SIM: sim_stmts sim_regs stmts_src stmts_tgt sim_regs):
   sim_stmts sim_regs [Stmt.dowhile stmts_src cond_src] [Stmt.dowhile stmts_tgt cond_tgt] sim_regs.
 Proof.
-  ii. pupto ctx_weak_respectful.
+  ii. pupto5 ctx_weak_respectful.
 Qed.
