@@ -21,61 +21,58 @@ Inductive sim_memory (mem_src mem_tgt:Memory.t): Prop :=
 .
 
 
-Definition SIM_THREAD :=
-  forall (th1_src:Thread.t) (mem_k_src:Memory.t)
-    (th1_tgt:Thread.t) (mem_k_tgt:Memory.t), Prop.
+Section SimulationThread.
+  Variable (lang:Language.t).
 
-Definition sim_interference
-           (th1_src:Thread.t) (mem_k_src:Memory.t)
-           (th1_tgt:Thread.t) (mem_k_tgt:Memory.t): Prop :=
-  forall mem1_src mem1_tgt
-    (MEMORY1: sim_memory mem1_src mem1_tgt)
-    (LOCAL_SRC: Memory.le th1_src.(Thread.local) mem1_src)
-    (LOCAL_TGT: Memory.le th1_tgt.(Thread.local) mem1_tgt)
-    (FUTURE_SRC: Memory.future mem_k_src mem1_src)
-    (FUTURE_TGT: Memory.future mem_k_tgt mem1_tgt),
-    <<TERMINAL:
-      forall (TERMINAL_TGT: Thread.is_terminal th1_tgt),
-      exists th2_src mem2_src,
-        <<STEPS: rtc Thread.internal_step (th1_src, mem1_src) (th2_src, mem2_src)>> /\
-        <<TERMINAL_SRC: Thread.is_terminal th2_src>>>> /\
-    <<DECLARE:
-      forall (TERMINAL_TGT: th1_tgt.(Thread.local) = Memory.init),
-      exists th2_src mem2_src,
-        <<STEPS: rtc Thread.internal_step (th1_src, mem1_src) (th2_src, mem2_src)>> /\
-        <<TERMINAL_SRC: th2_src.(Thread.local) = Memory.init>>>>.
+  Definition SIM_THREAD :=
+    forall (sim_terminal: forall (th_src th_tgt:Thread.t lang), Prop)
+      (th1_src:Thread.t lang) (mem_k_src:Memory.t)
+      (th1_tgt:Thread.t lang) (mem_k_tgt:Memory.t), Prop.
 
-(* TODO: inftau & liveness *)
-Definition _sim_thread_step
-           (sim_thread: SIM_THREAD)
-           (th1_src:Thread.t) (mem_k_src:Memory.t)
-           (th1_tgt:Thread.t) (mem_k_tgt:Memory.t): Prop :=
-  forall mem1_src mem1_tgt
-    (MEMORY1: sim_memory mem1_src mem1_tgt)
-    (LOCAL_SRC: Memory.le th1_src.(Thread.local) mem1_src)
-    (LOCAL_TGT: Memory.le th1_tgt.(Thread.local) mem1_tgt)
-    (FUTURE_SRC: Memory.future mem_k_src mem1_src)
-    (FUTURE_TGT: Memory.future mem_k_tgt mem1_tgt),
-  forall e th2_tgt mem2_tgt
-    (STEP_TGT: Thread.step e th1_tgt mem1_tgt th2_tgt mem2_tgt),
-  exists th2_src mem2_src,
-    <<STEP_SRC: Thread.step e th1_src mem1_src th2_src mem2_src>> /\
-    <<MEMORY2: sim_memory mem2_src mem2_tgt>> /\
-    <<SIM: sim_thread th2_src mem2_src th2_tgt mem2_tgt>>.
+  (* TODO: inftau & liveness *)
+  Definition _sim_thread
+             (sim_thread: SIM_THREAD)
+             (sim_terminal: forall (th_src th_tgt:Thread.t lang), Prop)
+             (th1_src:Thread.t lang) (mem_k_src:Memory.t)
+             (th1_tgt:Thread.t lang) (mem_k_tgt:Memory.t): Prop :=
+    forall mem1_src mem1_tgt
+      (MEMORY1: sim_memory mem1_src mem1_tgt)
+      (LOCAL_SRC: Memory.le th1_src.(Thread.local) mem1_src)
+      (LOCAL_TGT: Memory.le th1_tgt.(Thread.local) mem1_tgt)
+      (FUTURE_SRC: Memory.future mem_k_src mem1_src)
+      (FUTURE_TGT: Memory.future mem_k_tgt mem1_tgt),
+      <<TERMINAL:
+        forall (TERMINAL_TGT: lang.(Language.is_terminal) th1_tgt.(Thread.state)),
+        exists th2_src mem2_src,
+          <<STEPS: rtc (@Thread.internal_step lang) (th1_src, mem1_src) (th2_src, mem2_src)>> /\
+          <<MEMORY: sim_memory mem2_src mem1_tgt>> /\
+          <<TERMINAL_SRC: lang.(Language.is_terminal) th2_src.(Thread.state)>> /\
+          <<DECLARE: th2_src.(Thread.local) = th1_tgt.(Thread.local)>> /\
+          <<SIM: sim_terminal th2_src th1_tgt>>>> /\
+      <<DECLARE:
+        forall (DECLARE_TGT: th1_tgt.(Thread.local) = Memory.init),
+        exists th2_src mem2_src,
+          <<STEPS: rtc (@Thread.internal_step lang) (th1_src, mem1_src) (th2_src, mem2_src)>> /\
+          <<MEMORY: sim_memory mem2_src mem1_tgt>> /\
+          <<DECLARE_SRC: th2_src.(Thread.local) = Memory.init>>>> /\
+      <<STEP:
+        forall e th3_tgt mem3_tgt
+          (STEP_TGT: Thread.step e th1_tgt mem1_tgt th3_tgt mem3_tgt),
+        exists th2_src mem2_src th3_src mem3_src,
+          <<STEPS: rtc (@Thread.internal_step lang) (th1_src, mem1_src) (th2_src, mem2_src)>> /\
+          <<STEP_SRC: Thread.step e th2_src mem2_src th3_src mem3_src>> /\
+          <<MEMORY2: sim_memory mem3_src mem3_tgt>> /\
+          <<SIM: sim_thread sim_terminal th3_src mem3_src th3_tgt mem3_tgt>>>>.
 
-Lemma _sim_thread_step_mon: monotone4 _sim_thread_step.
-Proof.
-  ii. exploit IN; eauto. i. des.
-  eexists _, _. splits; eauto.
-Qed.
-Hint Resolve _sim_thread_step_mon: paco.
+  Lemma _sim_thread_mon: monotone5 _sim_thread.
+  Proof.
+    ii. exploit IN; eauto. i. des.
+    splits; eauto. i.
+    exploit STEP; eauto. i. des.
+    eexists _, _, _, _. splits; eauto.
+  Qed.
+  Hint Resolve _sim_thread_mon: paco.
 
-Definition _sim_thread R := sim_interference /4\ _sim_thread_step R.
-Lemma _sim_thread_mon: monotone4 _sim_thread.
-Proof.
-  ii. unfold _sim_thread in IN. des.
-  split; auto. eapply _sim_thread_step_mon; eauto.
-Qed.
+  Definition sim_thread: SIM_THREAD := paco5 _sim_thread bot5.
+End SimulationThread.
 Hint Resolve _sim_thread_mon: paco.
-
-Definition sim_thread: SIM_THREAD := paco4 _sim_thread bot4.
