@@ -75,6 +75,41 @@ Section Compose.
     Threads.le ths1 mem /\ Threads.le ths2 mem.
   Proof. apply compose_forall. Qed.
 
+  Lemma compose_threads_consistent:
+    Threads.consistent (Threads.compose ths1 ths2) <->
+    <<CONSISTENT1: Threads.consistent ths1>> /\
+    <<CONSISTENT2: Threads.consistent ths2>>.
+  Proof.
+    econs; intro X; des; splits; ii.
+    - exploit X; eauto.
+      + rewrite Threads.compose_spec.
+        unfold Threads.compose_option.
+        rewrite TH1. auto.
+      + rewrite Threads.compose_spec.
+        unfold Threads.compose_option.
+        rewrite TH2. auto.
+    - exploit X; eauto.
+      + rewrite compose_comm.
+        rewrite Threads.compose_spec.
+        unfold Threads.compose_option.
+        rewrite TH1. auto.
+      + rewrite compose_comm.
+        rewrite Threads.compose_spec.
+        unfold Threads.compose_option.
+        rewrite TH2. auto.
+    - rewrite ? Threads.compose_spec in *.
+      destruct (IdentMap.find tid1 ths1) eqn:TH11,
+               (IdentMap.find tid1 ths2) eqn:TH12,
+               (IdentMap.find tid2 ths1) eqn:TH21,
+               (IdentMap.find tid2 ths2) eqn:TH22;
+        Configuration.simplify;
+        try (by exfalso; inv DISJOINT; eapply THREAD; eauto);
+        try (by eapply CONSISTENT1; eauto);
+        try (by eapply CONSISTENT2; eauto).
+      + inv DISJOINT. eapply MEMORY; eauto.
+      + symmetry. inv DISJOINT. eapply MEMORY; eauto.
+  Qed.
+
   Lemma compose_consistent mem:
     Configuration.consistent (Configuration.mk (Threads.compose ths1 ths2) mem) <->
     <<CONSISTENT1: Configuration.consistent (Configuration.mk ths1 mem)>> /\
@@ -83,18 +118,18 @@ Section Compose.
     econs; intro X.
     - inv X. splits.
       + econs; s.
-        * admit. (* threads consistency *)
+        * apply compose_threads_consistent. auto.
         * apply compose_le. auto.
         * eapply compose_forall in VALID. des. auto.
       + econs; s.
-        * admit. (* threads consistency *)
+        * apply compose_threads_consistent. auto.
         * apply compose_le. auto.
         * eapply compose_forall in VALID. des. auto.
     - des. inv CONSISTENT1. inv CONSISTENT2. ss. econs; s.
-      + admit. (* threads consistency *)
+      + apply compose_threads_consistent. splits; auto.
       + apply compose_le. splits; eauto.
       + eapply (@compose_forall_rev _ VALID VALID0); eauto.
-  Admitted.
+  Qed.
 End Compose.
 
 Lemma compose_step

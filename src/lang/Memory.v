@@ -212,6 +212,15 @@ Module Cell.
   Proof.
   Admitted.
 
+  Lemma declare_le
+        from to msg cell1 cell2 cell1' cell2'
+        (LE: le cell1 cell2)
+        (DECLARE1: declare from to msg cell1 cell1')
+        (DECLARE2: declare from to msg cell2 cell2'):
+    le cell1' cell2'.
+  Proof.
+  Admitted.
+
   Program Definition remove (to:Time.t) (cell:t): t :=
     mk (TimeFun.add to None cell.(messages)) _ _ _.
   Next Obligation.
@@ -234,6 +243,31 @@ Module Cell.
     | [H: context[if ?c then _ else _] |- _] => destruct c
     end; inv MSG.
     eapply H; eauto.
+  Qed.
+
+  Lemma remove_disjoint
+        ts cell1 cell2
+        (DISJOINT: disjoint cell1 cell2):
+    disjoint (remove ts cell1) cell2.
+  Proof.
+    econs. i.
+    inv DISJOINT. specialize (DISJOINT0 ts0).
+    apply DISJOINT0; auto.
+    inv LHS. econs; eauto.
+    unfold remove in *. ss.
+    unfold TimeFun.add in *.
+    destruct (TimeSet.Facts.eq_dec to ts); inv MESSAGE. eauto.
+  Qed.
+
+  Lemma remove_le
+        ts cell mem
+        (LE: le cell mem):
+    le (remove ts cell) mem.
+  Proof.
+    ii. unfold remove in *. ss.
+    unfold TimeFun.add, TimeFun.find in *.
+    destruct (TimeSet.Facts.eq_dec to ts); inv MSG.
+    exploit LE; eauto. i. rewrite x. auto.
   Qed.
 End Cell.
 
@@ -297,6 +331,47 @@ Module Memory.
     - reflexivity.
   Qed.
 
+  Lemma declare_le
+        loc from to msg mem1 mem2 mem1' mem2'
+        (LE: le mem1 mem2)
+        (DECLARE1: declare loc from to msg mem1 mem1')
+        (DECLARE2: declare loc from to msg mem2 mem2'):
+    le mem1' mem2'.
+  Proof.
+    econs. intro loc'.
+    inv DECLARE1. inv DECLARE2. unfold LocFun.add.
+    match goal with
+    | [|- context[if ?c then _ else _]] => destruct c
+    end.
+    - subst. eapply Cell.declare_le; eauto.
+      inv LE. eauto.
+    - apply LE.
+  Qed.
+
   Definition remove (loc:Loc.t) (to:Time.t) (mem:t): t :=
     LocFun.add loc (Cell.remove to (mem loc)) mem.
+
+  Lemma remove_disjoint
+        loc ts mem1 mem2
+        (DISJOINT: disjoint mem1 mem2):
+    disjoint (remove loc ts mem1) mem2.
+  Proof.
+    econs. i. unfold remove, LocFun.add.
+    destruct (LocSet.Facts.eq_dec loc0 loc).
+    + apply Cell.remove_disjoint.
+      inv DISJOINT. eauto.
+    + apply DISJOINT.
+  Qed.
+
+  Lemma remove_le
+        loc ts mem1 mem2
+        (LE: le mem1 mem2):
+    le (remove loc ts mem1) mem2.
+  Proof.
+    econs. i. unfold remove in *.
+    unfold LocFun.add, LocFun.find in *.
+    destruct (LocSet.Facts.eq_dec loc0 loc).
+    - apply Cell.remove_le. inv LE. auto.
+    - apply LE.
+  Qed.
 End Memory.

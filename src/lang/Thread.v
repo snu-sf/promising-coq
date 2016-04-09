@@ -188,9 +188,9 @@ Module Thread.
       Memory.disjoint th2.(local) mem_o.
     Proof.
       inv STEP; simpl in *; auto.
-      - admit.
-      - admit.
-    Admitted.
+      - apply Memory.remove_disjoint. auto.
+      - apply Memory.remove_disjoint. auto.
+    Qed.
 
     Lemma disjoint_declare_step
           th1 mem1 th2 mem2 mem_o
@@ -200,8 +200,9 @@ Module Thread.
       <<DISJOINT: Memory.disjoint th2.(local) mem_o>> /\
       <<LE: Memory.le mem_o mem2>>.
     Proof.
-      inv STEP.
-      admit.
+      inv STEP. splits; s.
+      - admit.
+      - admit.
     Admitted.
 
     Lemma disjoint_step
@@ -250,7 +251,16 @@ Module Thread.
       <<FUTURE: Memory.future mem1 mem2>> /\
       <<LE: Memory.le th2.(local) mem2>>.
     Proof.
-    Admitted.
+      inv STEP; ss.
+      - splits; [reflexivity|].
+        inv STEP0; ss; auto.
+        + apply Memory.remove_le. auto.
+        + apply Memory.remove_le. auto.
+      - inv STEP0. s. splits.
+        + eapply Memory.declare_future. eauto.
+        + eapply Memory.declare_le; eauto.
+      - splits; auto. reflexivity.
+    Qed.
 
     Lemma future_internal_step
           th1 mem1 th2 mem2

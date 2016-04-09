@@ -94,13 +94,8 @@ Module Configuration.
       (LE: Threads.le conf.(threads) conf.(memory))
       (VALID:
          forall tid lang th1
-           (FIND: IdentMap.find tid conf.(threads) = Some (existT _ lang th1))
-           mem1
-           (LOCAL: Memory.le th1.(Thread.local) mem1)
-           (FUTURE: Memory.future conf.(memory) mem1),
-         exists th2 mem2,
-           <<STEPS: rtc (@Thread.internal_step lang) (th1, mem1) (th2, mem2)>> /\
-           <<DECLARE: th2.(Thread.local) = Memory.init>>)
+           (FIND: IdentMap.find tid conf.(threads) = Some (existT _ lang th1)),
+           Thread.consistent th1 conf.(memory))
   .
 
   Inductive step (e:option Event.t) (c1:t): forall (c2:t), Prop :=
@@ -157,9 +152,13 @@ Module Configuration.
         exploit Thread.disjoint_rtc_internal_step; eauto. s. i. des.
         exploit Thread.disjoint_step; eauto. i. des.
         auto.
-      + admit.
+      + i. rewrite IdentMap.Facts.add_o in FIND.
+        destruct (LocMap.Facts.eq_dec tid tid0).
+        * inv FIND. apply inj_pair2 in H1. subst. auto.
+        * inv CONSISTENT1. ii. eapply VALID; eauto.
+          repeat (etransitivity; eauto).
     - etransitivity; eauto.
-  Admitted.
+  Qed.
 
   Lemma consistent_rtc_step
         c1 c2
@@ -201,7 +200,7 @@ Module Configuration.
         i. des.
         exploit Thread.disjoint_step; eauto. i. des.
         auto.
-      + i. exploit VALID; eauto.
+      + ii. exploit VALID; eauto.
         exploit Thread.future_rtc_internal_step; eauto.
         { s. inv CONSISTENT1. eapply LE0. eauto. }
         i. des.
