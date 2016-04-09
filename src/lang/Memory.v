@@ -119,8 +119,15 @@ Module Cell.
       (INTERVAL: Interval.mem (from, to) ts)
   .
 
-  Definition disjoint (lhs rhs:t): Prop :=
-    forall ts (LHS: own lhs ts) (RHS: own rhs ts), False.
+  Inductive disjoint (lhs rhs:t): Prop :=
+  | disjoint_intro
+      (DISJOINT: forall ts (LHS: own lhs ts) (RHS: own rhs ts), False)
+  .
+
+  Global Program Instance disjoint_Symmetric: Symmetric disjoint.
+  Next Obligation.
+    inv H. econs. i. eapply DISJOINT0; eauto.
+  Qed.
 
   Lemma disjoint_messages
         to lhs rhs lx rx
@@ -133,13 +140,6 @@ Module Cell.
     eapply DISJ; econs; eauto.
     - apply Interval.mem_ub. eapply VOLUME. eauto.
     - apply Interval.mem_ub. eapply VOLUME. eauto.
-  Qed.
-
-  Lemma disjoint_comm lhs rhs
-        (DISJ: disjoint lhs rhs):
-    disjoint rhs lhs.
-  Proof.
-    ii. eapply DISJ; eauto.
   Qed.
 
   Program Definition init: t :=
@@ -243,24 +243,26 @@ Module Memory.
   Definition get (loc:Loc.t) (to:Time.t) (mem:t): option Message.t :=
     Cell.get to (mem loc).
 
-  Definition le (lhs rhs:t): Prop := forall loc, Cell.le (lhs loc) (rhs loc).
+  Inductive le (lhs rhs:t): Prop :=
+  | le_intro
+      (LE: forall loc, Cell.le (lhs loc) (rhs loc))
+  .
 
   Global Program Instance le_PreOrder: PreOrder le.
-  Next Obligation. intros x loc. reflexivity. Qed.
-  Next Obligation. intros x y z XY YZ loc. etransitivity; eauto. Qed.
+  Next Obligation. econs. intro loc. reflexivity. Qed.
+  Next Obligation. econs. inv H. inv H0. intro loc. etransitivity; eauto. Qed.
 
   Definition own (mem:t) (loc:Loc.t) (to:Time.t): Prop :=
     Cell.own (mem loc) to.
 
-  Definition disjoint (lhs rhs:t): Prop :=
-    forall loc, Cell.disjoint (lhs loc) (rhs loc).
+  Inductive disjoint (lhs rhs:t): Prop :=
+  | disjoint_intro
+      (DISJOINT: forall loc, Cell.disjoint (lhs loc) (rhs loc))
+  .
 
-  Lemma disjoint_comm lhs rhs
-        (DISJ: disjoint lhs rhs):
-    disjoint rhs lhs.
-  Proof.
-    intro loc. specialize (DISJ loc).
-    apply Cell.disjoint_comm. auto.
+  Global Program Instance disjoint_Symmetric: Symmetric disjoint.
+  Next Obligation.
+    inv H. econs. i. symmetry. apply DISJOINT.
   Qed.
 
   Definition init: t := LocFun.init Cell.init.
@@ -272,19 +274,22 @@ Module Memory.
       declare loc from to msg mem1 (LocFun.add loc cell2 mem1)
   .
 
-  Definition future (lhs rhs:t): Prop :=
-    forall loc, Cell.future (lhs loc) (rhs loc).
+  Inductive future (lhs rhs:t): Prop :=
+  | future_intro
+      (FUTURE: forall loc, Cell.future (lhs loc) (rhs loc))
+  .
 
   Global Program Instance future_PreOrder: PreOrder future.
-  Next Obligation. intros x loc. reflexivity. Qed.
-  Next Obligation. intros x y z XY YZ loc. etransitivity; eauto. Qed.
+  Next Obligation. econs. intros loc. reflexivity. Qed.
+  Next Obligation. econs. inv H. inv H0. intros loc. etransitivity; eauto. Qed.
 
   Lemma declare_future
         loc from to msg mem1 mem2
         (DECLARE: declare loc from to msg mem1 mem2):
     future mem1 mem2.
   Proof.
-    inv DECLARE. intro loc'. unfold LocFun.add.
+    econs. intro loc'.
+    inv DECLARE. unfold LocFun.add.
     match goal with
     | [|- context[if ?c then _ else _]] => destruct c
     end.

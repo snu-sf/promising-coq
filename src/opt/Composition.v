@@ -40,12 +40,10 @@ Section Compose.
   Proof.
     econs; i.
     - splits.
-      + intros tid lang th TH.
-        eapply H; eauto.
+      + i. eapply H; eauto.
         rewrite Threads.compose_spec. rewrite TH. auto.
-      + rewrite compose_comm in H; auto.
-        intros tid lang th TH.
-        eapply H; eauto.
+      + i. eapply H; eauto.
+        rewrite compose_comm.
         rewrite Threads.compose_spec. rewrite TH. auto.
     - des.
       rewrite Threads.compose_spec in TH.
@@ -90,6 +88,16 @@ Section Compose.
                   (Configuration.mk ths2 mem)
                   (Configuration.mk ths2' mem')>>).
   Proof.
+    inv STEP. ss.
+    rewrite Threads.compose_spec in TID.
+    unfold Threads.compose_option in TID.
+    destruct (IdentMap.find tid ths1) eqn:TH1,
+             (IdentMap.find tid ths2) eqn:TH2; inv TID.
+    - exfalso. inv DISJOINT. eapply THREAD; eauto.
+    - left.
+      admit.
+    - right.
+      admit.
   Admitted.
 
   Lemma compose_step1
@@ -107,16 +115,6 @@ Section Compose.
   Admitted.
 End Compose.
 
-Lemma disjoint_comm
-      ths1 ths2
-      (DISJOINT: Threads.disjoint ths1 ths2):
-  Threads.disjoint ths2 ths1.
-Proof.
-  inv DISJOINT. econs; i.
-  - eapply THREAD; eauto.
-  - apply Memory.disjoint_comm. eapply MEMORY; eauto.
-Qed.
-
 Lemma compose_step2
       ths1 ths2
       (DISJOINT: Threads.disjoint ths1 ths2)
@@ -132,12 +130,69 @@ Lemma compose_step2
             (Configuration.mk (Threads.compose ths1 ths2') mem')>>.
 Proof.
   exploit compose_step1; [|apply STEP|].
-  { apply disjoint_comm. eauto. }
+  { symmetry. eauto. }
   i. des. splits.
-  { apply disjoint_comm. eauto. }
+  { symmetry. eauto. }
   rewrite (@compose_comm ths1 ths2); auto.
   rewrite (@compose_comm ths1 ths2'); auto.
-  apply disjoint_comm. eauto.
+  symmetry. eauto.
+Qed.
+
+Lemma compose_rtc_step1
+      c1 c2 ths
+      (DISJOINT: Threads.disjoint c1.(Configuration.threads) ths)
+      (STEPS: rtc (Configuration.step None) c1 c2):
+  <<DISJOINT: Threads.disjoint c2.(Configuration.threads) ths>> /\
+  <<STEPS: rtc (Configuration.step None)
+               (Configuration.mk (Threads.compose c1.(Configuration.threads) ths) c1.(Configuration.memory))
+               (Configuration.mk (Threads.compose c2.(Configuration.threads) ths) c2.(Configuration.memory))>>.
+Proof.
+  induction STEPS; auto.
+  destruct x, y. exploit compose_step1; eauto. ss. i. des.
+  exploit IHSTEPS; eauto. i. des.
+  splits; eauto.
+  econs; eauto.
+Qed.
+
+Lemma compose_rtc_step2
+      c1 c2 ths
+      (DISJOINT: Threads.disjoint ths c1.(Configuration.threads))
+      (STEPS: rtc (Configuration.step None) c1 c2):
+  <<DISJOINT: Threads.disjoint ths c2.(Configuration.threads)>> /\
+  <<STEPS: rtc (Configuration.step None)
+               (Configuration.mk (Threads.compose ths c1.(Configuration.threads)) c1.(Configuration.memory))
+               (Configuration.mk (Threads.compose ths c2.(Configuration.threads)) c2.(Configuration.memory))>>.
+Proof.
+  induction STEPS; auto.
+  destruct x, y. exploit compose_step2; eauto. ss. i. des.
+  exploit IHSTEPS; eauto. i. des.
+  splits; eauto.
+  econs; eauto.
+Qed.
+
+Lemma sim_future
+      ths_src mem_k1_src mem_k2_src
+      ths_tgt mem_k1_tgt mem_k2_tgt
+      (SIM: sim ths_src mem_k1_src ths_tgt mem_k1_tgt)
+      (FUTURE_SRC: Memory.future mem_k1_src mem_k2_src)
+      (FUTURE_TGT: Memory.future mem_k1_tgt mem_k2_tgt):
+  sim ths_src mem_k2_src ths_tgt mem_k2_tgt.
+Proof.
+  revert ths_src mem_k1_src mem_k2_src
+         ths_tgt mem_k1_tgt mem_k2_tgt
+         SIM FUTURE_SRC FUTURE_TGT.
+  pcofix CIH. i. punfold SIM. pfold. ii.
+  exploit SIM; eauto.
+  { etransitivity; eauto. }
+  { etransitivity; eauto. }
+  i. des. splits.
+  - apply TERMINAL.
+  - apply CONSISTENT.
+  - i. exploit STEP; eauto. i. des; [|done].
+    eexists _, _, _, _. splits; eauto.
+    right. eapply CIH; eauto.
+    + reflexivity.
+    + reflexivity.
 Qed.
 
 Lemma sim_compose
@@ -163,43 +218,48 @@ Proof.
     punfold SIM1. exploit SIM1; eauto. i. des.
     apply compose_is_terminal in TERMINAL_TGT; auto. des.
     exploit TERMINAL; eauto. i. des.
+    exploit Configuration.disjoint_rtc_step; eauto. s. i. des.
+    exploit Configuration.future_rtc_step; eauto. s. i.
+    exploit compose_rtc_step1; [|eauto|]; [eauto|]. s. i. des.
     punfold SIM2. exploit SIM2; eauto.
-    { admit. (* other threads' le *) }
-    { admit. (* future *) }
+    { etransitivity; eauto. }
     i. des.
     exploit TERMINAL0; eauto. i. des.
+    exploit compose_rtc_step2; [|eauto|]; [eauto|]. s. i. des.
     eexists _, _. splits; [|eauto|].
-    + admit. (* steps *)
-    + apply compose_is_terminal.
-      * admit. (* disjoint *)
-      * split. apply TERMINAL_SRC. apply TERMINAL_SRC0.
+    + eapply rtc_trans; eauto.
+    + apply compose_is_terminal; auto.
   - i. apply compose_consistent in CONSISTENT_TGT; auto. des.
     apply compose_consistent; auto. splits.
     + punfold SIM1. exploit SIM1; eauto. i. des.
       apply CONSISTENT. auto.
     + punfold SIM2. exploit SIM2; eauto. i. des.
       apply CONSISTENT. auto.
-  - i. apply compose_step in STEP_TGT. des; subst.
-    + punfold SIM1. exploit SIM1; eauto. i. des.
+  - i. apply compose_step in STEP_TGT; auto. des; subst.
+    + exploit Configuration.disjoint_step; eauto. s. i. des.
+      exploit Configuration.future_step; eauto. s. i.
+      punfold SIM1. exploit SIM1; eauto. i. des.
       exploit STEP0; eauto. i. des; [|done].
-      eexists _, _, _, _. splits.
-      * admit. (* steps *)
-      * apply compose_step1; [|eauto].
-        admit. (* disjoint *)
-      * eauto.
-      * right. apply CIH; [| |eauto|].
-        { admit. (* disjoint *) }
-        { admit. (* disjoint *) }
-        { admit. (* sim future *) }
-    + punfold SIM2. exploit SIM2; eauto. i. des.
+      exploit Configuration.disjoint_rtc_step; eauto. s. i. des.
+      exploit Configuration.future_rtc_step; eauto. s. i.
+      exploit compose_rtc_step1; [|eauto|]; [eauto|]. s. i. des.
+      exploit Configuration.disjoint_step; eauto. s. i. des.
+      exploit Configuration.future_step; eauto. s. i.
+      exploit compose_step1; [|eauto|]; [eauto|]. s. i. des.
+      eexists _, _, _, _. splits; eauto.
+      right. apply CIH; auto.
+      eapply sim_future; eauto; repeat (etransitivity; eauto).
+    + exploit Configuration.disjoint_step; try symmetry; eauto. s. i. des.
+      exploit Configuration.future_step; eauto. s. i.
+      punfold SIM2. exploit SIM2; eauto. i. des.
       exploit STEP0; eauto. i. des; [|done].
-      eexists _, _, _, _. splits.
-      * admit. (* steps *)
-      * apply compose_step2; [|eauto].
-        admit. (* disjoint *)
-      * eauto.
-      * right. apply CIH; [| |eauto|].
-        { admit. (* disjoint *) }
-        { admit. (* disjoint *) }
-        { admit. (* sim future *) }
-Admitted.
+      exploit Configuration.disjoint_rtc_step; try symmetry; eauto. s. i. des.
+      exploit Configuration.future_rtc_step; eauto. s. i.
+      exploit compose_rtc_step2; [|eauto|]; [eauto|]. s. i. des.
+      exploit Configuration.disjoint_step; try symmetry; eauto. s. i. des.
+      exploit Configuration.future_step; eauto. s. i.
+      exploit compose_step2; [|eauto|]; [eauto|]. s. i. des.
+      eexists _, _, _, _. splits; eauto.
+      right. apply CIH; try symmetry; auto.
+      eapply sim_future; eauto; repeat (etransitivity; eauto).
+Qed.

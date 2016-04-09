@@ -183,9 +183,9 @@ Module Thread.
     Lemma disjoint_memory_step
           th1 mem1 th2 mem_o
           (STEP: memory_step th1 mem1 th2)
-          (DISJOINT: Memory.disjoint mem_o th1.(local))
+          (DISJOINT: Memory.disjoint th1.(local) mem_o)
           (LE: Memory.le mem_o mem1):
-      Memory.disjoint mem_o th2.(local).
+      Memory.disjoint th2.(local) mem_o.
     Proof.
       inv STEP; simpl in *; auto.
       - admit.
@@ -195,10 +195,10 @@ Module Thread.
     Lemma disjoint_declare_step
           th1 mem1 th2 mem2 mem_o
           (STEP: declare_step th1 mem1 th2 mem2)
-          (DISJOINT: Memory.disjoint mem_o th1.(local))
+          (DISJOINT: Memory.disjoint th1.(local) mem_o)
           (LE: Memory.le mem_o mem1):
-      <<DISJOINT: Memory.disjoint mem_o th2.(local)>> /\
-                  <<LE: Memory.le mem_o mem2>>.
+      <<DISJOINT: Memory.disjoint th2.(local) mem_o>> /\
+      <<LE: Memory.le mem_o mem2>>.
     Proof.
       inv STEP.
       admit.
@@ -207,16 +207,68 @@ Module Thread.
     Lemma disjoint_step
           th1 mem1 th2 mem2 e mem_o
           (STEP: step e th1 mem1 th2 mem2)
-          (DISJOINT: Memory.disjoint mem_o th1.(local))
+          (DISJOINT: Memory.disjoint th1.(local) mem_o)
           (LE: Memory.le mem_o mem1):
-      <<DISJOINT: Memory.disjoint mem_o th2.(local)>> /\
-                  <<LE: Memory.le mem_o mem2>>.
+      <<DISJOINT: Memory.disjoint th2.(local) mem_o>> /\
+      <<LE: Memory.le mem_o mem2>>.
     Proof.
       inv STEP.
       - splits; auto.
         eapply disjoint_memory_step; eauto.
       - eapply disjoint_declare_step; eauto.
       - simpl in *. splits; auto.
+    Qed.
+
+    Lemma disjoint_internal_step
+          th1 mem1 th2 mem2 mem_o
+          (STEP: Thread.internal_step (th1, mem1) (th2, mem2))
+          (DISJOINT: Memory.disjoint th1.(local) mem_o)
+          (LE: Memory.le mem_o mem1):
+      <<DISJOINT: Memory.disjoint th2.(local) mem_o>> /\
+      <<LE: Memory.le mem_o mem2>>.
+    Proof.
+      inv STEP. eapply disjoint_step; eauto.
+    Qed.
+
+    Lemma disjoint_rtc_internal_step
+          thm1 thm2 mem_o
+          (STEPS: rtc Thread.internal_step thm1 thm2)
+          (DISJOINT: Memory.disjoint thm1.(fst).(local) mem_o)
+          (LE: Memory.le mem_o thm1.(snd)):
+      <<DISJOINT: Memory.disjoint thm2.(fst).(local) mem_o>> /\
+      <<LE: Memory.le mem_o thm2.(snd)>>.
+    Proof.
+      revert DISJOINT LE. induction STEPS; auto. i.
+      destruct x, y. exploit disjoint_internal_step; eauto. i. des.
+      apply IHSTEPS; auto.
+    Qed.
+
+    Lemma future_step
+          th1 mem1 th2 mem2 e
+          (STEP: step e th1 mem1 th2 mem2):
+      Memory.future mem1 mem2.
+    Proof.
+      inv STEP; try reflexivity.
+      inv STEP0.
+      eapply Memory.declare_future; eauto.
+    Qed.
+
+    Lemma future_internal_step
+          th1 mem1 th2 mem2
+          (STEP: Thread.internal_step (th1, mem1) (th2, mem2)):
+      Memory.future mem1 mem2.
+    Proof.
+      inv STEP. eapply future_step; eauto.
+    Qed.
+
+    Lemma future_rtc_internal_step
+          thm1 thm2
+          (STEPS: rtc Thread.internal_step thm1 thm2):
+      Memory.future thm1.(snd) thm2.(snd).
+    Proof.
+      induction STEPS; try reflexivity.
+      destruct x, y. apply future_internal_step in H.
+      rewrite H. apply IHSTEPS; auto.
     Qed.
   End Thread.
 End Thread.

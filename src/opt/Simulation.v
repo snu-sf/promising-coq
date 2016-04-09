@@ -22,19 +22,19 @@ Inductive sim_memory (mem_src mem_tgt:Memory.t): Prop :=
 
 
 Section SimulationThread.
-  Variable (lang:Language.t).
+  Variable (lang_src lang_tgt:Language.t).
 
   Definition SIM_THREAD :=
-    forall (sim_terminal: forall (th_src th_tgt:Thread.t lang), Prop)
-      (th1_src:Thread.t lang) (mem_k_src:Memory.t)
-      (th1_tgt:Thread.t lang) (mem_k_tgt:Memory.t), Prop.
+    forall (sim_terminal: forall (th_src:Thread.t lang_src) (th_tgt:Thread.t lang_tgt), Prop)
+      (th1_src:Thread.t lang_src) (mem_k_src:Memory.t)
+      (th1_tgt:Thread.t lang_tgt) (mem_k_tgt:Memory.t), Prop.
 
   (* TODO: inftau & liveness *)
   Definition _sim_thread
              (sim_thread: SIM_THREAD)
-             (sim_terminal: forall (th_src th_tgt:Thread.t lang), Prop)
-             (th1_src:Thread.t lang) (mem_k_src:Memory.t)
-             (th1_tgt:Thread.t lang) (mem_k_tgt:Memory.t): Prop :=
+             (sim_terminal: forall (th_src:Thread.t lang_src) (th_tgt:Thread.t lang_tgt), Prop)
+             (th1_src:Thread.t lang_src) (mem_k_src:Memory.t)
+             (th1_tgt:Thread.t lang_tgt) (mem_k_tgt:Memory.t): Prop :=
     forall mem1_src mem1_tgt
       (MEMORY1: sim_memory mem1_src mem1_tgt)
       (LOCAL_SRC: Memory.le th1_src.(Thread.local) mem1_src)
@@ -42,24 +42,24 @@ Section SimulationThread.
       (FUTURE_SRC: Memory.future mem_k_src mem1_src)
       (FUTURE_TGT: Memory.future mem_k_tgt mem1_tgt),
       <<TERMINAL:
-        forall (TERMINAL_TGT: lang.(Language.is_terminal) th1_tgt.(Thread.state)),
+        forall (TERMINAL_TGT: lang_tgt.(Language.is_terminal) th1_tgt.(Thread.state)),
         exists th2_src mem2_src,
-          <<STEPS: rtc (@Thread.internal_step lang) (th1_src, mem1_src) (th2_src, mem2_src)>> /\
+          <<STEPS: rtc (@Thread.internal_step lang_src) (th1_src, mem1_src) (th2_src, mem2_src)>> /\
           <<MEMORY: sim_memory mem2_src mem1_tgt>> /\
-          <<TERMINAL_SRC: lang.(Language.is_terminal) th2_src.(Thread.state)>> /\
+          <<TERMINAL_SRC: lang_src.(Language.is_terminal) th2_src.(Thread.state)>> /\
           <<DECLARE: th2_src.(Thread.local) = th1_tgt.(Thread.local)>> /\
           <<SIM: sim_terminal th2_src th1_tgt>>>> /\
       <<DECLARE:
         forall (DECLARE_TGT: th1_tgt.(Thread.local) = Memory.init),
         exists th2_src mem2_src,
-          <<STEPS: rtc (@Thread.internal_step lang) (th1_src, mem1_src) (th2_src, mem2_src)>> /\
+          <<STEPS: rtc (@Thread.internal_step lang_src) (th1_src, mem1_src) (th2_src, mem2_src)>> /\
           <<MEMORY: sim_memory mem2_src mem1_tgt>> /\
           <<DECLARE_SRC: th2_src.(Thread.local) = Memory.init>>>> /\
       <<STEP:
         forall e th3_tgt mem3_tgt
           (STEP_TGT: Thread.step e th1_tgt mem1_tgt th3_tgt mem3_tgt),
         exists th2_src mem2_src th3_src mem3_src,
-          <<STEPS: rtc (@Thread.internal_step lang) (th1_src, mem1_src) (th2_src, mem2_src)>> /\
+          <<STEPS: rtc (@Thread.internal_step lang_src) (th1_src, mem1_src) (th2_src, mem2_src)>> /\
           <<STEP_SRC: Thread.step e th2_src mem2_src th3_src mem3_src>> /\
           <<MEMORY2: sim_memory mem3_src mem3_tgt>> /\
           <<SIM: sim_thread sim_terminal th3_src mem3_src th3_tgt mem3_tgt>>>>.
@@ -102,7 +102,7 @@ Section Simulation.
           <<TERMINAL_SRC: Threads.is_terminal ths2_src>>>> /\
       <<CONSISTENT:
         forall (CONSISTENT_TGT: Configuration.consistent (Configuration.mk ths1_tgt mem1_tgt)),
-        <<CONSISTENT_SRC: Configuration.consistent (Configuration.mk ths1_src mem1_src)>>>> /\
+          <<CONSISTENT_SRC: Configuration.consistent (Configuration.mk ths1_src mem1_src)>>>> /\
       <<STEP:
         forall e ths3_tgt mem3_tgt
           (STEP_TGT: Configuration.step e (Configuration.mk ths1_tgt mem1_tgt) (Configuration.mk ths3_tgt mem3_tgt)),
@@ -127,8 +127,10 @@ Hint Resolve _sim_mon: paco.
 
 
 Lemma sim_thread_sim
-      lang sim_terminal th1_src mem_k_src th1_tgt mem_k_tgt tid
-      (SIM: @sim_thread lang sim_terminal th1_src mem_k_src th1_tgt mem_k_tgt):
+      lang_src lang_tgt
+      sim_terminal
+      th1_src mem_k_src th1_tgt mem_k_tgt tid
+      (SIM: @sim_thread lang_src lang_tgt sim_terminal th1_src mem_k_src th1_tgt mem_k_tgt):
   sim
     (Threads.singleton tid th1_src) mem_k_src
     (Threads.singleton tid th1_tgt) mem_k_tgt.

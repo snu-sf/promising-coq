@@ -7,7 +7,6 @@ Require Import Language.
 Require Import Memory.
 Require Import Thread.
 Require Import Configuration.
-Require Import Simulation.
 
 Set Implicit Arguments.
 

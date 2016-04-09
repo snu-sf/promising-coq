@@ -1,7 +1,9 @@
 Require Import Omega.
+Require Import RelationClasses.
 
 Require Import sflib.
 
+Require Import Axioms.
 Require Import Basic.
 Require Import DataStructure.
 Require Import Time.
@@ -50,6 +52,13 @@ Module Threads.
            Memory.disjoint th1.(Thread.local) th2.(Thread.local))
   .
 
+  Global Program Instance disjoint_Symmetric: Symmetric disjoint.
+  Next Obligation.
+    inv H. econs; i.
+    - eapply THREAD; eauto.
+    - symmetry. eapply MEMORY; eauto.
+  Qed.
+
   Definition le (ths:t) (mem:Memory.t): Prop :=
     forall tid lang th
       (TH: IdentMap.find tid ths = Some (existT _ lang th)),
@@ -89,6 +98,77 @@ Module Configuration.
       step e c1 (mk (IdentMap.add tid (existT _ _ th3) c1.(threads)) memory3)
   .
 
+  Lemma disjoint_step
+        e c1 c2 ths
+        (STEP: step e c1 c2)
+        (DISJOINT: Threads.disjoint c1.(threads) ths)
+        (LE: Threads.le ths c1.(memory)):
+      <<DISJOINT: Threads.disjoint c2.(threads) ths>> /\
+      <<LE: Threads.le ths c2.(memory)>>.
+  Proof.
+    Ltac simplify :=
+      repeat
+        (try match goal with
+             | [H: context[IdentMap.find _ (IdentMap.add _ _ _)] |- _] =>
+               rewrite IdentMap.Facts.add_o in H
+             | [H: context[if ?c then _ else _] |- _] =>
+               destruct c
+             | [H: Some _ = Some _ |- _] =>
+               inv H
+             | [H: existT ?P ?p _ = existT ?P ?p _ |- _] =>
+               apply inj_pair2 in H
+             end;
+         ss; subst).
+    inv STEP. s. splits.
+    - econs; i; simplify.
+      + inv DISJOINT. eapply THREAD; eauto.
+      + inv DISJOINT. eapply THREAD; eauto.
+      + exploit Thread.disjoint_rtc_internal_step; eauto.
+        { s. inv DISJOINT. eapply MEMORY; eauto. }
+        s. i. des.
+        exploit Thread.disjoint_step; eauto. i. des.
+        auto.
+      + inv DISJOINT. eapply MEMORY; eauto.
+    - intros tid' lang' th' TH'.
+      exploit Thread.disjoint_rtc_internal_step; eauto.
+      { s. inv DISJOINT. eapply MEMORY; eauto. }
+      s. i. des.
+      exploit Thread.disjoint_step; eauto. i. des.
+      auto.
+  Qed.
+
+  Lemma disjoint_rtc_step
+        c1 c2 ths
+        (STEPS: rtc (step None) c1 c2)
+        (DISJOINT: Threads.disjoint c1.(threads) ths)
+        (LE: Threads.le ths c1.(memory)):
+      <<DISJOINT: Threads.disjoint c2.(threads) ths>> /\
+      <<LE: Threads.le ths c2.(memory)>>.
+  Proof.
+    revert DISJOINT LE. induction STEPS; auto.
+    i. exploit disjoint_step; eauto. i. des.
+    apply IHSTEPS; auto.
+  Qed.
+
+  Lemma future_step
+        e c1 c2
+        (STEP: step e c1 c2):
+    Memory.future c1.(memory) c2.(memory).
+  Proof.
+    inv STEP. s.
+    apply Thread.future_rtc_internal_step in STEPS. ss. rewrite STEPS.
+    eapply Thread.future_step. eauto.
+  Qed.
+
+  Lemma future_rtc_step
+        c1 c2
+        (STEPS: rtc (step None) c1 c2):
+    Memory.future c1.(memory) c2.(memory).
+  Proof.
+    induction STEPS; try reflexivity.
+    rewrite future_step; eauto.
+  Qed.
+
   Definition consistent (conf:t): Prop :=
     forall tid lang th1
       (FIND: IdentMap.find tid conf.(threads) = Some (existT _ lang th1))
@@ -98,4 +178,24 @@ Module Configuration.
     exists th2 mem2,
       <<STEPS: rtc (@Thread.internal_step lang) (th1, mem1) (th2, mem2)>> /\
       <<DECLARE: th2.(Thread.local) = Memory.init>>.
+
+  Lemma consistent_step
+        e c1 c2
+        (STEP: step e c1 c2)
+        (CONSISTENT1: consistent c1):
+    consistent c2.
+  Proof.
+    inv STEP. ii. ss.
+    admit.
+  Admitted.
+
+  Lemma consistent_rtc_step
+        c1 c2
+        (STEPS: rtc (step None) c1 c2)
+        (CONSISTENT1: consistent c1):
+    consistent c2.
+  Proof.
+    revert CONSISTENT1. induction STEPS; auto.
+    i. apply IHSTEPS. eapply consistent_step; eauto.
+  Qed.
 End Configuration.

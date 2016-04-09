@@ -37,7 +37,7 @@ Definition sim_expr
     RegFile.eval_expr rs_src e_src = RegFile.eval_expr rs_tgt e_tgt.
 
 Definition _sim_stmts
-           (sim_thread:SIM_THREAD lang)
+           (sim_thread:SIM_THREAD lang lang)
            (sim_regs0:SIM_REGS)
            (stmts_src stmts_tgt:list Stmt.t)
            (sim_regs1:SIM_REGS): Prop :=
@@ -212,7 +212,7 @@ Unshelve.
   { econs; auto. }
 Qed.
 
-Inductive ctx (sim_thread:SIM_THREAD lang): SIM_THREAD lang :=
+Inductive ctx (sim_thread:SIM_THREAD lang lang): SIM_THREAD lang lang :=
 | ctx_incl
     sim_terminal
     th1 mem_k_src th2 mem_k_tgt
@@ -294,7 +294,7 @@ Proof.
 Qed.
 Hint Resolve ctx_mon.
 
-Lemma ctx_weak_respectful: weak_respectful5 (@_sim_thread lang) ctx.
+Lemma ctx_weak_respectful: weak_respectful5 (@_sim_thread lang lang) ctx.
 Proof.
   econs; auto. i. destruct PR.
   - (* incl *)
@@ -413,7 +413,7 @@ Proof.
     + inv STATE.
 Admitted.
 
-Definition sim_stmts := @_sim_stmts (paco5 (@_sim_thread lang <*> grespectful5 (@_sim_thread lang)) bot5).
+Definition sim_stmts := @_sim_stmts (paco5 (@_sim_thread lang lang <*> grespectful5 (@_sim_thread lang lang)) bot5).
 
 Lemma sim_stmts_nil sim_regs:
   sim_stmts sim_regs [] [] sim_regs.
