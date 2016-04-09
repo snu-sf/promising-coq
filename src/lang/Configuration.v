@@ -29,7 +29,7 @@ Module Threads.
     forall tid lang th (FIND: IdentMap.find tid ths = Some (existT _ lang th)),
       Thread.is_terminal th.
 
-  Definition wf (ths:t): Prop :=
+  Definition consistent (ths:t): Prop :=
     forall tid1 lang1 th1
       tid2 lang2 th2
       (TID: tid1 <> tid2)
@@ -88,6 +88,21 @@ Module Configuration.
   Definition init (s:Threads.syntax): t := mk (Threads.init s) Memory.init.
   Definition is_terminal (conf:t): Prop := Threads.is_terminal conf.(threads).
 
+  Inductive consistent (conf:t): Prop :=
+  | consistent_intro
+      (THREADS: Threads.consistent conf.(threads))
+      (LE: Threads.le conf.(threads) conf.(memory))
+      (VALID:
+         forall tid lang th1
+           (FIND: IdentMap.find tid conf.(threads) = Some (existT _ lang th1))
+           mem1
+           (LOCAL: Memory.le th1.(Thread.local) mem1)
+           (FUTURE: Memory.future conf.(memory) mem1),
+         exists th2 mem2,
+           <<STEPS: rtc (@Thread.internal_step lang) (th1, mem1) (th2, mem2)>> /\
+           <<DECLARE: th2.(Thread.local) = Memory.init>>)
+  .
+
   Inductive step (e:option Event.t) (c1:t): forall (c2:t), Prop :=
   | step_intro
       tid lang th1 th2 memory2 th3 memory3
@@ -98,28 +113,78 @@ Module Configuration.
       step e c1 (mk (IdentMap.add tid (existT _ _ th3) c1.(threads)) memory3)
   .
 
+  Ltac simplify :=
+    repeat
+      (try match goal with
+           | [H: context[IdentMap.find _ (IdentMap.add _ _ _)] |- _] =>
+             rewrite IdentMap.Facts.add_o in H
+           | [H: context[if ?c then _ else _] |- _] =>
+             destruct c
+           | [H: Some _ = Some _ |- _] =>
+             inv H
+           | [H: existT ?P ?p _ = existT ?P ?p _ |- _] =>
+             apply inj_pair2 in H
+           end;
+       ss; subst).
+
+  Lemma consistent_step
+        e c1 c2
+        (STEP: step e c1 c2)
+        (CONSISTENT1: consistent c1):
+    <<CONSISTENT2: consistent c2>> /\
+    <<FUTURE: Memory.future c1.(memory) c2.(memory)>>.
+  Proof.
+    inv STEP. s.
+    exploit Thread.future_rtc_internal_step; eauto.
+    { s. inv CONSISTENT1. eapply LE; eauto. }
+    s. i. des.
+    exploit Thread.future_step; eauto. i. des.
+    splits.
+    - econs; s.
+      + ii. simplify.
+        * congruence.
+        * inv CONSISTENT1. exploit THREADS; eauto. i.
+          exploit Thread.disjoint_rtc_internal_step; eauto. s. i. des.
+          exploit Thread.disjoint_step; eauto. i. des.
+          symmetry. auto.
+        * inv CONSISTENT1. exploit THREADS; eauto. i.
+          exploit Thread.disjoint_rtc_internal_step; eauto. s. i. des.
+          exploit Thread.disjoint_step; eauto. i. des.
+          auto.
+        * inv CONSISTENT1. eapply THREADS; [|eauto|eauto]. auto.
+      + ii. simplify.
+        inv CONSISTENT1. exploit LE1; eauto. i.
+        exploit Thread.disjoint_rtc_internal_step; eauto. s. i. des.
+        exploit Thread.disjoint_step; eauto. i. des.
+        auto.
+      + admit.
+    - etransitivity; eauto.
+  Admitted.
+
+  Lemma consistent_rtc_step
+        c1 c2
+        (STEPS: rtc (step None) c1 c2)
+        (CONSISTENT1: consistent c1):
+    <<CONSISTENT2: consistent c2>> /\
+    <<FUTURE: Memory.future c1.(memory) c2.(memory)>>.
+  Proof.
+    revert CONSISTENT1. induction STEPS; i.
+    - splits; auto. reflexivity.
+    - exploit consistent_step; eauto. i. des.
+      exploit IHSTEPS; eauto. i. des.
+      splits; eauto. etransitivity; eauto.
+  Qed.
+
   Lemma disjoint_step
         e c1 c2 ths
         (STEP: step e c1 c2)
         (DISJOINT: Threads.disjoint c1.(threads) ths)
-        (LE: Threads.le ths c1.(memory)):
+        (CONSISTENT1: consistent c1)
+        (CONSISTENT: consistent (mk ths c1.(memory))):
       <<DISJOINT: Threads.disjoint c2.(threads) ths>> /\
-      <<LE: Threads.le ths c2.(memory)>>.
+      <<CONSISTENT: consistent (mk ths c2.(memory))>>.
   Proof.
-    Ltac simplify :=
-      repeat
-        (try match goal with
-             | [H: context[IdentMap.find _ (IdentMap.add _ _ _)] |- _] =>
-               rewrite IdentMap.Facts.add_o in H
-             | [H: context[if ?c then _ else _] |- _] =>
-               destruct c
-             | [H: Some _ = Some _ |- _] =>
-               inv H
-             | [H: existT ?P ?p _ = existT ?P ?p _ |- _] =>
-               apply inj_pair2 in H
-             end;
-         ss; subst).
-    inv STEP. s. splits.
+    inv STEP. inv CONSISTENT. ss. splits.
     - econs; i; simplify.
       + inv DISJOINT. eapply THREAD; eauto.
       + inv DISJOINT. eapply THREAD; eauto.
@@ -129,73 +194,33 @@ Module Configuration.
         exploit Thread.disjoint_step; eauto. i. des.
         auto.
       + inv DISJOINT. eapply MEMORY; eauto.
-    - intros tid' lang' th' TH'.
-      exploit Thread.disjoint_rtc_internal_step; eauto.
-      { s. inv DISJOINT. eapply MEMORY; eauto. }
-      s. i. des.
-      exploit Thread.disjoint_step; eauto. i. des.
-      auto.
+    - econs; s; eauto.
+      + ii.
+        exploit Thread.disjoint_rtc_internal_step; eauto.
+        { s. inv DISJOINT. eapply MEMORY; eauto. }
+        i. des.
+        exploit Thread.disjoint_step; eauto. i. des.
+        auto.
+      + i. exploit VALID; eauto.
+        exploit Thread.future_rtc_internal_step; eauto.
+        { s. inv CONSISTENT1. eapply LE0. eauto. }
+        i. des.
+        exploit Thread.future_step; eauto. i. des.
+        repeat (etransitivity; eauto).
   Qed.
 
   Lemma disjoint_rtc_step
         c1 c2 ths
         (STEPS: rtc (step None) c1 c2)
         (DISJOINT: Threads.disjoint c1.(threads) ths)
-        (LE: Threads.le ths c1.(memory)):
+        (CONSISTENT1: consistent c1)
+        (CONSISTENT: consistent (mk ths c1.(memory))):
       <<DISJOINT: Threads.disjoint c2.(threads) ths>> /\
-      <<LE: Threads.le ths c2.(memory)>>.
+      <<CONSISTENT: consistent (mk ths c2.(memory))>>.
   Proof.
-    revert DISJOINT LE. induction STEPS; auto.
-    i. exploit disjoint_step; eauto. i. des.
+    revert DISJOINT CONSISTENT1 CONSISTENT. induction STEPS; auto. i.
+    exploit consistent_step; eauto. i. des.
+    exploit disjoint_step; eauto. i. des.
     apply IHSTEPS; auto.
-  Qed.
-
-  Lemma future_step
-        e c1 c2
-        (STEP: step e c1 c2):
-    Memory.future c1.(memory) c2.(memory).
-  Proof.
-    inv STEP. s.
-    apply Thread.future_rtc_internal_step in STEPS. ss. rewrite STEPS.
-    eapply Thread.future_step. eauto.
-  Qed.
-
-  Lemma future_rtc_step
-        c1 c2
-        (STEPS: rtc (step None) c1 c2):
-    Memory.future c1.(memory) c2.(memory).
-  Proof.
-    induction STEPS; try reflexivity.
-    rewrite future_step; eauto.
-  Qed.
-
-  Definition consistent (conf:t): Prop :=
-    forall tid lang th1
-      (FIND: IdentMap.find tid conf.(threads) = Some (existT _ lang th1))
-      mem1
-      (LOCAL: Memory.le th1.(Thread.local) mem1)
-      (FUTURE: Memory.future conf.(memory) mem1),
-    exists th2 mem2,
-      <<STEPS: rtc (@Thread.internal_step lang) (th1, mem1) (th2, mem2)>> /\
-      <<DECLARE: th2.(Thread.local) = Memory.init>>.
-
-  Lemma consistent_step
-        e c1 c2
-        (STEP: step e c1 c2)
-        (CONSISTENT1: consistent c1):
-    consistent c2.
-  Proof.
-    inv STEP. ii. ss.
-    admit.
-  Admitted.
-
-  Lemma consistent_rtc_step
-        c1 c2
-        (STEPS: rtc (step None) c1 c2)
-        (CONSISTENT1: consistent c1):
-    consistent c2.
-  Proof.
-    revert CONSISTENT1. induction STEPS; auto.
-    i. apply IHSTEPS. eapply consistent_step; eauto.
   Qed.
 End Configuration.

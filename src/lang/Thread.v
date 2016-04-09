@@ -245,30 +245,36 @@ Module Thread.
 
     Lemma future_step
           th1 mem1 th2 mem2 e
-          (STEP: step e th1 mem1 th2 mem2):
-      Memory.future mem1 mem2.
+          (STEP: step e th1 mem1 th2 mem2)
+          (LE: Memory.le th1.(local) mem1):
+      <<FUTURE: Memory.future mem1 mem2>> /\
+      <<LE: Memory.le th2.(local) mem2>>.
     Proof.
-      inv STEP; try reflexivity.
-      inv STEP0.
-      eapply Memory.declare_future; eauto.
-    Qed.
+    Admitted.
 
     Lemma future_internal_step
           th1 mem1 th2 mem2
-          (STEP: Thread.internal_step (th1, mem1) (th2, mem2)):
-      Memory.future mem1 mem2.
+          (STEP: Thread.internal_step (th1, mem1) (th2, mem2))
+          (LE: Memory.le th1.(local) mem1):
+      <<FUTURE: Memory.future mem1 mem2>> /\
+      <<LE: Memory.le th2.(local) mem2>>.
     Proof.
       inv STEP. eapply future_step; eauto.
     Qed.
 
     Lemma future_rtc_internal_step
           thm1 thm2
-          (STEPS: rtc Thread.internal_step thm1 thm2):
-      Memory.future thm1.(snd) thm2.(snd).
+          (STEPS: rtc Thread.internal_step thm1 thm2)
+          (LE: Memory.le thm1.(fst).(local) thm1.(snd)):
+      <<FUTURE: Memory.future thm1.(snd) thm2.(snd)>> /\
+      <<LE: Memory.le thm2.(fst).(local) thm2.(snd)>>.
     Proof.
-      induction STEPS; try reflexivity.
-      destruct x, y. apply future_internal_step in H.
-      rewrite H. apply IHSTEPS; auto.
+      induction STEPS.
+      { splits; auto. reflexivity. }
+      destruct x, y. apply future_internal_step in H; auto. des.
+      exploit IHSTEPS; eauto. i. des.
+      splits; auto.
+      rewrite FUTURE. auto.
     Qed.
   End Thread.
 End Thread.

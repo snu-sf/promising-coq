@@ -90,8 +90,8 @@ Section Simulation.
              (ths1_tgt:Threads.t) (mem_k_tgt:Memory.t): Prop :=
     forall mem1_src mem1_tgt
       (MEMORY1: sim_memory mem1_src mem1_tgt)
-      (LOCAL_SRC: Threads.le ths1_src mem1_src)
-      (LOCAL_TGT: Threads.le ths1_tgt mem1_tgt)
+      (CONSISTENT_SRC: Configuration.consistent (Configuration.mk ths1_src mem1_src))
+      (CONSISTENT_TGT: Configuration.consistent (Configuration.mk ths1_tgt mem1_tgt))
       (FUTURE_SRC: Memory.future mem_k_src mem1_src)
       (FUTURE_TGT: Memory.future mem_k_tgt mem1_tgt),
       <<TERMINAL:
@@ -138,17 +138,17 @@ Proof.
   revert th1_src mem_k_src th1_tgt mem_k_tgt SIM. pcofix CIH. i.
   punfold SIM0. pfold. ii.
   exploit SIM0; eauto.
-  { eapply LOCAL_SRC.
+  { inv CONSISTENT_SRC. eapply LE. s.
     unfold Threads.singleton. rewrite IdentMap.Facts.add_eq_o; eauto.
   }
-  { eapply LOCAL_TGT.
+  { inv CONSISTENT_TGT. eapply LE. s.
     unfold Threads.singleton. rewrite IdentMap.Facts.add_eq_o; eauto.
   }
   i. des. splits.
   - i. exploit TERMINAL; eauto.
-    { admit. }
+    { admit. (* terminal *) }
     i. des.
-    admit.
-  - admit.
-  - admit.
+    admit. (* steps & terminal *)
+  - admit. (* consistent *)
+  - admit. (* steps *)
 Admitted.
