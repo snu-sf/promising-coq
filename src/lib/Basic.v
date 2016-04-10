@@ -1,4 +1,5 @@
 Require String.
+Require Import RelationClasses.
 Require Import List.
 Require Import PArith.
 Require Import UsualFMapPositive.
@@ -44,11 +45,21 @@ Notation rc := (clos_refl _). (* reflexive transitive closure *)
 Notation tc := (clos_trans _). (* transitive closure *)
 Hint Immediate rt1n_refl rt1n_trans t_step.
 
-Lemma rtc_trans A R (x y z:A)
-      (XY: rtc R x y) (YZ: rtc R y z):
-  rtc R x z.
-Proof.
-  revert YZ. induction XY; auto. i.
-  exploit IHXY; eauto. i.
+Program Instance rtc_PreOrder A (R:A -> A -> Prop): PreOrder (rtc R).
+Next Obligation.
+  ii. revert H0. induction H; auto. i.
+  exploit IHclos_refl_trans_1n; eauto. i.
   econs 2; eauto.
+Qed.
+
+Lemma rtc_tail A R
+      (a1 a3:A)
+      (REL: rtc R a1 a3):
+  (exists a2, rtc R a1 a2 /\ R a2 a3) \/
+  (a1 = a3).
+Proof.
+  induction REL; auto. des; subst.
+  - left. eexists. splits; [|eauto].
+    econs; eauto.
+  - left. eexists. splits; eauto.
 Qed.

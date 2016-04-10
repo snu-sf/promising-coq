@@ -60,7 +60,7 @@ Module UsualProd (A B:UsualOrderedType) <: UsualOrderedType.
      forall x y : t,
        CompareSpec (x = y) (lt x y) (lt y x) (compare x y).
    Proof.
-     i. destruct x, y. unfold compare. simpl.
+     i. destruct x, y. unfold compare. s.
      destruct (A.compare_spec t0 t2);
        try (econs; econs 1; eauto).
      destruct (B.compare_spec t1 t3); subst; econs; auto.

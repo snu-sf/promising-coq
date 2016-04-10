@@ -64,8 +64,8 @@ Lemma step_seq
 Proof.
   inv STEP.
   - econs 1. auto.
-  - simpl. rewrite <- app_assoc. econs 2.
-  - simpl. rewrite <- app_assoc. econs 3.
+  - s. rewrite <- app_assoc. econs 2.
+  - s. rewrite <- app_assoc. econs 3.
 Qed.
 
 Lemma step_deseq
@@ -95,13 +95,13 @@ Lemma thread_step_seq
     (Thread.mk lang (State.mk rs2 (stmts2 ++ stmts)) commit2 local2) mem2.
 Proof.
   inv STEP.
-  - econs 1. inv STEP0; simpl in *.
-    + econs 1; simpl; eauto. apply step_seq. auto.
-    + econs 2; simpl; eauto. apply step_seq. auto.
-    + econs 3; simpl; eauto. apply step_seq. auto.
-    + econs 4; simpl; eauto. apply step_seq. auto.
-    + econs 5; simpl; eauto. apply step_seq. auto.
-  - econs 2. inv STEP0. inv STATE. simpl in *.
+  - econs 1. inv STEP0; ss.
+    + econs 1; s; eauto. apply step_seq. auto.
+    + econs 2; s; eauto. apply step_seq. auto.
+    + econs 3; s; eauto. apply step_seq. auto.
+    + econs 4; s; eauto. apply step_seq. auto.
+    + econs 5; s; eauto. apply step_seq. auto.
+  - econs 2. inv STEP0. inv STATE. ss.
     econs; eauto.
   - econs 3; eauto. inv STATE. econs; eauto.
 Qed.
@@ -117,7 +117,7 @@ Lemma internal_step_seq
     (Thread.mk lang (State.mk rs1 (stmts1 ++ stmts)) commit1 local1, mem1)
     (Thread.mk lang (State.mk rs2 (stmts2 ++ stmts)) commit2 local2, mem2).
 Proof.
-  econs. simpl in *.
+  econs. ss.
   eapply thread_step_seq; eauto.
   inv STEP; eauto.
 Qed.
@@ -136,23 +136,23 @@ Lemma thread_step_deseq
               (Thread.mk lang (State.mk rs2 stmts2') commit2 local2) mem2.
 Proof.
   inv STEP.
-  - inv STEP0; simpl in *.
+  - inv STEP0; ss.
     + apply step_deseq in STATE. des. subst.
       eexists. splits; eauto.
-      econs 1. econs 1; simpl; eauto.
+      econs 1. econs 1; s; eauto.
     + apply step_deseq in STATE. des. subst.
       eexists. splits; eauto.
-      econs 1. econs 2; simpl; eauto.
+      econs 1. econs 2; s; eauto.
     + apply step_deseq in STATE. des. subst.
       eexists. splits; eauto.
-      econs 1. econs 3; simpl; eauto.
+      econs 1. econs 3; s; eauto.
     + apply step_deseq in STATE. des. subst.
       eexists. splits; eauto.
-      econs 1. econs 4; simpl; eauto.
+      econs 1. econs 4; s; eauto.
     + apply step_deseq in STATE. des. subst.
       eexists. splits; eauto.
-      econs 1. econs 5; simpl; eauto.
-  - inv STEP0; simpl in *.
+      econs 1. econs 5; s; eauto.
+  - inv STEP0; ss.
     inv STATE.
     rewrite app_comm_cons.
     eexists. splits; eauto.
@@ -202,8 +202,8 @@ Lemma rtc_internal_step_seq
     (Thread.mk lang (State.mk rs2 (stmts2 ++ stmts)) commit2 local2, mem2).
 Proof.
   exploit (rtc_sim (sim_seq stmts)); eauto.
-  - i. inv SIM1. inv RA. simpl in *.
-    destruct a2. destruct t. destruct state. simpl in *.
+  - i. inv SIM1. inv RA. ss.
+    destruct a2. destruct t. destruct state. ss.
     exploit internal_step_seq; eauto. i.
     eexists. splits; eauto. econs; eauto.
   - econs; eauto.
@@ -302,22 +302,20 @@ Proof.
     apply rclo5_incl.
   - (* nil *)
     ii. splits.
-    { i. inv TERMINAL_TGT. simpl in *.
-      eexists _, _. splits; eauto; econs; simpl; auto.
-    }
-    { i. simpl in *. subst.
-      eexists _, _. splits; eauto; econs; simpl; auto.
-    }
-    i. inv STEP_TGT; simpl in *.
+    { i. inv TERMINAL_TGT. ss. eexists _, _. splits; eauto; econs; ss. }
+    { admit. (* future *) }
+    { i. ss. eexists _, _. splits; eauto; econs; s; auto. }
+    i. inv STEP_TGT; ss.
     + inv STEP; inv STATE.
     + admit. (* declare *)
     + inv STATE.
   - (* instr *)
     ii. splits.
     { i. inv TERMINAL_TGT. }
-    { i. simpl in *. subst. eexists _, _. splits; eauto. }
-    i. inv STEP_TGT; simpl in *.
-    + inv STEP; simpl in *; inv STATE.
+    { admit. (* future *) }
+    { i. ss. subst. eexists _, _. splits; eauto. }
+    i. inv STEP_TGT; ss.
+    + inv STEP; ss; inv STATE.
       * admit. (* load *)
       * admit. (* store *)
       * admit. (* update *)
@@ -326,36 +324,37 @@ Proof.
     + admit. (* declare *)
     + admit. (* syscall *)
   - (* seq *)
-    ii. simpl in *.
-    exploit GF; eauto. simpl. i. des.
+    ii. ss.
+    exploit GF; eauto. s. i. des.
     splits.
     { i. inv TERMINAL_TGT. destruct stmts1_tgt, stmts2_tgt; inv H0.
       exploit TERMINAL; try by econs. i. des.
-      destruct th2_src, state. inv TERMINAL_SRC. simpl in *. subst.
-      inv SIM. simpl in *. subst.
+      destruct th2_src, state. inv TERMINAL_SRC. ss. subst.
+      inv SIM. ss. subst.
       exploit SIM2; eauto. intro TH2.
       exploit GF; eauto.
       { admit. (* memory le *) }
       { admit. (* memory future *)  }
       i. des.
       exploit TERMINAL0; try by econs. i. des.
-      destruct th2_src, state. inv TERMINAL_SRC. simpl in *. subst.
+      destruct th2_src, state. inv TERMINAL_SRC. ss. subst.
       eexists _, _. splits; [|eauto| | |eauto].
-      + eapply rtc_trans; [|eauto].
+      + etransitivity; [|eauto].
         eapply rtc_internal_step_seq in STEPS. apply STEPS.
       + econs.
       + econs.
     }
+    { admit. (* future *) }
     { i. subst. exploit DECLARE; eauto. i. des.
-      destruct th2_src, state. simpl in *. subst.
+      destruct th2_src, state. ss. subst.
       eexists _, _. splits; [|eauto|eauto].
       + eapply rtc_internal_step_seq. apply STEPS.
       + eauto.
     }
     destruct stmts1_tgt.
     + i. exploit TERMINAL; try by econs. i. des.
-      destruct th2_src, state. inv TERMINAL_SRC. simpl in *. subst.
-      inv SIM. simpl in *. subst.
+      destruct th2_src, state. inv TERMINAL_SRC. ss. subst.
+      inv SIM. ss. subst.
       exploit SIM2; eauto. intro TH2.
       exploit GF; eauto.
       { admit. (* memory le *) }
@@ -364,10 +363,10 @@ Proof.
       exploit STEP0; eauto. i. des.
       eexists _, _, _, _. splits; [|eauto|eauto|].
       * eapply rtc_internal_step_seq in STEPS.
-        eapply rtc_trans; [apply STEPS|eauto].
+        etransitivity; [apply STEPS|eauto].
       * apply rclo5_incl. auto.
     + i. destruct th3_tgt, state.
-      exploit thread_step_deseq; eauto. i. des. simpl in *. subst.
+      exploit thread_step_deseq; eauto. i. des. ss. subst.
       exploit STEP; eauto. i. des.
       destruct th2_src, state. destruct th3_src, state.
       eexists _, _, _, _. splits; [| |eauto|].
@@ -381,12 +380,13 @@ Proof.
   - (* ite *)
     ii. splits.
     { i. inv TERMINAL_TGT. }
-    { i. simpl in *. subst. eexists _, _. splits; eauto. }
-    i. inv STEP_TGT; simpl in *.
-    + inv STEP; simpl in *; inv STATE.
+    { admit. (* future *) }
+    { i. ss. subst. eexists _, _. splits; eauto. }
+    i. inv STEP_TGT; ss.
+    + inv STEP; ss; inv STATE.
       eexists _, _, _, _. splits; eauto.
       * econs 1. econs 5; eauto. econs.
-      * simpl. rewrite ? app_nil_r.
+      * s. rewrite ? app_nil_r.
         exploit COND; eauto. intro C. rewrite C.
         destruct (RegFile.eval_expr rs_tgt cond_tgt).
         { apply rclo5_incl. eauto. }
@@ -396,9 +396,10 @@ Proof.
   - (* dowhile *)
     ii. splits.
     { i. inv TERMINAL_TGT. }
-    { i. simpl in *. subst. eexists _, _. splits; eauto. }
-    i. inv STEP_TGT; simpl in *.
-    + inv STEP; simpl in *; inv STATE.
+    { admit. (* future *) }
+    { i. ss. subst. eexists _, _. splits; eauto. }
+    i. inv STEP_TGT; ss.
+    + inv STEP; ss; inv STATE.
       eexists _, _, _, _. splits; eauto.
       * econs 1. econs 5; eauto. econs.
       * apply rclo5_step. eapply ctx_seq.

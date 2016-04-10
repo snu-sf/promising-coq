@@ -83,7 +83,7 @@ Module DenseOrder: DenseOrderType.
      induction x; i; destruct y;
        try (destruct a);
        try (destruct b);
-       repeat (try econs; simpl).
+       repeat (try econs; s).
      - destruct (IHx y); subst; repeat econs; auto.
      - destruct (IHx y); subst; repeat econs; auto.
    Qed.
@@ -129,7 +129,7 @@ Module DenseOrder: DenseOrderType.
       lt lhs (middle lhs rhs) /\
       lt (middle lhs rhs) rhs.
   Proof.
-    induction lhs; i; inv LT; splits; try econs; simpl.
+    induction lhs; i; inv LT; splits; try econs; s.
     - induction rhs0; econs.
       apply IHrhs0.
     - clear IHlhs. induction lhs; econs.

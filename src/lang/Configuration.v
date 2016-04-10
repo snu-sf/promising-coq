@@ -119,6 +119,8 @@ Module Configuration.
              inv H
            | [H: existT ?P ?p _ = existT ?P ?p _ |- _] =>
              apply inj_pair2 in H
+           | [H: existT ?P ?p _ = existT ?P ?q _ |- _] =>
+             apply eq_sigT_sig_eq in H; inv H
            end;
        ss; subst).
 

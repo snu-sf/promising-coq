@@ -101,7 +101,7 @@ Module UsualPositiveMap' <: S with Module E:=PositiveOrderedTypeBits.
            | [H: ?x <> (Raw.Leaf _) |- _] =>
              destruct x; [congruence|clear H]
            end;
-       simpl in *; subst; auto).
+       ss; subst; auto).
 
   Program Definition empty : t A := Raw.empty A.
   Next Obligation. constructor. Qed.
@@ -380,7 +380,7 @@ Module UsualPositiveMap' <: S with Module E:=PositiveOrderedTypeBits.
       forall (A B: Type) (f: key -> A -> B) (i j : key) (m: t A),
       find i (xmapi f m j) = option_map (f (append j i)) (find i m).
   Proof.
-    unfold find, xmapi. simpl. intros. apply Raw.xgmapi.
+    unfold find, xmapi. s. intros. apply Raw.xgmapi.
   Qed.
 
   Theorem gmapi:
@@ -406,7 +406,7 @@ Module UsualPositiveMap' <: S with Module E:=PositiveOrderedTypeBits.
   generalize (find_1 H); clear H; intros.
   rewrite gmapi.
   rewrite H.
-  simpl; auto.
+  s; auto.
   Qed.
 
   Lemma mapi_2 :
@@ -420,7 +420,7 @@ Module UsualPositiveMap' <: S with Module E:=PositiveOrderedTypeBits.
   generalize (find_1 H); clear H; intros.
   rewrite gmapi in H.
   destruct (find x m); auto.
-  simpl in *; discriminate.
+  ss; discriminate.
   Qed.
 
   Lemma map_1 : forall (elt elt':Type)(m: t elt)(x:key)(e:elt)(f:elt->elt'),
@@ -449,7 +449,7 @@ Module UsualPositiveMap' <: S with Module E:=PositiveOrderedTypeBits.
   Lemma normalize_wf A (m:Raw.t A):
     wf (normalize m).
   Proof.
-    induction m; simpl.
+    induction m; s.
     { constructor. }
     destruct (normalize m1), o, (normalize m2);
       try (repeat (constructor; auto); fail).
@@ -465,7 +465,7 @@ Module UsualPositiveMap' <: S with Module E:=PositiveOrderedTypeBits.
     Raw.find i (normalize m) = Raw.find i m.
   Proof.
     revert m.
-    induction i; destruct m; intros; simpl; auto;
+    induction i; destruct m; intros; s; auto;
       destruct
         (normalize m1) eqn:M1,
         o,
@@ -489,7 +489,7 @@ Module UsualPositiveMap' <: S with Module E:=PositiveOrderedTypeBits.
     In x m \/ In x m' ->
     find x (map2 f m m') = f (find x m) (find x m').
   Proof.
-    unfold find, map2. simpl. intros.
+    unfold find, map2. s. intros.
     rewrite normalize_correct.
     apply Raw.map2_1. auto.
   Qed.
@@ -499,7 +499,7 @@ Module UsualPositiveMap' <: S with Module E:=PositiveOrderedTypeBits.
     In x (map2 f m m') -> In x m \/ In x m'.
   Proof.
     unfold map2. intros.
-    apply mem_1 in H. unfold mem in *. simpl in *.
+    apply mem_1 in H. unfold mem in *. ss.
     rewrite Raw.mem_find, normalize_correct, <- Raw.mem_find in *.
     apply Raw.mem_2 in H.
     eapply Raw.map2_2; eauto.
@@ -557,12 +557,12 @@ Module UsualPositiveMap' <: S with Module E:=PositiveOrderedTypeBits.
     - inversion WF'. subst.
       apply inhabited_inv in INHABITED.
       destruct INHABITED as [i [a INHABITED]].
-      specialize (EQUAL i). unfold find in *. simpl in *.
+      specialize (EQUAL i). unfold find in *. ss.
       rewrite Raw.gleaf, INHABITED in EQUAL. congruence.
     - inversion WF. subst.
       apply inhabited_inv in INHABITED.
       destruct INHABITED as [i [a INHABITED]].
-      specialize (EQUAL i). unfold find in *. simpl in *.
+      specialize (EQUAL i). unfold find in *. ss.
       rewrite Raw.gleaf, INHABITED in EQUAL. congruence.
     - f_equal.
       + eapply eq_sig_fst. apply IHm1.
@@ -571,10 +571,10 @@ Module UsualPositiveMap' <: S with Module E:=PositiveOrderedTypeBits.
       + eapply eq_sig_fst. apply IHm2.
         intro i. specialize (EQUAL (xI i)). auto.
   Grab Existential Variables.
-  { simpl. eapply wf_r. eauto. }
-  { simpl. eapply wf_r. eauto. }
-  { simpl. eapply wf_l. eauto. }
-  { simpl. eapply wf_l. eauto. }
+  { s. eapply wf_r. eauto. }
+  { s. eapply wf_r. eauto. }
+  { s. eapply wf_l. eauto. }
+  { s. eapply wf_l. eauto. }
   Qed.
 End UsualPositiveMap'.
 

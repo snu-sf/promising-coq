@@ -187,7 +187,7 @@ Module Thread.
           (LE: Memory.le mem_o mem1):
       Memory.disjoint th2.(local) mem_o.
     Proof.
-      inv STEP; simpl in *; auto.
+      inv STEP; ss; auto.
       - apply Memory.remove_disjoint. auto.
       - apply Memory.remove_disjoint. auto.
     Qed.
@@ -217,7 +217,7 @@ Module Thread.
       - splits; auto.
         eapply disjoint_memory_step; eauto.
       - eapply disjoint_declare_step; eauto.
-      - simpl in *. splits; auto.
+      - ss.
     Qed.
 
     Lemma disjoint_internal_step

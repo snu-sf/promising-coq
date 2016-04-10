@@ -274,30 +274,6 @@ Proof.
   econs; eauto.
 Qed.
 
-Lemma sim_future
-      ths_src mem_k1_src mem_k2_src
-      ths_tgt mem_k1_tgt mem_k2_tgt
-      (SIM: sim ths_src mem_k1_src ths_tgt mem_k1_tgt)
-      (FUTURE_SRC: Memory.future mem_k1_src mem_k2_src)
-      (FUTURE_TGT: Memory.future mem_k1_tgt mem_k2_tgt):
-  sim ths_src mem_k2_src ths_tgt mem_k2_tgt.
-Proof.
-  revert ths_src mem_k1_src mem_k2_src
-         ths_tgt mem_k1_tgt mem_k2_tgt
-         SIM FUTURE_SRC FUTURE_TGT.
-  pcofix CIH. i. punfold SIM. pfold. ii.
-  exploit SIM; eauto.
-  { etransitivity; eauto. }
-  { etransitivity; eauto. }
-  i. des. splits.
-  - apply TERMINAL.
-  - apply CONSISTENT.
-  - i. exploit STEP; eauto. i. des; [|done].
-    eexists _, _, _, _. splits; eauto.
-    right. eapply CIH; eauto.
-    + reflexivity.
-    + reflexivity.
-Qed.
 
 Lemma sim_compose
       ths1_src ths2_src mem_k_src
@@ -332,10 +308,8 @@ Proof.
     exploit Configuration.disjoint_rtc_step; try symmetry; eauto. s. i. des.
     exploit compose_rtc_step2; eauto. s. i. des.
     eexists _, _. splits; [|eauto|].
-    + eapply rtc_trans; eauto.
+    + etransitivity; eauto.
     + apply compose_is_terminal; auto.
-  - i. apply compose_consistent in CONSISTENT_TGT; auto. des.
-    apply compose_consistent; auto.
   - i. apply compose_step in STEP_TGT; auto. des; subst.
     + exploit Configuration.consistent_step; eauto. s. i. des.
       exploit Configuration.disjoint_step; eauto. s. i. des.
