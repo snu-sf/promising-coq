@@ -1,3 +1,5 @@
+Require Import RelationClasses.
+
 Require Import sflib.
 Require Import paco.
 
@@ -18,8 +20,30 @@ Inductive sim_memory (mem_src mem_tgt:Memory.t): Prop :=
        forall loc ts msg
          (MSG: Memory.get loc ts mem_tgt = Some msg),
          Memory.get loc ts mem_src = Some msg)
-    (OWNERSHIP: Memory.own mem_src = Memory.own mem_tgt)
+    (OWNERSHIP: forall loc ts, Memory.own mem_src loc ts <-> Memory.own mem_tgt loc ts)
 .
+
+Program Instance sim_memory_PreOrder: PreOrder sim_memory.
+Next Obligation.
+  ii. econs; auto.
+Qed.
+Next Obligation.
+  ii. inv H. inv H0. econs; auto.
+  etransitivity; eauto.
+Qed.
+
+Lemma sim_memory_future mem1 mem2
+      (SIM: sim_memory mem1 mem2):
+  Memory.future mem2 mem1.
+Proof.
+  inv SIM. unfold Memory.get, Cell.get, Memory.own in *.
+  econs. i. econs; i.
+  - exploit MESSAGES; eauto.
+    { rewrite LHS. ss. }
+    i. destruct (Cell.messages (mem1 loc) to) as [[]|]; [|done].
+    inv x. eauto.
+  - rewrite OWNERSHIP. auto.
+Qed.
 
 
 Section SimulationThread.

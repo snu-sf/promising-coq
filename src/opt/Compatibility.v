@@ -301,20 +301,26 @@ Proof.
     eapply _sim_thread_mon; eauto.
     apply rclo5_incl.
   - (* nil *)
-    ii. splits.
-    { i. inv TERMINAL_TGT. ss. eexists _, _. splits; eauto; econs; ss. }
-    { admit. (* future *) }
-    { i. ss. eexists _, _. splits; eauto; econs; s; auto. }
-    i. inv STEP_TGT; ss.
+    ii. splits; s; i.
+    { inv TERMINAL_TGT. ss. eexists _, _. splits; eauto; econs; ss. }
+    { ss. eexists. splits; eauto.
+      - reflexivity.
+      - etransitivity; eauto. apply sim_memory_future. auto.
+    }
+    { ss. eexists _, _. splits; eauto; econs; s; auto. }
+    inv STEP_TGT; ss.
     + inv STEP; inv STATE.
     + admit. (* declare *)
     + inv STATE.
   - (* instr *)
-    ii. splits.
-    { i. inv TERMINAL_TGT. }
-    { admit. (* future *) }
-    { i. ss. subst. eexists _, _. splits; eauto. }
-    i. inv STEP_TGT; ss.
+    ii. splits; s; i.
+    { inv TERMINAL_TGT. }
+    { ss. eexists. splits; eauto.
+      - reflexivity.
+      - etransitivity; eauto. apply sim_memory_future. auto.
+    }
+    { ss. subst. eexists _, _. splits; eauto. }
+    inv STEP_TGT; ss.
     + inv STEP; ss; inv STATE.
       * admit. (* load *)
       * admit. (* store *)
@@ -326,8 +332,8 @@ Proof.
   - (* seq *)
     ii. ss.
     exploit GF; eauto. s. i. des.
-    splits.
-    { i. inv TERMINAL_TGT. destruct stmts1_tgt, stmts2_tgt; inv H0.
+    splits; s; i.
+    { inv TERMINAL_TGT. destruct stmts1_tgt, stmts2_tgt; inv H0.
       exploit TERMINAL; try by econs. i. des.
       destruct th2_src, state. inv TERMINAL_SRC. ss. subst.
       inv SIM. ss. subst.
@@ -344,15 +350,15 @@ Proof.
       + econs.
       + econs.
     }
-    { admit. (* future *) }
-    { i. subst. exploit DECLARE; eauto. i. des.
+    { exploit FUTURE; eauto. }
+    { subst. exploit DECLARE; eauto. i. des.
       destruct th2_src, state. ss. subst.
       eexists _, _. splits; [|eauto|eauto].
       + eapply rtc_internal_step_seq. apply STEPS.
       + eauto.
     }
     destruct stmts1_tgt.
-    + i. exploit TERMINAL; try by econs. i. des.
+    + exploit TERMINAL; try by econs. i. des.
       destruct th2_src, state. inv TERMINAL_SRC. ss. subst.
       inv SIM. ss. subst.
       exploit SIM2; eauto. intro TH2.
@@ -365,7 +371,7 @@ Proof.
       * eapply rtc_internal_step_seq in STEPS.
         etransitivity; [apply STEPS|eauto].
       * apply rclo5_incl. auto.
-    + i. destruct th3_tgt, state.
+    + destruct th3_tgt, state.
       exploit thread_step_deseq; eauto. i. des. ss. subst.
       exploit STEP; eauto. i. des.
       destruct th2_src, state. destruct th3_src, state.
@@ -378,11 +384,14 @@ Proof.
           eapply _sim_stmts_mon; try apply LE; eauto.
         }
   - (* ite *)
-    ii. splits.
-    { i. inv TERMINAL_TGT. }
-    { admit. (* future *) }
-    { i. ss. subst. eexists _, _. splits; eauto. }
-    i. inv STEP_TGT; ss.
+    ii. splits; s; i.
+    { inv TERMINAL_TGT. }
+    { ss. eexists. splits; eauto.
+      - reflexivity.
+      - etransitivity; eauto. apply sim_memory_future. auto.
+    }
+    { ss. subst. eexists _, _. splits; eauto. }
+    inv STEP_TGT; ss.
     + inv STEP; ss; inv STATE.
       eexists _, _, _, _. splits; eauto.
       * econs 1. econs 5; eauto. econs.
@@ -394,11 +403,14 @@ Proof.
     + admit. (* declare *)
     + inv STATE.
   - (* dowhile *)
-    ii. splits.
-    { i. inv TERMINAL_TGT. }
-    { admit. (* future *) }
-    { i. ss. subst. eexists _, _. splits; eauto. }
-    i. inv STEP_TGT; ss.
+    ii. splits; s; i.
+    { inv TERMINAL_TGT. }
+    { ss. eexists. splits; eauto.
+      - reflexivity.
+      - etransitivity; eauto. apply sim_memory_future. auto.
+    }
+    { ss. subst. eexists _, _. splits; eauto. }
+    inv STEP_TGT; ss.
     + inv STEP; ss; inv STATE.
       eexists _, _, _, _. splits; eauto.
       * econs 1. econs 5; eauto. econs.
