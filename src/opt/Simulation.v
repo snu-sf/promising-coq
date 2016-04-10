@@ -72,7 +72,7 @@ Section SimulationThread.
           <<STEPS: rtc (@Thread.internal_step lang_src) (th1_src, mem1_src) (th2_src, mem2_src)>> /\
           <<MEMORY: sim_memory mem2_src mem1_tgt>> /\
           <<TERMINAL_SRC: lang_src.(Language.is_terminal) th2_src.(Thread.state)>> /\
-          <<DECLARE: th2_src.(Thread.local) = th1_tgt.(Thread.local)>> /\
+          <<LOCAL: th2_src.(Thread.local) = th1_tgt.(Thread.local)>> /\
           <<SIM: sim_terminal th2_src th1_tgt>>>> /\
       <<FUTURE:
         forall mem2_src
@@ -82,12 +82,12 @@ Section SimulationThread.
           <<MEMORY: sim_memory mem2_src mem2_tgt>> /\
           <<LE_TGT: Memory.le th1_tgt.(Thread.local) mem2_tgt>> /\
           <<FUTURE_TGT: Memory.future mem1_tgt mem2_tgt>>>> /\
-      <<DECLARE:
-        forall (DECLARE_TGT: th1_tgt.(Thread.local) = Memory.init),
+      <<LOCAL:
+        forall (LOCAL_TGT: th1_tgt.(Thread.local) = Memory.init),
         exists th2_src mem2_src,
           <<STEPS: rtc (@Thread.internal_step lang_src) (th1_src, mem1_src) (th2_src, mem2_src)>> /\
           <<MEMORY: sim_memory mem2_src mem1_tgt>> /\
-          <<DECLARE_SRC: th2_src.(Thread.local) = Memory.init>>>> /\
+          <<LOCAL_SRC: th2_src.(Thread.local) = Memory.init>>>> /\
       <<STEP:
         forall e th3_tgt mem3_tgt
           (STEP_TGT: Thread.step e th1_tgt mem1_tgt th3_tgt mem3_tgt),
@@ -337,7 +337,7 @@ Proof.
   s. i. des.
   destruct thm2_src. ss.
   punfold SIM0. exploit SIM0; eauto; try reflexivity. i. des.
-  exploit DECLARE1; eauto. i. des.
+  exploit LOCAL2; eauto. i. des.
   eexists _, _. splits; [|eauto].
   etransitivity; eauto.
 Qed.

@@ -101,8 +101,9 @@ Proof.
     + econs 3; s; eauto. apply step_seq. auto.
     + econs 4; s; eauto. apply step_seq. auto.
     + econs 5; s; eauto. apply step_seq. auto.
-  - econs 2. inv STEP0. inv STATE. ss.
-    econs; eauto.
+  - econs 2. inv STEP0; ss.
+    + inv STATE. econs 1; eauto.
+    + inv STATE. econs 2; eauto.
   - econs 3; eauto. inv STATE. econs; eauto.
 Qed.
 
@@ -152,11 +153,13 @@ Proof.
     + apply step_deseq in STATE. des. subst.
       eexists. splits; eauto.
       econs 1. econs 5; s; eauto.
-  - inv STEP0; ss.
-    inv STATE.
-    rewrite app_comm_cons.
-    eexists. splits; eauto.
-    econs 2. econs; eauto.
+  - inv STEP0; ss; inv STATE.
+    + rewrite app_comm_cons.
+      eexists. splits; eauto.
+      econs 2. econs 1; eauto.
+    + rewrite app_comm_cons.
+      eexists. splits; eauto.
+      econs 2. econs 2; eauto.
   - inv STATE.
     eexists. splits; eauto.
     econs 3; eauto. econs; eauto.
@@ -351,7 +354,7 @@ Proof.
       + econs.
     }
     { exploit FUTURE; eauto. }
-    { subst. exploit DECLARE; eauto. i. des.
+    { subst. exploit LOCAL; eauto. i. des.
       destruct th2_src, state. ss. subst.
       eexists _, _. splits; [|eauto|eauto].
       + eapply rtc_internal_step_seq. apply STEPS.

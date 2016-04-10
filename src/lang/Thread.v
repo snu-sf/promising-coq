@@ -138,15 +138,23 @@ Module Thread.
                     (mk st2 commit2 th1.(local))
     .
 
-    Inductive declare_step (th1:t) (mem1:Memory.t): forall (th2:t) (mem2:Memory.t), Prop :=
-    | declare_step_intro
+    Inductive add_step (th1:t) (mem1:Memory.t): forall (th2:t) (mem2:Memory.t), Prop :=
+    | step_add_new
         loc from to msg st2 commit2 local2 mem2
         (STATE: th1.(state) = st2)
         (COMMIT: Commit.le th1.(commit) commit2)
-        (LOCAL: Memory.declare loc from to msg th1.(local) local2)
-        (MEMORY: Memory.declare loc from to msg mem1 mem2):
-        declare_step th1 mem1
-                     (mk st2 commit2 local2) mem2
+        (LOCAL: Memory.add_new loc from to msg th1.(local) local2)
+        (MEMORY: Memory.add_new loc from to msg mem1 mem2):
+        add_step th1 mem1
+                 (mk st2 commit2 local2) mem2
+    | step_add_split
+        loc from to to' msg msg' st2 commit2 local2 mem2
+        (STATE: th1.(state) = st2)
+        (COMMIT: Commit.le th1.(commit) commit2)
+        (LOCAL: Memory.add_split loc from to to' msg msg' th1.(local) local2)
+        (MEMORY: Memory.add_split loc from to to' msg msg' mem1 mem2):
+        add_step th1 mem1
+                 (mk st2 commit2 local2) mem2
     .
 
     Inductive step: forall (e:option Event.t) (th1:t) (mem1:Memory.t) (th2:t) (mem2:Memory.t), Prop :=
@@ -154,9 +162,9 @@ Module Thread.
         th1 th2 mem
         (STEP: memory_step th1 mem th2):
         step None th1 mem th2 mem
-    | step_declare
+    | step_add
         th1 mem1 th2 mem2
-        (STEP: declare_step th1 mem1 th2 mem2):
+        (STEP: add_step th1 mem1 th2 mem2):
         step None th1 mem1 th2 mem2
     | step_external
         st1 st2 commit1 commit2 mem e
@@ -178,7 +186,7 @@ Module Thread.
         (FUTURE: Memory.future mem mem1),
       exists th2 mem2,
         <<STEPS: rtc internal_step (th1, mem1) (th2, mem2)>> /\
-        <<DECLARE: th2.(local) = Memory.init>>.
+        <<LOCAL: th2.(local) = Memory.init>>.
 
     Lemma disjoint_memory_step
           th1 mem1 th2 mem_o
@@ -192,18 +200,60 @@ Module Thread.
       - apply Memory.remove_disjoint. auto.
     Qed.
 
-    Lemma disjoint_declare_step
+    Lemma disjoint_add_step
           th1 mem1 th2 mem2 mem_o
-          (STEP: declare_step th1 mem1 th2 mem2)
+          (STEP: add_step th1 mem1 th2 mem2)
           (DISJOINT: Memory.disjoint th1.(local) mem_o)
           (LE: Memory.le mem_o mem1):
       <<DISJOINT: Memory.disjoint th2.(local) mem_o>> /\
       <<LE: Memory.le mem_o mem2>>.
     Proof.
-      inv STEP. splits; s.
-      - admit.
-      - admit.
-    Admitted.
+      inv STEP; s.
+      - inv LOCAL. inv MEMORY.
+        splits.
+        + econs. i. unfold LocFun.add.
+          destruct (Loc.eq_dec loc0 loc); [|apply DISJOINT].
+          subst. econs. i.
+          inv LHS. eapply Cell.add_new_messages in MESSAGE; eauto. des.
+          * eapply DISJOINT; eauto. econs; eauto.
+          * subst.
+            destruct (@Cell.add_new_iff from to msg (mem1 loc)) as [DECL _].
+            exploit DECL; eauto. clear DECL. i. des.
+            eapply OWN; eauto. inv RHS. econs; eauto.
+            apply LE. eauto.
+        + econs. i. unfold LocFun.add.
+          destruct (Loc.eq_dec loc0 loc); [|apply LE].
+          subst. ii. eapply Cell.add_new_messages; eauto.
+          left. apply LE. auto.
+      - inv LOCAL. inv MEMORY.
+        splits.
+        + econs. i. unfold LocFun.add.
+          destruct (Loc.eq_dec loc0 loc); [|apply DISJOINT].
+          subst. econs. i.
+          destruct (@Cell.add_split_iff from to to' msg msg' (local th1 loc)) as [DECL _].
+          exploit DECL; eauto. clear DECL. i. des.
+          inv LHS. eapply Cell.add_split_messages in MESSAGE; eauto.
+          eapply DISJOINT; eauto. des; econs; eauto.
+          * inv INTERVAL. ss. econs; auto. s. rewrite TO. auto.
+          * inv INTERVAL. ss. econs; auto. s. rewrite TO0.
+            apply Time.le_lteq. auto.
+        + econs. i. unfold LocFun.add.
+          destruct (Loc.eq_dec loc0 loc); [|apply LE].
+          subst. ii.
+          destruct (@Cell.add_split_iff from to to' msg msg' (local th1 loc)) as [DECL _].
+          exploit DECL; eauto. clear DECL. i. des.
+          eapply Cell.add_split_messages; eauto.
+          inv LE. exploit LE0; eauto. i. rewrite x.
+          left. splits; auto.
+          * ii. subst.
+            eapply DISJOINT; eauto; econs; eauto.
+            { apply Interval.mem_ub. rewrite TO. auto. }
+            { apply Interval.mem_ub. eapply Cell.VOLUME. eauto. }
+          * ii. subst.
+            eapply DISJOINT; eauto; econs; eauto.
+            { econs; eauto. s. apply Time.le_lteq. auto. }
+            { apply Interval.mem_ub. eapply Cell.VOLUME. eauto. }
+    Qed.
 
     Lemma disjoint_step
           th1 mem1 th2 mem2 e mem_o
@@ -216,7 +266,7 @@ Module Thread.
       inv STEP.
       - splits; auto.
         eapply disjoint_memory_step; eauto.
-      - eapply disjoint_declare_step; eauto.
+      - eapply disjoint_add_step; eauto.
       - ss.
     Qed.
 
@@ -256,9 +306,11 @@ Module Thread.
         inv STEP0; ss; auto.
         + apply Memory.remove_le. auto.
         + apply Memory.remove_le. auto.
-      - inv STEP0. s. splits.
-        + eapply Memory.declare_future. eauto.
-        + eapply Memory.declare_le; eauto.
+      - inv STEP0; s; splits.
+        + eapply Memory.add_new_future. eauto.
+        + eapply Memory.add_new_le; eauto.
+        + eapply Memory.add_split_future. eauto.
+        + eapply Memory.add_split_le; eauto.
       - splits; auto. reflexivity.
     Qed.
 
