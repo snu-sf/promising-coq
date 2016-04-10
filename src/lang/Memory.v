@@ -172,17 +172,189 @@ Module Cell.
     econs. auto.
   Qed.
 
-  Inductive declare (from to:Time.t) (msg:Message.t) (cell1 cell2:t): Prop :=
-  | declare_add
+  Inductive declare_add (from to:Time.t) (msg:Message.t) (cell1 cell2:t): Prop :=
+  | declare_add_intro
       (MESSAGES1: cell1.(messages) to = None)
       (MESSAGES2: cell2.(messages) = TimeFun.add to (Some (from, msg)) cell1.(messages))
-  | declare_split
-      msg' middle
-      (MESSAGES1: cell1.(messages) to = Some (from, msg'))
-      (MESSAGES2: cell2.(messages) =
-                  TimeFun.add middle (Some (from, msg))
-                              (TimeFun.add to (Some (middle, msg)) cell1.(messages)))
   .
+
+  Inductive declare_split (from to to':Time.t) (msg:Message.t) (cell1 cell2:t): Prop :=
+  | declare_split_intro
+      msg'
+      (MESSAGES1: cell1.(messages) to' = Some (from, msg'))
+      (MESSAGES2: cell2.(messages) =
+                  TimeFun.add to' (Some (to, msg'))
+                              (TimeFun.add to (Some (from, msg)) cell1.(messages)))
+  .
+
+  Inductive declare (from to:Time.t) (msg:Message.t) (cell1 cell2:t): Prop :=
+  | declare_intro_add
+      (DECLARE: declare_add from to msg cell1 cell2)
+  | declare_intro_split
+      to'
+      (DECLARE: declare_split from to to' msg cell1 cell2)
+  .
+
+  Lemma declare_add_iff from to msg cell1:
+    (exists cell2, declare_add from to msg cell1 cell2) <->
+    <<TO: Time.lt from to>> /\
+    <<OWN: forall x, Interval.mem (from, to) x -> ~ own cell1 x>>.
+  Proof.
+    econs; i.
+    - des. inv H. splits.
+      + eapply VOLUME. rewrite MESSAGES2.
+        unfold TimeFun.add.
+        destruct (Time.eq_dec to to); [|congruence].
+        eauto.
+      + ii. inv H. inv H0. inv INTERVAL. ss.
+        assert (to <> to0).
+        { ii. subst. congruence. }
+        eapply (DISJOINT cell2); eauto.
+        * rewrite MESSAGES2. unfold TimeFun.add.
+          destruct (Time.eq_dec to to); [|congruence].
+          eauto.
+        * rewrite MESSAGES2. unfold TimeFun.add.
+          destruct (Time.eq_dec to0 to); [congruence|].
+          eauto.
+        * econs; eauto.
+        * econs; eauto.
+    - des. eexists. econs.
+      { destruct (messages cell1 to) as [[]|] eqn:CELL1; [|done].
+        exfalso. eapply OWN.
+        * apply Interval.mem_ub. auto.
+        * econs; eauto. apply Interval.mem_ub. eapply VOLUME; eauto.
+      }
+      instantiate (1 := mk _ _ _ _). s. eauto.
+  Unshelve.
+      + i. unfold TimeFun.add in *.
+        destruct (Time.eq_dec to0 to).
+        { inv MESSAGE. auto. }
+        eapply VOLUME; eauto.
+      + i. unfold TimeFun.add in *.
+        destruct (Time.eq_dec to1 to), (Time.eq_dec to2 to);
+          repeat
+            (try match goal with
+                 | [H: Some _ = Some _ |- _] => inv H
+                 end;
+             ss; subst).
+        * congruence.
+        * ii. eapply OWN; eauto. econs; eauto.
+        * ii. eapply OWN; eauto. econs; eauto.
+        * eapply DISJOINT; eauto.
+      + generalize (DOMAIN cell1). i. des.
+        exists (to::tos). i.
+        unfold TimeFun.add in *. destruct (Time.eq_dec to0 to).
+        { inv MSG. left. auto. }
+        { right. eapply H. eauto. }
+  Qed.
+
+  Lemma declare_add_spec from to msg cell1 cell2
+        (DECLARE: declare_add from to msg cell1 cell2):
+    forall f t m,
+      cell2.(messages) t = Some (f, m) <->
+      cell1.(messages) t = Some (f, m) \/
+      (f = from /\ t = to /\ m = msg).
+  Proof.
+    destruct (@declare_add_iff from to msg cell1) as [DECL _].
+    exploit DECL; eauto. i. des.
+    inv DECLARE. rewrite MESSAGES2. unfold TimeFun.add, TimeFun.find.
+    destruct (Time.eq_dec t0 to).
+    - subst. econs; i.
+      + inv H. right. auto.
+      + des; [congruence|]. des. subst. auto.
+    - econs; auto. i. des; auto.
+      congruence.
+  Qed.
+
+  Lemma declare_split_iff from to to' msg cell1:
+    (exists cell2, declare_split from to to' msg cell1 cell2) <->
+    (exists msg',
+        <<TO: Time.lt from to>> /\
+        <<TO': Time.lt to to'>> /\
+        <<MSG: cell1.(messages) to' = Some (from, msg')>>).
+  Proof.
+    econs; i.
+    - des. inv H. exists msg'. splits; auto.
+      + exploit (VOLUME cell1); eauto. i.
+        destruct (Time.eq_dec to to'); [by subst|].
+        eapply (VOLUME cell2); eauto.
+        rewrite MESSAGES2. unfold TimeFun.add, TimeFun.find.
+        destruct (Time.eq_dec to to'); [congruence|].
+        destruct (Time.eq_dec to to); [|congruence].
+        eauto.
+      + eapply (VOLUME cell2); eauto.
+        rewrite MESSAGES2. unfold TimeFun.add.
+        destruct (Time.eq_dec to' to'); [|congruence].
+        eauto.
+    - des. eexists. econs; eauto.
+      instantiate (1 := mk _ _ _ _). s. eauto.
+  Unshelve.
+      + i. unfold TimeFun.add in *.
+        destruct (Time.eq_dec to0 to').
+        { inv MESSAGE. auto. }
+        unfold TimeFun.find in *.
+        destruct (Time.eq_dec to0 to).
+        { inv MESSAGE. auto. }
+        eapply VOLUME; eauto.
+      + i. unfold TimeFun.add, TimeFun.find in *.
+        ii. inversion LHS. inversion RHS. ss.
+        destruct (Time.eq_dec to1 to'), (Time.eq_dec to2 to'),
+                 (Time.eq_dec to1 to), (Time.eq_dec to2 to);
+          repeat
+            (try match goal with
+                 | [H: Some _ = Some _ |- _] => inv H
+                 | [H: Time.lt ?x ?x |- _] =>
+                   apply Time.lt_strorder in H; inv H
+                 | [H1: Time.lt ?a ?b, H2: Time.le ?b ?a |- _] =>
+                   generalize (Time.lt_le_lt H1 H2); i
+                 end;
+             ss; subst;
+             try congruence).
+        * eapply DISJOINT; [|apply MESSAGE2|apply MSG| |]; eauto.
+          econs; auto. s. rewrite TO. auto.
+        * eapply DISJOINT; [|apply MESSAGE1|apply MSG| |]; eauto.
+          econs; auto. s. rewrite TO. auto.
+        * eapply DISJOINT; [|apply MESSAGE2|apply MSG| |]; eauto.
+          econs; auto. s. rewrite TO1. apply Time.le_lteq. auto.
+        * eapply DISJOINT; [|apply MESSAGE1|apply MSG| |]; eauto.
+          econs; auto. s. rewrite TO2. apply Time.le_lteq. auto.
+        * eapply DISJOINT; [|apply MESSAGE1|apply MESSAGE2| |]; eauto.
+      + generalize (DOMAIN cell1). i. des.
+        exists (to::tos). i.
+        unfold TimeFun.add, TimeFun.find in *.
+        destruct (Time.eq_dec to0 to).
+        { inv MSG. left. auto. }
+        destruct (Time.eq_dec to0 to').
+        { inv MSG0. right. eapply H. eauto. }
+        { right. eapply H. eauto. }
+  Qed.
+
+  Lemma declare_split_spec from to to' msg cell1 cell2
+        (DECLARE: declare_split from to to' msg cell1 cell2):
+    forall f t m,
+      cell2.(messages) t = Some (f, m) <->
+      (t <> to' /\ t <> to /\ cell1.(messages) t = Some (f, m)) \/
+      (f = to /\ t = to' /\ option_map snd (cell1.(messages) t) = Some m) \/
+      (f = from /\ t = to /\ m = msg).
+  Proof.
+    destruct (@declare_split_iff from to to' msg cell1) as [DECL _].
+    exploit DECL; eauto. i. des.
+    inv DECLARE. rewrite MESSAGES2. unfold TimeFun.add, TimeFun.find.
+    rewrite MSG in MESSAGES1. inv MESSAGES1.
+    destruct (Time.eq_dec t0 to'); subst.
+    - econs; i.
+      + inv H. right. left. rewrite MSG. auto.
+      + des; [congruence| |].
+        * rewrite MSG in H1. inv H1. auto.
+        * subst. apply Time.lt_strorder in TO'. inv TO'.
+    - destruct (Time.eq_dec t0 to); subst.
+      + econs; i.
+        * inv H. right. right. auto.
+        * des; congruence.
+      + econs; i.
+        * left. auto.
+        * des; congruence.
+  Qed.
 
   Inductive future (lhs rhs:t): Prop :=
   | future_intro
@@ -210,7 +382,58 @@ Module Cell.
         (DECLARE: declare from to msg cell1 cell2):
     future cell1 cell2.
   Proof.
-  Admitted.
+    inv DECLARE.
+    - destruct (@declare_add_iff from to msg cell1) as [DECL _].
+      exploit DECL; eauto. i. des.
+      generalize DECLARE0. intro D. inv D. econs; i.
+      + edestruct (@declare_add_spec from to msg cell1) as [_ SPEC]; eauto.
+      + inv PR.
+        edestruct (@declare_add_spec from to msg cell1) as [_ SPEC]; [eauto|].
+        econs; [|eauto]. eauto.
+    - destruct (@declare_split_iff from to to' msg cell1) as [DECL _].
+      exploit DECL; eauto. i. des.
+      generalize DECLARE0. intro D. inv D.
+      rewrite MSG in MESSAGES1. inv MESSAGES1.
+      econs; i.
+      + destruct (Time.eq_dec to0 to'); subst.
+        { edestruct (@declare_split_spec from to to' msg cell1) as [_ SPEC]; eauto.
+          eexists. apply SPEC. right. left. rewrite LHS. eauto.
+        }
+        destruct (Time.eq_dec to0 to); subst.
+        { exfalso. eapply DISJOINT; eauto.
+          - apply Interval.mem_ub. eapply VOLUME; eauto.
+          - econs; eauto. s. apply Time.le_lteq.
+            destruct (Time.compare_spec to to'); intuition.
+        }
+        { edestruct (@declare_split_spec from to to' msg cell1) as [_ SPEC]; eauto.
+          eexists. apply SPEC. left. splits; eauto.
+        }
+      + inv PR.
+        destruct (Time.eq_dec to0 to'); subst.
+        { rewrite MSG in MESSAGE. inv MESSAGE. inv INTERVAL. ss.
+          destruct (TimeSet.Raw.MX.lt_dec to x0).
+          - econs.
+            + instantiate (3 := to'). rewrite MESSAGES2. unfold TimeFun.add.
+              destruct (Time.eq_dec to' to'); [|congruence]. eauto.
+            + econs; eauto.
+          - econs.
+            + instantiate (3 := to). rewrite MESSAGES2. unfold TimeFun.add, TimeFun.find.
+              destruct (Time.eq_dec to to').
+              { subst. apply Time.lt_strorder in TO'. inv TO'. }
+              destruct (Time.eq_dec to to); [|congruence]. eauto.
+            + econs; eauto. s. apply Time.le_lteq.
+              destruct (Time.compare_spec x0 to); auto. congruence.
+        }
+        destruct (Time.eq_dec to0 to); subst.
+        { exfalso. eapply DISJOINT; [eauto|eauto|eauto| |].
+          - apply Interval.mem_ub. eapply VOLUME; eauto.
+          - econs; eauto. s. apply Time.le_lteq.
+            destruct (Time.compare_spec to to'); intuition.
+        }
+        { edestruct (@declare_split_spec from to to' msg cell1) as [_ SPEC]; eauto.
+          econs; eauto.
+        }
+  Qed.
 
   Lemma declare_le
         from to msg cell1 cell2 cell1' cell2'
