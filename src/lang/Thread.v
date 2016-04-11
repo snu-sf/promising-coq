@@ -310,7 +310,9 @@ Module Thread.
         + eapply Memory.add_new_future. eauto.
         + eapply Memory.add_new_le; eauto.
         + eapply Memory.add_split_future. eauto.
-        + eapply Memory.add_split_le; eauto.
+        + exploit Memory.add_split_le; eauto. i. des.
+          exploit Memory.add_split_unique; [apply MEMORY|apply ADD_SPLIT2|]. i. des. subst.
+          eauto.
       - splits; auto. reflexivity.
     Qed.
 
