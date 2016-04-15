@@ -140,7 +140,7 @@ Module Configuration.
     - econs; s.
       + ii. simplify.
         * congruence.
-        * inv CONSISTENT1. exploit THREADS; eauto. i.
+        * inv CONSISTENT1.
           exploit Thread.disjoint_rtc_internal_step; eauto. s. i. des.
           exploit Thread.disjoint_step; eauto. i. des.
           symmetry. auto.
@@ -150,7 +150,7 @@ Module Configuration.
           auto.
         * inv CONSISTENT1. eapply THREADS; [|eauto|eauto]. auto.
       + ii. simplify.
-        inv CONSISTENT1. exploit LE1; eauto. i.
+        inv CONSISTENT1. exploit LE; eauto. i.
         exploit Thread.disjoint_rtc_internal_step; eauto. s. i. des.
         exploit Thread.disjoint_step; eauto. i. des.
         auto.
@@ -160,6 +160,8 @@ Module Configuration.
         * inv CONSISTENT1. ii. eapply VALID; eauto.
           repeat (etransitivity; eauto).
     - etransitivity; eauto.
+  Unshelve.
+    { apply loc. }
   Qed.
 
   Lemma consistent_rtc_step

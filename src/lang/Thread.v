@@ -90,12 +90,12 @@ Module Thread.
     Definition init (s:syntax) :=
       mk (lang.(Language.init) s)
          Commit.init
-         Memory.init.
+         Memory.bot.
 
     Inductive is_terminal (th:t): Prop :=
     | is_terminal_intro
         (STATE: lang.(Language.is_terminal) th.(state))
-        (LOCAL: th.(local) = Memory.init)
+        (LOCAL: th.(local) = Memory.bot)
     .
 
     Inductive memory_step (th1:t) (mem1:Memory.t): forall (th2:t), Prop :=
@@ -108,22 +108,24 @@ Module Thread.
         memory_step th1 mem1
                     (mk st2 commit2 th1.(local))
     | step_write
-        loc val ts released ord st2 commit2
+        loc val ts released ord st2 commit2 local2
         (STATE: lang.(Language.step) th1.(state) (Some (ThreadEvent.mem (MemEvent.write loc val ord))) st2)
         (WRITE: Commit.write th1.(commit) loc ts released ord commit2)
-        (MESSAGE: Memory.get loc ts th1.(local) = Some (Message.mk val released)):
+        (MESSAGE: Memory.get loc ts th1.(local) = Some (Message.mk val released))
+        (REMOVE: Memory.remove loc ts th1.(local) local2):
         memory_step th1 mem1
-                    (mk st2 commit2 (Memory.remove loc ts th1.(local)))
+                    (mk st2 commit2 local2)
     | step_update
-        loc valr tsr releasedr valw tsw releasedw ord st3 commit2 commit3
+        loc valr tsr releasedr valw tsw releasedw ord st3 commit2 commit3 local3
         (STATE: lang.(Language.step) th1.(state) (Some (ThreadEvent.mem (MemEvent.update loc valr valw ord))) st3)
         (READ: Commit.read th1.(commit) loc tsr releasedr ord commit2)
         (WRITE: Commit.write commit2 loc tsw releasedw ord commit3)
         (RELEASE: Snapshot.le releasedr releasedw)
         (MESSAGE1: Memory.get loc tsr mem1 = Some (Message.mk valr releasedr))
-        (MESSAGE2: Memory.get loc tsw th1.(local) = Some (Message.mk valw releasedw)):
+        (MESSAGE2: Memory.get loc tsw th1.(local) = Some (Message.mk valw releasedw))
+        (REMOVE: Memory.remove loc tsw th1.(local) local3):
         memory_step th1 mem1
-                    (mk st3 commit3 (Memory.remove loc tsw th1.(local)))
+                    (mk st3 commit3 local3)
     | step_fence
         ord st2 commit2
         (STATE: lang.(Language.step) th1.(state) (Some (ThreadEvent.mem (MemEvent.fence ord))) st2)
@@ -139,22 +141,16 @@ Module Thread.
     .
 
     Inductive add_step (th1:t) (mem1:Memory.t): forall (th2:t) (mem2:Memory.t), Prop :=
-    | step_add_new
-        loc from to msg st2 commit2 local2 mem2
+    | step_add_intro
+        st2 commit2 local2 ctx addendum
         (STATE: th1.(state) = st2)
         (COMMIT: Commit.le th1.(commit) commit2)
-        (LOCAL: Memory.add_new loc from to msg th1.(local) local2)
-        (MEMORY: Memory.add_new loc from to msg mem1 mem2):
+        (MEM1: mem1 = Memory.join th1.(local) ctx)
+        (SPLITS: Memory.splits th1.(local) local2)
+        (CTX: Memory.disjoint th1.(local) ctx)
+        (ADDENDUM: Memory.disjoint addendum mem1):
         add_step th1 mem1
-                 (mk st2 commit2 local2) mem2
-    | step_add_split
-        loc from to to' msg msg' st2 commit2 local2 mem2
-        (STATE: th1.(state) = st2)
-        (COMMIT: Commit.le th1.(commit) commit2)
-        (LOCAL: Memory.add_split loc from to to' msg msg' th1.(local) local2)
-        (MEMORY: Memory.add_split loc from to to' msg msg' mem1 mem2):
-        add_step th1 mem1
-                 (mk st2 commit2 local2) mem2
+                 (mk st2 commit2 (Memory.join local2 addendum)) (Memory.join (Memory.join local2 addendum) ctx)
     .
 
     Inductive step: forall (e:option Event.t) (th1:t) (mem1:Memory.t) (th2:t) (mem2:Memory.t), Prop :=
@@ -171,8 +167,8 @@ Module Thread.
         (STATE: lang.(Language.step) st1 (Some (ThreadEvent.syscall e)) st2)
         (COMMIT: Commit.le commit1 commit2):
         step (Some e)
-             (mk st1 commit1 Memory.init) mem
-             (mk st2 commit2 Memory.init) mem
+             (mk st1 commit1 Memory.bot) mem
+             (mk st2 commit2 Memory.bot) mem
     .
 
     Inductive internal_step (c1 c2:t * Memory.t): Prop :=
@@ -186,7 +182,7 @@ Module Thread.
         (FUTURE: Memory.future mem mem1),
       exists th2 mem2,
         <<STEPS: rtc internal_step (th1, mem1) (th2, mem2)>> /\
-        <<LOCAL: th2.(local) = Memory.init>>.
+        <<LOCAL: th2.(local) = Memory.bot>>.
 
     Lemma disjoint_memory_step
           th1 mem1 th2 mem_o
@@ -195,9 +191,9 @@ Module Thread.
           (LE: Memory.le mem_o mem1):
       Memory.disjoint th2.(local) mem_o.
     Proof.
-      inv STEP; ss; auto.
-      - apply Memory.remove_disjoint. auto.
-      - apply Memory.remove_disjoint. auto.
+      memtac. inv STEP; memtac.
+      - rewrite JOIN in *. memtac.
+      - rewrite JOIN in *. memtac.
     Qed.
 
     Lemma disjoint_add_step
@@ -208,51 +204,11 @@ Module Thread.
       <<DISJOINT: Memory.disjoint th2.(local) mem_o>> /\
       <<LE: Memory.le mem_o mem2>>.
     Proof.
-      inv STEP; s.
-      - inv LOCAL. inv MEMORY.
-        splits.
-        + econs. i. unfold LocFun.add.
-          destruct (Loc.eq_dec loc0 loc); [|apply DISJOINT].
-          subst. econs. i.
-          inv LHS. eapply Cell.add_new_messages in MESSAGE; eauto. des.
-          * eapply DISJOINT; eauto. econs; eauto.
-          * subst.
-            destruct (@Cell.add_new_iff from to msg (mem1 loc)) as [DECL _].
-            exploit DECL; eauto. clear DECL. i. des.
-            eapply OWN; eauto. inv RHS. econs; eauto.
-            apply LE. eauto.
-        + econs. i. unfold LocFun.add.
-          destruct (Loc.eq_dec loc0 loc); [|apply LE].
-          subst. ii. eapply Cell.add_new_messages; eauto.
-          left. apply LE. auto.
-      - inv LOCAL. inv MEMORY.
-        splits.
-        + econs. i. unfold LocFun.add.
-          destruct (Loc.eq_dec loc0 loc); [|apply DISJOINT].
-          subst. econs. i.
-          destruct (@Cell.add_split_iff from to to' msg msg' (local th1 loc)) as [DECL _].
-          exploit DECL; eauto. clear DECL. i. des.
-          inv LHS. eapply Cell.add_split_messages in MESSAGE; eauto.
-          eapply DISJOINT; eauto. des; econs; eauto.
-          * inv INTERVAL. ss. econs; auto. s. rewrite TO. auto.
-          * inv INTERVAL. ss. econs; auto. s. rewrite TO0.
-            apply Time.le_lteq. auto.
-        + econs. i. unfold LocFun.add.
-          destruct (Loc.eq_dec loc0 loc); [|apply LE].
-          subst. ii.
-          destruct (@Cell.add_split_iff from to to' msg msg' (local th1 loc)) as [DECL _].
-          exploit DECL; eauto. clear DECL. i. des.
-          eapply Cell.add_split_messages; eauto.
-          inv LE. exploit LE0; eauto. i. rewrite x.
-          left. splits; auto.
-          * ii. subst.
-            eapply DISJOINT; eauto; econs; eauto.
-            { apply Interval.mem_ub. rewrite TO. auto. }
-            { apply Interval.mem_ub. eapply Cell.VOLUME. eauto. }
-          * ii. subst.
-            eapply DISJOINT; eauto; econs; eauto.
-            { econs; eauto. s. apply Time.le_lteq. auto. }
-            { apply Interval.mem_ub. eapply Cell.VOLUME. eauto. }
+      inv STEP; memtac. splits.
+      - memtac. splits; memtac.
+      - rewrite (Memory.join_comm _ (Memory.join mem_o _)).
+        rewrite <- Memory.join_assoc. econs; eauto.
+        memtac. splits; memtac. splits; memtac.
     Qed.
 
     Lemma disjoint_step
@@ -299,29 +255,39 @@ Module Thread.
           (STEP: step e th1 mem1 th2 mem2)
           (LE: Memory.le th1.(local) mem1):
       <<FUTURE: Memory.future mem1 mem2>> /\
-      <<LE: Memory.le th2.(local) mem2>>.
+      <<LOCAL: Memory.le th2.(local) mem2>>.
     Proof.
-      inv STEP; ss.
+      inv STEP; memtac.
       - splits; [reflexivity|].
-        inv STEP0; ss; auto.
-        + apply Memory.remove_le. auto.
-        + apply Memory.remove_le. auto.
-      - inv STEP0; s; splits.
-        + eapply Memory.add_new_future. eauto.
-        + eapply Memory.add_new_le; eauto.
-        + eapply Memory.add_split_future. eauto.
-        + exploit Memory.add_split_le; eauto. i. des.
-          exploit Memory.add_split_unique; [apply MEMORY|apply ADD_SPLIT2|]. i. des. subst.
-          eauto.
-      - splits; auto. reflexivity.
+        inv STEP0; s; try apply Memory.le_join_l; memtac.
+        + rewrite JOIN in *. memtac.
+          rewrite <- Memory.join_assoc. econs; eauto.
+          memtac. splits; memtac. 
+        + rewrite JOIN in *. memtac.
+          rewrite <- Memory.join_assoc. econs; eauto.
+          memtac. splits; memtac. 
+      - inv STEP0. s. memtac. splits.
+        + rewrite (Memory.join_comm ctx e).
+          rewrite Memory.join_assoc. rewrite <- D.
+          rewrite <- Memory.join_assoc.
+          rewrite (Memory.join_comm addendum ctx).
+          rewrite Memory.join_assoc.
+          econs.
+          * apply Memory.splits_join; memtac.
+            reflexivity.
+          * apply Memory.le_join_l. memtac. splits; memtac.
+        + apply Memory.le_join_l. memtac. splits; memtac.
+      - rewrite (Memory.join_comm Memory.bot _), Memory.bot_join.
+        splits; [reflexivity|].
+        econs; eauto. rewrite (Memory.join_comm Memory.bot _), Memory.bot_join. auto.
     Qed.
 
     Lemma future_internal_step
           th1 mem1 th2 mem2
           (STEP: Thread.internal_step (th1, mem1) (th2, mem2))
           (LE: Memory.le th1.(local) mem1):
-      <<FUTURE: Memory.future mem1 mem2>> /\
-      <<LE: Memory.le th2.(local) mem2>>.
+        <<FUTURE: Memory.future mem1 mem2>> /\
+        <<LOCAL: Memory.le th2.(local) mem2>>.
     Proof.
       inv STEP. eapply future_step; eauto.
     Qed.
@@ -330,15 +296,14 @@ Module Thread.
           thm1 thm2
           (STEPS: rtc Thread.internal_step thm1 thm2)
           (LE: Memory.le thm1.(fst).(local) thm1.(snd)):
-      <<FUTURE: Memory.future thm1.(snd) thm2.(snd)>> /\
-      <<LE: Memory.le thm2.(fst).(local) thm2.(snd)>>.
+        <<FUTURE: Memory.future thm1.(snd) thm2.(snd)>> /\
+        <<LOCAL: Memory.le thm2.(fst).(local) thm2.(snd)>>.
     Proof.
       induction STEPS.
       { splits; auto. reflexivity. }
-      destruct x, y. apply future_internal_step in H; auto. des.
-      exploit IHSTEPS; eauto. i. des.
-      splits; auto.
-      rewrite FUTURE. auto.
+      destruct x, y, z. apply future_internal_step in H; auto. des.
+      exploit IHSTEPS; eauto. ss. i. des.
+      splits; auto. etransitivity; eauto.
     Qed.
   End Thread.
 End Thread.
