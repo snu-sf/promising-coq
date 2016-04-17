@@ -16,34 +16,12 @@ Set Implicit Arguments.
 
 Inductive sim_memory (mem_src mem_tgt:Memory.t): Prop :=
 | sim_memory_intro
-    (MESSAGES:
-       forall loc ts msg
-         (MSG: Memory.get loc ts mem_tgt = Some msg),
-         Memory.get loc ts mem_src = Some msg)
-    (OWNERSHIP: forall loc ts, Memory.own mem_src loc ts <-> Memory.own mem_tgt loc ts)
+    (SPLITS: Memory.splits mem_tgt mem_src)
 .
 
 Program Instance sim_memory_PreOrder: PreOrder sim_memory.
-Next Obligation.
-  ii. econs; auto.
-Qed.
-Next Obligation.
-  ii. inv H. inv H0. econs; auto.
-  etransitivity; eauto.
-Qed.
-
-Lemma sim_memory_future mem1 mem2
-      (SIM: sim_memory mem1 mem2):
-  Memory.future mem2 mem1.
-Proof.
-  inv SIM. unfold Memory.get, Cell.get, Memory.own in *.
-  econs. i. econs; i.
-  - exploit MESSAGES; eauto.
-    { rewrite LHS. ss. }
-    i. destruct (Cell.messages (mem1 loc) to) as [[]|]; [|done].
-    inv x. eauto.
-  - rewrite OWNERSHIP. auto.
-Qed.
+Next Obligation. ii. econs. reflexivity. Qed.
+Next Obligation. ii. inv H. inv H0. econs. etransitivity; eauto. Qed.
 
 
 Section SimulationThread.
@@ -83,11 +61,11 @@ Section SimulationThread.
           <<LE_TGT: Memory.le th1_tgt.(Thread.local) mem2_tgt>> /\
           <<FUTURE_TGT: Memory.future mem1_tgt mem2_tgt>>>> /\
       <<LOCAL:
-        forall (LOCAL_TGT: th1_tgt.(Thread.local) = Memory.init),
+        forall (LOCAL_TGT: th1_tgt.(Thread.local) = Memory.bot),
         exists th2_src mem2_src,
           <<STEPS: rtc (@Thread.internal_step lang_src) (th1_src, mem1_src) (th2_src, mem2_src)>> /\
           <<MEMORY: sim_memory mem2_src mem1_tgt>> /\
-          <<LOCAL_SRC: th2_src.(Thread.local) = Memory.init>>>> /\
+          <<LOCAL_SRC: th2_src.(Thread.local) = Memory.bot>>>> /\
       <<STEP:
         forall e th3_tgt mem3_tgt
           (STEP_TGT: Thread.step e th1_tgt mem1_tgt th3_tgt mem3_tgt),

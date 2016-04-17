@@ -59,7 +59,7 @@ Module Commit.
       (WRITABLE: Snapshot.writable tc1.(current) loc ts)
       (WRITE: Time.le ts (Times.get loc tc2.(current).(Snapshot.writes)))
       (RELEASE: forall (ORDERING: Ordering.le Ordering.release ord),
-          Snapshot.le tc2.(current) released)
+          Snapshot.le tc2.(current) (LocFun.find loc tc2.(Commit.released)))
       (RELEASED: Snapshot.le (LocFun.find loc tc2.(Commit.released)) released)
   .
 
@@ -108,11 +108,10 @@ Module Thread.
         memory_step th1 mem1
                     (mk st2 commit2 th1.(local))
     | step_write
-        loc val ts released ord st2 commit2 local2
+        loc val from ts released ord st2 commit2 local2
         (STATE: lang.(Language.step) th1.(state) (Some (ThreadEvent.mem (MemEvent.write loc val ord))) st2)
         (WRITE: Commit.write th1.(commit) loc ts released ord commit2)
-        (MESSAGE: Memory.get loc ts th1.(local) = Some (Message.mk val released))
-        (REMOVE: Memory.remove loc ts th1.(local) local2):
+        (REMOVE: Memory.remove loc from ts (Message.mk val released) th1.(local) local2):
         memory_step th1 mem1
                     (mk st2 commit2 local2)
     | step_update
@@ -121,9 +120,8 @@ Module Thread.
         (READ: Commit.read th1.(commit) loc tsr releasedr ord commit2)
         (WRITE: Commit.write commit2 loc tsw releasedw ord commit3)
         (RELEASE: Snapshot.le releasedr releasedw)
-        (MESSAGE1: Memory.get loc tsr mem1 = Some (Message.mk valr releasedr))
-        (MESSAGE2: Memory.get loc tsw th1.(local) = Some (Message.mk valw releasedw))
-        (REMOVE: Memory.remove loc tsw th1.(local) local3):
+        (MESSAGE: Memory.get loc tsr mem1 = Some (Message.mk valr releasedr))
+        (REMOVE: Memory.remove loc tsr tsw (Message.mk valw releasedw) th1.(local) local3):
         memory_step th1 mem1
                     (mk st3 commit3 local3)
     | step_fence
@@ -140,17 +138,11 @@ Module Thread.
                     (mk st2 commit2 th1.(local))
     .
 
-    Inductive add_step (th1:t) (mem1:Memory.t): forall (th2:t) (mem2:Memory.t), Prop :=
+    Inductive add_step (th1:t) (mem1:Memory.t) (th2:t) (mem2:Memory.t): Prop :=
     | step_add_intro
-        st2 commit2 local2 ctx addendum
-        (STATE: th1.(state) = st2)
-        (COMMIT: Commit.le th1.(commit) commit2)
-        (MEM1: mem1 = Memory.join th1.(local) ctx)
-        (SPLITS: Memory.splits th1.(local) local2)
-        (CTX: Memory.disjoint th1.(local) ctx)
-        (ADDENDUM: Memory.disjoint addendum mem1):
-        add_step th1 mem1
-                 (mk st2 commit2 (Memory.join local2 addendum)) (Memory.join (Memory.join local2 addendum) ctx)
+        (STATE: th1.(state) = th2.(state))
+        (COMMIT: Commit.le th1.(commit) th2.(commit))
+        (MEM: Memory.add th1.(local) mem1 th2.(local) mem2)
     .
 
     Inductive step: forall (e:option Event.t) (th1:t) (mem1:Memory.t) (th2:t) (mem2:Memory.t), Prop :=
@@ -196,21 +188,6 @@ Module Thread.
       - rewrite JOIN in *. memtac.
     Qed.
 
-    Lemma disjoint_add_step
-          th1 mem1 th2 mem2 mem_o
-          (STEP: add_step th1 mem1 th2 mem2)
-          (DISJOINT: Memory.disjoint th1.(local) mem_o)
-          (LE: Memory.le mem_o mem1):
-      <<DISJOINT: Memory.disjoint th2.(local) mem_o>> /\
-      <<LE: Memory.le mem_o mem2>>.
-    Proof.
-      inv STEP; memtac. splits.
-      - memtac. splits; memtac.
-      - rewrite (Memory.join_comm _ (Memory.join mem_o _)).
-        rewrite <- Memory.join_assoc. econs; eauto.
-        memtac. splits; memtac. splits; memtac.
-    Qed.
-
     Lemma disjoint_step
           th1 mem1 th2 mem2 e mem_o
           (STEP: step e th1 mem1 th2 mem2)
@@ -222,7 +199,7 @@ Module Thread.
       inv STEP.
       - splits; auto.
         eapply disjoint_memory_step; eauto.
-      - eapply disjoint_add_step; eauto.
+      - inv STEP0. eapply memory_add_disjoint; eauto. 
       - ss.
     Qed.
 
@@ -266,17 +243,8 @@ Module Thread.
         + rewrite JOIN in *. memtac.
           rewrite <- Memory.join_assoc. econs; eauto.
           memtac. splits; memtac. 
-      - inv STEP0. s. memtac. splits.
-        + rewrite (Memory.join_comm ctx e).
-          rewrite Memory.join_assoc. rewrite <- D.
-          rewrite <- Memory.join_assoc.
-          rewrite (Memory.join_comm addendum ctx).
-          rewrite Memory.join_assoc.
-          econs.
-          * apply Memory.splits_join; memtac.
-            reflexivity.
-          * apply Memory.le_join_l. memtac. splits; memtac.
-        + apply Memory.le_join_l. memtac. splits; memtac.
+      - inv STEP0. eapply memory_add_future; eauto.
+        econs; eauto.
       - rewrite (Memory.join_comm Memory.bot _), Memory.bot_join.
         splits; [reflexivity|].
         econs; eauto. rewrite (Memory.join_comm Memory.bot _), Memory.bot_join. auto.

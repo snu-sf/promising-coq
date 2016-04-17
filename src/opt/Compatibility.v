@@ -15,6 +15,7 @@ Require Import Memory.
 Require Import Thread.
 Require Import Configuration.
 Require Import Simulation.
+Require Import MemInv.
 
 Require Import Syntax.
 Require Import Semantics.
@@ -103,8 +104,7 @@ Proof.
     + econs 4; s; eauto. apply step_seq. auto.
     + econs 5; s; eauto. apply step_seq. auto.
   - econs 2. inv STEP0; ss.
-    + inv STATE. econs 1; eauto.
-    + inv STATE. econs 2; eauto.
+    inv STATE. econs; eauto.
   - econs 3; eauto. inv STATE. econs; eauto.
 Qed.
 
@@ -155,12 +155,9 @@ Proof.
       eexists. splits; eauto.
       econs 1. econs 5; s; eauto.
   - inv STEP0; ss; inv STATE.
-    + rewrite app_comm_cons.
-      eexists. splits; eauto.
-      econs 2. econs 1; eauto.
-    + rewrite app_comm_cons.
-      eexists. splits; eauto.
-      econs 2. econs 2; eauto.
+    rewrite app_comm_cons.
+    eexists. splits; eauto.
+    econs 2. econs; eauto.
   - inv STATE.
     eexists. splits; eauto.
     econs 3; eauto. econs; eauto.
@@ -298,98 +295,6 @@ Proof.
 Qed.
 Hint Resolve ctx_mon.
 
-Lemma sim_memory_add_new
-      mem1_src mem1_tgt mem2_tgt
-      loc from to msg
-      (ADD: Memory.add_new loc from to msg mem1_tgt mem2_tgt)
-      (SIM: sim_memory mem1_src mem1_tgt):
-  exists mem2_src,
-    <<ADD: Memory.add_new loc from to msg mem1_src mem2_src>> /\
-    <<SIM: sim_memory mem2_src mem2_tgt>>.
-Proof.
-  inv ADD. destruct (Cell.add_new_iff from to msg (mem1_tgt loc)) as [DECL _].
-  exploit DECL; eauto. clear DECL. i. des.
-  destruct (Cell.add_new_iff from to msg (mem1_src loc)) as [_ DECL].
-  exploit DECL; eauto.
-  { splits; auto. ii. eapply OWN; eauto. apply SIM. auto. }
-  clear DECL. i. des.
-  eexists. splits.
-  - econs. eauto.
-  - admit. (* sim_memory *)
-Admitted.
-
-Lemma sim_memory_add_split
-      mem1_src mem1_tgt mem2_tgt
-      loc from to to' msg msg'
-      (TO: Memory.get loc to mem1_src = None)
-      (ADD: Memory.add_split loc from to to' msg msg' mem1_tgt mem2_tgt)
-      (SIM: sim_memory mem1_src mem1_tgt):
-  exists from'' to'' msg'' mem2_src,
-    <<ADD: Memory.add_split loc from'' to to'' msg msg'' mem1_src mem2_src>> /\
-    <<SIM: sim_memory mem2_src mem2_tgt>>.
-Proof.
-  inv ADD. destruct (Cell.add_split_iff from to to' msg msg' (mem1_tgt loc)) as [DECL _].
-  exploit DECL; eauto. clear DECL. i. des.
-  assert (Memory.own mem1_tgt loc to).
-  { econs; eauto. econs; eauto. s. apply Time.le_lteq. auto. }
-  inv SIM. apply OWNERSHIP in H. inv H.
-  destruct (Cell.add_split_iff from0 to to0 msg msg0 (mem1_src loc)) as [_ DECL].
-  exploit DECL; eauto.
-  { inv INTERVAL. ss. splits; auto.
-    apply Time.le_lteq in TO1. des; auto. subst.
-    unfold Memory.get, Cell.get in TO. rewrite MESSAGE in TO. ss.
-  }
-  i. des.
-  eexists _, _, _, _. splits.
-  - econs. eauto.
-  - admit. (* sim_memory *)
-Admitted.
-
-Lemma sim_add
-      lang_src st1_src mem1_src
-      lang_tgt st1_tgt mem1_tgt th2_tgt mem2_tgt
-      commit1 local1
-      (SIM: sim_memory mem1_src mem1_tgt)
-      (LE1_SRC: Memory.le local1 mem1_src)
-      (LE1_TGT: Memory.le local1 mem1_tgt)
-      (STEP: Thread.add_step (Thread.mk lang_tgt st1_tgt commit1 local1) mem1_tgt
-                             th2_tgt mem2_tgt):
-  exists commit2 local2 mem2_src,
-    <<TH2: th2_tgt = Thread.mk lang_tgt st1_tgt commit2 local2>> /\
-    <<SIM: sim_memory mem2_src mem2_tgt>> /\
-    <<COMMIT: Commit.le commit1 commit2>> /\
-    <<ADD: Thread.add_step (Thread.mk lang_src st1_src commit1 local1) mem1_src
-                           (Thread.mk lang_src st1_src commit2 local2) mem2_src>>.
-Proof.
-  destruct th2_tgt. inv STEP; ss.
-  - exploit sim_memory_add_new; try apply LOCAL0; eauto. i. des.
-    exploit sim_memory_add_new; try apply MEMORY; eauto. i. des.
-    eexists _, _, _. splits; eauto.
-    econs 1; eauto.
-  - exploit Memory.add_split_le; eauto. i. des.
-    exploit Memory.add_split_unique; [apply MEMORY|apply ADD_SPLIT2|].
-    i. des. subst. clear ADD_SPLIT2.
-    exploit sim_memory_add_split; try apply MEMORY; eauto.
-    { inv LOCAL.
-      destruct (Cell.add_split_iff from to to' msg msg' (local1 loc)) as [DECL _].
-      exploit DECL; eauto. clear DECL. i. des.
-      destruct (Memory.get loc to mem1_src) eqn:X; [|auto].
-      unfold Memory.get, Cell.get in X.
-      destruct (Cell.messages (mem1_src loc) to) as [[]|] eqn:Y; inv X.
-      apply LE1_SRC in MSG.
-      exfalso. eapply (@Cell.DISJOINT (mem1_src loc) to to'); eauto.
-      - ii. subst. apply Time.lt_strorder in TO'. inv TO'.
-      - apply Interval.mem_ub. eapply Cell.VOLUME. eauto.
-      - econs; eauto. s. apply Time.le_lteq. auto.
-    }
-    i. des.
-    exploit Memory.add_split_le; try apply LE1_SRC; eauto. i. des.
-    exploit Memory.add_split_unique; [apply ADD|apply ADD_SPLIT2|].
-    i. des. subst. clear ADD_SPLIT2.
-    eexists _, _, _. splits; eauto.
-    econs 2; eauto.
-Qed.
-
 Lemma ctx_weak_respectful: weak_respectful5 (@_sim_thread lang lang) ctx.
 Proof.
   econs; auto. i. destruct PR.
@@ -400,21 +305,25 @@ Proof.
     ii. splits; s; i.
     { inv TERMINAL_TGT. ss. eexists _, _. splits; eauto; econs; ss. }
     { ss. eexists. splits; try reflexivity; eauto.
-      etransitivity; eauto. apply sim_memory_future. auto.
+      etransitivity; eauto. apply Memory.splits_future. inv MEMORY. auto.
     }
     { ss. subst. eexists _, _. splits; eauto. }
     inv STEP_TGT; ss.
     + inv STEP; inv STATE.
-    + exploit sim_add; try apply STEP; eauto. i. des. subst.
+    + inv STEP. ss. destruct th3_tgt. ss.
+      exploit MemInv.add; try apply MEMORY; try apply MEM; eauto.
+      { apply MemInv.sem_bot. }
+      i. des. apply MemInv.sem_bot_inv in INV2. subst.
       eexists _, _, _, _. splits; eauto.
-      * econs 2. eauto.
+      * instantiate (1 := Thread.mk _ _ _ _).
+        econs 2. econs; s; eauto.
       * apply rclo5_step. apply ctx_nil. auto.
     + inv STATE.
   - (* instr *)
     ii. splits; s; i.
     { inv TERMINAL_TGT. }
     { ss. eexists. splits; try reflexivity; eauto.
-      etransitivity; eauto. apply sim_memory_future. auto.
+      etransitivity; eauto. apply Memory.splits_future. inv MEMORY. auto.
     }
     { ss. subst. eexists _, _. splits; eauto. }
     inv STEP_TGT; ss.
@@ -426,7 +335,7 @@ Proof.
       * eexists _, _, _, _. splits; eauto.
         { econs 1. econs 2; eauto. econs. admit. (* regs *) }
         { apply rclo5_step. apply ctx_nil. admit. (* regs *) }
-      * generalize MESSAGE1. intro X. apply MEMORY in X.
+      * generalize MESSAGE. intro X. apply MEMORY in X.
         eexists _, _, _, _. splits; eauto.
         { econs 1. econs 3; eauto. econs. admit. (* regs *) }
         { apply rclo5_step. apply ctx_nil. admit. (* regs *) }
@@ -436,9 +345,13 @@ Proof.
       * eexists _, _, _, _. splits; eauto.
         { econs 1. econs 5; eauto. econs. admit. (* regs *) }
         { apply rclo5_step. apply ctx_nil. admit. (* regs *) }
-    + exploit sim_add; eauto. i. des. subst.
+    + inv STEP. ss. destruct th3_tgt. ss.
+      exploit MemInv.add; try apply MEMORY; try apply MEM; eauto.
+      { apply MemInv.sem_bot. }
+      i. des. apply MemInv.sem_bot_inv in INV2. subst.
       eexists _, _, _, _. splits; eauto.
-      * econs 2. eauto.
+      * instantiate (1 := Thread.mk _ _ _ _).
+        econs 2. econs; s; eauto.
       * apply rclo5_step. apply ctx_instr; auto.
     + inv STATE.
       eexists _, _, _, _. splits; eauto.
@@ -498,7 +411,7 @@ Proof.
     ii. splits; s; i.
     { inv TERMINAL_TGT. }
     { ss. eexists. splits; try reflexivity; eauto.
-      etransitivity; eauto. apply sim_memory_future. auto.
+      etransitivity; eauto. apply Memory.splits_future. inv MEMORY. auto.
     }
     { ss. subst. eexists _, _. splits; eauto. }
     inv STEP_TGT; ss.
@@ -510,9 +423,13 @@ Proof.
         destruct (RegFile.eval_expr rs_tgt cond_tgt).
         { apply rclo5_incl. eauto. }
         { apply rclo5_incl. eauto. }
-    + exploit sim_add; eauto. i. des. subst.
+    + inv STEP. ss. destruct th3_tgt. ss.
+      exploit MemInv.add; try apply MEMORY; try apply MEM; eauto.
+      { apply MemInv.sem_bot. }
+      i. des. apply MemInv.sem_bot_inv in INV2. subst.
       eexists _, _, _, _. splits; eauto.
-      * econs 2. eauto.
+      * instantiate (1 := Thread.mk _ _ _ _).
+        econs 2. econs; s; eauto.
       * apply rclo5_step. eapply ctx_ite; eauto.
         { eapply _sim_stmts_mon; try apply rclo5_incl; eauto.
           eapply _sim_stmts_mon; try apply LE; eauto.
@@ -525,7 +442,7 @@ Proof.
     ii. splits; s; i.
     { inv TERMINAL_TGT. }
     { ss. eexists. splits; try reflexivity; eauto.
-      etransitivity; eauto. apply sim_memory_future. auto.
+      etransitivity; eauto. apply Memory.splits_future. inv MEMORY. auto.
     }
     { ss. subst. eexists _, _. splits; eauto. }
     inv STEP_TGT; ss.
@@ -540,9 +457,13 @@ Proof.
           eapply _sim_stmts_mon; try apply LE; eauto.
         }
         { ii. apply rclo5_base; auto. }
-    + exploit sim_add; eauto. i. des. subst.
+    + inv STEP. ss. destruct th3_tgt. ss.
+      exploit MemInv.add; try apply MEMORY; try apply MEM; eauto.
+      { apply MemInv.sem_bot. }
+      i. des. apply MemInv.sem_bot_inv in INV2. subst.
       eexists _, _, _, _. splits; eauto.
-      * econs 2. eauto.
+      * instantiate (1 := Thread.mk _ _ _ _).
+        econs 2. econs; s; eauto.
       * apply rclo5_step. apply ctx_dowhile; auto.
         eapply _sim_stmts_mon; try apply rclo5_incl; eauto.
         eapply _sim_stmts_mon; try apply LE; eauto.
