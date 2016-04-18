@@ -43,8 +43,7 @@ Module MemInv.
       <<INV2: sem inv local2_src local2_tgt>> /\
       <<ADD_SRC: Memory.add local1_src global1_src local2_src global2_src>>.
   Proof.
-    inv SIM1. inv INV1. inv ADD_TGT.
-    memtac. subst ohs. memtac.
+    inv SIM1. inv INV1. inv ADD_TGT. memtac.
     rewrite <- Memory.join_assoc in SPLITS.
     apply Memory.splits_join_inv in SPLITS; memtac.
     exploit Memory.join2_splits; try apply JOINC; memtac.
@@ -53,25 +52,27 @@ Module MemInv.
       symmetry. eapply Memory.splits_disjoint; [|eauto].
       memtac.
     }
-    i. des. subst.
+    i. des. subst. clear JOINC SPLITSA.
     exists (Memory.join local2_tgt inv).
-    exists (Memory.join (Memory.join local2_tgt (Memory.join inv ohs0)) addendum).
+    exists (Memory.join (Memory.join (Memory.join local2_tgt inv) addendum) ohs0).
     splits.
-    - rewrite Memory.join_assoc, <- Memory.join_assoc.
-      econs; eauto. repeat (splits; memtac).
-      symmetry in ADDENDUM0. eapply Memory.splits_disjoint in ADDENDUM0; eauto.
-      memtac.
-    - econs. apply Memory.splits_join.
-      + memtac. splits; memtac.
-      + apply Memory.splits_join; eauto.
-        * memtac.
-        * reflexivity.
-      + reflexivity.
+    - rewrite <- Memory.join_assoc.
+      econs; memtac. repeat (splits; memtac).
+      eapply Memory.splits_disjoint in SPLITSB; memtac.
+    - econs.
+      rewrite <- ? Memory.join_assoc.
+      apply Memory.splits_join; (repeat (splits; memtac)).
+      rewrite (Memory.join_comm _ ohs0).
+      rewrite Memory.join_assoc.
+      apply Memory.splits_join; (repeat (splits; memtac)).
     - econs. memtac.
-    - rewrite -> Memory.join_assoc. econs; memtac.
-      + apply Memory.splits_join; memtac.
-      + symmetry in ADDENDUM0. eapply Memory.splits_disjoint in ADDENDUM0; eauto.
-        memtac. splits; memtac.
+    - rewrite <- (Memory.join_assoc _ addendum ohs0).
+      rewrite (Memory.join_comm addendum ohs0).
+      rewrite (Memory.join_assoc _ ohs0 addendum).
+      econs; (repeat (splits; memtac)).
+      + apply Memory.splits_join; (repeat (splits; memtac)).
+      + eapply Memory.splits_disjoint in SPLITSB; memtac.
+      + eapply Memory.splits_disjoint in SPLITSB; memtac.
   Qed.
 
   Lemma remove_tgt

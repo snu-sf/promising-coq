@@ -236,6 +236,24 @@ Module Cell.
       - apply Bool.orb_false_r.
     Qed.
 
+    Lemma bot_join_inv a b
+          (A: wf a)
+          (B: wf b)
+          (EQ: a = join a b)
+          (DISJOINT: disjoint a b):
+      b = bot.
+    Proof.
+      apply extensionality_inv in EQ. des.
+      apply extensionality. i.
+      specialize (MSG to). specialize (OWN to).
+      inv DISJOINT. specialize (DISJOINT0 to). ss.
+      destruct (ownership a to) eqn:OA, (ownership b to) eqn:OB,
+               (messages a to) eqn:MA, (messages b to) eqn:MB;
+        inv MSG; inv OWN; intuition.
+      - inv B. exploit MSG; eauto. congruence.
+      - inv A. exploit MSG; eauto. congruence.
+    Qed.
+
     Definition singleton (from to:Time.t) (msg:Message.t): t :=
       mk (fun ts => if Time.eq_dec ts to then Some msg else None)
          (fun ts => if Interval.mem_dec (from, to) ts then true else false).
@@ -281,14 +299,24 @@ Module Cell.
       congruence.
     Qed.
 
+    Lemma splits_disjoint_inv a b a'
+          (DISJOINT: disjoint a' b)
+          (SPLITS: splits a a'):
+      disjoint a b.
+    Proof.
+      inv SPLITS. econs. i.
+      inv DISJOINT. eapply DISJOINT0; eauto.
+      congruence.
+    Qed.
+
     Lemma splits_join a b a' b'
           (WFA: wf a)
           (WFB: wf b)
           (WFA': wf a')
           (WFB': wf b')
-          (DISJOINT: disjoint a b)
           (SPLITSA: splits a a')
-          (SPLITSB: splits b b'):
+          (SPLITSB: splits b b')
+          (DISJOINT: disjoint a b):
       splits (join a b) (join a' b').
     Proof.
       inv SPLITSA. inv SPLITSB. econs; s; i.
@@ -314,8 +342,8 @@ Module Cell.
           (WFA: wf a)
           (WFB: wf b)
           (WFC: wf c)
-          (DISJOINT: disjoint a b)
-          (SPLITS: splits (join a b) c):
+          (SPLITS: splits (join a b) c)
+          (DISJOINT: disjoint a b):
       exists a' b',
         <<WFA': wf a'>> /\
         <<WFB': wf b'>> /\
@@ -372,6 +400,46 @@ Module Cell.
           * destruct WFC. exploit MSG0; eauto.
             rewrite <- OWN. s. rewrite A, B. intuition.
         + rewrite <- OWN. auto.
+    Qed.
+
+    Lemma splits_join_inv2 a b c d
+          (WFA: wf a)
+          (WFB: wf b)
+          (WFC: wf c)
+          (WFD: wf d)
+          (SPLITS1: splits a c)
+          (SPLITS2: splits (join a b) (join c d))
+          (DISJOINT1: disjoint a b)
+          (DISJOINT2: disjoint c d):
+      splits b d.
+    Proof.
+      inv SPLITS1. inv SPLITS2. ss. econs; i.
+      - specialize (MSG0 to msg). rewrite LHS in *.
+        destruct (messages a to) eqn:OA.
+        { exfalso. inv DISJOINT1. eapply DISJOINT.
+          - inv WFA. eauto.
+          - inv WFB. eauto.
+        }
+        specialize (MSG0 eq_refl).
+        destruct (messages c to) eqn:OC; auto.
+        destruct (messages d to) eqn:OD.
+        { exfalso. inv DISJOINT2. eapply DISJOINT.
+          - inv WFC. eauto.
+          - inv WFD. eauto.
+        }
+        exfalso. inv DISJOINT1. eapply DISJOINT.
+        + rewrite OWN. inv WFC. eauto.
+        + inv WFB. eauto.
+      - extensionality to.
+        apply (fapp _ to) in OWN0.
+        destruct (ownership a to) eqn:OA,
+                 (ownership b to) eqn:OB,
+                 (ownership d to) eqn:OD; ss.
+        + exfalso. inv DISJOINT1. eapply DISJOINT; eauto.
+        + rewrite OWN in OA.
+          exfalso. inv DISJOINT2. eapply DISJOINT; eauto.
+        + rewrite <- OWN, OA in OWN0. ss.
+        + rewrite <- OWN, OA in OWN0. ss.
     Qed.
 
     Lemma join2_prop
@@ -668,6 +736,16 @@ Module Cell.
     apply extensionality. apply Raw.bot_join.
   Qed.
 
+  Lemma bot_join_inv a b
+        (EQ: a = join a b)
+        (DISJOINT: disjoint a b):
+    b = bot.
+  Proof.
+    apply extensionality.
+    eapply Raw.bot_join_inv; try apply WF; eauto.
+    apply extensionality_inv in EQ. auto.
+  Qed.
+
   Definition singleton
              (from to:Time.t) (msg:Message.t)
              (LT: Time.lt from to): t :=
@@ -697,18 +775,26 @@ Module Cell.
     eapply Raw.splits_disjoint; eauto.
   Qed.
 
+  Lemma splits_disjoint_inv a b a'
+        (DISJOINT: disjoint a' b)
+        (SPLITS: splits a a'):
+    disjoint a b.
+  Proof.
+    eapply Raw.splits_disjoint_inv; eauto.
+  Qed.
+
   Lemma splits_join a b a' b'
-        (DISJOINT: disjoint a b)
         (SPLITSA: splits a a')
-        (SPLITSB: splits b b'):
+        (SPLITSB: splits b b')
+        (DISJOINT: disjoint a b):
     splits (join a b) (join a' b').
   Proof.
     exploit (@Raw.splits_join a b a' b'); eauto; apply WF.
   Qed.
 
   Lemma splits_join_inv a b c
-        (DISJOINT: disjoint a b)
-        (SPLITS: splits (join a b) c):
+        (SPLITS: splits (join a b) c)
+        (DISJOINT: disjoint a b):
     exists a' b',
       <<SPLITSA: splits a a'>> /\
       <<SPLITSB: splits b b'>> /\
@@ -719,6 +805,18 @@ Module Cell.
     exploit (@Raw.splits_join_inv a b c); eauto. i. des. subst.
     exists (@mk a' WFA'), (@mk b' WFB'). splits; eauto.
     apply extensionality. auto.
+  Qed.
+
+  Lemma splits_join_inv2 a b c d
+        (SPLITS1: splits a c)
+        (SPLITS2: splits (join a b) (join c d))
+        (DISJOINT1: disjoint a b)
+        (DISJOINT2: disjoint c d):
+    splits b d.
+  Proof.
+    destruct a as [a WFA], b as [b WFB], c as [c WFC], d as [d WFD].
+    unfold disjoint, splits in *. ss.
+    exploit (@Raw.splits_join_inv2 a b c d); eauto.
   Qed.
 
   Lemma join2_splits
@@ -744,7 +842,9 @@ Module Cell.
         (CD: disjoint c d)
         (AC: disjoint a c)
         (EQ: join a b = join c d):
-    exists e, <<B: b = join c e>> /\
+    exists e, <<AE: disjoint a e>> /\
+         <<CE: disjoint c e>> /\
+         <<B: b = join c e>> /\
          <<D: d = join a e>>.
   Proof.
     exploit (@Raw.join2_inv a b c d);
@@ -800,6 +900,15 @@ Module Memory.
     extensionality loc. apply Cell.bot_join.
   Qed.
 
+  Lemma bot_join_inv a b
+        (EQ: a = join a b)
+        (DISJOINT: disjoint a b):
+    b = bot.
+  Proof.
+    extensionality loc. eapply Cell.bot_join_inv; eauto.
+    apply (fapp _ loc) in EQ. auto.
+  Qed.
+
   Definition singleton
              (loc:Loc.t) (from to:Time.t) (msg:Message.t)
              (LT: Time.lt from to): t :=
@@ -853,18 +962,26 @@ Module Memory.
     ii. eapply Cell.splits_disjoint; eauto.
   Qed.
 
+  Lemma splits_disjoint_inv a b a'
+        (DISJOINT: disjoint a' b)
+        (SPLITS: splits a a'):
+    disjoint a b.
+  Proof.
+    ii. eapply Cell.splits_disjoint_inv; eauto.
+  Qed.
+
   Lemma splits_join a b a' b'
-        (DISJOINT: disjoint a b)
         (SPLITSA: splits a a')
-        (SPLITSB: splits b b'):
+        (SPLITSB: splits b b')
+        (DISJOINT: disjoint a b):
     splits (join a b) (join a' b').
   Proof.
     ii. apply Cell.splits_join; auto.
   Qed.
 
   Lemma splits_join_inv a b c
-        (DISJOINT: disjoint a b)
-        (SPLITS: splits (join a b) c):
+        (SPLITS: splits (join a b) c)
+        (DISJOINT: disjoint a b):
     exists a' b',
       <<SPLITSA: splits a a'>> /\
       <<SPLITSB: splits b b'>> /\
@@ -882,6 +999,16 @@ Module Memory.
       + ii. specialize (x0 loc). des. auto.
       + ii. specialize (x0 loc). des. auto.
       + extensionality loc. specialize (x0 loc). des. auto.
+  Qed.
+
+  Lemma splits_join_inv2 a b c d
+        (SPLITS1: splits a c)
+        (SPLITS2: splits (join a b) (join c d))
+        (DISJOINT1: disjoint a b)
+        (DISJOINT2: disjoint c d):
+    splits b d.
+  Proof.
+    ii. eapply Cell.splits_join_inv2; eauto.
   Qed.
 
   Inductive add (declare1 global1 declare2:t): forall (global2:t), Prop :=
@@ -968,16 +1095,22 @@ Module Memory.
         (CD: disjoint c d)
         (AC: disjoint a c)
         (EQ: join a b = join c d):
-    exists e, <<B: b = join c e>> /\
+    exists e, <<AE: disjoint a e>> /\
+         <<CE: disjoint c e>> /\
+         <<B: b = join c e>> /\
          <<D: d = join a e>>.
   Proof.
     exploit (@choice Loc.t Cell.t
                      (fun loc e =>
+                        <<AE: Cell.disjoint (a loc) e>> /\
+                        <<CE: Cell.disjoint (c loc) e>> /\
                         <<B: b loc = Cell.join (c loc) e>> /\
                         <<D: d loc = Cell.join (a loc) e>>)).
     - i. exploit (@Cell.join2_inv (a x) (b x) (c x) (d x)); eauto.
       eapply (fapp _ x) in EQ. ss.
     - i. des. exists f. splits.
+      + intro loc. exploit x0; eauto. i. des. eauto.
+      + intro loc. exploit x0; eauto. i. des. eauto.
       + extensionality loc. exploit x0; eauto. i. des. eauto.
       + extensionality loc. exploit x0; eauto. i. des. eauto.
   Qed.
@@ -994,6 +1127,10 @@ Ltac memtac :=
            apply Memory.join_disjoint in H
          | [H: Memory.disjoint (Memory.join _ _) _ |- _] =>
            symmetry in H; apply Memory.join_disjoint in H
+         | [H1: ?a = Memory.join ?a ?b, H2: Memory.disjoint ?a ?b |- _] =>
+           apply Memory.bot_join_inv in H1; [|apply H2]
+         | [H1: ?a = Memory.join ?a ?b, H2: Memory.disjoint ?b ?a |- _] =>
+           apply Memory.bot_join_inv in H1; [|symmetry; apply H2]
 
          | [H1: Memory.join ?a _ = Memory.join ?b _,
             H2: Memory.disjoint ?a ?b |- _] =>

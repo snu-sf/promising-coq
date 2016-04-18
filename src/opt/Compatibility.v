@@ -29,7 +29,7 @@ Inductive sim_terminal
           (th_src th_tgt:Thread.t lang): Prop :=
 | sim_terminal_intro
     (REGS: sim_regs th_src.(Thread.state).(State.regs) th_tgt.(Thread.state).(State.regs))
-    (COMMIT: th_src.(Thread.commit) = th_tgt.(Thread.commit))
+    (COMMIT: Commit.le th_src.(Thread.commit) th_tgt.(Thread.commit))
 .
 
 Definition sim_expr
@@ -43,18 +43,19 @@ Definition _sim_stmts
            (sim_regs0:SIM_REGS)
            (stmts_src stmts_tgt:list Stmt.t)
            (sim_regs1:SIM_REGS): Prop :=
-  forall rs_src rs_tgt commit local mem_k_src mem_k_tgt
-    (RS: sim_regs0 rs_src rs_tgt),
+  forall rs_src rs_tgt commit_src commit_tgt local mem_k_src mem_k_tgt
+    (RS: sim_regs0 rs_src rs_tgt)
+    (COMMIT: Commit.le commit_src commit_tgt),
     sim_thread
       (sim_terminal sim_regs1)
-      (Thread.mk lang (State.mk rs_src stmts_src) commit local) mem_k_src
-      (Thread.mk lang (State.mk rs_tgt stmts_tgt) commit local) mem_k_tgt.
+      (Thread.mk lang (State.mk rs_src stmts_src) commit_src local) mem_k_src
+      (Thread.mk lang (State.mk rs_tgt stmts_tgt) commit_tgt local) mem_k_tgt.
 
 Lemma _sim_stmts_mon
       s1 s2 (S: s1 <5= s2):
   _sim_stmts s1 <4= _sim_stmts s2.
 Proof.
-  ii. apply S. apply PR. auto.
+  ii. apply S. apply PR; auto.
 Qed.
 
 Lemma step_seq
@@ -223,12 +224,13 @@ Inductive ctx (sim_thread:SIM_THREAD lang lang): SIM_THREAD lang lang :=
     (sim_regs:SIM_REGS)
     rs_src mem_k_src
     rs_tgt mem_k_tgt
-    commit local
-    (RS: sim_regs rs_src rs_tgt):
+    commit_src commit_tgt local
+    (RS: sim_regs rs_src rs_tgt)
+    (COMMIT: Commit.le commit_src commit_tgt):
     ctx sim_thread
         (sim_terminal sim_regs)
-        (Thread.mk lang (State.mk rs_src []) commit local) mem_k_src
-        (Thread.mk lang (State.mk rs_tgt []) commit local) mem_k_tgt
+        (Thread.mk lang (State.mk rs_src []) commit_src local) mem_k_src
+        (Thread.mk lang (State.mk rs_tgt []) commit_tgt local) mem_k_tgt
 | ctx_instr
     (sim_regs:SIM_REGS)
     instr
@@ -237,12 +239,14 @@ Inductive ctx (sim_thread:SIM_THREAD lang lang): SIM_THREAD lang lang :=
         rs_src reg = rs_tgt reg)
     rs_src mem_k_src
     rs_tgt mem_k_tgt
-    commit local
-    (RS: sim_regs rs_src rs_tgt):
+    commit_src commit_tgt
+    local
+    (RS: sim_regs rs_src rs_tgt)
+    (COMMIT: Commit.le commit_src commit_tgt):
     ctx sim_thread
         (sim_terminal sim_regs)
-        (Thread.mk lang (State.mk rs_src [Stmt.instr instr]) commit local) mem_k_src
-        (Thread.mk lang (State.mk rs_tgt [Stmt.instr instr]) commit local) mem_k_tgt
+        (Thread.mk lang (State.mk rs_src [Stmt.instr instr]) commit_src local) mem_k_src
+        (Thread.mk lang (State.mk rs_tgt [Stmt.instr instr]) commit_tgt local) mem_k_tgt
 | ctx_seq
     sim_regs1 sim_regs2
     stmts1_src stmts2_src rs_src commit_src local_src mem_k_src
@@ -259,27 +263,31 @@ Inductive ctx (sim_thread:SIM_THREAD lang lang): SIM_THREAD lang lang :=
     sim_regs0 sim_regs1
     cond_src stmts1_src stmts2_src rs_src mem_k_src
     cond_tgt stmts1_tgt stmts2_tgt rs_tgt mem_k_tgt
-    commit local
+    commit_src commit_tgt
+    local
     (COND: sim_expr sim_regs0 cond_src cond_tgt)
     (RS: sim_regs0 rs_src rs_tgt)
+    (COMMIT: Commit.le commit_src commit_tgt)
     (SIM1: _sim_stmts sim_thread sim_regs0 stmts1_src stmts1_tgt sim_regs1)
     (SIM2: _sim_stmts sim_thread sim_regs0 stmts2_src stmts2_tgt sim_regs1):
     ctx sim_thread
         (sim_terminal sim_regs1)
-        (Thread.mk lang (State.mk rs_src [Stmt.ite cond_src stmts1_src stmts2_src]) commit local) mem_k_src
-        (Thread.mk lang (State.mk rs_tgt [Stmt.ite cond_tgt stmts1_tgt stmts2_tgt]) commit local) mem_k_tgt
+        (Thread.mk lang (State.mk rs_src [Stmt.ite cond_src stmts1_src stmts2_src]) commit_src local) mem_k_src
+        (Thread.mk lang (State.mk rs_tgt [Stmt.ite cond_tgt stmts1_tgt stmts2_tgt]) commit_tgt local) mem_k_tgt
 | ctx_dowhile
     sim_regs
     cond_src stmts_src rs_src mem_k_src
     cond_tgt stmts_tgt rs_tgt mem_k_tgt
-    commit local
+    commit_src commit_tgt
+    local
     (COND: sim_expr sim_regs cond_src cond_tgt)
     (RS: sim_regs rs_src rs_tgt)
+    (COMMIT: Commit.le commit_src commit_tgt)
     (SIM: _sim_stmts sim_thread sim_regs stmts_src stmts_tgt sim_regs):
     ctx sim_thread
         (sim_terminal sim_regs)
-        (Thread.mk lang (State.mk rs_src [Stmt.dowhile stmts_src cond_src]) commit local) mem_k_src
-        (Thread.mk lang (State.mk rs_tgt [Stmt.dowhile stmts_tgt cond_tgt]) commit local) mem_k_tgt
+        (Thread.mk lang (State.mk rs_src [Stmt.dowhile stmts_src cond_src]) commit_src local) mem_k_src
+        (Thread.mk lang (State.mk rs_tgt [Stmt.dowhile stmts_tgt cond_tgt]) commit_tgt local) mem_k_tgt
 .
 Hint Constructors ctx.
 
@@ -287,7 +295,7 @@ Lemma ctx_mon: monotone5 ctx.
 Proof.
   ii. inv IN.
   - econs 1. auto.
-  - econs 2. auto.
+  - econs 2; auto.
   - econs 3; eauto; eapply _sim_stmts_mon; eauto.
   - econs 4; eauto; eapply _sim_stmts_mon; eauto.
   - econs 5; eauto; eapply _sim_stmts_mon; eauto.
@@ -317,7 +325,7 @@ Proof.
       eexists _, _, _, _. splits; eauto.
       * instantiate (1 := Thread.mk _ _ _ _).
         econs 2. econs; s; eauto.
-      * apply rclo5_step. apply ctx_nil. auto.
+      * apply rclo5_step. apply ctx_nil; auto.
     + inv STATE.
   - (* instr *)
     ii. splits; s; i.
@@ -330,21 +338,45 @@ Proof.
     + inv STEP; ss; inv STATE.
       * generalize MESSAGE. intro X. apply MEMORY in X.
         eexists _, _, _, _. splits; eauto.
-        { econs 1. econs 1; eauto. econs. admit. (* regs *) }
-        { apply rclo5_step. apply ctx_nil. admit. (* regs *) }
+        { econs 1. econs 1; eauto. econs.
+          - admit. (* regs *)
+          - s. admit. (* commit monotonicity *)
+        }
+        { apply rclo5_step. apply ctx_nil.
+          - admit. (* regs *)
+          - reflexivity.
+        }
       * eexists _, _, _, _. splits; eauto.
-        { econs 1. econs 2; eauto. econs. admit. (* regs *) }
-        { apply rclo5_step. apply ctx_nil. admit. (* regs *) }
+        { econs 1. econs 2; eauto. econs.
+          - admit. (* regs *)
+          - s. admit. (* commit monotonicity *)
+        }
+        { apply rclo5_step. apply ctx_nil.
+          - admit. (* regs *)
+          - reflexivity.
+        }
       * generalize MESSAGE. intro X. apply MEMORY in X.
         eexists _, _, _, _. splits; eauto.
-        { econs 1. econs 3; eauto. econs. admit. (* regs *) }
-        { apply rclo5_step. apply ctx_nil. admit. (* regs *) }
+        { econs 1. econs 3; eauto. econs.
+          - admit. (* regs *)
+          - s. admit. (* commit monotonicity *)
+        }
+        { apply rclo5_step. apply ctx_nil.
+          - admit. (* regs *)
+          - reflexivity.
+        }
       * eexists _, _, _, _. splits; eauto.
-        { econs 1. econs 4; eauto. econs. admit. (* regs *) }
-        { apply rclo5_step. apply ctx_nil. admit. (* regs *) }
+        { econs 1. econs 4; eauto. econs.
+          - admit. (* regs *)
+          - s. admit. (* commit monotonicity *)
+        }
+        { apply rclo5_step. apply ctx_nil.
+          - admit. (* regs *)
+          - reflexivity.
+        }
       * eexists _, _, _, _. splits; eauto.
         { econs 1. econs 5; eauto. econs. admit. (* regs *) }
-        { apply rclo5_step. apply ctx_nil. admit. (* regs *) }
+        { apply rclo5_step. apply ctx_nil; auto. admit. (* regs *) }
     + inv STEP. ss. destruct th3_tgt. ss.
       exploit MemInv.add; try apply MEMORY; try apply MEM; eauto.
       { apply MemInv.sem_bot. }
@@ -356,7 +388,7 @@ Proof.
     + inv STATE.
       eexists _, _, _, _. splits; eauto.
       * econs 3; eauto. econs. admit. (* regs *)
-      * apply rclo5_step. apply ctx_nil. admit. (* regs *)
+      * apply rclo5_step. apply ctx_nil; auto. admit. (* regs *)
   - (* seq *)
     ii. ss.
     exploit GF; eauto. s. i. des.

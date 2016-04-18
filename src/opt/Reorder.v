@@ -4,15 +4,18 @@ Require Import List.
 
 Require Import sflib.
 Require Import paco.
+Require Import respectful5.
 
 Require Import Basic.
 Require Import Event.
 Require Import Language.
+Require Import Time.
 Require Import Memory.
 Require Import Thread.
 Require Import Configuration.
 Require Import Simulation.
 Require Import Compatibility.
+Require Import MemInv.
 
 Require Import Syntax.
 Require Import Semantics.
@@ -20,7 +23,6 @@ Require Import Semantics.
 Set Implicit Arguments.
 
 (* TODO: now supporting only the reordering of load and store *)
-(* TODO: now supporting only the reordering of single thread *)
 
 Inductive reorder: forall (i1 i2:Instr.t), Prop :=
 | reorder_load_store
@@ -33,19 +35,116 @@ Inductive reorder: forall (i1 i2:Instr.t), Prop :=
     reorder (Instr.load r1 l1 o1) (Instr.store l2 v2 o2)
 .
 
+Inductive sim_reorder_store (i1:Instr.t) (l2:Loc.t) (v2:Value.t) (o2:Ordering.t):
+  forall (th_src:Thread.t lang) (mem_k_src:Memory.t)
+    (th_tgt:Thread.t lang) (mem_k_tgt:Memory.t), Prop :=
+| sim_reorder_phase0
+    rs
+    commit_src commit_tgt
+    local
+    mem_k_src mem_k_tgt
+    (COMMIT: Commit.le commit_src commit_tgt):
+    sim_reorder_store
+      i1 l2 v2 o2
+      (Thread.mk lang (State.mk rs [Stmt.instr i1; Stmt.instr (Instr.store l2 v2 o2)]) commit_src local)
+      mem_k_src
+      (Thread.mk lang (State.mk rs [Stmt.instr (Instr.store l2 v2 o2); Stmt.instr i1]) commit_tgt local)
+      mem_k_tgt
+| sim_reorder_phase1
+    rs
+    commit_src commit_tgt
+    local_src local_tgt
+    mem_k_src mem_k_tgt
+    from to msg
+    (COMMIT1: Commit.le commit_src commit_tgt)
+    (COMMIT2: Snapshot.writable commit_src.(Commit.current) l2 to)
+    (LT: Time.lt from to)
+    (LOCAL: MemInv.sem (Memory.singleton l2 msg LT) local_src local_tgt):
+    sim_reorder_store
+      i1 l2 v2 o2
+      (Thread.mk lang (State.mk rs [Stmt.instr i1; Stmt.instr (Instr.store l2 v2 o2)]) commit_src local_src)
+      mem_k_src
+      (Thread.mk lang (State.mk rs [Stmt.instr i1]) commit_tgt local_tgt)
+      mem_k_tgt
+| sim_reorder_phase2
+    rs
+    commit_src commit_tgt
+    local
+    mem_k_src mem_k_tgt
+    (COMMIT: Commit.le commit_src commit_tgt):
+    sim_reorder_store
+      i1 l2 v2 o2
+      (Thread.mk lang (State.mk rs []) commit_src local)
+      mem_k_src
+      (Thread.mk lang (State.mk rs []) commit_tgt local)
+      mem_k_tgt
+.
+
+Lemma sim_reorder_store_sim_stmts
+      i1 l2 v2 o2
+      (REORDER: reorder i1 (Instr.store l2 v2 o2)):
+  sim_reorder_store i1 l2 v2 o2 <4=
+  paco5 ((@_sim_thread lang lang) <*> grespectful5 (@_sim_thread lang lang)) bot5 (sim_terminal eq).
+Proof.
+  ii. pfold. ii. ss. splits; ss.
+  - i. inv TERMINAL_TGT. inv PR; ss.
+    eexists _, _. splits; eauto. econs; ss.
+  - i. inv PR; ss.
+    + eexists. splits; try reflexivity; eauto.
+      etransitivity; eauto. apply Memory.splits_future. inv MEMORY. auto.
+    + memtac. inv FUTURE_SRC0. memtac.
+      exploit Memory.splits_join_inv; try apply SPLITS; eauto.
+      i. des. subst. clear SPLITS.
+      rewrite <- Memory.join_assoc in JOIN. symmetry in JOIN.
+      exploit Memory.join2_splits; try apply JOIN; memtac.
+      { splits; memtac.
+        symmetry. eapply Memory.splits_disjoint; [|eauto].
+        symmetry. eapply Memory.splits_disjoint; [|eauto].
+        auto.
+      }
+      i. des. subst. clear JOIN SPLITSA.
+      inv LOCAL. inv MEMORY. memtac.
+      rewrite <- Memory.join_assoc in SPLITS.
+      apply Memory.splits_join_inv2 in SPLITS; (repeat (splits; memtac)).
+      exists (Memory.join (Memory.join local_tgt ohs1) ohs2). splits.
+      * econs. rewrite Memory.join_assoc.
+        apply Memory.splits_join; memtac.
+        { rewrite <- Memory.join_assoc.
+          apply Memory.splits_join; memtac. rewrite SPLITS.
+          apply Memory.splits_join; memtac.
+        }
+        { splits; memtac.
+          symmetry. eapply Memory.splits_disjoint_inv; [|eauto].
+          memtac. splits; memtac.
+          symmetry. eapply Memory.splits_disjoint_inv; [|eauto].
+          memtac.
+        }
+      * rewrite <- Memory.join_assoc. econs; memtac.
+        splits; memtac.
+      * econs; try reflexivity. econs; memtac.
+        splits; memtac.
+        symmetry. eapply Memory.splits_disjoint_inv; [|eauto].
+        memtac. splits; memtac.
+        symmetry. eapply Memory.splits_disjoint_inv; [|eauto].
+        memtac.
+    + eexists. splits; try reflexivity; eauto.
+      etransitivity; eauto. apply Memory.splits_future. inv MEMORY. auto.
+  - i. inv PR; ss.
+    + eexists _, _. splits; eauto.
+    + admit. (* phase 1; bot *)
+    + eexists _, _. splits; eauto.
+  - i. admit. (* step *)
+Admitted.
+
 Lemma reorder_sim_stmts
-      (sim_regs:SIM_REGS)
-      i1 i2
-      (I1: forall reg (REG: RegSet.mem reg (Instr.regs_of i1))
-             rs_src rs_tgt (RS: sim_regs rs_src rs_tgt),
-          rs_src reg = rs_tgt reg)
-      (I2: forall reg (REG: RegSet.mem reg (Instr.regs_of i2))
-             rs_src rs_tgt (RS: sim_regs rs_src rs_tgt),
-          rs_src reg = rs_tgt reg)
-      (REORDER: reorder i1 i2):
-  sim_stmts sim_regs
+      i1 i2 (REORDER: reorder i1 i2):
+  sim_stmts eq
             [Stmt.instr i1; Stmt.instr i2]
             [Stmt.instr i2; Stmt.instr i1]
-            sim_regs.
+            eq.
 Proof.
-Admitted.
+  ii. destruct i2; try by inv REORDER.
+  - (* store *)
+    eapply sim_reorder_store_sim_stmts; eauto.
+    subst. econs 1. auto.
+Qed.
