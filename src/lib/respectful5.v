@@ -204,6 +204,14 @@ Section Respectful5.
     apply grespectful5_respectful5.
   Qed.
 
+  Lemma upto5_final:
+    paco5 gf <6= paco5 (gf <*> grespectful5).
+  Proof.
+    pcofix CIH. i. punfold PR. pfold.
+    eapply gf_mon; [|apply grespectful5_incl].
+    eapply gf_mon; eauto. right. des; auto.
+  Qed.
+
   Lemma upto5_step
         r clo (RES: weak_respectful5 clo):
     clo (paco5 (gf <*> grespectful5) r) <5= paco5 (gf <*> grespectful5) r.
@@ -216,4 +224,5 @@ Section Respectful5.
 End Respectful5.
 
 Ltac pupto5_init := apply upto5_init; eauto with paco.
+Ltac pupto5_final := apply upto5_final; eauto with paco.
 Ltac pupto5 H := eapply upto5_step; [|exact H|]; eauto with paco.

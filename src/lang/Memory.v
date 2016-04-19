@@ -61,6 +61,24 @@ Module Snapshot.
       (CoRW: Time.lt (Times.get loc history.(Snapshot.reads)) ts)
       (CoWW: Time.lt (Times.get loc history.(Snapshot.writes)) ts)
   .
+
+  Lemma readable_mon
+        history1 history2
+        (LE: le history1 history2):
+    readable history2 <2= readable history1.
+  Proof.
+    i. inv PR. inv LE. econs. rewrite <- CoWR. auto.
+  Qed.
+
+  Lemma writable_mon
+        history1 history2
+        (LE: le history1 history2):
+    writable history2 <2= writable history1.
+  Proof.
+    i. inv PR. inv LE. econs.
+    - eapply Time.le_lt_lt; eauto.
+    - eapply Time.le_lt_lt; eauto.
+  Qed.
 End Snapshot.
 
 Module Message.

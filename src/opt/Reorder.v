@@ -83,10 +83,9 @@ Inductive sim_reorder_store (i1:Instr.t) (l2:Loc.t) (v2:Value.t) (o2:Ordering.t)
 Lemma sim_reorder_store_sim_stmts
       i1 l2 v2 o2
       (REORDER: reorder i1 (Instr.store l2 v2 o2)):
-  sim_reorder_store i1 l2 v2 o2 <4=
-  paco5 ((@_sim_thread lang lang) <*> grespectful5 (@_sim_thread lang lang)) bot5 (sim_terminal eq).
+  sim_reorder_store i1 l2 v2 o2 <4= (sim_thread (sim_terminal eq)).
 Proof.
-  ii. pfold. ii. ss. splits; ss.
+  pcofix CIH. i. pfold. ii. ss. splits; ss.
   - i. inv TERMINAL_TGT. inv PR; ss.
     eexists _, _. splits; eauto. econs; ss.
   - i. inv PR; ss.
@@ -131,9 +130,45 @@ Proof.
       etransitivity; eauto. apply Memory.splits_future. inv MEMORY. auto.
   - i. inv PR; ss.
     + eexists _, _. splits; eauto.
-    + admit. (* phase 1; bot *)
+    + subst. inv LOCAL. clear LE_TGT DISJOINT.
+      rewrite Memory.join_comm, Memory.bot_join in LE_SRC.
+      rewrite Memory.join_comm, Memory.bot_join.
+      admit. (* phase 1; bot *)
     + eexists _, _. splits; eauto.
-  - i. admit. (* step *)
+  - i. inv PR; ss.
+    + (* phase 0 *)
+      inv STEP_TGT.
+      * admit. (* tgt i2 *)
+      * inv STEP. ss. destruct th3_tgt. ss. subst.
+        exploit MemInv.add; try apply MEM; eauto.
+        { rewrite <- Memory.bot_join at 1. econs. memtac. }
+        i. des. inv INV2. rewrite Memory.bot_join in *.
+        eexists _, _, _, _. splits; eauto.
+        { instantiate (1 := Thread.mk _ _ _ _). econs 2. econs; s; eauto. }
+        { right. apply CIH. econs 1. auto. }
+      * inv STATE. inv INSTR.
+    + (* phase 1 *)
+      inv STEP_TGT.
+      * admit. (* tgt i1 *)
+      * inv STEP. ss. destruct th3_tgt. ss. subst.
+        exploit MemInv.add; try apply MEM; eauto.
+        i. des. eexists _, _, _, _. splits; eauto.
+        { instantiate (1 := Thread.mk _ _ _ _). econs 2. econs; s; try reflexivity; eauto. }
+        { right. apply CIH. econs 2; eauto.
+          etransitivity; eauto.
+        }
+      * inv STATE. inv INSTR. inv REORDER.
+    + (* phase 2 *)
+      inv STEP_TGT.
+      * inv STEP; inv STATE.
+      * inv STEP. ss. destruct th3_tgt. ss. subst.
+        exploit MemInv.add; try apply MEM; eauto.
+        { rewrite <- Memory.bot_join at 1. econs. memtac. }
+        i. des. inv INV2. rewrite Memory.bot_join in *.
+        eexists _, _, _, _. splits; eauto.
+        { instantiate (1 := Thread.mk _ _ _ _). econs 2. econs; s; eauto. }
+        { right. apply CIH. econs 3. auto. }
+      * inv STATE.
 Admitted.
 
 Lemma reorder_sim_stmts

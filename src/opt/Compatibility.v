@@ -24,6 +24,132 @@ Set Implicit Arguments.
 
 Definition SIM_REGS := forall (rs_src rs_tgt:RegFile.t), Prop.
 
+Definition eq_except (regs:RegSet.t) (rs_src rs_tgt:RegFile.t): Prop :=
+  forall reg (REG: ~ RegSet.mem reg regs), rs_src reg = rs_tgt reg.
+
+Lemma eq_except_nil rs_src rs_tgt:
+  rs_src = rs_tgt <-> eq_except RegSet.empty rs_src rs_tgt.
+Proof.
+  econs; i; subst; auto.
+  - econs.
+  - extensionality reg. apply H. auto.
+Qed.
+
+Lemma eq_except_mon regs1 regs2
+      (SUB: RegSet.Subset regs1 regs2):
+  eq_except regs1 <2= eq_except regs2.
+Proof.
+  ii. specialize (PR reg). apply PR. contradict REG.
+  apply IdentSet.Facts.mem_iff. apply SUB.
+  apply IdentSet.Facts.mem_iff. auto.
+Qed.
+
+Lemma eq_except_value
+      rs_src rs_tgt regs v
+      (REGS: RegSet.Empty (RegSet.inter regs (Value.regs_of v)))
+      (RS: eq_except regs rs_src rs_tgt):
+  RegFile.eval_value rs_src v = RegFile.eval_value rs_tgt v.
+Proof.
+  destruct v; auto. ss. apply RS. ii.
+  eapply REGS. apply RegSet.inter_spec. splits.
+  - apply RegSet.Facts.mem_iff. eauto.
+  - apply RegSet.Facts.singleton_iff. auto.
+Qed.
+
+Lemma eq_except_value_list
+      rs_src rs_tgt regs vl
+      (REGS: RegSet.Empty (RegSet.inter regs (Value.regs_of_list vl)))
+      (RS: eq_except regs rs_src rs_tgt):
+  map (RegFile.eval_value rs_src) vl = map (RegFile.eval_value rs_tgt) vl.
+Proof.
+  revert REGS. induction vl; ss. i. f_equal.
+  - eapply eq_except_value; eauto.
+    ii. eapply REGS.
+    apply RegSet.inter_spec in H. des.
+    apply RegSet.inter_spec. splits; eauto.
+    destruct a; ss.
+    + apply RegSet.singleton_spec in H0. subst.
+      apply RegSet.add_spec. left. auto.
+    + inv H0.
+  - apply IHvl.
+    ii. eapply REGS.
+    apply RegSet.inter_spec in H. des.
+    apply RegSet.inter_spec. splits; eauto.
+    destruct a; ss.
+    apply RegSet.add_spec. right. auto.
+Qed.
+
+Lemma eq_except_expr
+      rs_src rs_tgt regs e
+      (REGS: RegSet.Empty (RegSet.inter regs (Instr.regs_of_expr e)))
+      (RS: eq_except regs rs_src rs_tgt):
+  RegFile.eval_expr rs_src e = RegFile.eval_expr rs_tgt e.
+Proof.
+  destruct e; ss.
+  - erewrite eq_except_value; eauto.
+  - erewrite eq_except_value; eauto.
+  - erewrite (eq_except_value op1); eauto.
+    + erewrite (eq_except_value op2); eauto.
+      ii. eapply REGS.
+      apply RegSet.inter_spec in H. des.
+      apply RegSet.inter_spec. splits; eauto.
+      apply RegSet.union_spec. right. auto.
+    + ii. eapply REGS.
+      apply RegSet.inter_spec in H. des.
+      apply RegSet.inter_spec. splits; eauto.
+      apply RegSet.union_spec. left. auto.
+Qed.
+
+Lemma eq_except_instr
+      rs1_src rs1_tgt rs2_tgt regs instr e
+      (TGT: RegFile.eval_instr rs1_tgt instr e rs2_tgt)
+      (REGS: RegSet.Empty (RegSet.inter regs (Instr.regs_of instr)))
+      (RS: eq_except regs rs1_src rs1_tgt):
+  exists rs2_src,
+    <<SRC: RegFile.eval_instr rs1_src instr e rs2_src>> /\
+    <<RS: eq_except regs rs2_src rs2_tgt>>.
+Proof.
+  inv TGT; ss.
+  - eexists. splits; [econs|].
+    ii. specialize (RS reg).
+    unfold RegFun.add, RegFun.find.
+    destruct (Reg.eq_dec reg lhs); auto.
+  - erewrite <- eq_except_value; eauto.
+    eexists. splits; [econs|].
+    ii. specialize (RS reg).
+    unfold RegFun.add, RegFun.find.
+    destruct (Reg.eq_dec reg lhs); auto.
+  - erewrite <- eq_except_value; eauto.
+    + eexists. splits; [econs|].
+      ii. specialize (RS reg).
+      unfold RegFun.add, RegFun.find.
+      destruct (Reg.eq_dec reg lhs); auto.
+    + ii. eapply REGS.
+      apply RegSet.inter_spec in H. des.
+      apply RegSet.inter_spec. splits; eauto.
+      apply RegSet.add_spec. right. auto.
+  - eexists. splits; [econs|].
+    ii. generalize (RS reg). i.
+    unfold RegFun.add, RegFun.find.
+    destruct (Reg.eq_dec reg lhs); auto.
+    subst. eapply eq_except_expr; eauto.
+    ii. eapply REGS.
+    apply RegSet.inter_spec in H0. des.
+    apply RegSet.inter_spec. splits; eauto.
+    apply RegSet.add_spec. right. auto.
+  - eexists. splits; [econs|]. auto.
+  - erewrite <- eq_except_value_list; eauto.
+    + eexists. splits; [econs|].
+      ii. specialize (RS reg).
+      unfold RegFun.add, RegFun.find.
+      destruct (Reg.eq_dec reg lhs); auto.
+    + ii. eapply REGS.
+      apply RegSet.inter_spec in H. des.
+      apply RegSet.inter_spec. splits; eauto.
+      apply RegSet.add_spec. right. auto.
+Qed.
+
+
 Inductive sim_terminal
           (sim_regs:SIM_REGS)
           (th_src th_tgt:Thread.t lang): Prop :=
@@ -232,19 +358,16 @@ Inductive ctx (sim_thread:SIM_THREAD lang lang): SIM_THREAD lang lang :=
         (Thread.mk lang (State.mk rs_src []) commit_src local) mem_k_src
         (Thread.mk lang (State.mk rs_tgt []) commit_tgt local) mem_k_tgt
 | ctx_instr
-    (sim_regs:SIM_REGS)
-    instr
-    (REGS: forall reg (REG: RegSet.mem reg (Instr.regs_of instr))
-             rs_src rs_tgt (RS: sim_regs rs_src rs_tgt),
-        rs_src reg = rs_tgt reg)
+    instr regs
     rs_src mem_k_src
     rs_tgt mem_k_tgt
     commit_src commit_tgt
     local
-    (RS: sim_regs rs_src rs_tgt)
+    (REGS: RegSet.Empty (RegSet.inter regs (Instr.regs_of instr)))
+    (RS: eq_except regs rs_src rs_tgt)
     (COMMIT: Commit.le commit_src commit_tgt):
     ctx sim_thread
-        (sim_terminal sim_regs)
+        (sim_terminal (eq_except regs))
         (Thread.mk lang (State.mk rs_src [Stmt.instr instr]) commit_src local) mem_k_src
         (Thread.mk lang (State.mk rs_tgt [Stmt.instr instr]) commit_tgt local) mem_k_tgt
 | ctx_seq
@@ -336,47 +459,36 @@ Proof.
     { ss. subst. eexists _, _. splits; eauto. }
     inv STEP_TGT; ss.
     + inv STEP; ss; inv STATE.
-      * generalize MESSAGE. intro X. apply MEMORY in X.
+      * exploit eq_except_instr; eauto. i. des.
+        generalize MESSAGE. intro X. apply MEMORY in X.
         eexists _, _, _, _. splits; eauto.
-        { econs 1. econs 1; eauto. econs.
-          - admit. (* regs *)
-          - s. admit. (* commit monotonicity *)
+        { econs 1. econs 1; eauto. econs; eauto.
+          s. eapply Commit.read_mon; eauto.
         }
-        { apply rclo5_step. apply ctx_nil.
-          - admit. (* regs *)
-          - reflexivity.
-        }
-      * eexists _, _, _, _. splits; eauto.
-        { econs 1. econs 2; eauto. econs.
-          - admit. (* regs *)
-          - s. admit. (* commit monotonicity *)
-        }
-        { apply rclo5_step. apply ctx_nil.
-          - admit. (* regs *)
-          - reflexivity.
-        }
-      * generalize MESSAGE. intro X. apply MEMORY in X.
+        { apply rclo5_step. apply ctx_nil; auto. reflexivity. }
+      * exploit eq_except_instr; eauto. i. des.
         eexists _, _, _, _. splits; eauto.
-        { econs 1. econs 3; eauto. econs.
-          - admit. (* regs *)
-          - s. admit. (* commit monotonicity *)
+        { econs 1. econs 2; eauto. econs; eauto.
+          s. eapply Commit.write_mon; eauto.
         }
-        { apply rclo5_step. apply ctx_nil.
-          - admit. (* regs *)
-          - reflexivity.
+        { apply rclo5_step. apply ctx_nil; auto. reflexivity. }
+      * exploit eq_except_instr; eauto. i. des.
+        generalize MESSAGE. intro X. apply MEMORY in X.
+        eexists _, _, _, _. splits; eauto.
+        { econs 1. econs 3; eauto. econs; eauto.
+          s. eapply Commit.read_mon; eauto.
         }
-      * eexists _, _, _, _. splits; eauto.
-        { econs 1. econs 4; eauto. econs.
-          - admit. (* regs *)
-          - s. admit. (* commit monotonicity *)
+        { apply rclo5_step. apply ctx_nil; auto. reflexivity. }
+      * exploit eq_except_instr; eauto. i. des.
+        eexists _, _, _, _. splits; eauto.
+        { econs 1. econs 4; eauto. econs; eauto.
+          s. eapply Commit.fence_mon; eauto.
         }
-        { apply rclo5_step. apply ctx_nil.
-          - admit. (* regs *)
-          - reflexivity.
-        }
-      * eexists _, _, _, _. splits; eauto.
-        { econs 1. econs 5; eauto. econs. admit. (* regs *) }
-        { apply rclo5_step. apply ctx_nil; auto. admit. (* regs *) }
+        { apply rclo5_step. apply ctx_nil; auto. reflexivity. }
+      * exploit eq_except_instr; eauto. i. des.
+        eexists _, _, _, _. splits; eauto.
+        { econs 1. econs 5; eauto. econs; eauto. }
+        { apply rclo5_step. apply ctx_nil; auto. }
     + inv STEP. ss. destruct th3_tgt. ss.
       exploit MemInv.add; try apply MEMORY; try apply MEM; eauto.
       { apply MemInv.sem_bot. }
@@ -386,9 +498,10 @@ Proof.
         econs 2. econs; s; eauto.
       * apply rclo5_step. apply ctx_instr; auto.
     + inv STATE.
+      exploit eq_except_instr; eauto. i. des.
       eexists _, _, _, _. splits; eauto.
-      * econs 3; eauto. econs. admit. (* regs *)
-      * apply rclo5_step. apply ctx_nil; auto. admit. (* regs *)
+      * econs 3; eauto. econs; eauto.
+      * apply rclo5_step. apply ctx_nil; auto.
   - (* seq *)
     ii. ss.
     exploit GF; eauto. s. i. des.
@@ -500,24 +613,35 @@ Proof.
         eapply _sim_stmts_mon; try apply rclo5_incl; eauto.
         eapply _sim_stmts_mon; try apply LE; eauto.
     + inv STATE.
-Admitted.
+Qed.
 
-Definition sim_stmts := @_sim_stmts (paco5 (@_sim_thread lang lang <*> grespectful5 (@_sim_thread lang lang)) bot5).
+Definition sim_stmts := @_sim_stmts (@sim_thread lang lang).
+
+Lemma sim_stmts_frame
+      sim_regs0 sim_regs1
+      sim_regs2 sim_regs3
+      stmts_src stmts_tgt
+      (SIM01: sim_regs0 <2= sim_regs1)
+      (SIM23: sim_regs2 <2= sim_regs3)
+      (SIM: sim_stmts sim_regs1 stmts_src stmts_tgt sim_regs2):
+  sim_stmts sim_regs0 stmts_src stmts_tgt sim_regs3.
+Proof.
+  ii. eapply sim_thread_mon; [|eauto].
+  i. inv PR. econs; eauto.
+Qed.
 
 Lemma sim_stmts_nil sim_regs:
   sim_stmts sim_regs [] [] sim_regs.
 Proof.
-  ii. pupto5 ctx_weak_respectful.
+  ii. pupto5_init. pupto5 ctx_weak_respectful.
 Qed.
 
 Lemma sim_stmts_instr
-      (sim_regs:SIM_REGS) instr
-      (REGS: forall reg (REG: RegSet.mem reg (Instr.regs_of instr))
-               rs_src rs_tgt (RS: sim_regs rs_src rs_tgt),
-          rs_src reg = rs_tgt reg):
-  sim_stmts sim_regs [Stmt.instr instr] [Stmt.instr instr] sim_regs.
+      instr regs
+      (REGS: RegSet.Empty (RegSet.inter regs (Instr.regs_of instr))):
+  sim_stmts (eq_except regs) [Stmt.instr instr] [Stmt.instr instr] (eq_except regs).
 Proof.
-  ii. pupto5 ctx_weak_respectful.
+  ii. pupto5_init. pupto5 ctx_weak_respectful.
 Qed.
 
 Lemma sim_stmts_seq
@@ -528,7 +652,10 @@ Lemma sim_stmts_seq
       (SIM2: sim_stmts sim_regs1 stmts2_src stmts2_tgt sim_regs2):
   sim_stmts sim_regs0 (stmts1_src ++ stmts2_src) (stmts1_tgt ++ stmts2_tgt) sim_regs2.
 Proof.
-  ii. pupto5 ctx_weak_respectful.
+  ii. pupto5_init. pupto5 ctx_weak_respectful.
+  econs 4.
+  - pupto5_final. apply SIM1; auto.
+  - ii. pupto5_final. apply SIM2; auto.
 Qed.
 
 Lemma sim_stmts_ite
@@ -540,7 +667,10 @@ Lemma sim_stmts_ite
       (SIM2: sim_stmts sim_regs0 stmts2_src stmts2_tgt sim_regs1):
   sim_stmts sim_regs0 [Stmt.ite cond_src stmts1_src stmts2_src] [Stmt.ite cond_tgt stmts1_tgt stmts2_tgt] sim_regs1.
 Proof.
-  ii. pupto5 ctx_weak_respectful.
+  ii. pupto5_init. pupto5 ctx_weak_respectful.
+  econs 5; eauto.
+  - ii. pupto5_final. apply SIM1; auto.
+  - ii. pupto5_final. apply SIM2; auto.
 Qed.
 
 Lemma sim_stmts_dowhile
@@ -551,5 +681,6 @@ Lemma sim_stmts_dowhile
       (SIM: sim_stmts sim_regs stmts_src stmts_tgt sim_regs):
   sim_stmts sim_regs [Stmt.dowhile stmts_src cond_src] [Stmt.dowhile stmts_tgt cond_tgt] sim_regs.
 Proof.
-  ii. pupto5 ctx_weak_respectful.
+  ii. pupto5_init. pupto5 ctx_weak_respectful.
+  econs 6; eauto. ii. pupto5_final. apply SIM; auto.
 Qed.

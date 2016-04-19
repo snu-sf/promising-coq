@@ -40,39 +40,69 @@ Module Commit.
   Qed.
 
   Inductive read
-            (tc1:t) (loc:Loc.t) (ts:Time.t) (released:Snapshot.t) (ord:Ordering.t)
-            (tc2:t): Prop :=
+            (commit1:t) (loc:Loc.t) (ts:Time.t) (released:Snapshot.t) (ord:Ordering.t)
+            (commit2:t): Prop :=
   | read_intro
-      (MONOTONE: le tc1 tc2)
-      (READABLE: Snapshot.readable tc1.(current) loc ts)
-      (READ: Time.le ts (Times.get loc tc2.(current).(Snapshot.reads)))
+      (MONOTONE: le commit1 commit2)
+      (READABLE: Snapshot.readable commit1.(current) loc ts)
+      (READ: Time.le ts (Times.get loc commit2.(current).(Snapshot.reads)))
       (ACQUIRE: forall (ORDERING: Ordering.le Ordering.acquire ord),
-          Snapshot.le released tc2.(current))
-      (ACQUIRABLE: Snapshot.le released tc2.(acquirable))
+          Snapshot.le released commit2.(current))
+      (ACQUIRABLE: Snapshot.le released commit2.(acquirable))
   .
 
   Inductive write
-            (tc1:t) (loc:Loc.t) (ts:Time.t) (released:Snapshot.t) (ord:Ordering.t)
-            (tc2:t): Prop :=
+            (commit1:t) (loc:Loc.t) (ts:Time.t) (released:Snapshot.t) (ord:Ordering.t)
+            (commit2:t): Prop :=
   | write_intro
-      (MONOTONE: le tc1 tc2)
-      (WRITABLE: Snapshot.writable tc1.(current) loc ts)
-      (WRITE: Time.le ts (Times.get loc tc2.(current).(Snapshot.writes)))
+      (MONOTONE: le commit1 commit2)
+      (WRITABLE: Snapshot.writable commit1.(current) loc ts)
+      (WRITE: Time.le ts (Times.get loc commit2.(current).(Snapshot.writes)))
       (RELEASE: forall (ORDERING: Ordering.le Ordering.release ord),
-          Snapshot.le tc2.(current) (LocFun.find loc tc2.(Commit.released)))
-      (RELEASED: Snapshot.le (LocFun.find loc tc2.(Commit.released)) released)
+          Snapshot.le commit2.(current) (LocFun.find loc commit2.(Commit.released)))
+      (RELEASED: Snapshot.le (LocFun.find loc commit2.(Commit.released)) released)
   .
 
   Inductive fence
-            (tc1:t) (ord:Ordering.t)
-            (tc2:t): Prop :=
+            (commit1:t) (ord:Ordering.t)
+            (commit2:t): Prop :=
   | fence_intro
-      (MONOTONE: le tc1 tc2)
+      (MONOTONE: le commit1 commit2)
       (ACQUIRE: forall (ORDERING: Ordering.le Ordering.acquire ord),
-          Snapshot.le tc2.(acquirable) tc2.(current))
+          Snapshot.le commit2.(acquirable) commit2.(current))
       (RELEASE: forall (ORDERING: Ordering.le Ordering.release ord) loc,
-          Snapshot.le tc2.(current) (LocFun.find loc tc2.(released)))
+          Snapshot.le commit2.(current) (LocFun.find loc commit2.(released)))
   .
+
+  Lemma read_mon
+        commit1 commit2
+        (LE: le commit1 commit2):
+    read commit2 <5= read commit1.
+  Proof.
+    i. inv PR. econs; auto.
+    - etransitivity; eauto.
+    - eapply Snapshot.readable_mon; eauto.
+      apply LE.
+  Qed.
+
+  Lemma write_mon
+        commit1 commit2
+        (LE: le commit1 commit2):
+    write commit2 <5= write commit1.
+  Proof.
+    i. inv PR. econs; auto.
+    - etransitivity; eauto.
+    - eapply Snapshot.writable_mon; eauto.
+      apply LE.
+  Qed.
+
+  Lemma fence_mon
+        commit1 commit2
+        (LE: le commit1 commit2):
+    fence commit2 <2= fence commit1.
+  Proof.
+    i. inv PR. econs; auto. etransitivity; eauto.
+  Qed.
 End Commit.
 
 Module Thread.

@@ -85,6 +85,20 @@ Section SimulationThread.
   Hint Resolve _sim_thread_mon: paco.
 
   Definition sim_thread: SIM_THREAD := paco5 _sim_thread bot5.
+
+  Lemma sim_thread_mon
+        sim_terminal1 sim_terminal2
+        (SIM: sim_terminal1 <2= sim_terminal2):
+    sim_thread sim_terminal1 <4= sim_thread sim_terminal2.
+  Proof.
+    pcofix CIH. i. punfold PR. pfold. ii.
+    exploit PR; eauto. i. des.
+    splits; auto.
+    - i. exploit TERMINAL; eauto. i. des.
+      eexists _, _. splits; eauto.
+    - i. exploit STEP; eauto. i. des; [|done].
+      eexists _, _, _, _. splits; eauto.
+  Qed.
 End SimulationThread.
 Hint Resolve _sim_thread_mon: paco.
 
