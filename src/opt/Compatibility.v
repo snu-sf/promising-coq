@@ -111,6 +111,17 @@ Lemma eq_except_instr
 Proof.
   inv TGT; ss.
   - eexists. splits; [econs|].
+    ii. apply RS. auto.
+  - eexists. splits; [econs|].
+    ii. generalize (RS reg). i.
+    unfold RegFun.add, RegFun.find.
+    destruct (Reg.eq_dec reg lhs); auto.
+    subst. eapply eq_except_expr; eauto.
+    ii. eapply REGS.
+    apply RegSet.inter_spec in H0. des.
+    apply RegSet.inter_spec. splits; eauto.
+    apply RegSet.add_spec. right. auto.
+  - eexists. splits; [econs|].
     ii. specialize (RS reg).
     unfold RegFun.add, RegFun.find.
     destruct (Reg.eq_dec reg lhs); auto.
@@ -128,15 +139,6 @@ Proof.
       apply RegSet.inter_spec in H. des.
       apply RegSet.inter_spec. splits; eauto.
       apply RegSet.add_spec. right. auto.
-  - eexists. splits; [econs|].
-    ii. generalize (RS reg). i.
-    unfold RegFun.add, RegFun.find.
-    destruct (Reg.eq_dec reg lhs); auto.
-    subst. eapply eq_except_expr; eauto.
-    ii. eapply REGS.
-    apply RegSet.inter_spec in H0. des.
-    apply RegSet.inter_spec. splits; eauto.
-    apply RegSet.add_spec. right. auto.
   - eexists. splits; [econs|]. auto.
   - erewrite <- eq_except_value_list; eauto.
     + eexists. splits; [econs|].

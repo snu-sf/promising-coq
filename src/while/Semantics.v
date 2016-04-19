@@ -26,6 +26,20 @@ Module RegFile.
     end.
 
   Inductive eval_instr: forall (rf1:t) (i:Instr.t) (e:option ThreadEvent.t) (rf2:t), Prop :=
+  | eval_nop
+      rf:
+      eval_instr
+        rf
+        Instr.nop
+        None
+        rf
+  | eval_assign
+      rf lhs rhs:
+      eval_instr
+        rf
+        (Instr.assign lhs rhs)
+        None
+        (RegFun.add lhs (eval_expr rf rhs) rf)
   | eval_load
       rf lhs rhs ord val:
       eval_instr
@@ -47,13 +61,6 @@ Module RegFile.
         (Instr.fetch_add lhs loc addendum ord)
         (Some (ThreadEvent.mem (MemEvent.update loc val (Const.add val (eval_value rf addendum)) ord)))
         (RegFun.add lhs val rf)
-  | eval_assign
-      rf lhs rhs:
-      eval_instr
-        rf
-        (Instr.assign lhs rhs)
-        None
-        (RegFun.add lhs (eval_expr rf rhs) rf)
   | eval_fence
       rf ord:
       eval_instr

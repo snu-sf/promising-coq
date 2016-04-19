@@ -46,7 +46,7 @@ Inductive sim_reorder_store (i1:Instr.t) (l2:Loc.t) (v2:Value.t) (o2:Ordering.t)
     (COMMIT: Commit.le commit_src commit_tgt):
     sim_reorder_store
       i1 l2 v2 o2
-      (Thread.mk lang (State.mk rs [Stmt.instr i1; Stmt.instr (Instr.store l2 v2 o2)]) commit_src local)
+      (Thread.mk lang (State.mk rs [Stmt.instr Instr.nop; Stmt.instr i1; Stmt.instr (Instr.store l2 v2 o2)]) commit_src local)
       mem_k_src
       (Thread.mk lang (State.mk rs [Stmt.instr (Instr.store l2 v2 o2); Stmt.instr i1]) commit_tgt local)
       mem_k_tgt
@@ -138,7 +138,14 @@ Proof.
   - i. inv PR; ss.
     + (* phase 0 *)
       inv STEP_TGT.
-      * admit. (* tgt i2 *)
+      * inv STEP; ss; inv STATE; inv INSTR.
+        inv REMOVE. memtac.
+        eexists _, _, _, _. splits; eauto.
+        { econs 1. econs 5; eauto. econs. econs. }
+        { right. apply CIH. inv WRITE. econs 2; ss.
+          eapply Snapshot.writable_mon; eauto.
+          reflexivity.
+        }
       * inv STEP. ss. destruct th3_tgt. ss. subst.
         exploit MemInv.add; try apply MEM; eauto.
         { rewrite <- Memory.bot_join at 1. econs. memtac. }
@@ -174,7 +181,7 @@ Admitted.
 Lemma reorder_sim_stmts
       i1 i2 (REORDER: reorder i1 i2):
   sim_stmts eq
-            [Stmt.instr i1; Stmt.instr i2]
+            [Stmt.instr Instr.nop; Stmt.instr i1; Stmt.instr i2]
             [Stmt.instr i2; Stmt.instr i1]
             eq.
 Proof.
