@@ -114,7 +114,7 @@ Module Thread.
     Structure t := mk {
       state: lang.(Language.state);
       commit: Commit.t;
-      local: Memory.t;
+      promise: Memory.t;
     }.
 
     Definition init (s:syntax) :=
@@ -125,64 +125,60 @@ Module Thread.
     Inductive is_terminal (th:t): Prop :=
     | is_terminal_intro
         (STATE: lang.(Language.is_terminal) th.(state))
-        (LOCAL: th.(local) = Memory.bot)
+        (PROMISE: th.(promise) = Memory.bot)
     .
 
-    Inductive memory_step (th1:t) (mem1:Memory.t): forall (th2:t), Prop :=
+    Inductive internal_step (th1:t) (mem1:Memory.t): forall (th2:t) (mem2:Memory.t), Prop :=
     | step_read
         loc val ts released ord st2 commit2
         (STATE: lang.(Language.step) th1.(state) (Some (ThreadEvent.mem (MemEvent.read loc val ord))) st2)
         (READ: Commit.read th1.(commit) loc ts released ord commit2)
         (MESSAGE: Memory.get loc ts mem1 = Some (Message.mk val released))
-        (LOCAL: Memory.get loc ts th1.(local) = None):
-        memory_step th1 mem1
-                    (mk st2 commit2 th1.(local))
+        (PROMISE: Memory.get loc ts th1.(promise) = None):
+        internal_step th1 mem1
+                      (mk st2 commit2 th1.(promise)) mem1
     | step_write
-        loc val from ts released ord st2 commit2 local2
+        loc val from ts released ord st2 commit2 promise2 mem2
         (STATE: lang.(Language.step) th1.(state) (Some (ThreadEvent.mem (MemEvent.write loc val ord))) st2)
         (WRITE: Commit.write th1.(commit) loc ts released ord commit2)
-        (REMOVE: Memory.remove loc from ts (Message.mk val released) th1.(local) local2):
-        memory_step th1 mem1
-                    (mk st2 commit2 local2)
+        (MEMORY: Memory.write th1.(promise) mem1 loc from ts (Message.mk val released) ord promise2 mem2):
+        internal_step th1 mem1
+                      (mk st2 commit2 promise2) mem2
     | step_update
-        loc valr tsr releasedr valw tsw releasedw ord st3 commit2 commit3 local3
+        loc valr tsr releasedr valw tsw releasedw ord st3 commit2 commit3 promise3 mem3
         (STATE: lang.(Language.step) th1.(state) (Some (ThreadEvent.mem (MemEvent.update loc valr valw ord))) st3)
         (READ: Commit.read th1.(commit) loc tsr releasedr ord commit2)
         (WRITE: Commit.write commit2 loc tsw releasedw ord commit3)
         (RELEASE: Snapshot.le releasedr releasedw)
         (MESSAGE: Memory.get loc tsr mem1 = Some (Message.mk valr releasedr))
-        (REMOVE: Memory.remove loc tsr tsw (Message.mk valw releasedw) th1.(local) local3):
-        memory_step th1 mem1
-                    (mk st3 commit3 local3)
+        (MEMORY: Memory.write th1.(promise) mem1 loc tsr tsw (Message.mk valw releasedw) ord promise3 mem3):
+        internal_step th1 mem1
+                      (mk st3 commit3 promise3) mem3
     | step_fence
         ord st2 commit2
         (STATE: lang.(Language.step) th1.(state) (Some (ThreadEvent.mem (MemEvent.fence ord))) st2)
-        (FENCE: Commit.fence th1.(commit) ord commit2):
-        memory_step th1 mem1
-                    (mk st2 commit2 th1.(local))
-    | step_None
+        (COMMIT: Commit.fence th1.(commit) ord commit2)
+        (MEMORY: Memory.fence th1.(promise) ord):
+        internal_step th1 mem1
+                      (mk st2 commit2 th1.(promise)) mem1
+    | step_tau
         st2 commit2
         (STATE: lang.(Language.step) th1.(state) None st2)
         (COMMIT: Commit.le th1.(commit) commit2):
-        memory_step th1 mem1
-                    (mk st2 commit2 th1.(local))
-    .
-
-    Inductive add_step (th1:t) (mem1:Memory.t) (th2:t) (mem2:Memory.t): Prop :=
-    | step_add_intro
-        (STATE: th1.(state) = th2.(state))
-        (COMMIT: Commit.le th1.(commit) th2.(commit))
-        (MEM: Memory.add th1.(local) mem1 th2.(local) mem2)
+        internal_step th1 mem1
+                      (mk st2 commit2 th1.(promise)) mem1
+    | step_promise
+        loc from ts msg commit2 promise2 mem2
+        (COMMIT: Commit.le th1.(commit) commit2)
+        (MEMORY: Memory.promise th1.(promise) mem1 loc from ts msg promise2 mem2):
+        internal_step th1 mem1
+                      (mk th1.(state) commit2 promise2) mem2
     .
 
     Inductive step: forall (e:option Event.t) (th1:t) (mem1:Memory.t) (th2:t) (mem2:Memory.t), Prop :=
-    | step_memory
-        th1 th2 mem
-        (STEP: memory_step th1 mem th2):
-        step None th1 mem th2 mem
-    | step_add
-        th1 mem1 th2 mem2
-        (STEP: add_step th1 mem1 th2 mem2):
+    | step_internal
+        th1 th2 mem1 mem2
+        (STEP: internal_step th1 mem1 th2 mem2):
         step None th1 mem1 th2 mem2
     | step_external
         st1 st2 commit1 commit2 mem e
@@ -193,115 +189,123 @@ Module Thread.
              (mk st2 commit2 Memory.bot) mem
     .
 
-    Inductive internal_step (c1 c2:t * Memory.t): Prop :=
-    | internal_step_intro
-        (STEP: step None c1.(fst) c1.(snd) c2.(fst) c2.(snd))
+    Inductive _internal_step (c1 c2:t * Memory.t): Prop :=
+    | _internal_step_intro
+        (STEP: internal_step c1.(fst) c1.(snd) c2.(fst) c2.(snd))
     .
 
     Definition consistent (th1:t) (mem:Memory.t): Prop :=
       forall mem1
-        (LOCAL: Memory.le th1.(local) mem1)
+        (PROMISE: Memory.le th1.(promise) mem1)
         (FUTURE: Memory.future mem mem1),
       exists th2 mem2,
-        <<STEPS: rtc internal_step (th1, mem1) (th2, mem2)>> /\
-        <<LOCAL: th2.(local) = Memory.bot>>.
+        <<STEPS: rtc _internal_step (th1, mem1) (th2, mem2)>> /\
+        <<PROMISE: th2.(promise) = Memory.bot>>.
 
-    Lemma disjoint_memory_step
-          th1 mem1 th2 mem_o
-          (STEP: memory_step th1 mem1 th2)
-          (DISJOINT: Memory.disjoint th1.(local) mem_o)
-          (LE: Memory.le mem_o mem1):
-      Memory.disjoint th2.(local) mem_o.
+    Lemma internal_step_future
+          th1 mem1 th2 mem2
+          (STEP: internal_step th1 mem1 th2 mem2)
+          (LE1: Memory.le th1.(promise) mem1):
+      <<LE2: Memory.le th2.(promise) mem2>> /\
+      <<FUTURE: Memory.future mem1 mem2>>.
     Proof.
-      memtac. inv STEP; memtac.
-      - rewrite JOIN in *. memtac.
-      - rewrite JOIN in *. memtac.
+      inv STEP; try by (splits; ss; reflexivity).
+      - eapply Memory.write_future; try apply MEMORY; eauto.
+      - eapply Memory.write_future; try apply MEMORY; eauto.
+      - eapply Memory.promise_future; try apply MEMORY; eauto.
     Qed.
 
-    Lemma disjoint_step
-          th1 mem1 th2 mem2 e mem_o
+    Lemma internal_step_disjoint
+          th1 mem1 th2 mem2 mem_o
+          (STEP: internal_step th1 mem1 th2 mem2)
+          (DISJOINT1: Memory.disjoint th1.(promise) mem_o)
+          (LE1: Memory.le th1.(promise) mem1)
+          (LE2: Memory.le mem_o mem1):
+      <<DISJOINT2: Memory.disjoint th2.(promise) mem_o>> /\
+      <<LE2: Memory.le mem_o mem2>>.
+    Proof.
+      inv STEP; ss.
+      - eapply Memory.write_disjoint; try apply MEMORY; eauto.
+      - eapply Memory.write_disjoint; try apply MEMORY; eauto.
+      - eapply Memory.promise_disjoint; try apply MEMORY; eauto.
+    Qed.
+
+    Lemma step_future
+          e th1 mem1 th2 mem2
           (STEP: step e th1 mem1 th2 mem2)
-          (DISJOINT: Memory.disjoint th1.(local) mem_o)
-          (LE: Memory.le mem_o mem1):
-      <<DISJOINT: Memory.disjoint th2.(local) mem_o>> /\
-      <<LE: Memory.le mem_o mem2>>.
+          (LE1: Memory.le th1.(promise) mem1):
+      <<LE2: Memory.le th2.(promise) mem2>> /\
+      <<FUTURE: Memory.future mem1 mem2>>.
     Proof.
       inv STEP.
-      - splits; auto.
-        eapply disjoint_memory_step; eauto.
-      - inv STEP0. eapply memory_add_disjoint; eauto. 
-      - ss.
+      - eapply internal_step_future; eauto.
+      - ss. splits; auto. reflexivity.
     Qed.
 
-    Lemma disjoint_internal_step
-          th1 mem1 th2 mem2 mem_o
-          (STEP: Thread.internal_step (th1, mem1) (th2, mem2))
-          (DISJOINT: Memory.disjoint th1.(local) mem_o)
-          (LE: Memory.le mem_o mem1):
-      <<DISJOINT: Memory.disjoint th2.(local) mem_o>> /\
-      <<LE: Memory.le mem_o mem2>>.
-    Proof.
-      inv STEP. eapply disjoint_step; eauto.
-    Qed.
-
-    Lemma disjoint_rtc_internal_step
-          thm1 thm2 mem_o
-          (STEPS: rtc Thread.internal_step thm1 thm2)
-          (DISJOINT: Memory.disjoint thm1.(fst).(local) mem_o)
-          (LE: Memory.le mem_o thm1.(snd)):
-      <<DISJOINT: Memory.disjoint thm2.(fst).(local) mem_o>> /\
-      <<LE: Memory.le mem_o thm2.(snd)>>.
-    Proof.
-      revert DISJOINT LE. induction STEPS; auto. i.
-      destruct x, y. exploit disjoint_internal_step; eauto. i. des.
-      apply IHSTEPS; auto.
-    Qed.
-
-    Lemma future_step
-          th1 mem1 th2 mem2 e
+    Lemma step_disjoint
+          e th1 mem1 th2 mem2 mem_o
           (STEP: step e th1 mem1 th2 mem2)
-          (LE: Memory.le th1.(local) mem1):
-      <<FUTURE: Memory.future mem1 mem2>> /\
-      <<LOCAL: Memory.le th2.(local) mem2>>.
+          (DISJOINT1: Memory.disjoint th1.(promise) mem_o)
+          (LE1: Memory.le th1.(promise) mem1)
+          (LE2: Memory.le mem_o mem1):
+      <<DISJOINT2: Memory.disjoint th2.(promise) mem_o>> /\
+      <<LE2: Memory.le mem_o mem2>>.
     Proof.
-      inv STEP; memtac.
-      - splits; [reflexivity|].
-        inv STEP0; s; try apply Memory.le_join_l; memtac.
-        + rewrite JOIN in *. memtac.
-          rewrite <- Memory.join_assoc. econs; eauto.
-          memtac. splits; memtac. 
-        + rewrite JOIN in *. memtac.
-          rewrite <- Memory.join_assoc. econs; eauto.
-          memtac. splits; memtac. 
-      - inv STEP0. eapply memory_add_future; eauto.
-        econs; eauto.
-      - rewrite (Memory.join_comm Memory.bot _), Memory.bot_join.
-        splits; [reflexivity|].
-        econs; eauto. rewrite (Memory.join_comm Memory.bot _), Memory.bot_join. auto.
+      inv STEP; ss.
+      eapply internal_step_disjoint; eauto.
     Qed.
 
-    Lemma future_internal_step
-          th1 mem1 th2 mem2
-          (STEP: Thread.internal_step (th1, mem1) (th2, mem2))
-          (LE: Memory.le th1.(local) mem1):
-        <<FUTURE: Memory.future mem1 mem2>> /\
-        <<LOCAL: Memory.le th2.(local) mem2>>.
-    Proof.
-      inv STEP. eapply future_step; eauto.
-    Qed.
-
-    Lemma future_rtc_internal_step
+    Lemma _internal_step_future
           thm1 thm2
-          (STEPS: rtc Thread.internal_step thm1 thm2)
-          (LE: Memory.le thm1.(fst).(local) thm1.(snd)):
-        <<FUTURE: Memory.future thm1.(snd) thm2.(snd)>> /\
-        <<LOCAL: Memory.le thm2.(fst).(local) thm2.(snd)>>.
+          (STEP: _internal_step thm1 thm2)
+          (LE1: Memory.le thm1.(fst).(promise) thm1.(snd)):
+      <<LE2: Memory.le thm2.(fst).(promise) thm2.(snd)>> /\
+      <<FUTURE: Memory.future thm1.(snd) thm2.(snd)>>.
     Proof.
-      induction STEPS.
-      { splits; auto. reflexivity. }
-      destruct x, y, z. apply future_internal_step in H; auto. des.
-      exploit IHSTEPS; eauto. ss. i. des.
-      splits; auto. etransitivity; eauto.
+      destruct thm1, thm2. ss. inv STEP.
+      eapply internal_step_future; eauto.
+    Qed.
+
+    Lemma _internal_step_disjoint
+          thm1 thm2 mem_o
+          (STEP: _internal_step thm1 thm2)
+          (DISJOINT1: Memory.disjoint thm1.(fst).(promise) mem_o)
+          (LE1: Memory.le thm1.(fst).(promise) thm1.(snd))
+          (LE2: Memory.le mem_o thm1.(snd)):
+      <<DISJOINT2: Memory.disjoint thm2.(fst).(promise) mem_o>> /\
+      <<LE2: Memory.le mem_o thm2.(snd)>>.
+    Proof.
+      destruct thm1, thm2. ss. inv STEP.
+      eapply internal_step_disjoint; eauto.
+    Qed.
+
+    Lemma rtc_internal_step_future
+          thm1 thm2
+          (STEP: rtc _internal_step thm1 thm2)
+          (LE1: Memory.le thm1.(fst).(promise) thm1.(snd)):
+      <<LE2: Memory.le thm2.(fst).(promise) thm2.(snd)>> /\
+      <<FUTURE: Memory.future thm1.(snd) thm2.(snd)>>.
+    Proof.
+      revert LE1. induction STEP; s; i.
+      - splits; auto. reflexivity.
+      - exploit _internal_step_future; eauto. i. des.
+        exploit IHSTEP; eauto. i. des.
+        splits; auto. etransitivity; eauto.
+    Qed.
+
+    Lemma rtc_internal_step_disjoint
+          thm1 thm2 mem_o
+          (STEP: rtc _internal_step thm1 thm2)
+          (DISJOINT1: Memory.disjoint thm1.(fst).(promise) mem_o)
+          (LE1: Memory.le thm1.(fst).(promise) thm1.(snd))
+          (LE2: Memory.le mem_o thm1.(snd)):
+      <<DISJOINT2: Memory.disjoint thm2.(fst).(promise) mem_o>> /\
+      <<LE2: Memory.le mem_o thm2.(snd)>>.
+    Proof.
+      revert LE1 LE2 DISJOINT1. induction STEP; ss; i.
+      exploit _internal_step_future; eauto. i. des.
+      exploit _internal_step_disjoint; eauto. i. des.
+      exploit IHSTEP; eauto.
     Qed.
   End Thread.
 End Thread.

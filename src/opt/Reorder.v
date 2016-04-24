@@ -39,42 +39,42 @@ Inductive sim_reorder_store (i1:Instr.t) (l2:Loc.t) (v2:Value.t) (o2:Ordering.t)
 | sim_reorder_phase0
     rs
     commit_src commit_tgt
-    local
+    promise
     mem_k_src mem_k_tgt
     (COMMIT: Commit.le commit_src commit_tgt):
     sim_reorder_store
       i1 l2 v2 o2
-      (Thread.mk lang (State.mk rs [Stmt.instr Instr.nop; Stmt.instr i1; Stmt.instr (Instr.store l2 v2 o2)]) commit_src local)
+      (Thread.mk lang (State.mk rs [Stmt.instr Instr.nop; Stmt.instr i1; Stmt.instr (Instr.store l2 v2 o2)]) commit_src promise)
       mem_k_src
-      (Thread.mk lang (State.mk rs [Stmt.instr (Instr.store l2 v2 o2); Stmt.instr i1]) commit_tgt local)
+      (Thread.mk lang (State.mk rs [Stmt.instr (Instr.store l2 v2 o2); Stmt.instr i1]) commit_tgt promise)
       mem_k_tgt
 | sim_reorder_phase1
     rs
     commit_src commit_tgt
-    local_src local_tgt
+    promise_src promise_tgt
     mem_k_src mem_k_tgt
     from to released
     (COMMIT1: Commit.le commit_src commit_tgt)
     (COMMIT2: Snapshot.writable commit_src.(Commit.current) l2 to)
     (LT: Time.lt from to)
-    (LOCAL: MemInv.sem (Memory.singleton l2 (Message.mk (RegFile.eval_value rs v2) released) LT) local_src local_tgt):
+    (PROMISE: MemInv.sem (Memory.singleton l2 (Message.mk (RegFile.eval_value rs v2) released) LT) promise_src promise_tgt):
     sim_reorder_store
       i1 l2 v2 o2
-      (Thread.mk lang (State.mk rs [Stmt.instr i1; Stmt.instr (Instr.store l2 v2 o2)]) commit_src local_src)
+      (Thread.mk lang (State.mk rs [Stmt.instr i1; Stmt.instr (Instr.store l2 v2 o2)]) commit_src promise_src)
       mem_k_src
-      (Thread.mk lang (State.mk rs [Stmt.instr i1]) commit_tgt local_tgt)
+      (Thread.mk lang (State.mk rs [Stmt.instr i1]) commit_tgt promise_tgt)
       mem_k_tgt
 | sim_reorder_phase2
     rs
     commit_src commit_tgt
-    local
+    promise
     mem_k_src mem_k_tgt
     (COMMIT: Commit.le commit_src commit_tgt):
     sim_reorder_store
       i1 l2 v2 o2
-      (Thread.mk lang (State.mk rs []) commit_src local)
+      (Thread.mk lang (State.mk rs []) commit_src promise)
       mem_k_src
-      (Thread.mk lang (State.mk rs []) commit_tgt local)
+      (Thread.mk lang (State.mk rs []) commit_tgt promise)
       mem_k_tgt
 .
 
@@ -96,14 +96,14 @@ Proof.
     + econs; s; try reflexivity.
       ii. unfold LocFun.add, LocFun.find.
       destruct (Reg.eq_dec loc0 loc); try reflexivity.
-      subst. apply Time.max_lhs.
+      subst. apply Time.max_l.
     + inv LE. rewrite ACQUIRABLE0.
       inv MONOTONE. auto.
   - inv READABLE. econs. rewrite <- CoWR.
     inv LE. apply CURRENT.
   - unfold Times.get, LocFun.add, LocFun.find.
     destruct (Reg.eq_dec loc loc); [|congruence].
-    apply Time.max_rhs.
+    apply Time.max_r.
 Qed.
 (* TODO *)
 
@@ -119,7 +119,7 @@ Proof.
     + eexists. splits; try reflexivity; eauto.
       etransitivity; eauto. apply Memory.splits_future. inv MEMORY. auto.
     + memtac. inv FUTURE_SRC0. memtac.
-      exploit Memory.splits_join_inv; try apply SPLITS; eauto.
+      exploit Memory.splits_join_inv1; try apply SPLITS; eauto.
       i. des. subst. clear SPLITS.
       rewrite <- Memory.join_assoc in JOIN. symmetry in JOIN.
       exploit Memory.join2_splits; try apply JOIN; memtac.
@@ -129,10 +129,10 @@ Proof.
         auto.
       }
       i. des. subst. clear JOIN SPLITSA.
-      inv LOCAL. inv MEMORY. memtac.
+      inv PROMISE. inv MEMORY. memtac.
       rewrite <- Memory.join_assoc in SPLITS.
       apply Memory.splits_join_inv2 in SPLITS; (repeat (splits; memtac)).
-      exists (Memory.join (Memory.join local_tgt ohs1) ohs2). splits.
+      exists (Memory.join (Memory.join promise_tgt ohs1) ohs2). splits.
       * econs. rewrite Memory.join_assoc.
         apply Memory.splits_join; memtac.
         { rewrite <- Memory.join_assoc.
@@ -157,7 +157,7 @@ Proof.
       etransitivity; eauto. apply Memory.splits_future. inv MEMORY. auto.
   - i. inv PR; ss.
     + eexists _, _. splits; eauto.
-    + subst. inv LOCAL. clear LE_TGT DISJOINT.
+    + subst. inv PROMISE. clear LE_TGT DISJOINT.
       rewrite Memory.join_comm, Memory.bot_join in LE_SRC.
       rewrite Memory.join_comm, Memory.bot_join.
       admit. (* phase 1; bot *)
@@ -165,74 +165,75 @@ Proof.
   - i. inv PR; ss.
     + (* phase 0 *)
       inv STEP_TGT.
-      * inv STEP; ss; inv STATE; inv INSTR.
-        inv REMOVE. memtac.
-        eexists _, _, _, _. splits; eauto.
-        { econs 1. econs 5; eauto. econs. econs. }
-        { right. apply CIH. inv WRITE. econs 2; ss.
-          eapply Snapshot.writable_mon; eauto.
-          reflexivity.
+      * inv STEP; ss; try inv STATE; try inv INSTR.
+        { admit.
+          (* inv MEMORY0. memtac. *)
+          (* eexists _, _, _, _. splits; eauto. *)
+          (* - econs 1. econs 5; eauto. econs. econs. *)
+          (* - right. apply CIH. inv WRITE. econs 2; ss. *)
+          (*   eapply Snapshot.writable_mon; eauto. *)
+          (*   reflexivity. *)
         }
-      * inv STEP. ss. destruct th3_tgt. ss. subst.
-        exploit MemInv.add; try apply MEM; eauto.
-        { rewrite <- Memory.bot_join at 1. econs. memtac. }
-        i. des. inv INV2. rewrite Memory.bot_join in *.
-        eexists _, _, _, _. splits; eauto.
-        { instantiate (1 := Thread.mk _ _ _ _). econs 2. econs; s; eauto. }
-        { right. apply CIH. econs 1. auto. }
+        { exploit MemInv.promise; try apply MEMORY0; eauto.
+          { apply MemInv.sem_bot. }
+          i. des. inv INV2. rewrite Memory.bot_join in *.
+          eexists _, _, _, _. splits; eauto.
+          - instantiate (1 := Thread.mk _ _ _ _). econs 1. econs 6; s; eauto.
+          - right. apply CIH. econs 1. auto.
+        }
       * inv STATE. inv INSTR.
     + (* phase 1 *)
       inv STEP_TGT.
       * (* tgt i1 *)
         inv REORDER.
         { (* load *)
-          inv STEP; ss; inv STATE; inv INSTR.
-          inv LOCAL. memtac.
-          exploit read_mon_releaxed; eauto. i.
-          eexists _, _, _, _. splits.
-          - econs 2; [|econs 1]. econs. s.
-            econs 1. econs 1; s; eauto.
-            + econs. econs.
-            + eapply sim_memory_get; eauto.
-            + unfold Memory.get, Cell.get in *. s.
-              rewrite LOCAL0.
-              unfold Memory.singleton, LocFun.add, LocFun.find.
-              destruct (Reg.eq_dec loc l2); [congruence|].
-              auto.
-          - econs 1. econs 2; ss.
-            + econs. econs.
-            + instantiate (1 := commit2). econs; ss. (* commit write *)
-              * admit.
-              * admit.
-              * admit.
-              * reflexivity. admit.
-            + replace (RegFile.eval_value (RegFun.add r1 val rs) v2)
-              with (RegFile.eval_value rs v2).
-              { econs; [|eauto]. memtac. }
-              eapply eq_except_value; eauto.
-              ii. unfold RegFun.add, RegFun.find.
-              destruct (Reg.eq_dec reg r1); auto. subst. contradict REG.
-              apply RegSet.Facts.mem_iff, RegSet.singleton_spec. auto.
-          - auto.
-          - right. apply CIH. econs 3. reflexivity.
+          inv STEP; ss; try inv STATE; try inv INSTR.
+          admit. admit.
+          (* inv PROMISE. memtac. *)
+          (* exploit read_mon_releaxed; eauto. i. *)
+          (* eexists _, _, _, _. splits. *)
+          (* - econs 2; [|econs 1]. econs. s. *)
+          (*   econs 1. econs 1; s; eauto. *)
+          (*   + econs. econs. *)
+          (*   + eapply sim_memory_get; eauto. *)
+          (*   + unfold Memory.get, Cell.get in *. s. *)
+          (*     rewrite PROMISE0. *)
+          (*     unfold Memory.singleton, LocFun.add, LocFun.find. *)
+          (*     destruct (Reg.eq_dec loc l2); [congruence|]. *)
+          (*     auto. *)
+          (* - econs 1. econs 2; ss. *)
+          (*   + econs. econs. *)
+          (*   + instantiate (1 := commit2). econs; ss. (* commit write *) *)
+          (*     * admit. *)
+          (*     * admit. *)
+          (*     * admit. *)
+          (*     * reflexivity. admit. *)
+          (*   + replace (RegFile.eval_value (RegFun.add r1 val rs) v2) *)
+          (*     with (RegFile.eval_value rs v2). *)
+          (*     { econs; [|eauto]. memtac. } *)
+          (*     eapply eq_except_value; eauto. *)
+          (*     ii. unfold RegFun.add, RegFun.find. *)
+          (*     destruct (Reg.eq_dec reg r1); auto. subst. contradict REG. *)
+          (*     apply RegSet.Facts.mem_iff, RegSet.singleton_spec. auto. *)
+          (* - auto. *)
+          (* - right. apply CIH. econs 3. reflexivity. *)
         }
-      * inv STEP. ss. destruct th3_tgt. ss. subst.
-        exploit MemInv.add; try apply MEM; eauto.
-        i. des. eexists _, _, _, _. splits; eauto.
-        { instantiate (1 := Thread.mk _ _ _ _). econs 2. econs; s; try reflexivity; eauto. }
-        { right. apply CIH. econs 2; eauto.
-          etransitivity; eauto.
-        }
+      (* * inv STEP. ss. destruct th3_tgt. ss. subst. *)
+      (*   exploit MemInv.add; try apply MEM; eauto. *)
+      (*   i. des. eexists _, _, _, _. splits; eauto. *)
+      (*   { instantiate (1 := Thread.mk _ _ _ _). econs 2. econs; s; try reflexivity; eauto. } *)
+      (*   { right. apply CIH. econs 2; eauto. *)
+      (*     etransitivity; eauto. *)
+      (*   } *)
       * inv STATE. inv INSTR. inv REORDER.
     + (* phase 2 *)
       inv STEP_TGT.
-      * inv STEP; inv STATE.
-      * inv STEP. ss. destruct th3_tgt. ss. subst.
-        exploit MemInv.add; try apply MEM; eauto.
+      * inv STEP; try inv STATE.
+        exploit MemInv.promise; try apply MEMORY0; eauto.
         { rewrite <- Memory.bot_join at 1. econs. memtac. }
         i. des. inv INV2. rewrite Memory.bot_join in *.
         eexists _, _, _, _. splits; eauto.
-        { instantiate (1 := Thread.mk _ _ _ _). econs 2. econs; s; eauto. }
+        { instantiate (1 := Thread.mk _ _ _ _). econs 1. econs 6; s; eauto. }
         { right. apply CIH. econs 3. auto. }
       * inv STATE.
 Admitted.

@@ -191,7 +191,7 @@ Lemma compose_step1
   <<DISJOINT': Threads.disjoint ths1' ths2>> /\
   <<CONSISTENT2': Configuration.consistent (Configuration.mk ths2 mem')>>.
 Proof.
-  exploit Configuration.disjoint_step; eauto. s. i. des.
+  exploit Configuration.step_disjoint; eauto. s. i. des.
   splits; eauto. inv STEP. ss.
   replace (Threads.compose (IdentMap.add tid (existT _ lang th3) ths1) ths2)
   with (IdentMap.add tid (existT _ lang th3) (Threads.compose ths1 ths2)).
@@ -222,7 +222,7 @@ Lemma compose_step2
   <<DISJOINT': Threads.disjoint ths1 ths2'>> /\
   <<CONSISTENT1': Configuration.consistent (Configuration.mk ths1 mem')>>.
 Proof.
-  exploit Configuration.disjoint_step; try symmetry; eauto. s. i. des.
+  exploit Configuration.step_disjoint; try symmetry; eauto. s. i. des.
   exploit compose_step1; try apply STEP; try apply CONSISTENT1; eauto.
   { symmetry. auto. }
   i. des. splits; eauto.
@@ -245,8 +245,8 @@ Lemma compose_rtc_step1
   <<CONSISTENT': Configuration.consistent (Configuration.mk ths c2.(Configuration.memory))>>.
 Proof.
   revert CONSISTENT1 CONSISTENT. induction STEPS; auto. i.
-  exploit Configuration.consistent_step; eauto. i. des.
-  exploit Configuration.disjoint_step; eauto. i. des.
+  exploit Configuration.step_consistent; eauto. i. des.
+  exploit Configuration.step_disjoint; eauto. i. des.
   destruct x, y. exploit compose_step1; eauto. s. i. des.
   exploit IHSTEPS; eauto. s. i. des.
   splits; eauto.
@@ -266,8 +266,8 @@ Lemma compose_rtc_step2
   <<CONSISTENT': Configuration.consistent (Configuration.mk ths c2.(Configuration.memory))>>.
 Proof.
   revert CONSISTENT1 CONSISTENT. induction STEPS; auto. i.
-  exploit Configuration.consistent_step; eauto. i. des.
-  exploit Configuration.disjoint_step; try symmetry; eauto. i. des.
+  exploit Configuration.step_consistent; eauto. i. des.
+  exploit Configuration.step_disjoint; try symmetry; eauto. i. des.
   destruct x, y. exploit compose_step2; eauto. s. i. des.
   exploit IHSTEPS; try symmetry; eauto. s. i. des.
   splits; eauto.
@@ -297,42 +297,42 @@ Proof.
   - punfold SIM1. exploit SIM1; eauto. i. des.
     apply compose_is_terminal in TERMINAL_TGT; auto. des.
     exploit TERMINAL; eauto. i. des.
-    exploit Configuration.consistent_rtc_step; eauto. s. i. des.
-    exploit Configuration.disjoint_rtc_step; eauto. s. i. des.
+    exploit Configuration.rtc_step_consistent; eauto. s. i. des.
+    exploit Configuration.rtc_step_disjoint; eauto. s. i. des.
     exploit compose_rtc_step1; eauto. s. i. des.
     punfold SIM2. exploit SIM2; eauto.
     { etransitivity; eauto. }
     i. des.
     exploit TERMINAL0; eauto. i. des.
-    exploit Configuration.consistent_rtc_step; eauto. s. i. des.
-    exploit Configuration.disjoint_rtc_step; try symmetry; eauto. s. i. des.
+    exploit Configuration.rtc_step_consistent; eauto. s. i. des.
+    exploit Configuration.rtc_step_disjoint; try symmetry; eauto. s. i. des.
     exploit compose_rtc_step2; eauto. s. i. des.
     eexists _, _. splits; [|eauto|].
     + etransitivity; eauto.
     + apply compose_is_terminal; auto.
   - i. apply compose_step in STEP_TGT; auto. des; subst.
-    + exploit Configuration.consistent_step; eauto. s. i. des.
-      exploit Configuration.disjoint_step; eauto. s. i. des.
+    + exploit Configuration.step_consistent; eauto. s. i. des.
+      exploit Configuration.step_disjoint; eauto. s. i. des.
       punfold SIM1. exploit SIM1; eauto. i. des.
       exploit STEP0; eauto. i. des; [|done].
-      exploit Configuration.consistent_rtc_step; eauto. s. i. des.
-      exploit Configuration.disjoint_rtc_step; eauto. s. i. des.
+      exploit Configuration.rtc_step_consistent; eauto. s. i. des.
+      exploit Configuration.rtc_step_disjoint; eauto. s. i. des.
       exploit compose_rtc_step1; eauto. s. i. des.
-      exploit Configuration.consistent_step; eauto. s. i. des.
-      exploit Configuration.disjoint_step; eauto. s. i. des.
+      exploit Configuration.step_consistent; eauto. s. i. des.
+      exploit Configuration.step_disjoint; eauto. s. i. des.
       exploit compose_step1; eauto. i. des.
       eexists _, _, _, _. splits; eauto.
       right. apply CIH; auto.
       eapply sim_future; eauto; repeat (etransitivity; eauto). 
-    + exploit Configuration.consistent_step; eauto. s. i. des.
-      exploit Configuration.disjoint_step; try symmetry; eauto. s. i. des.
+    + exploit Configuration.step_consistent; eauto. s. i. des.
+      exploit Configuration.step_disjoint; try symmetry; eauto. s. i. des.
       punfold SIM2. exploit SIM2; eauto. i. des.
       exploit STEP0; eauto. i. des; [|done].
-      exploit Configuration.consistent_rtc_step; eauto. s. i. des.
-      exploit Configuration.disjoint_rtc_step; try symmetry; eauto. s. i. des.
+      exploit Configuration.rtc_step_consistent; eauto. s. i. des.
+      exploit Configuration.rtc_step_disjoint; try symmetry; eauto. s. i. des.
       exploit compose_rtc_step2; eauto. s. i. des.
-      exploit Configuration.consistent_step; eauto. s. i. des.
-      exploit Configuration.disjoint_step; eauto. s. i. des.
+      exploit Configuration.step_consistent; eauto. s. i. des.
+      exploit Configuration.step_disjoint; eauto. s. i. des.
       exploit compose_step2; eauto. i. des.
       eexists _, _, _, _. splits; eauto.
       right. apply CIH; auto.

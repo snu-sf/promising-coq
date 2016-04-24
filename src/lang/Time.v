@@ -46,7 +46,7 @@ Module Time.
     | Gt => lhs
     end.
 
-  Lemma max_lhs lhs rhs:
+  Lemma max_l lhs rhs:
     le lhs (max lhs rhs).
   Proof.
     unfold max. destruct (compare_spec lhs rhs).
@@ -55,7 +55,7 @@ Module Time.
     - reflexivity.
   Qed.
 
-  Lemma max_rhs lhs rhs:
+  Lemma max_r lhs rhs:
     le rhs (max lhs rhs).
   Proof.
     unfold max. destruct (compare_spec lhs rhs).
@@ -64,7 +64,7 @@ Module Time.
     - apply le_lteq. auto.
   Qed.
 
-  Lemma max_spec lhs rhs o
+  Lemma max_spec_le lhs rhs o
         (LHS: le lhs o)
         (RHS: le rhs o):
     le (max lhs rhs) o.
@@ -72,7 +72,7 @@ Module Time.
     unfold max. destruct (compare_spec lhs rhs); auto.
   Qed.
 
-  Lemma max_spec' lhs rhs o
+  Lemma max_spec_lt lhs rhs o
         (LHS: lt lhs o)
         (RHS: lt rhs o):
     lt (max lhs rhs) o.

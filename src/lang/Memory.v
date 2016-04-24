@@ -356,7 +356,7 @@ Module Cell.
     { apply Message.elt. }
     Qed.
 
-    Lemma splits_join_inv a b c
+    Lemma splits_join_inv1 a b c
           (WFA: wf a)
           (WFB: wf b)
           (WFC: wf c)
@@ -460,7 +460,64 @@ Module Cell.
         + rewrite <- OWN, OA in OWN0. ss.
     Qed.
 
-    Lemma join2_prop
+    Lemma join2_cancel
+          a b c
+          (A: wf a)
+          (B: wf b)
+          (C: wf c)
+          (AB: disjoint a b)
+          (AC: disjoint a c)
+          (EQ: join a b = join a c):
+      b = c.
+    Proof.
+      apply extensionality. i.
+      apply extensionality_inv in EQ. des.
+      specialize (MSG to). specialize (OWN to). ss. splits.
+      - destruct (messages a to) eqn:MA,
+                 (messages b to) eqn:MB; auto.
+        { exfalso. inv AB. eapply DISJOINT; eauto.
+          - inv A. eauto.
+          - inv B. eauto.
+        }
+        destruct (messages c to) eqn:MC; auto. inv MSG.
+        exfalso. inv AC. eapply DISJOINT; eauto.
+        + inv A. eauto.
+        + inv C. eauto.
+      - destruct (ownership a to) eqn:OA; ss.
+        destruct (ownership b to) eqn:OB,
+                 (ownership c to) eqn:OC; auto.
+        + exfalso. inv AB. eapply DISJOINT; eauto.
+        + exfalso. inv AC. eapply DISJOINT; eauto.
+    Qed.
+
+    Lemma join2_splits_lemma
+          a b c d
+          (A: wf a)
+          (B: wf b)
+          (C: wf c)
+          (D: wf d)
+          (AB: disjoint a b)
+          (CD: disjoint c d)
+          (AC: splits a c)
+          (EQ: join a b = join c d):
+      a = c.
+    Proof.
+      apply extensionality. i.
+      apply extensionality_inv in EQ. des.
+      specialize (MSG to). specialize (OWN to). ss. splits.
+      - destruct (messages a to) eqn:MA.
+        { inv AC. exploit MSG0; eauto. }
+        destruct (messages c to) eqn:MC; auto.
+        destruct (messages b to) eqn:MB.
+        { exfalso. inv AB. eapply DISJOINT.
+          - inv AC. rewrite OWN0. inv C. eauto.
+          - inv B. eauto.
+        }
+        destruct (messages d to) eqn:MD; inv MSG.
+      - inv AC. rewrite OWN0. auto.
+    Qed.
+
+    Lemma join2_inv_lemma1
           a b c d
           (A: wf a)
           (B: wf b)
@@ -500,7 +557,7 @@ Module Cell.
         + exfalso. inv AC. eapply DISJOINT; eauto.
     Qed.
 
-    Lemma join2_sub
+    Lemma join2_inv_lemma2
           a b c d
           (A: wf a)
           (B: wf b)
@@ -543,8 +600,8 @@ Module Cell.
                end;
            ss; subst).
 
-      exploit (@join2_prop a b c d); eauto; i; des.
-      exploit (@join2_prop c d a b); eauto; i; des.
+      exploit (@join2_inv_lemma1 a b c d); eauto; i; des.
+      exploit (@join2_inv_lemma1 c d a b); eauto; i; des.
       { symmetry. auto. }
       exists (mk (fun ts => if andb (d.(ownership) ts) (negb (a.(ownership) ts))
                     then d.(messages) ts
@@ -561,7 +618,7 @@ Module Cell.
           * exists to. econs.
             { instantiate (1 := Time.max from from0).
               inv TS. inv TS0. econs; s; eauto.
-              apply Time.max_spec'; auto.
+              apply Time.max_spec_lt; auto.
             }
             { i. inv PR. ss. apply Bool.andb_true_iff.
               rewrite OWN.
@@ -585,63 +642,6 @@ Module Cell.
         + rewrite OAD, MAD, X, X0; auto.
     Admitted.
 
-    Lemma join2_cancel
-          a b c
-          (A: wf a)
-          (B: wf b)
-          (C: wf c)
-          (AB: disjoint a b)
-          (AC: disjoint a c)
-          (EQ: join a b = join a c):
-      b = c.
-    Proof.
-      apply extensionality. i.
-      apply extensionality_inv in EQ. des.
-      specialize (MSG to). specialize (OWN to). ss. splits.
-      - destruct (messages a to) eqn:MA,
-                 (messages b to) eqn:MB; auto.
-        { exfalso. inv AB. eapply DISJOINT; eauto.
-          - inv A. eauto.
-          - inv B. eauto.
-        }
-        destruct (messages c to) eqn:MC; auto. inv MSG.
-        exfalso. inv AC. eapply DISJOINT; eauto.
-        + inv A. eauto.
-        + inv C. eauto.
-      - destruct (ownership a to) eqn:OA; ss.
-        destruct (ownership b to) eqn:OB,
-                 (ownership c to) eqn:OC; auto.
-        + exfalso. inv AB. eapply DISJOINT; eauto.
-        + exfalso. inv AC. eapply DISJOINT; eauto.
-    Qed.
-
-    Lemma join2_splits_prop
-          a b c d
-          (A: wf a)
-          (B: wf b)
-          (C: wf c)
-          (D: wf d)
-          (AB: disjoint a b)
-          (CD: disjoint c d)
-          (AC: splits a c)
-          (EQ: join a b = join c d):
-      a = c.
-    Proof.
-      apply extensionality. i.
-      apply extensionality_inv in EQ. des.
-      specialize (MSG to). specialize (OWN to). ss. splits.
-      - destruct (messages a to) eqn:MA.
-        { inv AC. exploit MSG0; eauto. }
-        destruct (messages c to) eqn:MC; auto.
-        destruct (messages b to) eqn:MB.
-        { exfalso. inv AB. eapply DISJOINT.
-          - inv AC. rewrite OWN0. inv C. eauto.
-          - inv B. eauto.
-        }
-        destruct (messages d to) eqn:MD; inv MSG.
-      - inv AC. rewrite OWN0. auto.
-    Qed.
-
     Lemma join2_splits
           a b c d
           (A: wf a)
@@ -654,7 +654,7 @@ Module Cell.
           (EQ: join a b = join c d):
       a = c /\ b = d.
     Proof.
-      exploit (@join2_splits_prop a b c d); eauto. i. subst.
+      exploit (@join2_splits_lemma a b c d); eauto. i. subst.
       splits; auto. eapply join2_cancel; eauto.
     Qed.
 
@@ -674,7 +674,7 @@ Module Cell.
            <<B: b = join c e>> /\
            <<D: d = join a e>>.
     Proof.
-      exploit (@join2_sub a b c d); eauto. i. des. subst.
+      exploit (@join2_inv_lemma2 a b c d); eauto. i. des. subst.
       apply join_disjoint in CD. des.
       exists e. splits; eauto.
       rewrite join_assoc, (join_comm _ a), <- join_assoc in EQ.
@@ -810,7 +810,7 @@ Module Cell.
     exploit (@Raw.splits_join a b a' b'); eauto; apply WF.
   Qed.
 
-  Lemma splits_join_inv a b c
+  Lemma splits_join_inv1 a b c
         (SPLITS: splits (join a b) c)
         (DISJOINT: disjoint a b):
     exists a' b',
@@ -820,7 +820,7 @@ Module Cell.
   Proof.
     destruct a as [a WFA], b as [b WFB], c as [c WFC].
     unfold disjoint, splits in *. ss.
-    exploit (@Raw.splits_join_inv a b c); eauto. i. des. subst.
+    exploit (@Raw.splits_join_inv1 a b c); eauto. i. des. subst.
     exists (@mk a' WFA'), (@mk b' WFB'). splits; eauto.
     apply extensionality. auto.
   Qed.
@@ -835,6 +835,21 @@ Module Cell.
     destruct a as [a WFA], b as [b WFB], c as [c WFC], d as [d WFD].
     unfold disjoint, splits in *. ss.
     exploit (@Raw.splits_join_inv2 a b c d); eauto.
+  Qed.
+
+  Lemma join2_cancel
+        a b c
+        (AB: disjoint a b)
+        (AC: disjoint a c)
+        (EQ: join a b = join a c):
+    b = c.
+  Proof.
+    exploit (@Raw.join2_cancel a b c);
+      try apply WF;
+      try apply AB;
+      try apply AC.
+    - apply extensionality_inv in EQ. auto.
+    - i. des. splits; apply extensionality; auto.
   Qed.
 
   Lemma join2_splits
@@ -884,10 +899,31 @@ Module Memory.
   Definition get (loc:Loc.t) (ts:Time.t) (mem:t): option Message.t :=
     Cell.get ts (mem loc).
 
-  Definition disjoint (lhs rhs:t): Prop := forall loc, Cell.disjoint (lhs loc) (rhs loc).
+  (* TODO: use the well-formedness *)
+  Inductive wf_times (times:Times.t) (mem:t): Prop :=
+  | wf_times_intro
+      (WF: forall loc, exists msg, get loc (times loc) mem = Some msg)
+  .
+
+  Inductive wf_snapshot (snapshot:Snapshot.t) (mem:t): Prop :=
+  | wf_snapshot_intro
+      (READS: wf_times snapshot.(Snapshot.reads) mem)
+      (WRITES: wf_times snapshot.(Snapshot.writes) mem)
+  .
+
+  Inductive wf (mem:t): Prop :=
+  | wf_intro
+      (WF: forall loc ts msg (MSG: get loc ts mem = Some msg),
+          wf_snapshot msg.(Message.released) mem)
+  .
+
+  Inductive disjoint (lhs rhs:t): Prop :=
+  | disjoint_intro
+      (DISJOINT: forall loc, Cell.disjoint (lhs loc) (rhs loc))
+  .
 
   Global Program Instance disjoint_Symmetric: Symmetric disjoint.
-  Next Obligation. ii. symmetry. apply H. Qed.
+  Next Obligation. econs. ii. symmetry. apply H. Qed.
 
   Definition join (lhs rhs:t): t := fun loc => Cell.join (lhs loc) (rhs loc).
 
@@ -902,16 +938,16 @@ Module Memory.
   Lemma join_disjoint a b c:
     disjoint a (join b c) <-> disjoint a b /\ disjoint a c.
   Proof.
-    unfold disjoint. econs; i; des; splits; i.
-    - specialize (H loc). apply Cell.join_disjoint in H. des. auto.
-    - specialize (H loc). apply Cell.join_disjoint in H. des. auto.
-    - apply Cell.join_disjoint. splits; auto.
+    econs; i; des; splits; econs; i.
+    - inv H. specialize (DISJOINT loc). apply Cell.join_disjoint in DISJOINT. des. auto.
+    - inv H. specialize (DISJOINT loc). apply Cell.join_disjoint in DISJOINT. des. auto.
+    - inv H. inv H0. apply Cell.join_disjoint. splits; auto.
   Qed.
 
   Definition bot: t := LocFun.init Cell.bot.
 
   Lemma bot_disjoint mem: disjoint mem bot.
-  Proof. ii. apply Cell.bot_disjoint. Qed.
+  Proof. econs. ii. apply Cell.bot_disjoint. Qed.
 
   Lemma bot_join mem: join mem bot = mem.
   Proof.
@@ -923,6 +959,7 @@ Module Memory.
         (DISJOINT: disjoint a b):
     b = bot.
   Proof.
+    inversion DISJOINT.
     extensionality loc. eapply Cell.bot_join_inv; eauto.
     apply (fapp _ loc) in EQ. auto.
   Qed.
@@ -934,37 +971,6 @@ Module Memory.
                 (LocFun.init Cell.bot)).
 
   Definition init: t := LocFun.init Cell.init.
-
-  Inductive le (lhs rhs:t): Prop :=
-  | le_intro
-      ohs
-      (JOIN: join lhs ohs = rhs)
-      (DISJOINT: disjoint lhs ohs)
-  .
-
-  Global Program Instance le_PreOrder: PreOrder le.
-  Next Obligation.
-    ii. econs.
-    - apply bot_join.
-    - apply bot_disjoint.
-  Qed.
-  Next Obligation.
-    ii. inv H. inv H0. econs.
-    - apply join_assoc.
-    - symmetry in DISJOINT0. apply join_disjoint in DISJOINT0. des.
-      apply join_disjoint. splits; [eauto|].
-      symmetry. eauto.
-  Qed.
-
-  Lemma le_join_l lhs rhs
-        (DISJOINT: disjoint lhs rhs):
-    le lhs (join lhs rhs).
-  Proof. econs; eauto. Qed.
-
-  Lemma le_join_r lhs rhs
-        (DISJOINT: disjoint lhs rhs):
-    le rhs (join lhs rhs).
-  Proof. symmetry in DISJOINT. rewrite join_comm. econs; eauto. Qed.
 
   Definition splits (lhs rhs:t): Prop := forall loc, Cell.splits (lhs loc) (rhs loc).
 
@@ -987,7 +993,7 @@ Module Memory.
         (SPLITS: splits a a'):
     disjoint a' b.
   Proof.
-    ii. eapply Cell.splits_disjoint; eauto.
+    inv DISJOINT. econs. ii. eapply Cell.splits_disjoint; eauto.
   Qed.
 
   Lemma splits_disjoint_inv a b a'
@@ -995,7 +1001,7 @@ Module Memory.
         (SPLITS: splits a a'):
     disjoint a b.
   Proof.
-    ii. eapply Cell.splits_disjoint_inv; eauto.
+    inv DISJOINT. econs. ii. eapply Cell.splits_disjoint_inv; eauto.
   Qed.
 
   Lemma splits_join a b a' b'
@@ -1004,10 +1010,10 @@ Module Memory.
         (DISJOINT: disjoint a b):
     splits (join a b) (join a' b').
   Proof.
-    ii. apply Cell.splits_join; auto.
+    inv DISJOINT. ii. apply Cell.splits_join; auto.
   Qed.
 
-  Lemma splits_join_inv a b c
+  Lemma splits_join_inv1 a b c
         (SPLITS: splits (join a b) c)
         (DISJOINT: disjoint a b):
     exists a' b',
@@ -1015,12 +1021,13 @@ Module Memory.
       <<SPLITSB: splits b b'>> /\
       <<JOINC: c = join a' b'>>.
   Proof.
+    inv DISJOINT.
     exploit (@choice Loc.t (Cell.t * Cell.t)
                      (fun loc ab =>
                         <<SPLITSA: Cell.splits (a loc) ab.(fst)>> /\
                         <<SPLITSB: Cell.splits (b loc) ab.(snd)>> /\
                         <<JOINC: (c loc) = Cell.join ab.(fst) ab.(snd)>>)).
-    - i. exploit Cell.splits_join_inv; eauto. i. des.
+    - i. exploit Cell.splits_join_inv1; eauto. i. des.
       eexists (_, _). splits; eauto.
     - i. des.
       exists (fun loc => (f loc).(fst)), (fun loc => (f loc).(snd)). splits.
@@ -1036,60 +1043,20 @@ Module Memory.
         (DISJOINT2: disjoint c d):
     splits b d.
   Proof.
+    inv DISJOINT1. inv DISJOINT2.
     ii. eapply Cell.splits_join_inv2; eauto.
   Qed.
 
-  Inductive add (declare1 global1 declare2:t): forall (global2:t), Prop :=
-  | add_intro
-      ctx addendum
-      (JOIN: global1 = join declare1 ctx)
-      (DISJOINT: Memory.disjoint declare1 ctx)
-      (SPLITS: Memory.splits declare1 declare2)
-      (ADDENDUM: Memory.disjoint global1 addendum):
-      add declare1 global1 declare2 (Memory.join (Memory.join declare2 ctx) addendum)
-  .
-
-  Inductive remove (loc:Loc.t) (from to:Time.t) (msg:Message.t) (lhs rhs:t): Prop :=
-  | remove_intro
-      (LT: Time.lt from to)
-      (DISJOINT: disjoint rhs (singleton loc msg LT))
-      (JOIN: lhs = join rhs (singleton loc msg LT))
-  .
-
-  Inductive future (lhs rhs:t): Prop :=
-  | future_intro
-      lhs'
-      (SPLITS: splits lhs lhs')
-      (LE: le lhs' rhs):
-      future lhs rhs
-  .
-
-  Global Program Instance future_PreOrder: PreOrder future.
-  Next Obligation.
-    ii. econs; reflexivity.
-  Qed.
-  Next Obligation.
-    ii. inv H. inv H0. inv LE. inv LE0.
-    exploit (@splits_join_inv lhs' ohs lhs'0); eauto. i. des. subst.
-    rewrite <- join_assoc. econs.
-    - etransitivity; eauto.
-    - apply le_join_l.
-      symmetry in DISJOINT0. apply join_disjoint in DISJOINT0. des.
-      apply join_disjoint. splits.
-      + eapply splits_disjoint; [|eauto].
-        symmetry. eapply splits_disjoint; [|eauto].
-        symmetry. auto.
-      + symmetry. auto.
-  Qed.
-
-  Lemma le_future: le <2= future.
+  Lemma join2_cancel
+        a b c
+        (AB: disjoint a b)
+        (AC: disjoint a c)
+        (EQ: join a b = join a c):
+    b = c.
   Proof.
-    i. econs; eauto. reflexivity.
-  Qed.
-
-  Lemma splits_future: splits <2= future.
-  Proof.
-    i. econs; eauto. reflexivity.
+    inv AB. inv AC.
+    extensionality loc. eapply Cell.join2_cancel; eauto.
+    apply (fapp _ loc) in EQ. auto.
   Qed.
 
   Lemma join2_splits
@@ -1128,6 +1095,7 @@ Module Memory.
          <<B: b = join c e>> /\
          <<D: d = join a e>>.
   Proof.
+    inv AB. inv CD. inv AC.
     exploit (@choice Loc.t Cell.t
                      (fun loc e =>
                         <<AE: Cell.disjoint (a loc) e>> /\
@@ -1137,110 +1105,319 @@ Module Memory.
     - i. exploit (@Cell.join2_inv (a x) (b x) (c x) (d x)); eauto.
       eapply (fapp _ x) in EQ. ss.
     - i. des. exists f. splits.
-      + intro loc. exploit x0; eauto. i. des. eauto.
-      + intro loc. exploit x0; eauto. i. des. eauto.
+      + econs. intro loc. exploit x0; eauto. i. des. eauto.
+      + econs. intro loc. exploit x0; eauto. i. des. eauto.
       + extensionality loc. exploit x0; eauto. i. des. eauto.
       + extensionality loc. exploit x0; eauto. i. des. eauto.
   Qed.
+
+  Inductive le (lhs rhs:t): Prop :=
+  | le_intro
+      ohs
+      (JOIN: join lhs ohs = rhs)
+      (DISJOINT: disjoint lhs ohs)
+  .
+
+  Global Program Instance le_PreOrder: PreOrder le.
+  Next Obligation.
+    ii. econs.
+    - apply bot_join.
+    - apply bot_disjoint.
+  Qed.
+  Next Obligation.
+    ii. inv H. inv H0. econs.
+    - apply join_assoc.
+    - symmetry in DISJOINT0. apply join_disjoint in DISJOINT0. des.
+      apply join_disjoint. splits; [eauto|].
+      symmetry. eauto.
+  Qed.
+
+  Lemma le_join_l lhs rhs
+        (DISJOINT: disjoint lhs rhs):
+    le lhs (join lhs rhs).
+  Proof. econs; eauto. Qed.
+
+  Lemma le_join_r lhs rhs
+        (DISJOINT: disjoint lhs rhs):
+    le rhs (join lhs rhs).
+  Proof. symmetry in DISJOINT. rewrite join_comm. econs; eauto. Qed.
+
+  Lemma le_join a b c d
+        (AB: disjoint a b)
+        (CD: disjoint c d)
+        (AC: le a c)
+        (BD: le b d):
+    le (join a b) (join c d).
+  Proof.
+    inv AC. inv BD.
+    rewrite <- ? join_assoc, (join_assoc ohs b ohs0).
+    rewrite (join_comm ohs b), ? join_assoc.
+    apply join_disjoint in CD. des.
+    symmetry in CD. apply join_disjoint in CD. des.
+    symmetry in CD0. apply join_disjoint in CD0. des.
+    etransitivity; [|apply le_join_l].
+    - apply le_join_l.
+      symmetry. apply join_disjoint. splits; symmetry; auto.
+    - symmetry. apply join_disjoint. splits; auto.
+      apply join_disjoint. splits; auto.
+      symmetry. auto.
+  Qed.
+
+  Inductive future (lhs rhs:t): Prop :=
+  | future_intro
+      lhs'
+      (SPLITS: splits lhs lhs')
+      (LE: le lhs' rhs):
+      future lhs rhs
+  .
+
+  Global Program Instance future_PreOrder: PreOrder future.
+  Next Obligation.
+    ii. econs; reflexivity.
+  Qed.
+  Next Obligation.
+    ii. inv H. inv H0. inv LE. inv LE0.
+    exploit (@splits_join_inv1 lhs' ohs lhs'0); eauto. i. des. subst.
+    rewrite <- join_assoc. econs.
+    - etransitivity; eauto.
+    - apply le_join_l.
+      symmetry in DISJOINT0. apply join_disjoint in DISJOINT0. des.
+      apply join_disjoint. splits.
+      + eapply splits_disjoint; [|eauto].
+        symmetry. eapply splits_disjoint; [|eauto].
+        symmetry. auto.
+      + symmetry. auto.
+  Qed.
+
+  Lemma le_future: le <2= future.
+  Proof.
+    i. econs; eauto. reflexivity.
+  Qed.
+
+  Lemma splits_future: splits <2= future.
+  Proof.
+    i. econs; eauto. reflexivity.
+  Qed.
+
+  Ltac tac :=
+    repeat
+      (try match goal with
+           | [H: le _ _ |- _] =>
+             inv H
+           | [H: disjoint _ (join _ _) |- _] =>
+             apply join_disjoint in H
+           | [H: disjoint (join _ _) _ |- _] =>
+             symmetry in H; apply join_disjoint in H
+           | [H1: ?a = join ?a ?b, H2: disjoint ?a ?b |- _] =>
+             apply bot_join_inv in H1; [|apply H2]
+           | [H1: ?a = join ?a ?b, H2: disjoint ?b ?a |- _] =>
+             apply bot_join_inv in H1; [|symmetry; apply H2]
+           | [H: disjoint ?a ?b |- disjoint ?b ?a] =>
+             symmetry
+           | [H1: disjoint ?a ?b, H2: splits ?a ?a' |- disjoint ?a' ?b] =>
+             eapply (@splits_disjoint a b a'); eauto
+           | [H1: disjoint ?a ?b, H2: splits ?a ?a' |- disjoint ?b ?a'] =>
+             symmetry; eapply (@splits_disjoint a b a'); eauto
+           | [H1: disjoint ?b ?a, H2: splits ?a ?a' |- disjoint ?a' ?b] =>
+             symmetry in H1; eapply (@splits_disjoint a b a'); eauto
+           | [H1: disjoint ?b ?a, H2: splits ?a ?a' |- disjoint ?b ?a'] =>
+             symmetry; symmetry in H1; eapply (@splits_disjoint a b a'); eauto
+           | [H: join ?a ?b = join ?a ?c |- _] =>
+             apply join2_cancel in H; [|clear H|clear H]
+           | [|- disjoint _ (join _ _)] =>
+             apply join_disjoint
+           | [|- disjoint (join _ _) _] =>
+             symmetry; apply join_disjoint
+           end;
+       ss; des; try subst; auto).
+
+  Inductive promise
+            (promise1 global1:t)
+            (loc:Loc.t) (from to:Time.t) (msg:Message.t)
+            (promise2:t) (global2:t): Prop :=
+  | promise_add
+      (LT: Time.lt from to)
+      (DISJOINT: disjoint global1 (singleton loc msg LT))
+      (PROMISEEQ: promise2 = join promise1 (singleton loc msg LT))
+      (GLOBALEQ: global2 = join global1 (singleton loc msg LT))
+  | promise_split
+      promise1_ctx global1_ctx to0 msg0
+      (LT1: Time.lt from to)
+      (LT2: Time.lt to to0)
+      (PROMISE1: promise1 = join promise1_ctx (singleton loc msg0 (TimeSet.Raw.MX.lt_trans LT1 LT2)))
+      (PROMISE2: disjoint promise1_ctx (singleton loc msg0 (TimeSet.Raw.MX.lt_trans LT1 LT2)))
+      (GLOBAL1: global1 = join global1_ctx promise1)
+      (GLOBAL2: disjoint global1_ctx promise1)
+      (PROMISEEQ: promise2 = join promise1_ctx (join (singleton loc msg LT1) (singleton loc msg0 LT2)))
+      (GLOBALEQ: global2 = join global1_ctx (join promise1_ctx (join (singleton loc msg LT1) (singleton loc msg0 LT2))))
+  .
+
+  Lemma splits_intro
+        loc from to to0 msg msg0
+        (LT1: Time.lt from to)
+        (LT2: Time.lt to to0):
+    <<SPLIT: splits (singleton loc msg0 (TimeSet.Raw.MX.lt_trans LT1 LT2))
+                    (join (singleton loc msg LT1) (singleton loc msg0 LT2))>> /\
+    <<DISJOINT: disjoint (singleton loc msg LT1) (singleton loc msg0 LT2)>>.
+  Proof.
+    splits.
+    - unfold singleton, LocFun.add, LocFun.find. econs; s; i.
+      + destruct (Loc.eq_dec loc0 loc); ss. subst.
+        destruct (Time.eq_dec to1 to); ss. subst.
+        destruct (Time.eq_dec to to0); ss. subst.
+        apply Time.lt_strorder in LT2. done.
+      + destruct (Loc.eq_dec loc0 loc); ss. subst.
+        extensionality ts.
+        destruct (Time.le_lt_dec ts from); ss.
+        * destruct (Time.le_lt_dec ts to); ss.
+          destruct (Time.le_lt_dec ts to0); ss.
+          exploit (@Time.le_lt_lt ts from to); auto. i.
+          rewrite x0 in l0. apply Time.lt_strorder in l0. done.
+        * destruct (Time.le_lt_dec ts to0),
+          (Time.le_lt_dec ts to); ss.
+          exploit (@Time.le_lt_lt ts to to0); auto. i.
+          rewrite x0 in l0. apply Time.lt_strorder in l0. done.
+    - unfold singleton, LocFun.add, LocFun.find. econs. ii. econs. ii.
+      destruct (Loc.eq_dec loc0 loc); ss. subst.
+      destruct (Time.le_lt_dec ts from); ss.
+      destruct (Time.le_lt_dec ts to); ss.
+  Qed.
+
+  Lemma promise_future
+        promise1 global1 loc from to msg promise2 global2
+        (LE1: le promise1 global1)
+        (PROMISE: promise promise1 global1 loc from to msg promise2 global2):
+    <<LE2: le promise2 global2>> /\
+    <<FUTURE: future global1 global2>>.
+  Proof.
+    inv PROMISE; tac.
+    - splits.
+      + econs.
+        * rewrite <- join_assoc, (join_comm (singleton loc msg LT)), join_assoc. tac.
+        * repeat (splits; tac).
+      + apply le_future. econs; tac.
+    - rewrite ? join_assoc, (join_comm global1_ctx _), <- ? join_assoc in JOIN. tac.
+      + generalize (splits_intro loc msg msg0 LT1 LT2). intro SPLIT.
+        rewrite (join_comm global1_ctx _) in JOIN. tac. splits.
+        * apply le_join_r. repeat (splits; tac).
+        * apply splits_future. repeat (apply splits_join; tac).
+      + repeat (splits; tac).
+      + repeat (splits; tac).
+  Qed.
+
+  Lemma promise_disjoint
+        promise1 global1 loc from to msg promise2 global2 ctx
+        (LE1: le promise1 global1)
+        (LE2: le ctx global1)
+        (DISJOINT1: disjoint promise1 ctx)
+        (PROMISE: promise promise1 global1 loc from to msg promise2 global2):
+    <<DISJOINT2: disjoint promise2 ctx>> /\
+    <<LE2: le ctx global2>>.
+  Proof.
+    inv PROMISE; tac.
+    - apply join2_inv in JOIN; tac. splits.
+      + repeat (splits; tac).
+      + rewrite <- join_assoc. apply le_join_l.
+        repeat (splits; tac).
+    - rewrite ? join_assoc, (join_comm global1_ctx _), <- ? join_assoc in JOIN0.
+      generalize (splits_intro loc msg msg0 LT1 LT2). intro SPLIT.
+      repeat (splits; tac).
+      rewrite (join_comm global1_ctx _) in JOIN0. tac.
+      rewrite ? join_assoc, (join_comm global1_ctx _), <- ? join_assoc in JOIN.
+      apply join2_inv in JOIN; repeat (splits; tac).
+      rewrite (join_comm global1_ctx _) in D.
+      apply join2_inv in D; repeat (splits; tac).
+      rewrite <- join_assoc. apply le_join_l. repeat (splits; tac).
+  Qed.
+
+  Inductive confirm (promise1:t) (loc:Loc.t) (from to:Time.t) (msg:Message.t): forall (promise2:t), Prop :=
+  | confirm_intro
+      promise1_ctx
+      (LT: Time.lt from to)
+      (PROMISE1: promise1 = join promise1_ctx (singleton loc msg LT))
+      (PROMISE2: disjoint promise1_ctx (singleton loc msg LT)):
+      confirm promise1 loc from to msg promise1_ctx
+  .
+
+  Lemma confirm_future
+        promise1 global loc from to msg promise2
+        (LE1: le promise1 global)
+        (CONFIRM: confirm promise1 loc from to msg promise2):
+    le promise2 global.
+  Proof.
+    inv CONFIRM; tac.
+    rewrite <- join_assoc. apply le_join_l. repeat (splits; tac).
+  Qed.
+
+  Lemma confirm_disjoint
+        promise1 global loc from to msg promise2 ctx
+        (LE1: le promise1 global)
+        (LE2: le ctx global)
+        (DISJOINT1: disjoint promise1 ctx)
+        (CONFIRM: confirm promise1 loc from to msg promise2):
+    <<DISJOINT2: disjoint promise2 ctx>> /\
+    <<LE2: le ctx global>>.
+  Proof.
+    inv CONFIRM; tac.
+    apply join2_inv in JOIN; tac. splits.
+    - repeat (splits; tac).
+    - etransitivity; [|apply le_join_r]; repeat (splits; tac).
+      apply le_join_l; tac.
+  Qed.
+
+  Inductive write (promise1 global1:t) (loc:Loc.t) (from to:Time.t) (msg:Message.t) (ord:Ordering.t):
+    forall (promise2:t) (global2:t), Prop :=
+  | write_confirm
+      promise2
+      (CONFIRM: confirm promise1 loc from to msg promise2)
+      (RELEASE: Ordering.le Ordering.release ord -> promise1 loc = Cell.bot):
+      write promise1 global1 loc from to msg ord promise2 global1
+  | write_immediate
+      promise2 promise3 global3
+      (PROMISE: promise promise1 global1 loc from to msg promise2 global3)
+      (CONFIRM: confirm promise2 loc from to msg promise3)
+      (RELEASE: Ordering.le Ordering.release ord -> promise1 loc = Cell.bot):
+      write promise1 global1 loc from to msg ord promise3 global3
+  .
+
+  Lemma write_future
+        promise1 global1
+        loc from to msg ord
+        promise2 global2
+        (LE1: le promise1 global1)
+        (WRITE: write promise1 global1 loc from to msg ord promise2 global2):
+    <<LE2: le promise2 global2>> /\
+    <<FUTURE: future global1 global2>>.
+  Proof.
+    inv WRITE.
+    - splits; [|reflexivity].
+      eapply confirm_future; eauto.
+    - exploit promise_future; eauto. i. des.
+      exploit confirm_future; eauto.
+  Qed.
+
+  Lemma write_disjoint
+        promise1 global1
+        loc from to msg ord
+        promise2 global2 ctx
+        (LE1: le promise1 global1)
+        (LE2: le ctx global1)
+        (DISJOINT1: disjoint promise1 ctx)
+        (WRITE: write promise1 global1 loc from to msg ord promise2 global2):
+    <<DISJOINT2: disjoint promise2 ctx>> /\
+    <<LE2: le ctx global2>>.
+  Proof.
+    inv WRITE.
+    - eapply confirm_disjoint; try apply CONFIRM; eauto.
+    - exploit promise_future; try apply PROMISE; eauto. i. des.
+      exploit promise_disjoint; try apply PROMISE; eauto. i. des.
+      exploit confirm_disjoint; try apply CONFIRM; eauto.
+  Qed.
+
+  Inductive fence (promise:t) (ord:Ordering.t): Prop :=
+  | fence_intro
+      (RELEASE: Ordering.le Ordering.release ord -> promise = Memory.bot)
+  .
 End Memory.
 
-Ltac memtac :=
-  repeat
-    (try match goal with
-         | [H: Memory.le _ _ |- _] =>
-           inv H
-         | [H: Memory.remove _ _ _ _ _ _ |- _] =>
-           inv H
-         | [H: Memory.disjoint _ (Memory.join _ _) |- _] =>
-           apply Memory.join_disjoint in H
-         | [H: Memory.disjoint (Memory.join _ _) _ |- _] =>
-           symmetry in H; apply Memory.join_disjoint in H
-         | [H1: ?a = Memory.join ?a ?b, H2: Memory.disjoint ?a ?b |- _] =>
-           apply Memory.bot_join_inv in H1; [|apply H2]
-         | [H1: ?a = Memory.join ?a ?b, H2: Memory.disjoint ?b ?a |- _] =>
-           apply Memory.bot_join_inv in H1; [|symmetry; apply H2]
-
-         | [H1: Memory.join ?a _ = Memory.join ?b _,
-            H2: Memory.disjoint ?a ?b |- _] =>
-           apply Memory.join2_inv in H1; [|clear H1|clear H1|clear H1]
-         | [H1: Memory.join ?a _ = Memory.join ?c ?b,
-            H2: Memory.disjoint ?a ?b |- _] =>
-           rewrite (@Memory.join_comm c b) in H1;
-           apply Memory.join2_inv in H1; [|clear H1|clear H1|clear H1]
-         | [H1: Memory.join ?c ?a = Memory.join ?b _,
-            H2: Memory.disjoint ?a ?b |- _] =>
-           rewrite (@Memory.join_comm c a) in H1;
-           apply Memory.join2_inv in H1; [|clear H1|clear H1|clear H1]
-         | [H1: Memory.join ?c ?a = Memory.join ?d ?b,
-            H2: Memory.disjoint ?a ?b |- _] =>
-           rewrite (@Memory.join_comm c a) in H1;
-           rewrite (@Memory.join_comm d b) in H1;
-           apply Memory.join2_inv in H1; [|clear H1|clear H1|clear H1]
-
-         | [H1: Memory.join ?a _ = Memory.join ?b _,
-            H2: Memory.disjoint ?b ?a |- _] =>
-           symmetry in H1;
-           apply Memory.join2_inv in H1; [|clear H1|clear H1|clear H1]
-         | [H1: Memory.join ?a _ = Memory.join ?c ?b,
-            H2: Memory.disjoint ?b ?a |- _] =>
-           symmetry in H1;
-           rewrite (@Memory.join_comm c b) in H1;
-           apply Memory.join2_inv in H1; [|clear H1|clear H1|clear H1]
-         | [H1: Memory.join ?c ?a = Memory.join ?b _,
-            H2: Memory.disjoint ?b ?a |- _] =>
-           symmetry in H1;
-           rewrite (@Memory.join_comm c a) in H1;
-           apply Memory.join2_inv in H1; [|clear H1|clear H1|clear H1]
-         | [H1: Memory.join ?c ?a = Memory.join ?d ?b,
-            H2: Memory.disjoint ?b ?a |- _] =>
-           symmetry in H1;
-           rewrite (@Memory.join_comm c a) in H1;
-           rewrite (@Memory.join_comm d b) in H1;
-           apply Memory.join2_inv in H1; [|clear H1|clear H1|clear H1]
-
-         | [H: Memory.disjoint ?a ?b |- Memory.disjoint ?b ?a] =>
-           symmetry
-         | [H1: Memory.disjoint ?a ?b, H2: Memory.splits ?a ?a' |- Memory.disjoint ?a' ?b] =>
-           eapply (@Memory.splits_disjoint a b a'); eauto
-         | [H1: Memory.disjoint ?a ?b, H2: Memory.splits ?a ?a' |- Memory.disjoint ?b ?a'] =>
-           symmetry; eapply (@Memory.splits_disjoint a b a'); eauto
-         | [H1: Memory.disjoint ?b ?a, H2: Memory.splits ?a ?a' |- Memory.disjoint ?a' ?b] =>
-           symmetry in H1; eapply (@Memory.splits_disjoint a b a'); eauto
-         | [H1: Memory.disjoint ?b ?a, H2: Memory.splits ?a ?a' |- Memory.disjoint ?b ?a'] =>
-           symmetry; symmetry in H1; eapply (@Memory.splits_disjoint a b a'); eauto
-
-         | [|- Memory.disjoint _ (Memory.join _ _)] =>
-           apply Memory.join_disjoint
-         | [|- Memory.disjoint (Memory.join _ _) _] =>
-           symmetry; apply Memory.join_disjoint
-         end;
-     ss; des; try subst; auto).
-
-Lemma memory_add_disjoint
-      declare1 global1 declare2 global2 other
-      (ADD: Memory.add declare1 global1 declare2 global2)
-      (DISJOINT: Memory.disjoint declare1 other)
-      (LE: Memory.le other global1):
-  <<DISJOINT: Memory.disjoint declare2 other>> /\
-  <<LE: Memory.le other global2>>.
-Proof.
-  inv ADD. memtac. splits; memtac.
-  rewrite (Memory.join_comm _ (Memory.join other _)).
-  rewrite <- ? Memory.join_assoc. econs; eauto.
-  memtac. splits; memtac. splits; memtac.
-Qed.
-
-Lemma memory_add_future
-      declare1 global1 declare2 global2
-      (ADD: Memory.add declare1 global1 declare2 global2)
-      (LE: Memory.le declare1 global1):
-  <<FUTURE: Memory.future global1 global2>> /\
-  <<LOCAL: Memory.le declare2 global2>>.
-Proof.
-  inv ADD. memtac. splits.
-  - econs; memtac.
-    + apply Memory.splits_join; memtac. reflexivity.
-    + apply Memory.le_join_l. memtac. splits; memtac.
-  - rewrite <- Memory.join_assoc.
-    apply Memory.le_join_l. memtac. splits; memtac.
-Qed.
+Ltac memtac := Memory.tac.
