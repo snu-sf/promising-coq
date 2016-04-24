@@ -26,13 +26,11 @@ Set Implicit Arguments.
 
 Inductive reorder: forall (i1 i2:Instr.t), Prop :=
 | reorder_load_store
-    r1 l1 o1
-    l2 v2 o2
+    r1 l1
+    l2 v2
     (LOC: l1 <> l2)
-    (DISJOINT: RegSet.disjoint (Instr.regs_of (Instr.load r1 l1 o1)) (Instr.regs_of (Instr.store l2 v2 o2)))
-    (ORDERING1: ~ Ordering.le Ordering.acquire o1)
-    (ORDERING1: ~ Ordering.le Ordering.release o2):
-    reorder (Instr.load r1 l1 o1) (Instr.store l2 v2 o2)
+    (DISJOINT: RegSet.disjoint (Instr.regs_of (Instr.load r1 l1 Ordering.relaxed)) (Instr.regs_of (Instr.store l2 v2 Ordering.relaxed))):
+    reorder (Instr.load r1 l1 Ordering.relaxed) (Instr.store l2 v2 Ordering.relaxed)
 .
 
 Inductive sim_reorder_store (i1:Instr.t) (l2:Loc.t) (v2:Value.t) (o2:Ordering.t):
@@ -55,11 +53,11 @@ Inductive sim_reorder_store (i1:Instr.t) (l2:Loc.t) (v2:Value.t) (o2:Ordering.t)
     commit_src commit_tgt
     local_src local_tgt
     mem_k_src mem_k_tgt
-    from to msg
+    from to released
     (COMMIT1: Commit.le commit_src commit_tgt)
     (COMMIT2: Snapshot.writable commit_src.(Commit.current) l2 to)
     (LT: Time.lt from to)
-    (LOCAL: MemInv.sem (Memory.singleton l2 msg LT) local_src local_tgt):
+    (LOCAL: MemInv.sem (Memory.singleton l2 (Message.mk (RegFile.eval_value rs v2) released) LT) local_src local_tgt):
     sim_reorder_store
       i1 l2 v2 o2
       (Thread.mk lang (State.mk rs [Stmt.instr i1; Stmt.instr (Instr.store l2 v2 o2)]) commit_src local_src)
@@ -79,6 +77,35 @@ Inductive sim_reorder_store (i1:Instr.t) (l2:Loc.t) (v2:Value.t) (o2:Ordering.t)
       (Thread.mk lang (State.mk rs []) commit_tgt local)
       mem_k_tgt
 .
+
+Lemma read_mon_releaxed
+      loc ts released
+      commit1_src commit1_tgt commit2_tgt
+      (READ: Commit.read commit1_tgt loc ts released Ordering.relaxed commit2_tgt)
+      (LE: Commit.le commit1_src commit1_tgt):
+  Commit.read commit1_src loc ts released Ordering.relaxed
+              (Commit.mk (Snapshot.mk
+                            (LocFun.add loc (Time.max (commit1_src.(Commit.current).(Snapshot.reads) loc) ts)
+                                        commit1_src.(Commit.current).(Snapshot.reads))
+                            commit1_src.(Commit.current).(Snapshot.writes))
+                         commit1_src.(Commit.released)
+                         commit2_tgt.(Commit.acquirable)).
+Proof.
+  inv READ. econs; ss.
+  - econs; s; try reflexivity.
+    + econs; s; try reflexivity.
+      ii. unfold LocFun.add, LocFun.find.
+      destruct (Reg.eq_dec loc0 loc); try reflexivity.
+      subst. apply Time.max_lhs.
+    + inv LE. rewrite ACQUIRABLE0.
+      inv MONOTONE. auto.
+  - inv READABLE. econs. rewrite <- CoWR.
+    inv LE. apply CURRENT.
+  - unfold Times.get, LocFun.add, LocFun.find.
+    destruct (Reg.eq_dec loc loc); [|congruence].
+    apply Time.max_rhs.
+Qed.
+(* TODO *)
 
 Lemma sim_reorder_store_sim_stmts
       i1 l2 v2 o2
@@ -156,7 +183,39 @@ Proof.
       * inv STATE. inv INSTR.
     + (* phase 1 *)
       inv STEP_TGT.
-      * admit. (* tgt i1 *)
+      * (* tgt i1 *)
+        inv REORDER.
+        { (* load *)
+          inv STEP; ss; inv STATE; inv INSTR.
+          inv LOCAL. memtac.
+          exploit read_mon_releaxed; eauto. i.
+          eexists _, _, _, _. splits.
+          - econs 2; [|econs 1]. econs. s.
+            econs 1. econs 1; s; eauto.
+            + econs. econs.
+            + eapply sim_memory_get; eauto.
+            + unfold Memory.get, Cell.get in *. s.
+              rewrite LOCAL0.
+              unfold Memory.singleton, LocFun.add, LocFun.find.
+              destruct (Reg.eq_dec loc l2); [congruence|].
+              auto.
+          - econs 1. econs 2; ss.
+            + econs. econs.
+            + instantiate (1 := commit2). econs; ss. (* commit write *)
+              * admit.
+              * admit.
+              * admit.
+              * reflexivity. admit.
+            + replace (RegFile.eval_value (RegFun.add r1 val rs) v2)
+              with (RegFile.eval_value rs v2).
+              { econs; [|eauto]. memtac. }
+              eapply eq_except_value; eauto.
+              ii. unfold RegFun.add, RegFun.find.
+              destruct (Reg.eq_dec reg r1); auto. subst. contradict REG.
+              apply RegSet.Facts.mem_iff, RegSet.singleton_spec. auto.
+          - auto.
+          - right. apply CIH. econs 3. reflexivity.
+        }
       * inv STEP. ss. destruct th3_tgt. ss. subst.
         exploit MemInv.add; try apply MEM; eauto.
         i. des. eexists _, _, _, _. splits; eauto.

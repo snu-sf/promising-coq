@@ -46,42 +46,41 @@ Qed.
 
 Lemma eq_except_value
       rs_src rs_tgt regs v
-      (REGS: RegSet.Empty (RegSet.inter regs (Value.regs_of v)))
+      (REGS: RegSet.disjoint regs (Value.regs_of v))
       (RS: eq_except regs rs_src rs_tgt):
   RegFile.eval_value rs_src v = RegFile.eval_value rs_tgt v.
 Proof.
   destruct v; auto. ss. apply RS. ii.
-  eapply REGS. apply RegSet.inter_spec. splits.
-  - apply RegSet.Facts.mem_iff. eauto.
-  - apply RegSet.Facts.singleton_iff. auto.
+  eapply REGS; eauto.
+  apply RegSet.Facts.mem_iff.
+  apply RegSet.Facts.singleton_iff. auto.
 Qed.
 
 Lemma eq_except_value_list
       rs_src rs_tgt regs vl
-      (REGS: RegSet.Empty (RegSet.inter regs (Value.regs_of_list vl)))
+      (REGS: RegSet.disjoint regs (Value.regs_of_list vl))
       (RS: eq_except regs rs_src rs_tgt):
   map (RegFile.eval_value rs_src) vl = map (RegFile.eval_value rs_tgt) vl.
 Proof.
   revert REGS. induction vl; ss. i. f_equal.
   - eapply eq_except_value; eauto.
-    ii. eapply REGS.
-    apply RegSet.inter_spec in H. des.
-    apply RegSet.inter_spec. splits; eauto.
+    ii. eapply REGS; eauto.
     destruct a; ss.
-    + apply RegSet.singleton_spec in H0. subst.
-      apply RegSet.add_spec. left. auto.
-    + inv H0.
+    apply RegSet.Facts.mem_iff in RHS.
+    apply RegSet.Facts.mem_iff.
+    apply RegSet.singleton_spec in RHS. subst.
+    apply RegSet.add_spec. auto.
   - apply IHvl.
-    ii. eapply REGS.
-    apply RegSet.inter_spec in H. des.
-    apply RegSet.inter_spec. splits; eauto.
+    ii. eapply REGS; eauto.
     destruct a; ss.
-    apply RegSet.add_spec. right. auto.
+    apply RegSet.Facts.mem_iff in RHS.
+    apply RegSet.Facts.mem_iff.
+    apply RegSet.add_spec. auto.
 Qed.
 
 Lemma eq_except_expr
       rs_src rs_tgt regs e
-      (REGS: RegSet.Empty (RegSet.inter regs (Instr.regs_of_expr e)))
+      (REGS: RegSet.disjoint regs (Instr.regs_of_expr e))
       (RS: eq_except regs rs_src rs_tgt):
   RegFile.eval_expr rs_src e = RegFile.eval_expr rs_tgt e.
 Proof.
@@ -90,20 +89,20 @@ Proof.
   - erewrite eq_except_value; eauto.
   - erewrite (eq_except_value op1); eauto.
     + erewrite (eq_except_value op2); eauto.
-      ii. eapply REGS.
-      apply RegSet.inter_spec in H. des.
-      apply RegSet.inter_spec. splits; eauto.
-      apply RegSet.union_spec. right. auto.
-    + ii. eapply REGS.
-      apply RegSet.inter_spec in H. des.
-      apply RegSet.inter_spec. splits; eauto.
-      apply RegSet.union_spec. left. auto.
+      ii. eapply REGS; eauto.
+      apply RegSet.Facts.mem_iff in RHS.
+      apply RegSet.Facts.mem_iff.
+      apply RegSet.union_spec. auto.
+    + ii. eapply REGS; eauto.
+      apply RegSet.Facts.mem_iff in RHS.
+      apply RegSet.Facts.mem_iff.
+      apply RegSet.union_spec. auto.
 Qed.
 
 Lemma eq_except_instr
       rs1_src rs1_tgt rs2_tgt regs instr e
       (TGT: RegFile.eval_instr rs1_tgt instr e rs2_tgt)
-      (REGS: RegSet.Empty (RegSet.inter regs (Instr.regs_of instr)))
+      (REGS: RegSet.disjoint regs (Instr.regs_of instr))
       (RS: eq_except regs rs1_src rs1_tgt):
   exists rs2_src,
     <<SRC: RegFile.eval_instr rs1_src instr e rs2_src>> /\
@@ -117,10 +116,10 @@ Proof.
     unfold RegFun.add, RegFun.find.
     destruct (Reg.eq_dec reg lhs); auto.
     subst. eapply eq_except_expr; eauto.
-    ii. eapply REGS.
-    apply RegSet.inter_spec in H0. des.
-    apply RegSet.inter_spec. splits; eauto.
-    apply RegSet.add_spec. right. auto.
+    ii. eapply REGS; eauto.
+    apply RegSet.Facts.mem_iff in RHS.
+    apply RegSet.Facts.mem_iff.
+    apply RegSet.add_spec. auto.
   - eexists. splits; [econs|].
     ii. specialize (RS reg).
     unfold RegFun.add, RegFun.find.
@@ -135,20 +134,20 @@ Proof.
       ii. specialize (RS reg).
       unfold RegFun.add, RegFun.find.
       destruct (Reg.eq_dec reg lhs); auto.
-    + ii. eapply REGS.
-      apply RegSet.inter_spec in H. des.
-      apply RegSet.inter_spec. splits; eauto.
-      apply RegSet.add_spec. right. auto.
+    + ii. eapply REGS; eauto.
+      apply RegSet.Facts.mem_iff in RHS.
+      apply RegSet.Facts.mem_iff.
+      apply RegSet.add_spec. auto.
   - eexists. splits; [econs|]. auto.
   - erewrite <- eq_except_value_list; eauto.
     + eexists. splits; [econs|].
       ii. specialize (RS reg).
       unfold RegFun.add, RegFun.find.
       destruct (Reg.eq_dec reg lhs); auto.
-    + ii. eapply REGS.
-      apply RegSet.inter_spec in H. des.
-      apply RegSet.inter_spec. splits; eauto.
-      apply RegSet.add_spec. right. auto.
+    + ii. eapply REGS; eauto.
+      apply RegSet.Facts.mem_iff in RHS.
+      apply RegSet.Facts.mem_iff.
+      apply RegSet.add_spec. auto.
 Qed.
 
 
@@ -365,7 +364,7 @@ Inductive ctx (sim_thread:SIM_THREAD lang lang): SIM_THREAD lang lang :=
     rs_tgt mem_k_tgt
     commit_src commit_tgt
     local
-    (REGS: RegSet.Empty (RegSet.inter regs (Instr.regs_of instr)))
+    (REGS: RegSet.disjoint regs (Instr.regs_of instr))
     (RS: eq_except regs rs_src rs_tgt)
     (COMMIT: Commit.le commit_src commit_tgt):
     ctx sim_thread
@@ -640,7 +639,7 @@ Qed.
 
 Lemma sim_stmts_instr
       instr regs
-      (REGS: RegSet.Empty (RegSet.inter regs (Instr.regs_of instr))):
+      (REGS: RegSet.disjoint regs (Instr.regs_of instr)):
   sim_stmts (eq_except regs) [Stmt.instr instr] [Stmt.instr instr] (eq_except regs).
 Proof.
   ii. pupto5_init. pupto5 ctx_weak_respectful.

@@ -972,6 +972,16 @@ Module Memory.
   Next Obligation. ii. reflexivity. Qed.
   Next Obligation. ii. etransitivity; eauto. Qed.
 
+  Lemma splits_get a b
+        loc ts msg
+        (SIM: splits a b)
+        (TGT: Memory.get loc ts a = Some msg):
+    Memory.get loc ts b = Some msg.
+  Proof.
+    unfold get, Cell.get in *.
+    apply SIM. auto.
+  Qed.
+
   Lemma splits_disjoint a b a'
         (DISJOINT: disjoint a b)
         (SPLITS: splits a a'):

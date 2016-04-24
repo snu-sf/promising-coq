@@ -23,6 +23,16 @@ Program Instance sim_memory_PreOrder: PreOrder sim_memory.
 Next Obligation. ii. econs. reflexivity. Qed.
 Next Obligation. ii. inv H. inv H0. econs. etransitivity; eauto. Qed.
 
+Lemma sim_memory_get
+      mem_src mem_tgt
+      loc ts msg
+      (SIM: sim_memory mem_src mem_tgt)
+      (TGT: Memory.get loc ts mem_tgt = Some msg):
+  Memory.get loc ts mem_src = Some msg.
+Proof.
+  inv SIM. eapply Memory.splits_get; eauto.
+Qed.
+
 
 Section SimulationThread.
   Variable (lang_src lang_tgt:Language.t).
