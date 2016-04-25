@@ -117,7 +117,10 @@ Proof.
     eexists _, _. splits; eauto. econs; ss.
   - i. inv PR; ss.
     + eexists. splits; try reflexivity; eauto.
-      etransitivity; eauto. apply Memory.splits_future. inv MEMORY. auto.
+      etransitivity; eauto. apply Memory.splits_future.
+      * inv MEMORY. auto.
+      * inv WF_SRC0. econs; ss.
+        admit. (* commit wf *)
     + memtac. inv FUTURE_SRC0. memtac.
       exploit Memory.splits_join_inv1; try apply SPLITS; eauto.
       i. des. subst. clear SPLITS.

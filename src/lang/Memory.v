@@ -899,7 +899,6 @@ Module Memory.
   Definition get (loc:Loc.t) (ts:Time.t) (mem:t): option Message.t :=
     Cell.get ts (mem loc).
 
-  (* TODO: use the well-formedness *)
   Inductive wf_times (times:Times.t) (mem:t): Prop :=
   | wf_times_intro
       (WF: forall loc, exists msg, get loc (times loc) mem = Some msg)
@@ -1199,6 +1198,27 @@ Module Memory.
     i. econs; eauto. reflexivity.
   Qed.
 
+  Lemma future_wf_times
+        times mem1 mem2
+        (WF: wf_times times mem1)
+        (FUTURE: future mem1 mem2):
+    wf_times times mem2.
+  Proof.
+    inv WF. econs. i. specialize (WF0 loc). des.
+    inv FUTURE. exploit splits_get; eauto. i.
+    inv LE. unfold get, join, Cell.get, Cell.join in *. s.
+    rewrite x0. destruct (Cell.Raw.messages (Cell.raw (ohs loc)) (times loc)); eauto.
+  Qed.
+
+  Lemma future_wf_snapshot
+        snapshot mem1 mem2
+        (WF: wf_snapshot snapshot mem1)
+        (FUTURE: future mem1 mem2):
+    wf_snapshot snapshot mem2.
+  Proof.
+    inv WF. econs; eapply future_wf_times; eauto.
+  Qed.
+
   Ltac tac :=
     repeat
       (try match goal with
@@ -1240,6 +1260,7 @@ Module Memory.
       (DISJOINT: disjoint global1 (singleton loc msg LT))
       (PROMISEEQ: promise2 = join promise1 (singleton loc msg LT))
       (GLOBALEQ: global2 = join global1 (singleton loc msg LT))
+      (WF: wf_snapshot msg.(Message.released) global2)
   | promise_split
       promise1_ctx global1_ctx to0 msg0
       (LT1: Time.lt from to)
@@ -1250,6 +1271,7 @@ Module Memory.
       (GLOBAL2: disjoint global1_ctx promise1)
       (PROMISEEQ: promise2 = join promise1_ctx (join (singleton loc msg LT1) (singleton loc msg0 LT2)))
       (GLOBALEQ: global2 = join global1_ctx (join promise1_ctx (join (singleton loc msg LT1) (singleton loc msg0 LT2))))
+      (WF: wf_snapshot msg.(Message.released) global2)
   .
 
   Lemma splits_intro

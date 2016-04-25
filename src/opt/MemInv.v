@@ -68,6 +68,7 @@ Module MemInv.
           rewrite (Memory.join_comm (Memory.singleton _ _ _) ohs).
           rewrite Memory.join_assoc.
           auto.
+        * admit. (* wf_snapshot *)
     - rewrite Memory.join_assoc, (Memory.join_comm _ promise1_ctx) in SPLITS.
       rewrite <- ? Memory.join_assoc in SPLITS.
       apply Memory.splits_join_inv2 in SPLITS; repeat (splits; memtac).
@@ -105,7 +106,8 @@ Module MemInv.
         * repeat (splits; memtac).
         * auto.
         * rewrite ? Memory.join_assoc, (Memory.join_comm ohs0 _). auto.
-  Qed.
+        * admit. (* wf_snapshot *)
+  Admitted.
 
   Lemma confirm_tgt
         inv promise1_src promise1_tgt promise2_tgt

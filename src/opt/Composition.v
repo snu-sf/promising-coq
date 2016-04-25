@@ -70,44 +70,56 @@ Section Compose.
     Threads.is_terminal ths1 /\ Threads.is_terminal ths2.
   Proof. apply compose_forall. Qed.
 
-  Lemma compose_le mem:
-    Threads.le (Threads.compose ths1 ths2) mem <->
-    Threads.le ths1 mem /\ Threads.le ths2 mem.
-  Proof. apply compose_forall. Qed.
-
-  Lemma compose_threads_consistent:
-    Threads.consistent (Threads.compose ths1 ths2) <->
-    <<CONSISTENT1: Threads.consistent ths1>> /\
-    <<CONSISTENT2: Threads.consistent ths2>>.
+  Lemma compose_threads_consistent mem:
+    Threads.consistent (Threads.compose ths1 ths2) mem <->
+    <<CONSISTENT1: Threads.consistent ths1 mem>> /\
+    <<CONSISTENT2: Threads.consistent ths2 mem>>.
   Proof.
     econs; intro X; des; splits; ii.
-    - exploit X; eauto.
-      + rewrite Threads.compose_spec.
-        unfold Threads.compose_option.
-        rewrite TH1. auto.
-      + rewrite Threads.compose_spec.
-        unfold Threads.compose_option.
-        rewrite TH2. auto.
-    - exploit X; eauto.
-      + rewrite compose_comm.
+    - inv X. econs.
+      + i. eapply DISJOINT0; eauto.
+        * rewrite Threads.compose_spec.
+          unfold Threads.compose_option.
+          rewrite TH1. auto.
+        * rewrite Threads.compose_spec.
+          unfold Threads.compose_option.
+          rewrite TH2. auto.
+      + i. eapply THREADS.
         rewrite Threads.compose_spec.
         unfold Threads.compose_option.
-        rewrite TH1. auto.
-      + rewrite compose_comm.
+        rewrite TH. auto.
+    - inv X. econs.
+      + i. eapply DISJOINT0; eauto.
+        * rewrite compose_comm.
+          rewrite Threads.compose_spec.
+          unfold Threads.compose_option.
+          rewrite TH1. auto.
+        * rewrite compose_comm.
+          rewrite Threads.compose_spec.
+          unfold Threads.compose_option.
+          rewrite TH2. auto.
+      + i. eapply THREADS.
+        rewrite compose_comm.
         rewrite Threads.compose_spec.
         unfold Threads.compose_option.
-        rewrite TH2. auto.
-    - rewrite ? Threads.compose_spec in *.
-      destruct (IdentMap.find tid1 ths1) eqn:TH11,
-               (IdentMap.find tid1 ths2) eqn:TH12,
-               (IdentMap.find tid2 ths1) eqn:TH21,
-               (IdentMap.find tid2 ths2) eqn:TH22;
-        Configuration.simplify;
-        try (by exfalso; inv DISJOINT; eapply THREAD; eauto);
-        try (by eapply CONSISTENT1; eauto);
-        try (by eapply CONSISTENT2; eauto).
-      + inv DISJOINT. eapply MEMORY; eauto.
-      + symmetry. inv DISJOINT. eapply MEMORY; eauto.
+        rewrite TH. auto.
+    - inv CONSISTENT1. inv CONSISTENT2. econs.
+      + i. rewrite ? Threads.compose_spec in *.
+        destruct (IdentMap.find tid1 ths1) eqn:TH11,
+                 (IdentMap.find tid1 ths2) eqn:TH12,
+                 (IdentMap.find tid2 ths1) eqn:TH21,
+                 (IdentMap.find tid2 ths2) eqn:TH22;
+          Configuration.simplify;
+          try (by eapply DISJOINT; eauto);
+          try (by eapply DISJOINT0; eauto);
+          try (by eapply DISJOINT1; eauto).
+        * symmetry. eapply DISJOINT; eauto.
+        * symmetry. eapply DISJOINT; eauto.
+      + i. rewrite ? Threads.compose_spec in *.
+        unfold Threads.compose_option in *.
+        destruct (IdentMap.find tid ths1) eqn:TH1.
+        * inv TH. eapply THREADS. eauto.
+        * eapply THREADS0. eauto.
   Qed.
 
   Lemma compose_consistent mem:
@@ -116,19 +128,8 @@ Section Compose.
     <<CONSISTENT2: Configuration.consistent (Configuration.mk ths2 mem)>>.
   Proof.
     econs; intro X.
-    - inv X. splits.
-      + econs; s.
-        * apply compose_threads_consistent. auto.
-        * apply compose_le. auto.
-        * eapply compose_forall in VALID. des. auto.
-      + econs; s.
-        * apply compose_threads_consistent. auto.
-        * apply compose_le. auto.
-        * eapply compose_forall in VALID. des. auto.
-    - des. inv CONSISTENT1. inv CONSISTENT2. ss. econs; s.
-      + apply compose_threads_consistent. splits; auto.
-      + apply compose_le. splits; eauto.
-      + eapply (@compose_forall_rev _ VALID VALID0); eauto.
+    - splits; apply compose_threads_consistent; auto.
+    - apply compose_threads_consistent. auto.
   Qed.
 End Compose.
 

@@ -24,6 +24,22 @@ Module Commit.
 
   Definition init: t := mk Snapshot.init (LocFun.init Snapshot.init) Snapshot.init.
 
+  Inductive wf (commit:t) (mem:Memory.t): Prop :=
+  | wf_intro
+      (CURRENT: Memory.wf_snapshot commit.(current) mem)
+      (RELEASED: forall loc, Memory.wf_snapshot (commit.(released) loc) mem)
+      (ACQUIRABLE: Memory.wf_snapshot commit.(acquirable) mem)
+  .
+
+  Lemma future_wf
+        commit mem1 mem2
+        (WF: wf commit mem1)
+        (FUTURE: Memory.future mem1 mem2):
+    wf commit mem2.
+  Proof.
+    inv WF. econs; i; eapply Memory.future_wf_snapshot; eauto.
+  Qed.
+
   Inductive le (lhs rhs:t): Prop :=
   | le_intro
       (CURRENT: Snapshot.le lhs.(current) rhs.(current))
@@ -132,25 +148,29 @@ Module Thread.
     | step_read
         loc val ts released ord st2 commit2
         (STATE: lang.(Language.step) th1.(state) (Some (ThreadEvent.mem (MemEvent.read loc val ord))) st2)
-        (READ: Commit.read th1.(commit) loc ts released ord commit2)
-        (MESSAGE: Memory.get loc ts mem1 = Some (Message.mk val released))
-        (PROMISE: Memory.get loc ts th1.(promise) = None):
+        (COMMIT: Commit.read th1.(commit) loc ts released ord commit2)
+        (COMMIT_WF: Commit.wf commit2 mem1)
+        (GET: Memory.get loc ts mem1 = Some (Message.mk val released))
+        (GET_PROMISE: Memory.get loc ts th1.(promise) = None):
         internal_step th1 mem1
                       (mk st2 commit2 th1.(promise)) mem1
     | step_write
         loc val from ts released ord st2 commit2 promise2 mem2
         (STATE: lang.(Language.step) th1.(state) (Some (ThreadEvent.mem (MemEvent.write loc val ord))) st2)
-        (WRITE: Commit.write th1.(commit) loc ts released ord commit2)
+        (COMMIT: Commit.write th1.(commit) loc ts released ord commit2)
+        (COMMIT_WF: Commit.wf commit2 mem2)
         (MEMORY: Memory.write th1.(promise) mem1 loc from ts (Message.mk val released) ord promise2 mem2):
         internal_step th1 mem1
                       (mk st2 commit2 promise2) mem2
     | step_update
         loc valr tsr releasedr valw tsw releasedw ord st3 commit2 commit3 promise3 mem3
         (STATE: lang.(Language.step) th1.(state) (Some (ThreadEvent.mem (MemEvent.update loc valr valw ord))) st3)
-        (READ: Commit.read th1.(commit) loc tsr releasedr ord commit2)
-        (WRITE: Commit.write commit2 loc tsw releasedw ord commit3)
-        (RELEASE: Snapshot.le releasedr releasedw)
-        (MESSAGE: Memory.get loc tsr mem1 = Some (Message.mk valr releasedr))
+        (COMMIT_READ: Commit.read th1.(commit) loc tsr releasedr ord commit2)
+        (COMMIT_WRITE: Commit.write commit2 loc tsw releasedw ord commit3)
+        (COMMIT_WF: Commit.wf commit3 mem3)
+        (RELEASED: Snapshot.le releasedr releasedw)
+        (GET: Memory.get loc tsr mem1 = Some (Message.mk valr releasedr))
+        (GET_PROMISE: Memory.get loc tsr th1.(promise) = None)
         (MEMORY: Memory.write th1.(promise) mem1 loc tsr tsw (Message.mk valw releasedw) ord promise3 mem3):
         internal_step th1 mem1
                       (mk st3 commit3 promise3) mem3
@@ -158,18 +178,21 @@ Module Thread.
         ord st2 commit2
         (STATE: lang.(Language.step) th1.(state) (Some (ThreadEvent.mem (MemEvent.fence ord))) st2)
         (COMMIT: Commit.fence th1.(commit) ord commit2)
+        (COMMIT_WF: Commit.wf commit2 mem1)
         (MEMORY: Memory.fence th1.(promise) ord):
         internal_step th1 mem1
                       (mk st2 commit2 th1.(promise)) mem1
-    | step_tau
+    | step_silent
         st2 commit2
         (STATE: lang.(Language.step) th1.(state) None st2)
-        (COMMIT: Commit.le th1.(commit) commit2):
+        (COMMIT: Commit.le th1.(commit) commit2)
+        (COMMIT_WF: Commit.wf commit2 mem1):
         internal_step th1 mem1
                       (mk st2 commit2 th1.(promise)) mem1
     | step_promise
         loc from ts msg commit2 promise2 mem2
         (COMMIT: Commit.le th1.(commit) commit2)
+        (COMMIT_WF: Commit.wf commit2 mem2)
         (MEMORY: Memory.promise th1.(promise) mem1 loc from ts msg promise2 mem2):
         internal_step th1 mem1
                       (mk th1.(state) commit2 promise2) mem2
@@ -183,7 +206,8 @@ Module Thread.
     | step_external
         st1 st2 commit1 commit2 mem e
         (STATE: lang.(Language.step) st1 (Some (ThreadEvent.syscall e)) st2)
-        (COMMIT: Commit.le commit1 commit2):
+        (COMMIT: Commit.le commit1 commit2)
+        (COMMIT_WF: Commit.wf commit2 mem):
         step (Some e)
              (mk st1 commit1 Memory.bot) mem
              (mk st2 commit2 Memory.bot) mem
@@ -194,9 +218,15 @@ Module Thread.
         (STEP: internal_step c1.(fst) c1.(snd) c2.(fst) c2.(snd))
     .
 
+    Inductive wf (th:t) (mem:Memory.t): Prop :=
+    | wf_intro
+        (COMMIT: Commit.wf th.(commit) mem)
+        (PROMISE: Memory.le th.(promise) mem)
+    .
+
     Definition consistent (th1:t) (mem:Memory.t): Prop :=
       forall mem1
-        (PROMISE: Memory.le th1.(promise) mem1)
+        (WF: wf th1 mem1)
         (FUTURE: Memory.future mem mem1),
       exists th2 mem2,
         <<STEPS: rtc _internal_step (th1, mem1) (th2, mem2)>> /\
@@ -205,26 +235,26 @@ Module Thread.
     Lemma internal_step_future
           th1 mem1 th2 mem2
           (STEP: internal_step th1 mem1 th2 mem2)
-          (LE1: Memory.le th1.(promise) mem1):
-      <<LE2: Memory.le th2.(promise) mem2>> /\
+          (WF1: wf th1 mem1):
+      <<WF2: wf th2 mem2>> /\
       <<FUTURE: Memory.future mem1 mem2>>.
     Proof.
-      inv STEP; try by (splits; ss; reflexivity).
-      - eapply Memory.write_future; try apply MEMORY; eauto.
-      - eapply Memory.write_future; try apply MEMORY; eauto.
-      - eapply Memory.promise_future; try apply MEMORY; eauto.
+      inv WF1. inv STEP; try by (splits; ss; reflexivity).
+      - exploit Memory.write_future; try apply MEMORY; eauto. i. des. ss.
+      - exploit Memory.write_future; try apply MEMORY; eauto. i. des. ss.
+      - exploit Memory.promise_future; try apply MEMORY; eauto. i. des. ss.
     Qed.
 
     Lemma internal_step_disjoint
           th1 mem1 th2 mem2 mem_o
           (STEP: internal_step th1 mem1 th2 mem2)
           (DISJOINT1: Memory.disjoint th1.(promise) mem_o)
-          (LE1: Memory.le th1.(promise) mem1)
-          (LE2: Memory.le mem_o mem1):
+          (WF1: wf th1 mem1)
+          (LE1: Memory.le mem_o mem1):
       <<DISJOINT2: Memory.disjoint th2.(promise) mem_o>> /\
       <<LE2: Memory.le mem_o mem2>>.
     Proof.
-      inv STEP; ss.
+      inv WF1. inv STEP; ss.
       - eapply Memory.write_disjoint; try apply MEMORY; eauto.
       - eapply Memory.write_disjoint; try apply MEMORY; eauto.
       - eapply Memory.promise_disjoint; try apply MEMORY; eauto.
@@ -233,21 +263,21 @@ Module Thread.
     Lemma step_future
           e th1 mem1 th2 mem2
           (STEP: step e th1 mem1 th2 mem2)
-          (LE1: Memory.le th1.(promise) mem1):
-      <<LE2: Memory.le th2.(promise) mem2>> /\
+          (WF1: wf th1 mem1):
+      <<WF2: wf th2 mem2>> /\
       <<FUTURE: Memory.future mem1 mem2>>.
     Proof.
       inv STEP.
       - eapply internal_step_future; eauto.
-      - ss. splits; auto. reflexivity.
+      - inv WF1. ss. splits; ss. reflexivity.
     Qed.
 
     Lemma step_disjoint
           e th1 mem1 th2 mem2 mem_o
           (STEP: step e th1 mem1 th2 mem2)
           (DISJOINT1: Memory.disjoint th1.(promise) mem_o)
-          (LE1: Memory.le th1.(promise) mem1)
-          (LE2: Memory.le mem_o mem1):
+          (WF1: wf th1 mem1)
+          (LE1: Memory.le mem_o mem1):
       <<DISJOINT2: Memory.disjoint th2.(promise) mem_o>> /\
       <<LE2: Memory.le mem_o mem2>>.
     Proof.
@@ -258,8 +288,8 @@ Module Thread.
     Lemma _internal_step_future
           thm1 thm2
           (STEP: _internal_step thm1 thm2)
-          (LE1: Memory.le thm1.(fst).(promise) thm1.(snd)):
-      <<LE2: Memory.le thm2.(fst).(promise) thm2.(snd)>> /\
+          (WF1: wf thm1.(fst) thm1.(snd)):
+      <<WF2: wf thm2.(fst) thm2.(snd)>> /\
       <<FUTURE: Memory.future thm1.(snd) thm2.(snd)>>.
     Proof.
       destruct thm1, thm2. ss. inv STEP.
@@ -270,8 +300,8 @@ Module Thread.
           thm1 thm2 mem_o
           (STEP: _internal_step thm1 thm2)
           (DISJOINT1: Memory.disjoint thm1.(fst).(promise) mem_o)
-          (LE1: Memory.le thm1.(fst).(promise) thm1.(snd))
-          (LE2: Memory.le mem_o thm1.(snd)):
+          (WF1: wf thm1.(fst) thm1.(snd))
+          (LE1: Memory.le mem_o thm1.(snd)):
       <<DISJOINT2: Memory.disjoint thm2.(fst).(promise) mem_o>> /\
       <<LE2: Memory.le mem_o thm2.(snd)>>.
     Proof.
@@ -282,11 +312,11 @@ Module Thread.
     Lemma rtc_internal_step_future
           thm1 thm2
           (STEP: rtc _internal_step thm1 thm2)
-          (LE1: Memory.le thm1.(fst).(promise) thm1.(snd)):
-      <<LE2: Memory.le thm2.(fst).(promise) thm2.(snd)>> /\
+          (WF1: wf thm1.(fst) thm1.(snd)):
+      <<WF2: wf thm2.(fst) thm2.(snd)>> /\
       <<FUTURE: Memory.future thm1.(snd) thm2.(snd)>>.
     Proof.
-      revert LE1. induction STEP; s; i.
+      revert WF1. induction STEP; s; i.
       - splits; auto. reflexivity.
       - exploit _internal_step_future; eauto. i. des.
         exploit IHSTEP; eauto. i. des.
@@ -297,12 +327,12 @@ Module Thread.
           thm1 thm2 mem_o
           (STEP: rtc _internal_step thm1 thm2)
           (DISJOINT1: Memory.disjoint thm1.(fst).(promise) mem_o)
-          (LE1: Memory.le thm1.(fst).(promise) thm1.(snd))
-          (LE2: Memory.le mem_o thm1.(snd)):
+          (WF1: wf thm1.(fst) thm1.(snd))
+          (LE1: Memory.le mem_o thm1.(snd)):
       <<DISJOINT2: Memory.disjoint thm2.(fst).(promise) mem_o>> /\
       <<LE2: Memory.le mem_o thm2.(snd)>>.
     Proof.
-      revert LE1 LE2 DISJOINT1. induction STEP; ss; i.
+      revert WF1 LE1 DISJOINT1. induction STEP; ss; i.
       exploit _internal_step_future; eauto. i. des.
       exploit _internal_step_disjoint; eauto. i. des.
       exploit IHSTEP; eauto.
