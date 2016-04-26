@@ -943,6 +943,19 @@ Module Memory.
     - inv H. inv H0. apply Cell.join_disjoint. splits; auto.
   Qed.
 
+  Lemma join_get
+        a b loc ts msg
+        (DISJOINT: disjoint a b)
+        (GET: get loc ts (join a b) = Some msg):
+    get loc ts a = Some msg \/ get loc ts b = Some msg.
+  Proof.
+    unfold get, Cell.get, join, Cell.join in *. ss.
+    destruct (Cell.Raw.messages (Cell.raw (a loc)) ts) eqn:A,
+             (Cell.Raw.messages (Cell.raw (b loc)) ts) eqn:B;
+      inv GET; auto.
+    exfalso. eapply DISJOINT; eapply Cell.WF; eauto.
+  Qed.
+
   Definition bot: t := LocFun.init Cell.bot.
 
   Lemma bot_disjoint mem: disjoint mem bot.
@@ -968,6 +981,17 @@ Module Memory.
              (LT: Time.lt from to): t :=
     (LocFun.add loc (@Cell.mk (Cell.Raw.singleton from to msg) (Cell.Raw.singleton_wf msg LT))
                 (LocFun.init Cell.bot)).
+
+  Lemma singleton_get
+        loc1 ts1 msg1
+        loc2 from2 to2 msg2 (LT2: Time.lt from2 to2)
+        (GET: get loc1 ts1 (singleton loc2 msg2 LT2) = Some msg1):
+    loc1 = loc2 /\ ts1 = to2 /\ msg1 = msg2.
+  Proof.
+    unfold singleton, get, Cell.get, LocFun.add, LocFun.find in *.
+    destruct (Loc.eq_dec loc1 loc2); ss. subst.
+    destruct (Time.eq_dec ts1 to2); inv GET. auto.
+  Qed.
 
   Definition init: t := LocFun.init Cell.init.
 
@@ -1308,8 +1332,10 @@ Module Memory.
   Lemma promise_future
         promise1 global1 loc from to msg promise2 global2
         (LE1: le promise1 global1)
+        (WF1: wf global1)
         (PROMISE: promise promise1 global1 loc from to msg promise2 global2):
     <<LE2: le promise2 global2>> /\
+    <<WF2: wf global2>> /\
     <<FUTURE: future global1 global2>>.
   Proof.
     inv PROMISE; tac.
@@ -1317,15 +1343,21 @@ Module Memory.
       + econs.
         * rewrite <- join_assoc, (join_comm (singleton loc msg LT)), join_assoc. tac.
         * repeat (splits; tac).
+      + inv WF1. econs. i.
+        apply join_get in MSG; [|tac]. des.
+        * exploit WF0; eauto. i.
+          admit. (* memory wf *)
+        * apply singleton_get in MSG. des. subst. auto.
       + apply le_future. econs; tac.
     - rewrite ? join_assoc, (join_comm global1_ctx _), <- ? join_assoc in JOIN. tac.
       + generalize (splits_intro loc msg msg0 LT1 LT2). intro SPLIT.
         rewrite (join_comm global1_ctx _) in JOIN. tac. splits.
         * apply le_join_r. repeat (splits; tac).
+        * admit. (* memory wf *)
         * apply splits_future. repeat (apply splits_join; tac).
       + repeat (splits; tac).
       + repeat (splits; tac).
-  Qed.
+  Admitted.
 
   Lemma promise_disjoint
         promise1 global1 loc from to msg promise2 global2 ctx
@@ -1407,12 +1439,14 @@ Module Memory.
         loc from to msg ord
         promise2 global2
         (LE1: le promise1 global1)
+        (WF1: wf global1)
         (WRITE: write promise1 global1 loc from to msg ord promise2 global2):
     <<LE2: le promise2 global2>> /\
+    <<WF2: wf global2>> /\
     <<FUTURE: future global1 global2>>.
   Proof.
     inv WRITE.
-    - splits; [|reflexivity].
+    - splits; [|auto|reflexivity].
       eapply confirm_future; eauto.
     - exploit promise_future; eauto. i. des.
       exploit confirm_future; eauto.
@@ -1424,13 +1458,14 @@ Module Memory.
         promise2 global2 ctx
         (LE1: le promise1 global1)
         (LE2: le ctx global1)
+        (WF1: wf global1)
         (DISJOINT1: disjoint promise1 ctx)
         (WRITE: write promise1 global1 loc from to msg ord promise2 global2):
     <<DISJOINT2: disjoint promise2 ctx>> /\
     <<LE2: le ctx global2>>.
   Proof.
     inv WRITE.
-    - eapply confirm_disjoint; try apply CONFIRM; eauto.
+    - exploit confirm_disjoint; try apply CONFIRM; eauto.
     - exploit promise_future; try apply PROMISE; eauto. i. des.
       exploit promise_disjoint; try apply PROMISE; eauto. i. des.
       exploit confirm_disjoint; try apply CONFIRM; eauto.

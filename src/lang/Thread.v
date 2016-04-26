@@ -227,6 +227,7 @@ Module Thread.
     Definition consistent (th1:t) (mem:Memory.t): Prop :=
       forall mem1
         (WF: wf th1 mem1)
+        (MEMORY: Memory.wf mem1)
         (FUTURE: Memory.future mem mem1),
       exists th2 mem2,
         <<STEPS: rtc _internal_step (th1, mem1) (th2, mem2)>> /\
@@ -235,8 +236,10 @@ Module Thread.
     Lemma internal_step_future
           th1 mem1 th2 mem2
           (STEP: internal_step th1 mem1 th2 mem2)
-          (WF1: wf th1 mem1):
+          (WF1: wf th1 mem1)
+          (MEMORY1: Memory.wf mem1):
       <<WF2: wf th2 mem2>> /\
+      <<MEMORY2: Memory.wf mem2>> /\
       <<FUTURE: Memory.future mem1 mem2>>.
     Proof.
       inv WF1. inv STEP; try by (splits; ss; reflexivity).
@@ -250,7 +253,8 @@ Module Thread.
           (STEP: internal_step th1 mem1 th2 mem2)
           (DISJOINT1: Memory.disjoint th1.(promise) mem_o)
           (WF1: wf th1 mem1)
-          (LE1: Memory.le mem_o mem1):
+          (LE1: Memory.le mem_o mem1)
+          (MEMORY1: Memory.wf mem1):
       <<DISJOINT2: Memory.disjoint th2.(promise) mem_o>> /\
       <<LE2: Memory.le mem_o mem2>>.
     Proof.
@@ -263,8 +267,10 @@ Module Thread.
     Lemma step_future
           e th1 mem1 th2 mem2
           (STEP: step e th1 mem1 th2 mem2)
-          (WF1: wf th1 mem1):
+          (WF1: wf th1 mem1)
+          (MEMORY1: Memory.wf mem1):
       <<WF2: wf th2 mem2>> /\
+      <<MEMORY2: Memory.wf mem2>> /\
       <<FUTURE: Memory.future mem1 mem2>>.
     Proof.
       inv STEP.
@@ -277,7 +283,8 @@ Module Thread.
           (STEP: step e th1 mem1 th2 mem2)
           (DISJOINT1: Memory.disjoint th1.(promise) mem_o)
           (WF1: wf th1 mem1)
-          (LE1: Memory.le mem_o mem1):
+          (LE1: Memory.le mem_o mem1)
+          (MEMORY1: Memory.wf mem1):
       <<DISJOINT2: Memory.disjoint th2.(promise) mem_o>> /\
       <<LE2: Memory.le mem_o mem2>>.
     Proof.
@@ -288,8 +295,10 @@ Module Thread.
     Lemma _internal_step_future
           thm1 thm2
           (STEP: _internal_step thm1 thm2)
-          (WF1: wf thm1.(fst) thm1.(snd)):
+          (WF1: wf thm1.(fst) thm1.(snd))
+          (MEMORY1: Memory.wf thm1.(snd)):
       <<WF2: wf thm2.(fst) thm2.(snd)>> /\
+      <<MEMORY2: Memory.wf thm2.(snd)>> /\
       <<FUTURE: Memory.future thm1.(snd) thm2.(snd)>>.
     Proof.
       destruct thm1, thm2. ss. inv STEP.
@@ -301,7 +310,8 @@ Module Thread.
           (STEP: _internal_step thm1 thm2)
           (DISJOINT1: Memory.disjoint thm1.(fst).(promise) mem_o)
           (WF1: wf thm1.(fst) thm1.(snd))
-          (LE1: Memory.le mem_o thm1.(snd)):
+          (LE1: Memory.le mem_o thm1.(snd))
+          (MEMORY1: Memory.wf thm1.(snd)):
       <<DISJOINT2: Memory.disjoint thm2.(fst).(promise) mem_o>> /\
       <<LE2: Memory.le mem_o thm2.(snd)>>.
     Proof.
@@ -312,11 +322,13 @@ Module Thread.
     Lemma rtc_internal_step_future
           thm1 thm2
           (STEP: rtc _internal_step thm1 thm2)
-          (WF1: wf thm1.(fst) thm1.(snd)):
+          (WF1: wf thm1.(fst) thm1.(snd))
+          (MEMORY1: Memory.wf thm1.(snd)):
       <<WF2: wf thm2.(fst) thm2.(snd)>> /\
+      <<MEMORY2: Memory.wf thm2.(snd)>> /\
       <<FUTURE: Memory.future thm1.(snd) thm2.(snd)>>.
     Proof.
-      revert WF1. induction STEP; s; i.
+      revert WF1 MEMORY1. induction STEP; s; i.
       - splits; auto. reflexivity.
       - exploit _internal_step_future; eauto. i. des.
         exploit IHSTEP; eauto. i. des.
@@ -328,7 +340,8 @@ Module Thread.
           (STEP: rtc _internal_step thm1 thm2)
           (DISJOINT1: Memory.disjoint thm1.(fst).(promise) mem_o)
           (WF1: wf thm1.(fst) thm1.(snd))
-          (LE1: Memory.le mem_o thm1.(snd)):
+          (LE1: Memory.le mem_o thm1.(snd))
+          (MEMORY1: Memory.wf thm1.(snd)):
       <<DISJOINT2: Memory.disjoint thm2.(fst).(promise) mem_o>> /\
       <<LE2: Memory.le mem_o thm2.(snd)>>.
     Proof.

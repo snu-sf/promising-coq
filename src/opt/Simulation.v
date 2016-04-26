@@ -53,7 +53,9 @@ Section SimulationThread.
       (FUTURE_SRC: Memory.future mem_k_src mem1_src)
       (FUTURE_TGT: Memory.future mem_k_tgt mem1_tgt)
       (WF_SRC: Thread.wf th1_src mem1_src)
-      (WF_TGT: Thread.wf th1_tgt mem1_tgt),
+      (WF_TGT: Thread.wf th1_tgt mem1_tgt)
+      (MEMORY_SRC: Memory.wf mem1_src)
+      (MEMORY_TGT: Memory.wf mem1_tgt),
       <<TERMINAL:
         forall (TERMINAL_TGT: lang_tgt.(Language.is_terminal) th1_tgt.(Thread.state)),
         exists th2_src mem2_src,
@@ -65,11 +67,13 @@ Section SimulationThread.
       <<FUTURE:
         forall mem2_src
           (FUTURE_SRC: Memory.future mem1_src mem2_src)
-          (WF_SRC: Thread.wf th1_src mem2_src),
+          (WF_SRC: Thread.wf th1_src mem2_src)
+          (MEM_SRC: Memory.wf mem2_src),
         exists mem2_tgt,
           <<MEMORY: sim_memory mem2_src mem2_tgt>> /\
           <<FUTURE_TGT: Memory.future mem1_tgt mem2_tgt>> /\
-          <<WF_TGT: Thread.wf th1_tgt mem2_tgt>>>> /\
+          <<WF_TGT: Thread.wf th1_tgt mem2_tgt>> /\
+          <<MEM_TGT: Memory.wf mem2_tgt>>>> /\
       <<PROMISE:
         forall (PROMISE_TGT: th1_tgt.(Thread.promise) = Memory.bot),
         exists th2_src mem2_src,
@@ -215,12 +219,15 @@ Lemma singleton_consistent
       tid lang (th:Thread.t lang) mem:
   Configuration.consistent (Configuration.mk (Threads.singleton tid th) mem) <->
   <<WF: Thread.wf th mem>> /\
+  <<MEMORY: Memory.wf mem>> /\
   <<CONSISTENT: Thread.consistent th mem>>.
 Proof.
   econs; intro X.
   - inv X. ss.
-    exploit THREADS; eauto. apply singleton_find.
-  - des. econs; s.
+    exploit THREADS; eauto.
+    { apply singleton_find. }
+    i. des. splits; auto.
+  - des. econs; ss.
     + ii.
       apply singleton_find_inv in TH1.
       apply singleton_find_inv in TH2.
@@ -259,16 +266,20 @@ Lemma sim_step
       th1_tgt mem1_tgt
       th3_tgt mem3_tgt
       (STEP: @Thread.step lang_tgt e th1_tgt mem1_tgt th3_tgt mem3_tgt)
+      (MEMORY: sim_memory mem1_src mem1_tgt)
       (WF_SRC: Thread.wf th1_src mem1_src)
       (WF_TGT: Thread.wf th1_tgt mem1_tgt)
-      (MEMORY: sim_memory mem1_src mem1_tgt)
+      (MEMORY_SRC: Memory.wf mem1_src)
+      (MEMORY_TGT: Memory.wf mem1_tgt)
       (SIM: sim_thread sim_terminal th1_src mem1_src th1_tgt mem1_tgt):
   exists th2_src mem2_src th3_src mem3_src,
     <<STEPS: rtc (@Thread._internal_step lang_src) (th1_src, mem1_src) (th2_src, mem2_src)>> /\
     <<STEP: @Thread.step lang_src e th2_src mem2_src th3_src mem3_src>> /\
+    <<MEMORY: sim_memory mem3_src mem3_tgt>> /\
     <<WF_SRC: Thread.wf th3_src mem3_src>> /\
     <<WF_TGT: Thread.wf th3_tgt mem3_tgt>> /\
-    <<MEMORY: sim_memory mem3_src mem3_tgt>> /\
+    <<MEMORY_SRC: Memory.wf mem3_src>> /\
+    <<MEMORY_TGT: Memory.wf mem3_tgt>> /\
     <<SIM: sim_thread sim_terminal th3_src mem3_src th3_tgt mem3_tgt>>.
 Proof.
   exploit Thread.step_future; eauto. i. des.
@@ -284,18 +295,22 @@ Lemma sim_rtc_internal_step
       sim_terminal
       thm1_src thm1_tgt thm2_tgt
       (STEPS: rtc (@Thread._internal_step lang_tgt) thm1_tgt thm2_tgt)
+      (MEMORY: sim_memory thm1_src.(snd) thm1_tgt.(snd))
       (WF_SRC: Thread.wf thm1_src.(fst) thm1_src.(snd))
       (WF_TGT: Thread.wf thm1_tgt.(fst) thm1_tgt.(snd))
-      (MEMORY: sim_memory thm1_src.(snd) thm1_tgt.(snd))
+      (MEMORY_SRC: Memory.wf thm1_src.(snd))
+      (MEMORY_TGT: Memory.wf thm1_tgt.(snd))
       (SIM: sim_thread sim_terminal thm1_src.(fst) thm1_src.(snd) thm1_tgt.(fst) thm1_tgt.(snd)):
   exists thm2_src,
     <<STEPS: rtc (@Thread._internal_step lang_src) thm1_src thm2_src>> /\
+    <<MEMORY: sim_memory thm2_src.(snd) thm2_tgt.(snd)>> /\
     <<WF_SRC: Thread.wf thm2_src.(fst) thm2_src.(snd)>> /\
     <<WF_TGT: Thread.wf thm2_tgt.(fst) thm2_tgt.(snd)>> /\
-    <<MEMORY: sim_memory thm2_src.(snd) thm2_tgt.(snd)>> /\
+    <<MEMORY_SRC: Memory.wf thm2_src.(snd)>> /\
+    <<MEMORY_TGT: Memory.wf thm2_tgt.(snd)>> /\
     <<SIM: @sim_thread lang_src lang_tgt sim_terminal thm2_src.(fst) thm2_src.(snd) thm2_tgt.(fst) thm2_tgt.(snd)>>.
 Proof.
-  revert thm1_src WF_SRC WF_TGT MEMORY SIM. induction STEPS; i.
+  revert thm1_src MEMORY WF_SRC WF_TGT MEMORY_SRC MEMORY_TGT SIM. induction STEPS; i.
   { eexists _. splits; eauto. }
   inv H. destruct x, y. ss.
   exploit sim_step; try apply MEMORY; eauto.
@@ -311,6 +326,8 @@ Proof.
   - auto.
   - auto.
   - auto.
+  - auto.
+  - auto.
 Qed.
 
 Lemma sim_thread_consistent
@@ -322,6 +339,8 @@ Lemma sim_thread_consistent
       (MEMORY: sim_memory mem_src mem_tgt)
       (WF_SRC: Thread.wf th_src mem_src)
       (WF_TGT: Thread.wf th_tgt mem_tgt)
+      (MEMORY_SRC: Memory.wf mem_src)
+      (MEMORY_TGT: Memory.wf mem_tgt)
       (CONSISTENT: Thread.consistent th_tgt mem_tgt):
   Thread.consistent th_src mem_src.
 Proof.
@@ -331,7 +350,7 @@ Proof.
   exploit CONSISTENT; eauto; try reflexivity. i. des.
   exploit sim_rtc_internal_step;
     try instantiate (1 := (_, _));
-    try apply MEMORY0; eauto.
+    try apply MEMORY1; eauto.
   { s. eapply sim_thread_future; eauto. }
   s. i. des.
   destruct thm2_src. ss.
@@ -358,6 +377,8 @@ Proof.
     punfold SIM0. exploit SIM0; eauto.
     { apply singleton_consistent in CONSISTENT_SRC. des. auto. }
     { apply singleton_consistent in CONSISTENT_TGT. des. auto. }
+    { apply CONSISTENT_SRC. }
+    { apply CONSISTENT_TGT. }
     i. des. exploit TERMINAL; eauto. i. des.
     eexists _, _. splits; [|eauto|].
     + generalize (rtc_tail STEPS). intro X. des.
@@ -382,7 +403,7 @@ Proof.
       try instantiate (1 := (th1_src, mem1_src)); s; eauto.
     { eapply sim_thread_future; eauto. }
     i. des. destruct thm2_src. ss.
-    exploit sim_step; try apply MEMORY; eauto. i. des.
+    exploit sim_step; try apply MEMORY2; eauto. i. des.
     eexists _, _, _, _. splits; eauto.
     + econs; s.
       * apply singleton_find.

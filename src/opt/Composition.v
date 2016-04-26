@@ -76,7 +76,7 @@ Section Compose.
     <<CONSISTENT2: Threads.consistent ths2 mem>>.
   Proof.
     econs; intro X; des; splits; ii.
-    - inv X. econs.
+    - inv X. econs; ss.
       + i. eapply DISJOINT0; eauto.
         * rewrite Threads.compose_spec.
           unfold Threads.compose_option.
@@ -88,7 +88,7 @@ Section Compose.
         rewrite Threads.compose_spec.
         unfold Threads.compose_option.
         rewrite TH. auto.
-    - inv X. econs.
+    - inv X. econs; ss.
       + i. eapply DISJOINT0; eauto.
         * rewrite compose_comm.
           rewrite Threads.compose_spec.
@@ -103,7 +103,7 @@ Section Compose.
         rewrite Threads.compose_spec.
         unfold Threads.compose_option.
         rewrite TH. auto.
-    - inv CONSISTENT1. inv CONSISTENT2. econs.
+    - inv CONSISTENT1. inv CONSISTENT2. econs; ss.
       + i. rewrite ? Threads.compose_spec in *.
         destruct (IdentMap.find tid1 ths1) eqn:TH11,
                  (IdentMap.find tid1 ths2) eqn:TH12,

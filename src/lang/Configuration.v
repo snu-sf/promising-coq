@@ -41,6 +41,7 @@ Module Threads.
       (THREADS: forall tid lang th
                   (TH: IdentMap.find tid ths = Some (existT _ lang th)),
           <<WF: Thread.wf th mem>> /\ <<CONSISTENT: Thread.consistent th mem>>)
+      (MEMORY: Memory.wf mem)
   .
 
   Inductive disjoint (ths1 ths2:t): Prop :=
@@ -151,6 +152,7 @@ Module Configuration.
         etransitivity; eauto.
       + ii. apply CONSISTENT1; auto.
         repeat (etransitivity; eauto).
+    - simplify.
   Qed.
 
   Lemma step_disjoint
@@ -168,25 +170,30 @@ Module Configuration.
       + inv DISJOINT. eapply THREAD; eauto.
       + exploit Thread.rtc_internal_step_future; eauto.
         { eapply CONSISTENT1; eauto. }
+        { eapply CONSISTENT1; eauto. }
         exploit Thread.rtc_internal_step_disjoint; eauto.
         { s. inv DISJOINT. eapply MEMORY; eauto. }
         { eapply CONSISTENT1; eauto. }
+        { eapply CONSISTENT; eauto. }
         { eapply CONSISTENT; eauto. }
         s. i. des.
         exploit Thread.step_disjoint; eauto. i. des.
         auto.
       + inv DISJOINT. eapply MEMORY; eauto.
-    - econs; s; eauto.
+    - exploit Thread.rtc_internal_step_future; eauto.
+      { eapply CONSISTENT1; eauto. }
+      { eapply CONSISTENT1; eauto. }
+      s. i. des.
+      exploit Thread.step_future; eauto. i. des.
+      econs; s; eauto.
       + i. eapply CONSISTENT; eauto.
       + i.
-        exploit Thread.rtc_internal_step_future; eauto.
-        { eapply CONSISTENT1; eauto. }
         exploit Thread.rtc_internal_step_disjoint; eauto.
         { s. inv DISJOINT. eapply MEMORY; eauto. }
         { eapply CONSISTENT1; eauto. }
         { eapply CONSISTENT; eauto. }
+        { eapply CONSISTENT; eauto. }
         i. des.
-        exploit Thread.step_future; eauto. i. des.
         exploit Thread.step_disjoint; eauto. i. des.
         splits.
         * econs; auto. eapply Commit.future_wf.
