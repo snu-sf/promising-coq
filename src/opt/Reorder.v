@@ -281,8 +281,8 @@ Proof.
         { econs. s. econs 2; s; eauto.
           - econs. econs.
           - econs 1; ss.
-            erewrite eq_except_value; eauto.
-            apply eq_except_singleton.
+            erewrite RegFile.eq_except_value; eauto.
+            apply RegFile.eq_except_singleton.
         }
       * eauto.
       * s. eauto.
@@ -327,8 +327,8 @@ Proof.
       }
       { econs 1. s. econs 2; s; eauto.
         - econs. econs.
-        - econs 1; ss. erewrite eq_except_value; eauto.
-          apply eq_except_singleton.
+        - econs 1; ss. erewrite RegFile.eq_except_value; eauto.
+          apply RegFile.eq_except_singleton.
       }
       { auto. }
       { right. apply CIH. econs 3.

@@ -1,9 +1,11 @@
+Require Import Axioms.
 Require Import List.
 Require Import Event.
 Require Import Syntax.
 Require Import Language.
 
 Require Import sflib.
+Require Import paco.
 
 Set Implicit Arguments.
 
@@ -76,6 +78,141 @@ Module RegFile.
         (Some (ThreadEvent.syscall (Event.mk lhs_val (map (eval_value rf) rhses))))
         (RegFun.add lhs lhs_val rf)
   .
+
+  Definition eq_except (regs:RegSet.t) (rs_src rs_tgt:RegFile.t): Prop :=
+    forall reg (REG: ~ RegSet.mem reg regs), rs_src reg = rs_tgt reg.
+
+  Lemma eq_except_nil rs_src rs_tgt:
+    rs_src = rs_tgt <-> eq_except RegSet.empty rs_src rs_tgt.
+  Proof.
+    econs; i; subst; auto.
+    - econs.
+    - extensionality reg. apply H. auto.
+  Qed.
+
+  Lemma eq_except_mon regs1 regs2
+        (SUB: RegSet.Subset regs1 regs2):
+    eq_except regs1 <2= eq_except regs2.
+  Proof.
+    ii. specialize (PR reg). apply PR. contradict REG.
+    apply RegSet.Facts.mem_iff. apply SUB.
+    apply RegSet.Facts.mem_iff. auto.
+  Qed.
+
+  Lemma eq_except_singleton r v rs:
+    eq_except (RegSet.singleton r) (RegFun.add r v rs) rs.
+  Proof.
+    ii. unfold RegFun.add, RegFun.find.
+    destruct (Reg.eq_dec reg r); auto. subst.
+    contradict REG. rewrite LocSet.Facts.singleton_b.
+    unfold LocSet.Facts.eqb. destruct (Reg.eq_dec r r); congruence.
+  Qed.
+
+  Lemma eq_except_value
+        rs_src rs_tgt regs v
+        (REGS: RegSet.disjoint regs (Value.regs_of v))
+        (RS: eq_except regs rs_src rs_tgt):
+    RegFile.eval_value rs_src v = RegFile.eval_value rs_tgt v.
+  Proof.
+    destruct v; auto. ss. apply RS. ii.
+    eapply REGS; eauto.
+    apply RegSet.Facts.mem_iff.
+    apply RegSet.Facts.singleton_iff. auto.
+  Qed.
+
+  Lemma eq_except_value_list
+        rs_src rs_tgt regs vl
+        (REGS: RegSet.disjoint regs (Value.regs_of_list vl))
+        (RS: eq_except regs rs_src rs_tgt):
+    map (RegFile.eval_value rs_src) vl = map (RegFile.eval_value rs_tgt) vl.
+  Proof.
+    revert REGS. induction vl; ss. i. f_equal.
+    - eapply eq_except_value; eauto.
+      ii. eapply REGS; eauto.
+      destruct a; ss.
+      apply RegSet.Facts.mem_iff in RHS.
+      apply RegSet.Facts.mem_iff.
+      apply RegSet.singleton_spec in RHS. subst.
+      apply RegSet.add_spec. auto.
+    - apply IHvl.
+      ii. eapply REGS; eauto.
+      destruct a; ss.
+      apply RegSet.Facts.mem_iff in RHS.
+      apply RegSet.Facts.mem_iff.
+      apply RegSet.add_spec. auto.
+  Qed.
+
+  Lemma eq_except_expr
+        rs_src rs_tgt regs e
+        (REGS: RegSet.disjoint regs (Instr.regs_of_expr e))
+        (RS: eq_except regs rs_src rs_tgt):
+    RegFile.eval_expr rs_src e = RegFile.eval_expr rs_tgt e.
+  Proof.
+    destruct e; ss.
+    - erewrite eq_except_value; eauto.
+    - erewrite eq_except_value; eauto.
+    - erewrite (eq_except_value op1); eauto.
+      + erewrite (eq_except_value op2); eauto.
+        ii. eapply REGS; eauto.
+        apply RegSet.Facts.mem_iff in RHS.
+        apply RegSet.Facts.mem_iff.
+        apply RegSet.union_spec. auto.
+      + ii. eapply REGS; eauto.
+        apply RegSet.Facts.mem_iff in RHS.
+        apply RegSet.Facts.mem_iff.
+        apply RegSet.union_spec. auto.
+  Qed.
+
+  Lemma eq_except_instr
+        rs1_src rs1_tgt rs2_tgt regs instr e
+        (TGT: RegFile.eval_instr rs1_tgt instr e rs2_tgt)
+        (REGS: RegSet.disjoint regs (Instr.regs_of instr))
+        (RS: eq_except regs rs1_src rs1_tgt):
+    exists rs2_src,
+      <<SRC: RegFile.eval_instr rs1_src instr e rs2_src>> /\
+             <<RS: eq_except regs rs2_src rs2_tgt>>.
+  Proof.
+    inv TGT; ss.
+    - eexists. splits; [econs|].
+      ii. apply RS. auto.
+    - eexists. splits; [econs|].
+      ii. generalize (RS reg). i.
+      unfold RegFun.add, RegFun.find.
+      destruct (Reg.eq_dec reg lhs); auto.
+      subst. eapply eq_except_expr; eauto.
+      ii. eapply REGS; eauto.
+      apply RegSet.Facts.mem_iff in RHS.
+      apply RegSet.Facts.mem_iff.
+      apply RegSet.add_spec. auto.
+    - eexists. splits; [econs|].
+      ii. specialize (RS reg).
+      unfold RegFun.add, RegFun.find.
+      destruct (Reg.eq_dec reg lhs); auto.
+    - erewrite <- eq_except_value; eauto.
+      eexists. splits; [econs|].
+      ii. specialize (RS reg).
+      unfold RegFun.add, RegFun.find.
+      destruct (Reg.eq_dec reg lhs); auto.
+    - erewrite <- eq_except_value; eauto.
+      + eexists. splits; [econs|].
+        ii. specialize (RS reg).
+        unfold RegFun.add, RegFun.find.
+        destruct (Reg.eq_dec reg lhs); auto.
+      + ii. eapply REGS; eauto.
+        apply RegSet.Facts.mem_iff in RHS.
+        apply RegSet.Facts.mem_iff.
+        apply RegSet.add_spec. auto.
+    - eexists. splits; [econs|]. auto.
+    - erewrite <- eq_except_value_list; eauto.
+      + eexists. splits; [econs|].
+        ii. specialize (RS reg).
+        unfold RegFun.add, RegFun.find.
+        destruct (Reg.eq_dec reg lhs); auto.
+      + ii. eapply REGS; eauto.
+        apply RegSet.Facts.mem_iff in RHS.
+        apply RegSet.Facts.mem_iff.
+        apply RegSet.add_spec. auto.
+  Qed.
 End RegFile.
 
 Module State.

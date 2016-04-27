@@ -29,6 +29,7 @@ Module Ordering.
   | acquire
   | release
   | relacq
+  | sc
   .
 
   Definition le (lhs rhs:t): bool :=
@@ -36,14 +37,17 @@ Module Ordering.
     | relaxed, _ => true
     | _, relaxed => false
 
+    | _, sc => true
+    | sc, _ => false
+
+    | _, relacq => true
+    | relacq, _ => false
+
     | acquire, release => false
-    | acquire, _ => true
+    | acquire, acquire => true
 
     | release, acquire => false
-    | release, _ => true
-
-    | relacq, relacq => true
-    | relacq, _ => false
+    | release, release => true
     end.
 End Ordering.
 
