@@ -27,21 +27,21 @@ Module Times.
   Definition get (loc:Loc.t) (c:t) := LocFun.find loc c.
 
   Definition join (lhs rhs:t): t :=
-    fun loc => Time.max (lhs loc) (rhs loc).
+    fun loc => Time.join (lhs loc) (rhs loc).
 
   Lemma join_comm lhs rhs: join lhs rhs = join rhs lhs.
   Proof.
-    unfold join. extensionality loc. apply Time.max_comm.
+    unfold join. extensionality loc. apply Time.join_comm.
   Qed.
 
   Lemma join_l lhs rhs: le lhs (join lhs rhs).
   Proof.
-    ii. apply Time.max_l.
+    ii. apply Time.join_l.
   Qed.
 
   Lemma join_r lhs rhs: le rhs (join lhs rhs).
   Proof.
-    ii. apply Time.max_r.
+    ii. apply Time.join_r.
   Qed.
 
   Lemma join_spec lhs rhs o
@@ -49,11 +49,11 @@ Module Times.
         (RHS: le rhs o):
     le (join lhs rhs) o.
   Proof.
-    unfold join. ii. apply Time.max_spec_le; auto.
+    unfold join. ii. apply Time.join_spec; auto.
   Qed.
 
   Definition incr loc ts c :=
-    LocFun.add loc (Time.max (c loc) ts) c.
+    LocFun.add loc (Time.join (c loc) ts) c.
 
   Lemma incr_mon loc ts c1 c2
         (LE: le c1 c2):
@@ -61,9 +61,9 @@ Module Times.
   Proof.
     ii. unfold incr, LocFun.add, LocFun.find.
     destruct (Loc.eq_dec loc0 loc); auto.
-    apply Time.max_spec_le.
-    - etransitivity; [apply LE|]. apply Time.max_l.
-    - apply Time.max_r.
+    apply Time.join_spec.
+    - etransitivity; [apply LE|]. apply Time.join_l.
+    - apply Time.join_r.
   Qed.
 
   Lemma incr_le loc ts c:
@@ -71,7 +71,7 @@ Module Times.
   Proof.
     unfold incr, LocFun.add, LocFun.find. ii.
     destruct (Loc.eq_dec loc0 loc).
-    - subst. apply Time.max_l.
+    - subst. apply Time.join_l.
     - reflexivity.
   Qed.
 
@@ -80,7 +80,7 @@ Module Times.
   Proof.
     unfold get, incr, LocFun.add, LocFun.find.
     destruct (Loc.eq_dec loc loc); [|congruence].
-    apply Time.max_r.
+    apply Time.join_r.
   Qed.
 
   Lemma incr_spec loc ts c1 c2
@@ -90,7 +90,7 @@ Module Times.
   Proof.
     ii. unfold get, incr, LocFun.add, LocFun.find.
     destruct (Loc.eq_dec loc0 loc); auto. subst.
-    apply Time.max_spec_le; auto.
+    apply Time.join_spec; auto.
   Qed.
 End Times.
 
@@ -734,9 +734,9 @@ Module Cell.
           inv x. inv x0.
           destruct (Time.le_lt_dec to to0).
           * exists to. econs.
-            { instantiate (1 := Time.max from from0).
+            { instantiate (1 := Time.join from from0).
               inv TS. inv TS0. econs; s; eauto.
-              apply Time.max_spec_lt; auto.
+              apply Time.join_spec_lt; auto.
             }
             { i. inv PR. ss. apply Bool.andb_true_iff.
               rewrite OWN.
@@ -1437,7 +1437,7 @@ Module Memory.
     unfold Times.incr, LocFun.add, LocFun.find. econs. i.
     destruct (Loc.eq_dec loc0 loc).
     - subst.
-      destruct (Time.max_cases (s loc) ts) as [X|X]; rewrite X; eauto.
+      destruct (Time.join_cases (s loc) ts) as [X|X]; rewrite X; eauto.
       apply WF1.
     - apply WF1.
   Qed.
@@ -1449,7 +1449,7 @@ Module Memory.
     wf_times (Times.join lhs rhs) mem.
   Proof.
     econs. i. unfold Times.join.
-    destruct (Time.max_cases (lhs loc) (rhs loc)) as [X|X]; rewrite X.
+    destruct (Time.join_cases (lhs loc) (rhs loc)) as [X|X]; rewrite X.
     - apply LHS.
     - apply RHS.
   Qed.

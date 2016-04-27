@@ -8,6 +8,22 @@ Require Import sflib.
 Set Implicit Arguments.
 
 
+Module Type HasJoin (Import T:EqLtLe).
+  Parameter join: forall (lhs rhs:t), t.
+  Axiom join_comm: forall lhs rhs, join lhs rhs = join rhs lhs.
+  Axiom join_assoc: forall a b c, join (join a b) c = join a (join b c).
+  Axiom join_l: forall lhs rhs, le lhs (join lhs rhs).
+  Axiom join_r: forall lhs rhs, le rhs (join lhs rhs).
+  Axiom join_spec: forall lhs rhs o (LHS: le lhs o) (RHS: le rhs o), le (join lhs rhs) o.
+  Axiom join_spec_lt: forall lhs rhs o (LHS: lt lhs o) (RHS: lt rhs o), lt (join lhs rhs) o.
+End HasJoin.
+
+Module Type HasCaseJoin (Import T:EqLtLe).
+  Include (HasJoin T).
+  Axiom join_cases: forall lhs rhs, join lhs rhs = lhs \/ join lhs rhs = rhs.
+End HasCaseJoin.
+
+
 Module UsualOrderedTypeWithLeibniz (S: UsualOrderedType) <: OrderedTypeWithLeibniz.
   Include S.
 
