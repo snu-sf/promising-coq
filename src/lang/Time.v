@@ -41,27 +41,31 @@ Module Time.
   Defined.
 
   Definition max (lhs rhs:t): t :=
-    match compare lhs rhs with
-    | Lt | Eq => rhs
-    | Gt => lhs
-    end.
+    if le_lt_dec lhs rhs
+    then rhs
+    else lhs.
+
+  Lemma max_comm lhs rhs: max lhs rhs = max rhs lhs.
+  Proof.
+    unfold max.
+    destruct (le_lt_dec lhs rhs), (le_lt_dec rhs lhs); auto.
+    - apply le_lteq in l. apply le_lteq in l0.
+      des; auto.
+      rewrite l0 in l. apply lt_strorder in l. done.
+    - rewrite l0 in l. apply lt_strorder in l. done.
+  Qed.
 
   Lemma max_l lhs rhs:
     le lhs (max lhs rhs).
   Proof.
-    unfold max. destruct (compare_spec lhs rhs).
-    - subst. reflexivity.
-    - apply le_lteq. auto.
-    - reflexivity.
+    unfold max. destruct (le_lt_dec lhs rhs); auto.
+    apply le_lteq. auto.
   Qed.
 
   Lemma max_r lhs rhs:
     le rhs (max lhs rhs).
   Proof.
-    unfold max. destruct (compare_spec lhs rhs).
-    - reflexivity.
-    - reflexivity.
-    - apply le_lteq. auto.
+    rewrite max_comm. apply max_l.
   Qed.
 
   Lemma max_spec_le lhs rhs o
@@ -69,7 +73,7 @@ Module Time.
         (RHS: le rhs o):
     le (max lhs rhs) o.
   Proof.
-    unfold max. destruct (compare_spec lhs rhs); auto.
+    unfold max. destruct (le_lt_dec lhs rhs); auto.
   Qed.
 
   Lemma max_spec_lt lhs rhs o
@@ -77,9 +81,14 @@ Module Time.
         (RHS: lt rhs o):
     lt (max lhs rhs) o.
   Proof.
-    unfold max. destruct (compare_spec lhs rhs); auto.
+    unfold max. destruct (le_lt_dec lhs rhs); auto.
   Qed.
 
+  Lemma max_cases lhs rhs:
+    max lhs rhs = lhs \/ max lhs rhs = rhs.
+  Proof.
+    unfold max. destruct (le_lt_dec lhs rhs); auto.
+  Qed.
 End Time.
 
 Ltac timetac :=

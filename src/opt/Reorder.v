@@ -29,11 +29,12 @@ Inductive reorder: forall (i1 i2:Instr.t), Prop :=
     r1 l1
     l2 v2
     (LOC: l1 <> l2)
-    (DISJOINT: RegSet.disjoint (Instr.regs_of (Instr.load r1 l1 Ordering.relaxed)) (Instr.regs_of (Instr.store l2 v2 Ordering.relaxed))):
+    (DISJOINT: RegSet.disjoint (Instr.regs_of (Instr.load r1 l1 Ordering.relaxed))
+                               (Instr.regs_of (Instr.store l2 v2 Ordering.relaxed))):
     reorder (Instr.load r1 l1 Ordering.relaxed) (Instr.store l2 v2 Ordering.relaxed)
 .
 
-Inductive sim_reorder_store (i1:Instr.t) (l2:Loc.t) (v2:Value.t) (o2:Ordering.t):
+Inductive sim_reorder (i1:Instr.t) (l2:Loc.t) (v2:Value.t) (o2:Ordering.t):
   forall (th_src:Thread.t lang) (mem_k_src:Memory.t)
     (th_tgt:Thread.t lang) (mem_k_tgt:Memory.t), Prop :=
 | sim_reorder_phase0
@@ -42,7 +43,7 @@ Inductive sim_reorder_store (i1:Instr.t) (l2:Loc.t) (v2:Value.t) (o2:Ordering.t)
     promise
     mem_k_src mem_k_tgt
     (COMMIT: Commit.le commit_src commit_tgt):
-    sim_reorder_store
+    sim_reorder
       i1 l2 v2 o2
       (Thread.mk lang (State.mk rs [Stmt.instr Instr.nop; Stmt.instr i1; Stmt.instr (Instr.store l2 v2 o2)]) commit_src promise)
       mem_k_src
@@ -50,15 +51,15 @@ Inductive sim_reorder_store (i1:Instr.t) (l2:Loc.t) (v2:Value.t) (o2:Ordering.t)
       mem_k_tgt
 | sim_reorder_phase1
     rs
-    commit_src commit_tgt
+    commit_src commit_tgt commit_imm
     promise_src promise_tgt
     mem_k_src mem_k_tgt
     from to released
-    (COMMIT1: Commit.le commit_src commit_tgt)
-    (COMMIT2: Snapshot.writable commit_src.(Commit.current) l2 to)
+    (COMMIT1: Commit.write commit_src l2 to released Ordering.relaxed commit_imm)
+    (COMMIT2: Commit.le commit_imm commit_tgt)
     (LT: Time.lt from to)
     (PROMISE: MemInv.sem (Memory.singleton l2 (Message.mk (RegFile.eval_value rs v2) released) LT) promise_src promise_tgt):
-    sim_reorder_store
+    sim_reorder
       i1 l2 v2 o2
       (Thread.mk lang (State.mk rs [Stmt.instr i1; Stmt.instr (Instr.store l2 v2 o2)]) commit_src promise_src)
       mem_k_src
@@ -70,7 +71,7 @@ Inductive sim_reorder_store (i1:Instr.t) (l2:Loc.t) (v2:Value.t) (o2:Ordering.t)
     promise
     mem_k_src mem_k_tgt
     (COMMIT: Commit.le commit_src commit_tgt):
-    sim_reorder_store
+    sim_reorder
       i1 l2 v2 o2
       (Thread.mk lang (State.mk rs []) commit_src promise)
       mem_k_src
@@ -78,167 +79,339 @@ Inductive sim_reorder_store (i1:Instr.t) (l2:Loc.t) (v2:Value.t) (o2:Ordering.t)
       mem_k_tgt
 .
 
-Lemma read_mon_releaxed
-      loc ts released
-      commit1_src commit1_tgt commit2_tgt
-      (READ: Commit.read commit1_tgt loc ts released Ordering.relaxed commit2_tgt)
-      (LE: Commit.le commit1_src commit1_tgt):
-  Commit.read commit1_src loc ts released Ordering.relaxed
-              (Commit.mk (Snapshot.mk
-                            (LocFun.add loc (Time.max (commit1_src.(Commit.current).(Snapshot.reads) loc) ts)
-                                        commit1_src.(Commit.current).(Snapshot.reads))
-                            commit1_src.(Commit.current).(Snapshot.writes))
-                         commit1_src.(Commit.released)
-                         commit2_tgt.(Commit.acquirable)).
-Proof.
-  inv READ. econs; ss.
-  - econs; s; try reflexivity.
-    + econs; s; try reflexivity.
-      ii. unfold LocFun.add, LocFun.find.
-      destruct (Reg.eq_dec loc0 loc); try reflexivity.
-      subst. apply Time.max_l.
-    + inv LE. rewrite ACQUIRABLE0.
-      inv MONOTONE. auto.
-  - inv READABLE. econs. rewrite <- CoWR.
-    inv LE. apply CURRENT.
-  - unfold Times.get, LocFun.add, LocFun.find.
-    destruct (Reg.eq_dec loc loc); [|congruence].
-    apply Time.max_r.
-Qed.
-(* TODO *)
+Definition commit_read_minimum
+           loc ts released commit: Commit.t :=
+  (Commit.mk (Snapshot.mk
+                (Times.incr loc ts (commit.(Commit.current).(Snapshot.reads)))
+                commit.(Commit.current).(Snapshot.writes))
+             commit.(Commit.released)
+             (Snapshot.join released commit.(Commit.acquirable))).
 
-Lemma sim_reorder_store_sim_stmts
+Lemma commit_read_minimum_spec
+      loc ts val released commit mem
+      (READABLE: Snapshot.readable (Commit.current commit) loc ts)
+      (MEMORY: Memory.wf mem)
+      (WF1: Commit.wf commit mem)
+      (WF2: Memory.get loc ts mem = Some (Message.mk val released)):
+  <<READ: Commit.read commit loc ts released Ordering.relaxed (commit_read_minimum loc ts released commit)>> /\
+  <<WF: Commit.wf (commit_read_minimum loc ts released commit) mem>> /\
+  <<CURRENT: forall loc' (LOC: loc' <> loc), Snapshot.le_on loc' (commit_read_minimum loc ts released commit).(Commit.current) commit.(Commit.current)>>.
+Proof.
+  splits.
+  - inv READABLE. econs; ss.
+    + econs; s; try reflexivity.
+      * econs; s; try reflexivity.
+        apply Times.incr_le.
+      * apply Snapshot.join_r.
+    + apply Times.incr_ts.
+    + apply Snapshot.join_l.
+  - econs; ss.
+    + econs; ss.
+      * eapply Memory.incr_wf_times; eauto. apply WF1.
+      * apply WF1.
+    + apply WF1.
+    + apply Memory.join_wf_snapshot.
+      * inv MEMORY. exploit WF; eauto.
+      * apply WF1.
+  - s. i. econs; s; [|reflexivity].
+    unfold Times.incr, LocFun.add, LocFun.find.
+    destruct (Loc.eq_dec loc' loc); [congruence|].
+    reflexivity.
+Qed.
+
+Lemma commit_read_minimum_minimum
+      loc ts released commit1 commit2
+      (COMMIT2: Commit.read commit1 loc ts released Ordering.relaxed commit2):
+  Commit.le (commit_read_minimum loc ts released commit1) commit2.
+Proof.
+  inv COMMIT2. econs; s.
+  - econs; s.
+    + apply Times.incr_spec; auto. apply MONOTONE.
+    + apply MONOTONE.
+  - apply MONOTONE.
+  - apply Snapshot.join_spec; auto.
+    apply MONOTONE.
+Qed.
+
+Definition commit_write_minimum
+           loc ts ord commit: Commit.t :=
+  (Commit.mk (Snapshot.mk
+                commit.(Commit.current).(Snapshot.reads)
+                (Times.incr loc ts commit.(Commit.current).(Snapshot.writes)))
+             (if Ordering.le Ordering.release ord
+              then LocFun.add
+                     loc (Snapshot.join
+                            (Snapshot.mk
+                               commit.(Commit.current).(Snapshot.reads)
+                               (Times.incr loc ts commit.(Commit.current).(Snapshot.writes)))
+                            (commit.(Commit.released) loc))
+                     commit.(Commit.released)
+              else commit.(Commit.released))
+             commit.(Commit.acquirable)).
+
+Lemma commit_write_minimum_spec
+      loc ts val released ord commit mem
+      (ORD: Ordering.le ord Ordering.release)
+      (WRITABLE: Snapshot.writable (Commit.current commit) loc ts)
+      (RELEASE: Snapshot.le ((commit_write_minimum loc ts ord commit).(Commit.released) loc) released)
+      (MEMORY: Memory.wf mem)
+      (WF1: Commit.wf commit mem)
+      (WF2: Memory.get loc ts mem = Some (Message.mk val released))
+      (WF3: Memory.wf_snapshot released mem):
+  <<WRITE: Commit.write commit loc ts released ord (commit_write_minimum loc ts ord commit)>> /\
+  <<WF: Commit.wf (commit_write_minimum loc ts ord commit) mem>> /\
+  <<CURRENT: forall loc' (LOC: loc' <> loc), Snapshot.le_on loc' (commit_write_minimum loc ts ord commit).(Commit.current) commit.(Commit.current)>>.
+Proof.
+  splits.
+  - inv WRITABLE. econs; ss.
+    + econs; s; try reflexivity.
+      * econs; s; try reflexivity.
+        apply Times.incr_le.
+      * i. unfold LocFun.add, LocFun.find.
+        destruct ord; ss; try reflexivity.
+        destruct (Loc.eq_dec loc0 loc).
+        { subst. econs; s; apply Times.join_r. }
+        { reflexivity. }
+    + apply Times.incr_ts.
+    + destruct ord; ss. rewrite LocFun.add_spec.
+      destruct (Loc.eq_dec loc loc); [|congruence].
+      econs; s; apply Times.join_l.
+  - econs; ss.
+    + econs; ss.
+      * apply WF1.
+      * eapply Memory.incr_wf_times; eauto. apply WF1.
+    + destruct ord; ss; try apply WF1.
+      i. unfold LocFun.add, LocFun.find.
+      destruct (Loc.eq_dec loc0 loc); try apply WF1. subst.
+      apply Memory.join_wf_snapshot.
+      * econs; s; try apply WF1.
+        eapply Memory.incr_wf_times; try apply WF1. eauto.
+      * apply WF1.
+    + apply WF1.
+  - s. i. econs; s; [reflexivity|].
+    unfold Times.incr, LocFun.add, LocFun.find.
+    destruct (Loc.eq_dec loc' loc); [congruence|].
+    reflexivity.
+Qed.
+
+Lemma commit_write_minimum_minimum
+      loc ts released ord commit1 commit2
+      (ORD: Ordering.le ord Ordering.release)
+      (COMMIT2: Commit.write commit1 loc ts released ord commit2):
+  Commit.le (commit_write_minimum loc ts ord commit1) commit2.
+Proof.
+  i. inv COMMIT2. econs; s.
+  - econs; s.
+    + apply MONOTONE.
+    + apply Times.incr_spec; auto. apply MONOTONE.
+  - destruct ord; ss; try apply MONOTONE.
+    i. unfold LocFun.add, LocFun.find.
+    destruct (Loc.eq_dec loc0 loc); try apply MONOTONE. subst.
+    apply Snapshot.join_spec.
+    + etransitivity; [|apply RELEASE]; auto. econs; s.
+      { apply MONOTONE. }
+      { apply Times.incr_spec; auto. apply MONOTONE. }
+    + apply MONOTONE.
+  - apply MONOTONE.
+Qed.
+
+Lemma sim_reorder_sim_stmts
       i1 l2 v2 o2
       (REORDER: reorder i1 (Instr.store l2 v2 o2)):
-  sim_reorder_store i1 l2 v2 o2 <4= (sim_thread (sim_terminal eq)).
+  sim_reorder i1 l2 v2 o2 <4= (sim_thread (sim_terminal eq)).
 Proof.
   pcofix CIH. i. pfold. ii. ss. splits; ss.
   - i. inv TERMINAL_TGT. inv PR; ss.
     eexists _, _. splits; eauto. econs; ss.
+  - i.
+    assert (F: Memory.future mem1_tgt mem2_src).
+    { etransitivity; eauto. apply Memory.splits_future. inv MEMORY. auto. }
+    inv PR; ss.
+    + i. eexists. splits; try reflexivity; eauto.
+      inv WF_SRC0. inv WF_TGT. econs; ss. eapply Commit.future_wf; eauto.
+    + i. eexists. splits; try reflexivity; eauto.
+      inv WF_SRC0. inv WF_TGT. econs; ss.
+      * eapply Commit.future_wf; eauto.
+      * rewrite <- PROMISE0. inv PROMISE. apply Memory.le_join_l. memtac.
+    + i. eexists. splits; try reflexivity; eauto.
+      inv WF_SRC0. inv WF_TGT. econs; ss. eapply Commit.future_wf; eauto.
   - i. inv PR; ss.
-    + eexists. splits; try reflexivity; eauto.
-      etransitivity; eauto. apply Memory.splits_future.
-      * inv MEMORY. auto.
-      * inv WF_SRC0. econs; ss.
-        admit. (* commit wf *)
-    + memtac. inv FUTURE_SRC0. memtac.
-      exploit Memory.splits_join_inv1; try apply SPLITS; eauto.
-      i. des. subst. clear SPLITS.
-      rewrite <- Memory.join_assoc in JOIN. symmetry in JOIN.
-      exploit Memory.join2_splits; try apply JOIN; memtac.
-      { splits; memtac.
-        symmetry. eapply Memory.splits_disjoint; [|eauto].
-        symmetry. eapply Memory.splits_disjoint; [|eauto].
-        auto.
+    + eexists _, _. splits; eauto.
+    + inv REORDER.
+      exploit MemInv.confirm_src; try apply MEMORY; eauto.
+      { econs.
+        - rewrite Memory.join_comm, Memory.bot_join. eauto.
+        - memtac.
       }
-      i. des. subst. clear JOIN SPLITSA.
-      inv PROMISE. inv MEMORY. memtac.
-      rewrite <- Memory.join_assoc in SPLITS.
-      apply Memory.splits_join_inv2 in SPLITS; (repeat (splits; memtac)).
-      exists (Memory.join (Memory.join promise_tgt ohs1) ohs2). splits.
-      * econs. rewrite Memory.join_assoc.
-        apply Memory.splits_join; memtac.
-        { rewrite <- Memory.join_assoc.
-          apply Memory.splits_join; memtac. rewrite SPLITS.
-          apply Memory.splits_join; memtac.
+      i. des. apply MemInv.sem_bot_inv in INV. subst.
+      eexists _, _. splits.
+      * econs 2; [|econs 2; [|econs 1]].
+        { econs. s. instantiate (1 := (_, _)).
+          econs 1; s.
+          - econs. econs.
+          - admit. (* Commit.read *)
+          - admit. (* Commit.wf *)
+          - admit. (* Memory.get *)
+          - admit. (* Memory.get promise *)
         }
-        { splits; memtac.
-          symmetry. eapply Memory.splits_disjoint_inv; [|eauto].
-          memtac. splits; memtac.
-          symmetry. eapply Memory.splits_disjoint_inv; [|eauto].
-          memtac.
+        { econs. s. econs 2; s.
+          - econs. econs.
+          - admit. (* Commit.write *)
+          - admit. (* Commit.wf *)
+          - econs 1; ss.
+            erewrite eq_except_value; eauto.
+            apply eq_except_singleton.
         }
-      * rewrite <- Memory.join_assoc. econs; memtac.
-        splits; memtac.
-      * econs; try reflexivity. econs; memtac.
-        splits; memtac.
-        symmetry. eapply Memory.splits_disjoint_inv; [|eauto].
-        memtac. splits; memtac.
-        symmetry. eapply Memory.splits_disjoint_inv; [|eauto].
-        memtac.
-    + eexists. splits; try reflexivity; eauto.
-      etransitivity; eauto. apply Memory.splits_future. inv MEMORY. auto.
-  - i. inv PR; ss.
+      * eauto.
+      * s. eauto.
     + eexists _, _. splits; eauto.
-    + subst. inv PROMISE. clear LE_TGT DISJOINT.
-      rewrite Memory.join_comm, Memory.bot_join in LE_SRC.
-      rewrite Memory.join_comm, Memory.bot_join.
-      admit. (* phase 1; bot *)
-    + eexists _, _. splits; eauto.
-  - i. inv PR; ss.
-    + (* phase 0 *)
-      inv STEP_TGT.
-      * inv STEP; ss; try inv STATE; try inv INSTR.
-        { admit.
-          (* inv MEMORY0. memtac. *)
-          (* eexists _, _, _, _. splits; eauto. *)
-          (* - econs 1. econs 5; eauto. econs. econs. *)
-          (* - right. apply CIH. inv WRITE. econs 2; ss. *)
-          (*   eapply Snapshot.writable_mon; eauto. *)
-          (*   reflexivity. *)
-        }
-        { exploit MemInv.promise; try apply MEMORY0; eauto.
-          { apply MemInv.sem_bot. }
-          i. des. inv INV2. rewrite Memory.bot_join in *.
-          eexists _, _, _, _. splits; eauto.
-          - instantiate (1 := Thread.mk _ _ _ _). econs 1. econs 6; s; eauto.
-          - right. apply CIH. econs 1. auto.
-        }
-      * inv STATE. inv INSTR.
-    + (* phase 1 *)
-      inv STEP_TGT.
-      * (* tgt i1 *)
-        inv REORDER.
-        { (* load *)
-          inv STEP; ss; try inv STATE; try inv INSTR.
-          admit. admit.
-          (* inv PROMISE. memtac. *)
-          (* exploit read_mon_releaxed; eauto. i. *)
-          (* eexists _, _, _, _. splits. *)
-          (* - econs 2; [|econs 1]. econs. s. *)
-          (*   econs 1. econs 1; s; eauto. *)
-          (*   + econs. econs. *)
-          (*   + eapply sim_memory_get; eauto. *)
-          (*   + unfold Memory.get, Cell.get in *. s. *)
-          (*     rewrite PROMISE0. *)
-          (*     unfold Memory.singleton, LocFun.add, LocFun.find. *)
-          (*     destruct (Reg.eq_dec loc l2); [congruence|]. *)
-          (*     auto. *)
-          (* - econs 1. econs 2; ss. *)
-          (*   + econs. econs. *)
-          (*   + instantiate (1 := commit2). econs; ss. (* commit write *) *)
-          (*     * admit. *)
-          (*     * admit. *)
-          (*     * admit. *)
-          (*     * reflexivity. admit. *)
-          (*   + replace (RegFile.eval_value (RegFun.add r1 val rs) v2) *)
-          (*     with (RegFile.eval_value rs v2). *)
-          (*     { econs; [|eauto]. memtac. } *)
-          (*     eapply eq_except_value; eauto. *)
-          (*     ii. unfold RegFun.add, RegFun.find. *)
-          (*     destruct (Reg.eq_dec reg r1); auto. subst. contradict REG. *)
-          (*     apply RegSet.Facts.mem_iff, RegSet.singleton_spec. auto. *)
-          (* - auto. *)
-          (* - right. apply CIH. econs 3. reflexivity. *)
-        }
-      (* * inv STEP. ss. destruct th3_tgt. ss. subst. *)
-      (*   exploit MemInv.add; try apply MEM; eauto. *)
-      (*   i. des. eexists _, _, _, _. splits; eauto. *)
-      (*   { instantiate (1 := Thread.mk _ _ _ _). econs 2. econs; s; try reflexivity; eauto. } *)
-      (*   { right. apply CIH. econs 2; eauto. *)
-      (*     etransitivity; eauto. *)
-      (*   } *)
-      * inv STATE. inv INSTR. inv REORDER.
-    + (* phase 2 *)
-      inv STEP_TGT.
-      * inv STEP; try inv STATE.
-        exploit MemInv.promise; try apply MEMORY0; eauto.
-        { rewrite <- Memory.bot_join at 1. econs. memtac. }
-        i. des. inv INV2. rewrite Memory.bot_join in *.
+  - i. inv STEP_TGT; [|inv STATE; inv INSTR; inv PR; inv REORDER].
+    inv STEP.
+    + (* read, phase 2 *)
+      inv STATE. destruct x2. ss. subst. inv INSTR. inv REORDER. inv PR.
+      exploit MemInv.confirm_src; try apply MEMORY; eauto.
+      { econs.
+        - rewrite Memory.join_comm, Memory.bot_join. eauto.
+        - memtac.
+      }
+      i. des. apply MemInv.sem_bot_inv in INV. subst.
+      exploit Memory.splits_get; eauto.
+      { inv MEMORY. eauto. }
+      intro GET_SRC.
+      exploit Memory.confirm_get; eauto. i.
+      exploit Memory.le_get; try apply WF_SRC; eauto. i.
+      exploit commit_read_minimum_spec; try apply GET_SRC; eauto.
+      { eapply Snapshot.readable_mon; [|apply COMMIT].
+        etransitivity; [|apply COMMIT2]. apply COMMIT1.
+      }
+      { apply WF_SRC. }
+      i. des.
+      exploit commit_write_minimum_spec.
+      { instantiate (1 := Ordering.relaxed). ss. }
+      { eapply Snapshot.le_on_writable; eauto. apply COMMIT1. }
+      { ss. inv COMMIT1. etransitivity; [apply MONOTONE|apply RELEASED]. }
+      { apply MEMORY_SRC. }
+      { auto. }
+      { eauto. }
+      { inv MEMORY_SRC. exploit WF0; eauto. }
+      i. des.
+      eexists _, _, _, _. splits.
+      { econs 2; [|econs 1].
+        econs 1. s. econs 1; s; eauto.
+        - econs. econs.
+        - inv CONFIRM.
+          match goal with
+          | [|- ?m = None] => destruct m eqn:X; auto
+          end.
+          apply Memory.join_get in X; ss. des; [congruence|].
+          apply Memory.singleton_get_inv in X. des. subst. congruence.
+      }
+      { econs 1. s. econs 2; s; eauto.
+        - econs. econs.
+        - econs 1; ss. erewrite eq_except_value; eauto.
+          apply eq_except_singleton.
+      }
+      { auto. }
+      { right. apply CIH. econs 3.
+        exploit commit_write_minimum_minimum; try apply COMMIT1; eauto. i.
+        exploit commit_read_minimum_minimum; try apply COMMIT; eauto. i.
+        inv x4. inv x5. inv CURRENT1. inv CURRENT2. ss. econs; s.
+        - econs; ss.
+          + etransitivity; [|eauto].
+            apply Times.incr_mon. etransitivity; [|apply COMMIT2]. apply COMMIT1.
+          + etransitivity; eauto. etransitivity; eauto. apply COMMIT2.
+        - i. etransitivity; eauto. etransitivity; eauto. apply COMMIT2.
+        - etransitivity; eauto.
+          apply Snapshot.join_spec.
+          + apply Snapshot.join_l.
+          + etransitivity; [|apply Snapshot.join_r].
+            etransitivity; [|apply COMMIT2]. apply COMMIT1.
+      }
+    + (* write, phase 1 *)
+      inv STATE. destruct x2. ss. subst. inv INSTR. inv REORDER. inv PR.
+      inv MEMORY0.
+      * exploit MemInv.confirm; try apply MEMORY; eauto.
+        { apply WF_SRC. }
+        { apply WF_TGT. }
+        { apply MemInv.sem_bot. }
+        s. i. des.
         eexists _, _, _, _. splits; eauto.
-        { instantiate (1 := Thread.mk _ _ _ _). econs 1. econs 6; s; eauto. }
+        { econs 1. s. econs 5; s.
+          - econs. econs.
+          - reflexivity.
+          - apply WF_SRC.
+        }
+        { inv CONFIRM; ss. right. apply CIH. econs 2; eauto.
+          - eauto. eapply Commit.write_mon; eauto.
+          - reflexivity.
+          - econs. memtac.
+        }
+      * exploit MemInv.add; try apply MEMORY; eauto.
+        { apply WF_SRC. }
+        { apply WF_TGT. }
+        { apply MemInv.sem_bot. }
+        s. i. des. rewrite Memory.join_comm, Memory.bot_join in INV2.
+        exploit Memory.promise_future; try apply PROMISE_SRC; eauto.
+        { apply WF_SRC. }
+        i. des.
+        eexists _, _, _, _. splits.
+        { econs 2; [|econs 1].
+          econs 1. s. econs 5; s.
+          - econs. econs.
+          - reflexivity.
+          - apply WF_SRC.
+        }
+        { econs 1. econs 6; eauto.
+          inv WF_TGT. eapply Commit.future_wf; eauto.
+          etransitivity; eauto. inv MEMORY. apply Memory.splits_future. auto.
+        }
+        { auto. }
+        ss. right. apply CIH. econs 2; eauto. reflexivity.
+    + inv STATE; destruct x2; ss; subst; try inv INSTR; inv PR; inv REORDER.
+    + inv STATE; destruct x2; ss; subst; try inv INSTR; inv PR; inv REORDER.
+    + inv STATE; destruct x2; ss; subst; try inv INSTR; inv PR; inv REORDER.
+    + inv PR; ss.
+      * exploit MemInv.promise; try apply MEMORY; eauto.
+        { apply WF_SRC. }
+        { apply WF_TGT. }
+        { apply MemInv.sem_bot. }
+        s. i. des. apply MemInv.sem_bot_inv in INV2. subst.
+        exploit Memory.promise_future; try apply PROMISE_SRC; eauto.
+        { apply WF_SRC. }
+        i. des.
+        eexists _, _, _, _. splits; eauto.
+        { instantiate (1 := Thread.mk _ _ _ _). econs 1. econs 6; s; eauto.
+          inv WF_TGT. eapply Commit.future_wf; eauto.
+          etransitivity; eauto. inv MEMORY. apply Memory.splits_future. auto.
+        }
+        { right. apply CIH. econs 1. auto. }
+      * exploit MemInv.promise; try apply MEMORY; eauto.
+        { apply WF_SRC. }
+        { apply WF_TGT. }
+        s. i. des.
+        exploit Memory.promise_future; try apply PROMISE_SRC; eauto.
+        { apply WF_SRC. }
+        i. des.
+        eexists _, _, _, _. splits; eauto.
+        { instantiate (1 := Thread.mk _ _ _ _). econs 1.
+          econs 6; s; try reflexivity; eauto.
+          inv WF_SRC. eapply Commit.future_wf; eauto.
+        }
+        { right. apply CIH. econs 2; eauto. etransitivity; eauto. }
+      * exploit MemInv.promise; try apply MEMORY; eauto.
+        { apply WF_SRC. }
+        { apply WF_TGT. }
+        { apply MemInv.sem_bot. }
+        s. i. des. apply MemInv.sem_bot_inv in INV2. subst.
+        exploit Memory.promise_future; try apply PROMISE_SRC; eauto.
+        { apply WF_SRC. }
+        i. des.
+        eexists _, _, _, _. splits; eauto.
+        { instantiate (1 := Thread.mk _ _ _ _). econs 1. econs 6; s; eauto.
+          inv WF_TGT. eapply Commit.future_wf; eauto.
+          etransitivity; eauto. inv MEMORY. apply Memory.splits_future. auto.
+        }
         { right. apply CIH. econs 3. auto. }
-      * inv STATE.
 Admitted.
 
 Lemma reorder_sim_stmts
@@ -250,6 +423,6 @@ Lemma reorder_sim_stmts
 Proof.
   ii. destruct i2; try by inv REORDER.
   - (* store *)
-    eapply sim_reorder_store_sim_stmts; eauto.
+    eapply sim_reorder_sim_stmts; eauto.
     subst. econs 1. auto.
 Qed.

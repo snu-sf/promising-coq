@@ -101,6 +101,20 @@ Module Commit.
       apply LE.
   Qed.
 
+  (* TODO *)
+  (* Lemma read_mon_inv *)
+  (*       commit loc ts released ord commit1 commit2 *)
+  (*       (LE: le commit1 commit2) *)
+  (*       (READ: read commit loc ts released ord commit1): *)
+  (*   read commit loc ts released ord commit2. *)
+  (* Proof. *)
+  (*   inv READ; econs; ss. *)
+  (*   - etransitivity; [|apply LE]. auto. *)
+  (*   - etransitivity; [|apply LE]. auto. *)
+  (*   - etransitivity; [|apply LE]. auto. *)
+  (*   - etransitivity; [|apply LE]. auto. *)
+  (* Qed. *)
+
   Lemma write_mon
         commit1 commit2
         (LE: le commit1 commit2):

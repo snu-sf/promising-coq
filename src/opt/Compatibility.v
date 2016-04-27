@@ -44,6 +44,15 @@ Proof.
   apply IdentSet.Facts.mem_iff. auto.
 Qed.
 
+Lemma eq_except_singleton r v rs:
+  eq_except (RegSet.singleton r) (RegFun.add r v rs) rs.
+Proof.
+  ii. unfold RegFun.add, RegFun.find.
+  destruct (Reg.eq_dec reg r); auto. subst.
+  contradict REG. rewrite LocSet.Facts.singleton_b.
+  unfold LocSet.Facts.eqb. destruct (Reg.eq_dec r r); congruence.
+Qed.
+
 Lemma eq_except_value
       rs_src rs_tgt regs v
       (REGS: RegSet.disjoint regs (Value.regs_of v))

@@ -18,14 +18,80 @@ Module Times.
   Definition init: t := LocFun.init Time.elt.
 
   Definition le (lhs rhs:t): Prop :=
-    forall loc, Time.le (LocFun.find loc lhs) (LocFun.find loc rhs).
+    forall loc, Time.le (lhs loc) (rhs loc).
 
   Global Program Instance le_PreOrder: PreOrder le.
   Next Obligation. ii. reflexivity. Qed.
   Next Obligation. ii. etransitivity; eauto. Qed.
 
-  Definition get (loc:Loc.t) (c:t) :=
-    LocFun.find loc c.
+  Definition get (loc:Loc.t) (c:t) := LocFun.find loc c.
+
+  Definition join (lhs rhs:t): t :=
+    fun loc => Time.max (lhs loc) (rhs loc).
+
+  Lemma join_comm lhs rhs: join lhs rhs = join rhs lhs.
+  Proof.
+    unfold join. extensionality loc. apply Time.max_comm.
+  Qed.
+
+  Lemma join_l lhs rhs: le lhs (join lhs rhs).
+  Proof.
+    ii. apply Time.max_l.
+  Qed.
+
+  Lemma join_r lhs rhs: le rhs (join lhs rhs).
+  Proof.
+    ii. apply Time.max_r.
+  Qed.
+
+  Lemma join_spec lhs rhs o
+        (LHS: le lhs o)
+        (RHS: le rhs o):
+    le (join lhs rhs) o.
+  Proof.
+    unfold join. ii. apply Time.max_spec_le; auto.
+  Qed.
+
+  Definition incr loc ts c :=
+    LocFun.add loc (Time.max (c loc) ts) c.
+
+  Lemma incr_mon loc ts c1 c2
+        (LE: le c1 c2):
+    le (incr loc ts c1) (incr loc ts c2).
+  Proof.
+    ii. unfold incr, LocFun.add, LocFun.find.
+    destruct (Loc.eq_dec loc0 loc); auto.
+    apply Time.max_spec_le.
+    - etransitivity; [apply LE|]. apply Time.max_l.
+    - apply Time.max_r.
+  Qed.
+
+  Lemma incr_le loc ts c:
+    le c (incr loc ts c).
+  Proof.
+    unfold incr, LocFun.add, LocFun.find. ii.
+    destruct (Loc.eq_dec loc0 loc).
+    - subst. apply Time.max_l.
+    - reflexivity.
+  Qed.
+
+  Lemma incr_ts loc ts c:
+    Time.le ts (get loc (incr loc ts c)).
+  Proof.
+    unfold get, incr, LocFun.add, LocFun.find.
+    destruct (Loc.eq_dec loc loc); [|congruence].
+    apply Time.max_r.
+  Qed.
+
+  Lemma incr_spec loc ts c1 c2
+        (LE: le c1 c2)
+        (TS: Time.le ts (get loc c2)):
+    Times.le (incr loc ts c1) c2.
+  Proof.
+    ii. unfold get, incr, LocFun.add, LocFun.find.
+    destruct (Loc.eq_dec loc0 loc); auto. subst.
+    apply Time.max_spec_le; auto.
+  Qed.
 End Times.
 
 Module Snapshot.
@@ -50,6 +116,34 @@ Module Snapshot.
     ii. inv H. inv H0. econs; etransitivity; eauto.
   Qed.
 
+  Definition join (lhs rhs:t): t :=
+    mk (Times.join lhs.(reads) rhs.(reads))
+       (Times.join lhs.(writes) rhs.(writes)).
+
+  Lemma join_comm lhs rhs: join lhs rhs = join rhs lhs.
+  Proof.
+    unfold join. f_equal; apply Times.join_comm.
+  Qed.
+
+  Lemma join_l lhs rhs: le lhs (join lhs rhs).
+  Proof.
+    econs; apply Times.join_l.
+  Qed.
+
+  Lemma join_r lhs rhs: le rhs (join lhs rhs).
+  Proof.
+    econs; apply Times.join_r.
+  Qed.
+
+  Lemma join_spec lhs rhs o
+        (LHS: le lhs o)
+        (RHS: le rhs o):
+    le (join lhs rhs) o.
+  Proof.
+    inv LHS. inv RHS.
+    econs; apply Times.join_spec; eauto.
+  Qed.
+
   Inductive readable (history:t) (loc:Loc.t) (ts:Time.t): Prop :=
   | readable_intro
       (* (CoRR: Time.le (Times.get loc history.(Snapshot.reads)) ts) *)
@@ -67,7 +161,7 @@ Module Snapshot.
         (LE: le history1 history2):
     readable history2 <2= readable history1.
   Proof.
-    i. inv PR. inv LE. econs. rewrite <- CoWR. auto.
+    i. inv PR. inv LE. econs. rewrite <- CoWR. eauto.
   Qed.
 
   Lemma writable_mon
@@ -76,6 +170,30 @@ Module Snapshot.
     writable history2 <2= writable history1.
   Proof.
     i. inv PR. inv LE. econs.
+    - eapply Time.le_lt_lt; eauto.
+    - eapply Time.le_lt_lt; eauto.
+  Qed.
+
+  Inductive le_on (loc:Loc.t) (lhs rhs:t): Prop :=
+  | le_on_intro
+      (READS: Time.le (lhs.(reads) loc) (rhs.(reads) loc))
+      (WRITES: Time.le (lhs.(writes) loc) (rhs.(writes) loc))
+  .
+
+  Lemma le_on_readable
+        loc lhs rhs
+        (LE: le_on loc lhs rhs):
+    readable rhs loc <1= readable lhs loc.
+  Proof.
+    i. inv LE. inv PR. econs. etransitivity; eauto.
+  Qed.
+
+  Lemma le_on_writable
+        loc lhs rhs
+        (LE: le_on loc lhs rhs):
+    writable rhs loc <1= writable lhs loc.
+  Proof.
+    i. inv LE. inv PR. econs.
     - eapply Time.le_lt_lt; eauto.
     - eapply Time.le_lt_lt; eauto.
   Qed.
@@ -943,6 +1061,19 @@ Module Memory.
     - inv H. inv H0. apply Cell.join_disjoint. splits; auto.
   Qed.
 
+  Lemma join_get_inv
+        a b loc ts msg
+        (DISJOINT: disjoint a b)
+        (GET: get loc ts a = Some msg):
+    get loc ts (join a b) = Some msg.
+  Proof.
+    unfold get, Cell.get, join, Cell.join in *. ss.
+    destruct (Cell.Raw.messages (Cell.raw (a loc)) ts) eqn:A,
+             (Cell.Raw.messages (Cell.raw (b loc)) ts) eqn:B;
+      inv GET; auto.
+    exfalso. eapply DISJOINT; eapply Cell.WF; eauto.
+  Qed.
+
   Lemma join_get
         a b loc ts msg
         (DISJOINT: disjoint a b)
@@ -983,6 +1114,17 @@ Module Memory.
                 (LocFun.init Cell.bot)).
 
   Lemma singleton_get
+        loc from to msg
+        (LT: Time.lt from to):
+    get loc to (singleton loc msg LT) = Some msg.
+  Proof.
+    unfold get, singleton, LocFun.add.
+    destruct (Loc.eq_dec loc loc); [|congruence].
+    unfold Cell.get. ss.
+    destruct (Time.eq_dec to to); [|congruence]. auto.
+  Qed.
+
+  Lemma singleton_get_inv
         loc1 ts1 msg1
         loc2 from2 to2 msg2 (LT2: Time.lt from2 to2)
         (GET: get loc1 ts1 (singleton loc2 msg2 LT2) = Some msg1):
@@ -1004,8 +1146,8 @@ Module Memory.
   Lemma splits_get a b
         loc ts msg
         (SIM: splits a b)
-        (TGT: Memory.get loc ts a = Some msg):
-    Memory.get loc ts b = Some msg.
+        (TGT: get loc ts a = Some msg):
+    get loc ts b = Some msg.
   Proof.
     unfold get, Cell.get in *.
     apply SIM. auto.
@@ -1025,6 +1167,37 @@ Module Memory.
     disjoint a b.
   Proof.
     inv DISJOINT. econs. ii. eapply Cell.splits_disjoint_inv; eauto.
+  Qed.
+
+  Lemma splits_intro
+        loc from to to0 msg msg0
+        (LT1: Time.lt from to)
+        (LT2: Time.lt to to0):
+    <<SPLIT: splits (singleton loc msg0 (TimeSet.Raw.MX.lt_trans LT1 LT2))
+                    (join (singleton loc msg LT1) (singleton loc msg0 LT2))>> /\
+    <<DISJOINT: disjoint (singleton loc msg LT1) (singleton loc msg0 LT2)>>.
+  Proof.
+    splits.
+    - unfold singleton, LocFun.add, LocFun.find. econs; s; i.
+      + destruct (Loc.eq_dec loc0 loc); ss. subst.
+        destruct (Time.eq_dec to1 to); ss. subst.
+        destruct (Time.eq_dec to to0); ss. subst.
+        apply Time.lt_strorder in LT2. done.
+      + destruct (Loc.eq_dec loc0 loc); ss. subst.
+        extensionality ts.
+        destruct (Time.le_lt_dec ts from); ss.
+        * destruct (Time.le_lt_dec ts to); ss.
+          destruct (Time.le_lt_dec ts to0); ss.
+          exploit (@Time.le_lt_lt ts from to); auto. i.
+          rewrite x0 in l0. apply Time.lt_strorder in l0. done.
+        * destruct (Time.le_lt_dec ts to0),
+          (Time.le_lt_dec ts to); ss.
+          exploit (@Time.le_lt_lt ts to to0); auto. i.
+          rewrite x0 in l0. apply Time.lt_strorder in l0. done.
+    - unfold singleton, LocFun.add, LocFun.find. econs. ii. econs. ii.
+      destruct (Loc.eq_dec loc0 loc); ss. subst.
+      destruct (Time.le_lt_dec ts from); ss.
+      destruct (Time.le_lt_dec ts to); ss.
   Qed.
 
   Lemma splits_join a b a' b'
@@ -1155,6 +1328,18 @@ Module Memory.
       symmetry. eauto.
   Qed.
 
+  Lemma le_get
+        loc ts msg mem1 mem2
+        (LE: le mem1 mem2)
+        (GET: Memory.get loc ts mem1 = Some msg):
+    Memory.get loc ts mem2 = Some msg.
+  Proof.
+    inv LE. unfold get, join, Cell.get, Cell.join in *. ss.
+    rewrite GET.
+    destruct (Cell.Raw.messages (Cell.raw (ohs loc)) ts) eqn:B; auto.
+    exfalso. eapply DISJOINT; eapply Cell.WF; eauto.
+  Qed.
+
   Lemma le_join_l lhs rhs
         (DISJOINT: disjoint lhs rhs):
     le lhs (join lhs rhs).
@@ -1243,6 +1428,47 @@ Module Memory.
     inv WF. econs; eapply future_wf_times; eauto.
   Qed.
 
+  Lemma incr_wf_times
+        loc s ts msg mem
+        (WF1: wf_times s mem)
+        (WF2: get loc ts mem = Some msg):
+    wf_times (Times.incr loc ts s) mem.
+  Proof.
+    unfold Times.incr, LocFun.add, LocFun.find. econs. i.
+    destruct (Loc.eq_dec loc0 loc).
+    - subst.
+      destruct (Time.max_cases (s loc) ts) as [X|X]; rewrite X; eauto.
+      apply WF1.
+    - apply WF1.
+  Qed.
+
+  Lemma join_wf_times
+        lhs rhs mem
+        (LHS: wf_times lhs mem)
+        (RHS: wf_times rhs mem):
+    wf_times (Times.join lhs rhs) mem.
+  Proof.
+    econs. i. unfold Times.join.
+    destruct (Time.max_cases (lhs loc) (rhs loc)) as [X|X]; rewrite X.
+    - apply LHS.
+    - apply RHS.
+  Qed.
+
+  Lemma join_wf_snapshot
+        lhs rhs mem
+        (LHS: wf_snapshot lhs mem)
+        (RHS: wf_snapshot rhs mem):
+    wf_snapshot (Snapshot.join lhs rhs) mem.
+  Proof.
+    econs.
+    - apply join_wf_times.
+      + apply LHS.
+      + apply RHS.
+    - apply join_wf_times.
+      + apply LHS.
+      + apply RHS.
+  Qed.
+
   Ltac tac :=
     repeat
       (try match goal with
@@ -1298,37 +1524,6 @@ Module Memory.
       (WF: wf_snapshot msg.(Message.released) global2)
   .
 
-  Lemma splits_intro
-        loc from to to0 msg msg0
-        (LT1: Time.lt from to)
-        (LT2: Time.lt to to0):
-    <<SPLIT: splits (singleton loc msg0 (TimeSet.Raw.MX.lt_trans LT1 LT2))
-                    (join (singleton loc msg LT1) (singleton loc msg0 LT2))>> /\
-    <<DISJOINT: disjoint (singleton loc msg LT1) (singleton loc msg0 LT2)>>.
-  Proof.
-    splits.
-    - unfold singleton, LocFun.add, LocFun.find. econs; s; i.
-      + destruct (Loc.eq_dec loc0 loc); ss. subst.
-        destruct (Time.eq_dec to1 to); ss. subst.
-        destruct (Time.eq_dec to to0); ss. subst.
-        apply Time.lt_strorder in LT2. done.
-      + destruct (Loc.eq_dec loc0 loc); ss. subst.
-        extensionality ts.
-        destruct (Time.le_lt_dec ts from); ss.
-        * destruct (Time.le_lt_dec ts to); ss.
-          destruct (Time.le_lt_dec ts to0); ss.
-          exploit (@Time.le_lt_lt ts from to); auto. i.
-          rewrite x0 in l0. apply Time.lt_strorder in l0. done.
-        * destruct (Time.le_lt_dec ts to0),
-          (Time.le_lt_dec ts to); ss.
-          exploit (@Time.le_lt_lt ts to to0); auto. i.
-          rewrite x0 in l0. apply Time.lt_strorder in l0. done.
-    - unfold singleton, LocFun.add, LocFun.find. econs. ii. econs. ii.
-      destruct (Loc.eq_dec loc0 loc); ss. subst.
-      destruct (Time.le_lt_dec ts from); ss.
-      destruct (Time.le_lt_dec ts to); ss.
-  Qed.
-
   Lemma promise_future
         promise1 global1 loc from to msg promise2 global2
         (LE1: le promise1 global1)
@@ -1347,7 +1542,7 @@ Module Memory.
         apply join_get in MSG; [|tac]. des.
         * exploit WF0; eauto. i.
           admit. (* memory wf *)
-        * apply singleton_get in MSG. des. subst. auto.
+        * apply singleton_get_inv in MSG. des. subst. auto.
       + apply le_future. econs; tac.
     - rewrite ? join_assoc, (join_comm global1_ctx _), <- ? join_assoc in JOIN. tac.
       + generalize (splits_intro loc msg msg0 LT1 LT2). intro SPLIT.
@@ -1419,6 +1614,58 @@ Module Memory.
       apply le_join_l; tac.
   Qed.
 
+  Lemma confirm_get promise1 loc from to msg promise2
+        (CONFIRM: Memory.confirm promise1 loc from to msg promise2):
+    Memory.get loc to promise1 = Some msg.
+  Proof.
+    inv CONFIRM. rewrite Memory.join_comm.
+    apply join_get_inv; tac.
+    apply Memory.singleton_get.
+  Qed.
+
+  Inductive add (promise1 global1:t) (loc:Loc.t) (from to:Time.t) (msg:Message.t):
+    forall (promise2:t) (global2:t), Prop :=
+  | add_intro
+      promise2 promise3 global3
+      (PROMISE: promise promise1 global1 loc from to msg promise2 global3)
+      (CONFIRM: confirm promise2 loc from to msg promise3):
+      add promise1 global1 loc from to msg promise3 global3
+  .
+
+  Lemma add_future
+        promise1 global1
+        loc from to msg
+        promise2 global2
+        (LE1: le promise1 global1)
+        (WF1: wf global1)
+        (ADD: add promise1 global1 loc from to msg promise2 global2):
+    <<LE2: le promise2 global2>> /\
+    <<WF2: wf global2>> /\
+    <<FUTURE: future global1 global2>>.
+  Proof.
+    inv ADD.
+    exploit promise_future; eauto. i. des.
+    exploit confirm_future; eauto.
+  Qed.
+
+  Lemma add_disjoint
+        promise1 global1
+        loc from to msg
+        promise2 global2 ctx
+        (LE1: le promise1 global1)
+        (LE2: le ctx global1)
+        (WF1: wf global1)
+        (DISJOINT1: disjoint promise1 ctx)
+        (ADD: add promise1 global1 loc from to msg promise2 global2):
+    <<DISJOINT2: disjoint promise2 ctx>> /\
+    <<LE2: le ctx global2>>.
+  Proof.
+    inv ADD.
+    exploit promise_future; try apply PROMISE; eauto. i. des.
+    exploit promise_disjoint; try apply PROMISE; eauto. i. des.
+    exploit confirm_disjoint; try apply CONFIRM; eauto.
+  Qed.
+
   Inductive write (promise1 global1:t) (loc:Loc.t) (from to:Time.t) (msg:Message.t) (ord:Ordering.t):
     forall (promise2:t) (global2:t), Prop :=
   | write_confirm
@@ -1426,12 +1673,11 @@ Module Memory.
       (CONFIRM: confirm promise1 loc from to msg promise2)
       (RELEASE: Ordering.le Ordering.release ord -> promise1 loc = Cell.bot):
       write promise1 global1 loc from to msg ord promise2 global1
-  | write_immediate
-      promise2 promise3 global3
-      (PROMISE: promise promise1 global1 loc from to msg promise2 global3)
-      (CONFIRM: confirm promise2 loc from to msg promise3)
+  | write_add
+      promise2 global2
+      (ADD: add promise1 global1 loc from to msg promise2 global2)
       (RELEASE: Ordering.le Ordering.release ord -> promise1 loc = Cell.bot):
-      write promise1 global1 loc from to msg ord promise3 global3
+      write promise1 global1 loc from to msg ord promise2 global2
   .
 
   Lemma write_future
@@ -1448,8 +1694,7 @@ Module Memory.
     inv WRITE.
     - splits; [|auto|reflexivity].
       eapply confirm_future; eauto.
-    - exploit promise_future; eauto. i. des.
-      exploit confirm_future; eauto.
+    - eapply add_future; eauto.
   Qed.
 
   Lemma write_disjoint
@@ -1466,14 +1711,12 @@ Module Memory.
   Proof.
     inv WRITE.
     - exploit confirm_disjoint; try apply CONFIRM; eauto.
-    - exploit promise_future; try apply PROMISE; eauto. i. des.
-      exploit promise_disjoint; try apply PROMISE; eauto. i. des.
-      exploit confirm_disjoint; try apply CONFIRM; eauto.
+    - eapply add_disjoint; try apply ADD; eauto.
   Qed.
 
   Inductive fence (promise:t) (ord:Ordering.t): Prop :=
   | fence_intro
-      (RELEASE: Ordering.le Ordering.release ord -> promise = Memory.bot)
+      (RELEASE: Ordering.le Ordering.release ord -> promise = bot)
   .
 End Memory.
 

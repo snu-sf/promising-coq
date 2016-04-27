@@ -138,6 +138,51 @@ Module MemInv.
     rewrite Memory.join_assoc. econs; memtac. splits; memtac.
   Qed.
 
+  Lemma confirm
+        inv
+        loc from to msg
+        promise1_src global1_src
+        promise1_tgt global1_tgt promise2_tgt
+        (LE1_SRC: Memory.le promise1_src global1_src)
+        (LE1_TGT: Memory.le promise1_tgt global1_tgt)
+        (SIM1: sim_memory global1_src global1_tgt)
+        (INV1: sem inv promise1_src promise1_tgt)
+        (CONFIRM_TGT: Memory.confirm promise1_tgt loc from to msg promise2_tgt):
+    exists promise2_src,
+      <<LE1_SRC: Memory.le promise2_src global1_src>> /\
+      <<INV2: sem inv promise2_src promise2_tgt>> /\
+      <<CONFIRM_SRC: Memory.confirm promise1_src loc from to msg promise2_src>>.
+  Proof.
+    exploit confirm_tgt; eauto. i. des.
+    exploit confirm_src; eauto.
+    { econs; eauto. }
+    i. des.
+    exploit Memory.confirm_future; try apply CONFIRM; eauto.
+  Qed.
+
+  Lemma add
+        inv
+        loc from to msg
+        promise1_src global1_src
+        promise1_tgt global1_tgt promise2_tgt global2_tgt
+        (LE1_SRC: Memory.le promise1_src global1_src)
+        (LE1_TGT: Memory.le promise1_tgt global1_tgt)
+        (SIM1: sim_memory global1_src global1_tgt)
+        (INV1: sem inv promise1_src promise1_tgt)
+        (ADD_TGT: Memory.add promise1_tgt global1_tgt loc from to msg promise2_tgt global2_tgt):
+    exists (LT: Time.lt from to) promise2_src global2_src,
+      <<LE1_SRC: Memory.le promise2_src global2_src>> /\
+      <<SIM2: sim_memory global2_src global2_tgt>> /\
+      <<DISJOINT: Memory.disjoint inv (Memory.singleton loc msg LT)>> /\
+      <<INV2: sem (Memory.join inv (Memory.singleton loc msg LT)) promise2_src promise2_tgt>> /\
+      <<PROMISE_SRC: Memory.promise promise1_src global1_src loc from to msg promise2_src global2_src>>.
+  Proof.
+    inv ADD_TGT.
+    exploit promise; try apply SIM1; eauto. i. des.
+    exploit confirm_tgt; try apply SIM2; eauto. i. des.
+    eexists _, _, _. splits; eauto.
+  Qed.
+
   Lemma write
         inv
         loc from to msg ord
@@ -156,21 +201,16 @@ Module MemInv.
       <<WRITE_SRC: Memory.write promise1_src global1_src loc from to msg ord promise2_src global2_src>>.
   Proof.
     inv WRITE_TGT.
-    - exploit confirm_tgt; eauto. i. des.
+    - exploit confirm; try apply SIM1; eauto. i. des.
+      eexists _, _. splits; try apply INV2; eauto.
+      econs 1; eauto.
+    - exploit add; try apply SIM1; eauto. i. des.
       exploit confirm_src; eauto.
-      { econs; memtac. }
+      { econs; eauto. }
       i. des.
-      eexists _, _. splits; try apply INV0; eauto.
+      eexists _, _. splits; try apply INV; eauto.
       + eapply Memory.confirm_future; eauto.
-      + econs 1; eauto.
-    - exploit promise; try apply PROMISE; try apply LE1_SRC; eauto. i. des.
-      exploit confirm_tgt; eauto. i. des.
-      exploit confirm_src; eauto.
-      { econs; memtac. }
-      i. des.
-      eexists _, _. splits; try apply INV0; eauto.
-      + eapply Memory.confirm_future; eauto.
-      + econs 2; eauto.
+      + econs 2; eauto. econs; eauto.
   Qed.
 
   Lemma sem_bot promise:

@@ -33,11 +33,17 @@ Module Ordering.
 
   Definition le (lhs rhs:t): bool :=
     match lhs, rhs with
-    | acquire, relaxed => false
+    | relaxed, _ => true
+    | _, relaxed => false
+
     | acquire, release => false
-    | release, relaxed => false
+    | acquire, _ => true
+
     | release, acquire => false
-    | _, _ => true
+    | release, _ => true
+
+    | relacq, relacq => true
+    | relacq, _ => false
     end.
 End Ordering.
 
