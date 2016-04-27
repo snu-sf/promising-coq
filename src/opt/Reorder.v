@@ -133,6 +133,15 @@ Proof.
     apply MONOTONE.
 Qed.
 
+Lemma Commit_wf_get
+      loc commit1 mem
+      (WF1: Commit.wf commit1 mem):
+  exists msg, Memory.get loc (Snapshot.writes (Commit.current commit1) loc) mem = Some msg.
+Proof.
+  inversion WF1. inv CURRENT. inv WRITES.
+  specialize (WF loc). des. destruct msg. eauto.
+Qed.
+
 Definition commit_write_minimum
            loc ts ord commit: Commit.t :=
   (Commit.mk (Snapshot.mk
@@ -244,20 +253,33 @@ Proof.
         - memtac.
       }
       i. des. apply MemInv.sem_bot_inv in INV. subst.
+      exploit (Commit_wf_get l1); try apply WF_SRC; eauto.
+      s. i. des. destruct msg.
+      exploit Memory.confirm_get; eauto. i.
+      exploit Memory.le_get; try apply WF_SRC; eauto. i.
+      exploit (@commit_read_minimum_spec l1); try apply x0; eauto.
+      { econs. unfold Times.get, LocFun.find. reflexivity.  }
+      { apply WF_SRC. }
+      i. des.
+      exploit (@commit_write_minimum_spec l2); try apply MEMORY_SRC; eauto.
+      { instantiate (1 := Ordering.relaxed). ss. }
+      { eapply Snapshot.le_on_writable; eauto. apply COMMIT1. }
+      { ss. inv COMMIT1. etransitivity; [apply MONOTONE|apply RELEASED]. }
+      { inv MEMORY_SRC. exploit WF0; eauto. }
+      i. des. simpl in WRITE.
       eexists _, _. splits.
       * econs 2; [|econs 2; [|econs 1]].
         { econs. s. instantiate (1 := (_, _)).
-          econs 1; s.
+          econs 1; s; eauto.
           - econs. econs.
-          - admit. (* Commit.read *)
-          - admit. (* Commit.wf *)
-          - admit. (* Memory.get *)
-          - admit. (* Memory.get promise *)
+          - inv CONFIRM. rewrite Memory.join_comm, Memory.bot_join.
+            match goal with
+            | [|- ?x = None] => destruct x eqn:X; auto
+            end.
+            apply Memory.singleton_get_inv in X. des. congruence.
         }
-        { econs. s. econs 2; s.
+        { econs. s. econs 2; s; eauto.
           - econs. econs.
-          - admit. (* Commit.write *)
-          - admit. (* Commit.wf *)
           - econs 1; ss.
             erewrite eq_except_value; eauto.
             apply eq_except_singleton.
@@ -286,13 +308,10 @@ Proof.
       }
       { apply WF_SRC. }
       i. des.
-      exploit commit_write_minimum_spec.
+      exploit commit_write_minimum_spec; try apply MEMORY_SRC; eauto.
       { instantiate (1 := Ordering.relaxed). ss. }
       { eapply Snapshot.le_on_writable; eauto. apply COMMIT1. }
       { ss. inv COMMIT1. etransitivity; [apply MONOTONE|apply RELEASED]. }
-      { apply MEMORY_SRC. }
-      { auto. }
-      { eauto. }
       { inv MEMORY_SRC. exploit WF0; eauto. }
       i. des.
       eexists _, _, _, _. splits.
@@ -412,7 +431,7 @@ Proof.
           etransitivity; eauto. inv MEMORY. apply Memory.splits_future. auto.
         }
         { right. apply CIH. econs 3. auto. }
-Admitted.
+Qed.
 
 Lemma reorder_sim_stmts
       i1 i2 (REORDER: reorder i1 i2):
