@@ -10,6 +10,7 @@ Require Import Time.
 Require Import Event.
 Require Import Language.
 Require Import Memory.
+Require Import Commit.
 Require Import Thread.
 
 Set Implicit Arguments.

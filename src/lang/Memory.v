@@ -13,9 +13,11 @@ Require Import Time.
 Set Implicit Arguments.
 
 
-Module Times.
+Module Times <: JoinableType.
   Definition t := LocFun.t Time.t.
   Definition init: t := LocFun.init Time.elt.
+
+  Definition eq := @eq t.
 
   Definition le (lhs rhs:t): Prop :=
     forall loc, Time.le (lhs loc) (rhs loc).
@@ -32,6 +34,12 @@ Module Times.
   Lemma join_comm lhs rhs: join lhs rhs = join rhs lhs.
   Proof.
     unfold join. extensionality loc. apply Time.join_comm.
+  Qed.
+
+  Lemma join_assoc a b c: join (join a b) c = join a (join b c).
+  Proof.
+    extensionality loc. unfold join.
+    apply Time.join_assoc.
   Qed.
 
   Lemma join_l lhs rhs: le lhs (join lhs rhs).
@@ -94,19 +102,23 @@ Module Times.
   Qed.
 End Times.
 
-Module Snapshot.
-  Structure t := mk {
+Module Snapshot <: JoinableType.
+  Structure t_ := mk {
     reads: Times.t;
     writes: Times.t;
   }.
+  Definition t := t_.
 
   Definition init: t := mk Times.init Times.init.
 
-  Inductive le (lhs rhs:t): Prop :=
+  Definition eq := @eq t.
+
+  Inductive le_ (lhs rhs:t): Prop :=
   | le_intro
       (READS: Times.le lhs.(reads) rhs.(reads))
       (WRITES: Times.le lhs.(writes) rhs.(writes))
   .
+  Definition le := le_.
 
   Global Program Instance le_PreOrder: PreOrder le.
   Next Obligation.
@@ -123,6 +135,13 @@ Module Snapshot.
   Lemma join_comm lhs rhs: join lhs rhs = join rhs lhs.
   Proof.
     unfold join. f_equal; apply Times.join_comm.
+  Qed.
+
+  Lemma join_assoc a b c: join (join a b) c = join a (join b c).
+  Proof.
+    unfold join. ss. f_equal.
+    - apply Times.join_assoc.
+    - apply Times.join_assoc.
   Qed.
 
   Lemma join_l lhs rhs: le lhs (join lhs rhs).
@@ -1456,7 +1475,7 @@ Module Memory.
     - apply RHS.
   Qed.
 
-  Lemma join_wf_snapshot
+  Lemma wf_snapshot_join
         lhs rhs mem
         (LHS: wf_snapshot lhs mem)
         (RHS: wf_snapshot rhs mem):
@@ -1543,7 +1562,8 @@ Module Memory.
       + inv WF1. econs. i.
         apply join_get in MSG; [|tac]. des.
         * exploit WF0; eauto. i.
-          admit. (* memory wf *)
+          eapply future_wf_snapshot; eauto.
+          apply le_future. apply le_join_l. tac.
         * apply singleton_get_inv in MSG. des. subst. auto.
       + apply le_future. econs; tac.
     - rewrite ? join_assoc, (join_comm global1_ctx _), <- ? join_assoc in JOIN. tac.

@@ -22,6 +22,8 @@ Module Type HasCaseJoin (Import T:EqLe).
   Axiom join_cases: forall lhs rhs, join lhs rhs = lhs \/ join lhs rhs = rhs.
 End HasCaseJoin.
 
+Module Type JoinableType := EqLe <+ HasJoin.
+
 
 Module UsualOrderedTypeWithLeibniz (S: UsualOrderedType) <: OrderedTypeWithLeibniz.
   Include S.

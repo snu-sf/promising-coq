@@ -5,6 +5,7 @@ Require Import Basic.
 Require Import Event.
 Require Import Language.
 Require Import Memory.
+Require Import Commit.
 Require Import Thread.
 Require Import Configuration.
 Require Import Simulation.

@@ -11,6 +11,7 @@ Require Import Event.
 Require Import Language.
 Require Import Time.
 Require Import Memory.
+Require Import Commit.
 Require Import Thread.
 Require Import Configuration.
 Require Import Simulation.
@@ -79,151 +80,6 @@ Inductive sim_reorder (i1:Instr.t) (l2:Loc.t) (v2:Value.t) (o2:Ordering.t):
       mem_k_tgt
 .
 
-Definition commit_read_minimum
-           loc ts released commit: Commit.t :=
-  (Commit.mk (Snapshot.mk
-                (Times.incr loc ts (commit.(Commit.current).(Snapshot.reads)))
-                commit.(Commit.current).(Snapshot.writes))
-             commit.(Commit.released)
-             (Snapshot.join released commit.(Commit.acquirable))).
-
-Lemma commit_read_minimum_spec
-      loc ts val released commit mem
-      (READABLE: Snapshot.readable (Commit.current commit) loc ts)
-      (MEMORY: Memory.wf mem)
-      (WF1: Commit.wf commit mem)
-      (WF2: Memory.get loc ts mem = Some (Message.mk val released)):
-  <<READ: Commit.read commit loc ts released Ordering.relaxed (commit_read_minimum loc ts released commit)>> /\
-  <<WF: Commit.wf (commit_read_minimum loc ts released commit) mem>> /\
-  <<CURRENT: forall loc' (LOC: loc' <> loc), Snapshot.le_on loc' (commit_read_minimum loc ts released commit).(Commit.current) commit.(Commit.current)>>.
-Proof.
-  splits.
-  - inv READABLE. econs; ss.
-    + econs; s; try reflexivity.
-      * econs; s; try reflexivity.
-        apply Times.incr_le.
-      * apply Snapshot.join_r.
-    + apply Times.incr_ts.
-    + apply Snapshot.join_l.
-  - econs; ss.
-    + econs; ss.
-      * eapply Memory.incr_wf_times; eauto. apply WF1.
-      * apply WF1.
-    + apply WF1.
-    + apply Memory.join_wf_snapshot.
-      * inv MEMORY. exploit WF; eauto.
-      * apply WF1.
-  - s. i. econs; s; [|reflexivity].
-    unfold Times.incr, LocFun.add, LocFun.find.
-    destruct (Loc.eq_dec loc' loc); [congruence|].
-    reflexivity.
-Qed.
-
-Lemma commit_read_minimum_minimum
-      loc ts released commit1 commit2
-      (COMMIT2: Commit.read commit1 loc ts released Ordering.relaxed commit2):
-  Commit.le (commit_read_minimum loc ts released commit1) commit2.
-Proof.
-  inv COMMIT2. econs; s.
-  - econs; s.
-    + apply Times.incr_spec; auto. apply MONOTONE.
-    + apply MONOTONE.
-  - apply MONOTONE.
-  - apply Snapshot.join_spec; auto.
-    apply MONOTONE.
-Qed.
-
-Lemma Commit_wf_get
-      loc commit1 mem
-      (WF1: Commit.wf commit1 mem):
-  exists msg, Memory.get loc (Snapshot.writes (Commit.current commit1) loc) mem = Some msg.
-Proof.
-  inversion WF1. inv CURRENT. inv WRITES.
-  specialize (WF loc). des. destruct msg. eauto.
-Qed.
-
-Definition commit_write_minimum
-           loc ts ord commit: Commit.t :=
-  (Commit.mk (Snapshot.mk
-                commit.(Commit.current).(Snapshot.reads)
-                (Times.incr loc ts commit.(Commit.current).(Snapshot.writes)))
-             (if Ordering.le Ordering.release ord
-              then LocFun.add
-                     loc (Snapshot.join
-                            (Snapshot.mk
-                               commit.(Commit.current).(Snapshot.reads)
-                               (Times.incr loc ts commit.(Commit.current).(Snapshot.writes)))
-                            (commit.(Commit.released) loc))
-                     commit.(Commit.released)
-              else commit.(Commit.released))
-             commit.(Commit.acquirable)).
-
-Lemma commit_write_minimum_spec
-      loc ts val released ord commit mem
-      (ORD: Ordering.le ord Ordering.release)
-      (WRITABLE: Snapshot.writable (Commit.current commit) loc ts)
-      (RELEASE: Snapshot.le ((commit_write_minimum loc ts ord commit).(Commit.released) loc) released)
-      (MEMORY: Memory.wf mem)
-      (WF1: Commit.wf commit mem)
-      (WF2: Memory.get loc ts mem = Some (Message.mk val released))
-      (WF3: Memory.wf_snapshot released mem):
-  <<WRITE: Commit.write commit loc ts released ord (commit_write_minimum loc ts ord commit)>> /\
-  <<WF: Commit.wf (commit_write_minimum loc ts ord commit) mem>> /\
-  <<CURRENT: forall loc' (LOC: loc' <> loc), Snapshot.le_on loc' (commit_write_minimum loc ts ord commit).(Commit.current) commit.(Commit.current)>>.
-Proof.
-  splits.
-  - inv WRITABLE. econs; ss.
-    + econs; s; try reflexivity.
-      * econs; s; try reflexivity.
-        apply Times.incr_le.
-      * i. unfold LocFun.add, LocFun.find.
-        destruct ord; ss; try reflexivity.
-        destruct (Loc.eq_dec loc0 loc).
-        { subst. econs; s; apply Times.join_r. }
-        { reflexivity. }
-    + apply Times.incr_ts.
-    + destruct ord; ss. rewrite LocFun.add_spec.
-      destruct (Loc.eq_dec loc loc); [|congruence].
-      econs; s; apply Times.join_l.
-  - econs; ss.
-    + econs; ss.
-      * apply WF1.
-      * eapply Memory.incr_wf_times; eauto. apply WF1.
-    + destruct ord; ss; try apply WF1.
-      i. unfold LocFun.add, LocFun.find.
-      destruct (Loc.eq_dec loc0 loc); try apply WF1. subst.
-      apply Memory.join_wf_snapshot.
-      * econs; s; try apply WF1.
-        eapply Memory.incr_wf_times; try apply WF1. eauto.
-      * apply WF1.
-    + apply WF1.
-  - s. i. econs; s; [reflexivity|].
-    unfold Times.incr, LocFun.add, LocFun.find.
-    destruct (Loc.eq_dec loc' loc); [congruence|].
-    reflexivity.
-Qed.
-
-Lemma commit_write_minimum_minimum
-      loc ts released ord commit1 commit2
-      (ORD: Ordering.le ord Ordering.release)
-      (COMMIT2: Commit.write commit1 loc ts released ord commit2):
-  Commit.le (commit_write_minimum loc ts ord commit1) commit2.
-Proof.
-  i. inv COMMIT2. econs; s.
-  - econs; s.
-    + apply MONOTONE.
-    + apply Times.incr_spec; auto. apply MONOTONE.
-  - destruct ord; ss; try apply MONOTONE.
-    i. unfold LocFun.add, LocFun.find.
-    destruct (Loc.eq_dec loc0 loc); try apply MONOTONE. subst.
-    apply Snapshot.join_spec.
-    + etransitivity; [|apply RELEASE]; auto. econs; s.
-      { apply MONOTONE. }
-      { apply Times.incr_spec; auto. apply MONOTONE. }
-    + apply MONOTONE.
-  - apply MONOTONE.
-Qed.
-
 Lemma sim_reorder_sim_stmts
       i1 l2 v2 o2
       (REORDER: reorder i1 (Instr.store l2 v2 o2)):
@@ -253,15 +109,15 @@ Proof.
         - memtac.
       }
       i. des. apply MemInv.sem_bot_inv in INV. subst.
-      exploit (Commit_wf_get l1); try apply WF_SRC; eauto.
+      exploit (CommitFacts.wf_get l1); try apply WF_SRC; eauto.
       s. i. des. destruct msg.
       exploit Memory.confirm_get; eauto. i.
       exploit Memory.le_get; try apply WF_SRC; eauto. i.
-      exploit (@commit_read_minimum_spec l1); try apply x0; eauto.
+      exploit (@CommitFacts.read_min_spec l1); try apply x0; eauto.
       { econs. unfold Times.get, LocFun.find. reflexivity.  }
       { apply WF_SRC. }
       i. des.
-      exploit (@commit_write_minimum_spec l2); try apply MEMORY_SRC; eauto.
+      exploit (@CommitFacts.write_min_spec l2); try apply MEMORY_SRC; eauto.
       { instantiate (1 := Ordering.relaxed). ss. }
       { eapply Snapshot.le_on_writable; eauto. apply COMMIT1. }
       { ss. inv COMMIT1. etransitivity; [apply MONOTONE|apply RELEASED]. }
@@ -302,13 +158,13 @@ Proof.
       intro GET_SRC.
       exploit Memory.confirm_get; eauto. i.
       exploit Memory.le_get; try apply WF_SRC; eauto. i.
-      exploit commit_read_minimum_spec; try apply GET_SRC; eauto.
+      exploit CommitFacts.read_min_spec; try apply GET_SRC; eauto.
       { eapply Snapshot.readable_mon; [|apply COMMIT].
         etransitivity; [|apply COMMIT2]. apply COMMIT1.
       }
       { apply WF_SRC. }
       i. des.
-      exploit commit_write_minimum_spec; try apply MEMORY_SRC; eauto.
+      exploit CommitFacts.write_min_spec; try apply MEMORY_SRC; eauto.
       { instantiate (1 := Ordering.relaxed). ss. }
       { eapply Snapshot.le_on_writable; eauto. apply COMMIT1. }
       { ss. inv COMMIT1. etransitivity; [apply MONOTONE|apply RELEASED]. }
@@ -332,8 +188,8 @@ Proof.
       }
       { auto. }
       { right. apply CIH. econs 3.
-        exploit commit_write_minimum_minimum; try apply COMMIT1; eauto. i.
-        exploit commit_read_minimum_minimum; try apply COMMIT; eauto. i.
+        exploit CommitFacts.write_min_min; try apply COMMIT1; eauto. i.
+        exploit CommitFacts.read_min_min; try apply COMMIT; eauto. i.
         inv x4. inv x5. inv CURRENT1. inv CURRENT2. ss. econs; s.
         - econs; ss.
           + etransitivity; [|eauto].
@@ -361,7 +217,7 @@ Proof.
           - apply WF_SRC.
         }
         { inv CONFIRM; ss. right. apply CIH. econs 2; eauto.
-          - eauto. eapply Commit.write_mon; eauto.
+          - eauto. eapply CommitFacts.write_mon; eauto.
           - reflexivity.
           - econs. memtac.
         }

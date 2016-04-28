@@ -12,6 +12,7 @@ Require Import Event.
 Require Import Time.
 Require Import Language.
 Require Import Memory.
+Require Import Commit.
 Require Import Thread.
 Require Import Configuration.
 Require Import Simulation.
@@ -68,7 +69,11 @@ Module MemInv.
           rewrite (Memory.join_comm (Memory.singleton _ _ _) ohs).
           rewrite Memory.join_assoc.
           auto.
-        * admit. (* wf_snapshot *)
+        * eapply Memory.future_wf_snapshot; eauto.
+          rewrite <- ? Memory.join_assoc. apply Memory.splits_future.
+          apply Memory.splits_join; repeat (splits; memtac).
+          rewrite (Memory.join_comm _ ohs). rewrite Memory.join_assoc.
+          apply Memory.splits_join; repeat (splits; memtac).
     - rewrite Memory.join_assoc, (Memory.join_comm _ promise1_ctx) in SPLITS.
       rewrite <- ? Memory.join_assoc in SPLITS.
       apply Memory.splits_join_inv2 in SPLITS; repeat (splits; memtac).
