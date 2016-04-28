@@ -1,4 +1,5 @@
 Require Import Orders.
+Require Import OrdersFacts.
 Require Import RelationClasses.
 
 Require Import sflib.
@@ -202,14 +203,6 @@ Module DenseOrder: DenseOrderType.
     unfold join. destruct (le_lt_dec lhs rhs); auto.
   Qed.
 
-  Lemma join_spec_lt lhs rhs o
-        (LHS: lt lhs o)
-        (RHS: lt rhs o):
-    lt (join lhs rhs) o.
-  Proof.
-    unfold join. destruct (le_lt_dec lhs rhs); auto.
-  Qed.
-
   Lemma join_cases lhs rhs:
     join lhs rhs = lhs \/ join lhs rhs = rhs.
   Proof.
@@ -228,3 +221,49 @@ Next Obligation.
   des; subst; auto.
   left. rewrite H. auto.
 Qed.
+
+Module DenseOrderFacts.
+  Include (OrderedTypeFacts DenseOrder).
+  Include (OrderedTypeTest DenseOrder).
+
+  Lemma lt_le_lt a b c
+        (AB: DenseOrder.lt a b)
+        (BC: DenseOrder.le b c):
+    DenseOrder.lt a c.
+  Proof.
+    apply DenseOrder.le_lteq in BC. des; subst; auto.
+    etransitivity; eauto.
+  Qed.
+
+  Lemma le_lt_lt a b c
+        (AB: DenseOrder.le a b)
+        (BC: DenseOrder.lt b c):
+    DenseOrder.lt a c.
+  Proof.
+    apply DenseOrder.le_lteq in AB. des; subst; auto.
+    etransitivity; eauto.
+  Qed.
+
+  Lemma le_lt_dec (lhs rhs:DenseOrder.t): {DenseOrder.le lhs rhs} + {DenseOrder.lt rhs lhs}.
+  Proof.
+    generalize (DenseOrder.compare_spec lhs rhs).
+    destruct (DenseOrder.compare lhs rhs).
+    - left. inv H. reflexivity.
+    - left. inv H. apply DenseOrder.le_lteq. auto.
+    - right. inv H. auto.
+  Defined.
+
+  Lemma join_spec_lt lhs rhs o
+        (LHS: DenseOrder.lt lhs o)
+        (RHS: DenseOrder.lt rhs o):
+    DenseOrder.lt (DenseOrder.join lhs rhs) o.
+  Proof.
+    exploit DenseOrder.join_spec.
+    - apply DenseOrder.le_lteq. left. apply LHS.
+    - apply DenseOrder.le_lteq. left. apply RHS.
+    - i. apply DenseOrder.le_lteq in x0. des; auto. subst.
+      generalize (DenseOrder.join_cases lhs rhs). i. des.
+      + rewrite H at 1. auto.
+      + rewrite H at 1. auto.
+  Qed.
+End DenseOrderFacts.

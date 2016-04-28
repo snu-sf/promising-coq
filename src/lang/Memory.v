@@ -170,8 +170,8 @@ Module Snapshot.
     writable history2 <2= writable history1.
   Proof.
     i. inv PR. inv LE. econs.
-    - eapply Time.le_lt_lt; eauto.
-    - eapply Time.le_lt_lt; eauto.
+    - eapply TimeFacts.le_lt_lt; eauto.
+    - eapply TimeFacts.le_lt_lt; eauto.
   Qed.
 
   Inductive le_on (loc:Loc.t) (lhs rhs:t): Prop :=
@@ -194,8 +194,8 @@ Module Snapshot.
     writable rhs loc <1= writable lhs loc.
   Proof.
     i. inv LE. inv PR. econs.
-    - eapply Time.le_lt_lt; eauto.
-    - eapply Time.le_lt_lt; eauto.
+    - eapply TimeFacts.le_lt_lt; eauto.
+    - eapply TimeFacts.le_lt_lt; eauto.
   Qed.
 End Snapshot.
 
@@ -502,7 +502,8 @@ Module Cell.
                               | None => msg
                               end).
             destruct (messages b to); auto.
-          * apply Interval.mem_ub. inv TS. ss. timetac.
+          * apply Interval.mem_ub. inv TS. ss.
+            eapply TimeFacts.lt_le_lt; eauto.
         + inv WFC. des. exists tos. i.
           destruct (ownership a ts) eqn:O; inv H.
           eapply FINITE. eauto.
@@ -516,7 +517,8 @@ Module Cell.
                               | None => msg
                               end).
             destruct (messages a to); auto.
-          * apply Interval.mem_ub. inv TS. ss. timetac.
+          * apply Interval.mem_ub. inv TS. ss.
+            eapply TimeFacts.lt_le_lt; eauto.
         + inv WFC. des. exists tos. i.
           destruct (ownership b ts) eqn:O; inv H.
           eapply FINITE. eauto.
@@ -732,11 +734,11 @@ Module Cell.
           inv B. exploit OWN2; eauto. i. des.
           inv D. exploit OWN3; eauto. i. des.
           inv x. inv x0.
-          destruct (Time.le_lt_dec to to0).
+          destruct (TimeFacts.le_lt_dec to to0).
           * exists to. econs.
             { instantiate (1 := Time.join from from0).
-              inv TS. inv TS0. econs; s; eauto.
-              apply Time.join_spec_lt; auto.
+              inv TS. inv TS0. econs; s; eauto. ss.
+              apply TimeFacts.join_spec_lt; auto.
             }
             { i. inv PR. ss. apply Bool.andb_true_iff.
               rewrite OWN.
@@ -1185,19 +1187,19 @@ Module Memory.
         apply Time.lt_strorder in LT2. done.
       + destruct (Loc.eq_dec loc0 loc); ss. subst.
         extensionality ts.
-        destruct (Time.le_lt_dec ts from); ss.
-        * destruct (Time.le_lt_dec ts to); ss.
-          destruct (Time.le_lt_dec ts to0); ss.
-          exploit (@Time.le_lt_lt ts from to); auto. i.
+        destruct (TimeFacts.le_lt_dec ts from); ss.
+        * destruct (TimeFacts.le_lt_dec ts to); ss.
+          destruct (TimeFacts.le_lt_dec ts to0); ss.
+          exploit (@TimeFacts.le_lt_lt ts from to); auto. i.
           rewrite x0 in l0. apply Time.lt_strorder in l0. done.
-        * destruct (Time.le_lt_dec ts to0),
-          (Time.le_lt_dec ts to); ss.
-          exploit (@Time.le_lt_lt ts to to0); auto. i.
+        * destruct (TimeFacts.le_lt_dec ts to0),
+          (TimeFacts.le_lt_dec ts to); ss.
+          exploit (@TimeFacts.le_lt_lt ts to to0); auto. i.
           rewrite x0 in l0. apply Time.lt_strorder in l0. done.
     - unfold singleton, LocFun.add, LocFun.find. econs. ii. econs. ii.
       destruct (Loc.eq_dec loc0 loc); ss. subst.
-      destruct (Time.le_lt_dec ts from); ss.
-      destruct (Time.le_lt_dec ts to); ss.
+      destruct (TimeFacts.le_lt_dec ts from); ss.
+      destruct (TimeFacts.le_lt_dec ts to); ss.
   Qed.
 
   Lemma splits_join a b a' b'

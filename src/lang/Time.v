@@ -10,36 +10,8 @@ Require Import Event.
 
 Set Implicit Arguments.
 
-Module Time.
-  Include DenseOrder.
-
-  Lemma lt_le_lt a b c
-        (AB: lt a b)
-        (BC: le b c):
-    lt a c.
-  Proof.
-    apply le_lteq in BC. des; subst; auto.
-    etransitivity; eauto.
-  Qed.
-
-  Lemma le_lt_lt a b c
-        (AB: le a b)
-        (BC: lt b c):
-    lt a c.
-  Proof.
-    apply le_lteq in AB. des; subst; auto.
-    etransitivity; eauto.
-  Qed.
-
-  Lemma le_lt_dec (lhs rhs:t): {le lhs rhs} + {lt rhs lhs}.
-  Proof.
-    generalize (compare_spec lhs rhs).
-    destruct (compare lhs rhs).
-    - left. inv H. reflexivity.
-    - left. inv H. apply Time.le_lteq. auto.
-    - right. inv H. auto.
-  Defined.
-End Time.
+Module Time := DenseOrder.
+Module TimeFacts := DenseOrderFacts.
 
 Ltac timetac :=
   repeat
@@ -49,8 +21,8 @@ Ltac timetac :=
          | [H: ?x <> ?x |- _] => by contradict H
          | [H: Time.lt ?x ?x |- _] =>
            apply Time.lt_strorder in H; by inv H
-         | [H1: Time.lt ?a ?b, H2: Time.le ?b ?c |- _] =>
-           exploit (@Time.lt_le_lt a b c); eauto;
+         | [H1: Time.lt ?a ?b, H2: Time.le ?b ?a |- _] =>
+           exploit (@TimeFacts.lt_le_lt a b a); eauto;
            let H := fresh "H" in
            intro H; apply Time.lt_strorder in H; by inv H
 
@@ -58,12 +30,12 @@ Ltac timetac :=
 
          | [H: context[Time.eq_dec ?a ?b] |- _] =>
            destruct (Time.eq_dec a b)
-         | [H: context[Time.le_lt_dec ?a ?b] |- _] =>
-           destruct (Time.le_lt_dec a b)
+         | [H: context[TimeFacts.le_lt_dec ?a ?b] |- _] =>
+           destruct (TimeFacts.le_lt_dec a b)
          | [|- context[Time.eq_dec ?a ?b]] =>
            destruct (Time.eq_dec a b)
-         | [|- context[Time.le_lt_dec ?a ?b]] =>
-           destruct (Time.le_lt_dec a b)
+         | [|- context[TimeFacts.le_lt_dec ?a ?b]] =>
+           destruct (TimeFacts.le_lt_dec a b)
          end;
      ss; subst; auto).
 
@@ -82,9 +54,9 @@ Module Interval <: UsualOrderedType.
   Lemma mem_dec i x: {mem i x} + {~ mem i x}.
   Proof.
     destruct i as [lb ub].
-    destruct (Time.le_lt_dec x lb).
+    destruct (TimeFacts.le_lt_dec x lb).
     - right. intro X. inv X. ss. timetac.
-    - destruct (Time.le_lt_dec x ub).
+    - destruct (TimeFacts.le_lt_dec x ub).
       + left. econs; s; auto.
       + right. intro X. inv X. ss. timetac.
   Defined.
