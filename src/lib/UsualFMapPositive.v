@@ -576,6 +576,35 @@ Module UsualPositiveMap' <: S with Module E:=PositiveOrderedTypeBits.
   { s. eapply wf_l. eauto. }
   { s. eapply wf_l. eauto. }
   Qed.
+
+  Definition singleton A (key:positive) (value:A): t A :=
+    add key value (empty _).
+
+  Lemma singleton_find A key (value:A):
+    find key (singleton key value) = Some value.
+  Proof.
+    unfold singleton. rewrite gss. auto.
+  Qed.
+
+  Lemma singleton_find_inv A key key' (value value':A)
+        (FIND:find key (singleton key' value') = Some value):
+    key = key' /\ value = value'.
+  Proof.
+    unfold singleton in *.
+    destruct (Pos.eq_dec key key').
+    - subst. rewrite gss in *. inv FIND. auto.
+    - rewrite gso, gempty in *; auto. inv FIND.
+  Qed.
+
+  Lemma singleton_add A key (value1 value2:A):
+    add key value1 (singleton key value2) =
+    singleton key value1.
+  Proof.
+    apply eq_leibniz. ii. unfold singleton.
+    destruct (Pos.eq_dec y key).
+    - subst. rewrite ? gss. auto.
+    - rewrite ? gso; auto.
+  Qed.
 End UsualPositiveMap'.
 
 (** Here come some additional facts about this implementation.

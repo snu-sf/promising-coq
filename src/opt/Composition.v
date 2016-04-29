@@ -33,20 +33,20 @@ Section Compose.
   Qed.
 
   Lemma compose_forall P:
-    (forall tid lang th (TH: IdentMap.find tid (Threads.compose ths1 ths2) = Some (existT _ lang th)),
+    (forall tid lang st th (TH: IdentMap.find tid (Threads.compose ths1 ths2) = Some (existT _ lang st, th)),
         (P tid lang th):Prop) <->
-    (forall tid lang th (TH: IdentMap.find tid ths1 = Some (existT _ lang th)),
+    (forall tid lang st th (TH: IdentMap.find tid ths1 = Some (existT _ lang st, th)),
         (P tid lang th):Prop) /\
-    (forall tid lang th (TH: IdentMap.find tid ths2 = Some (existT _ lang th)),
+    (forall tid lang st th (TH: IdentMap.find tid ths2 = Some (existT _ lang st, th)),
         (P tid lang th):Prop).
   Proof.
     econs; i.
     - splits.
       + i. eapply H; eauto.
-        rewrite Threads.compose_spec. rewrite TH. auto.
+        rewrite Threads.compose_spec. rewrite TH. ss.
       + i. eapply H; eauto.
         rewrite compose_comm.
-        rewrite Threads.compose_spec. rewrite TH. auto.
+        rewrite Threads.compose_spec. rewrite TH. ss.
     - des.
       rewrite Threads.compose_spec in TH.
       unfold Threads.compose_option in TH.
@@ -56,20 +56,21 @@ Section Compose.
   Qed.
 
   Lemma compose_forall_rev P:
-    (forall tid lang th (TH: IdentMap.find tid ths1 = Some (existT _ lang th)),
+    (forall tid lang st th (TH: IdentMap.find tid ths1 = Some (existT _ lang st, th)),
         (P tid lang th):Prop) ->
-    (forall tid lang th (TH: IdentMap.find tid ths2 = Some (existT _ lang th)),
+    (forall tid lang st th (TH: IdentMap.find tid ths2 = Some (existT _ lang st, th)),
         (P tid lang th):Prop) ->
-    (forall tid lang th (TH: IdentMap.find tid (Threads.compose ths1 ths2) = Some (existT _ lang th)),
+    (forall tid lang st th (TH: IdentMap.find tid (Threads.compose ths1 ths2) = Some (existT _ lang st, th)),
         (P tid lang th):Prop).
   Proof.
-    i. apply compose_forall; auto.
+    i. eapply compose_forall; eauto.
   Qed.    
 
   Lemma compose_is_terminal:
     Threads.is_terminal (Threads.compose ths1 ths2) <->
     Threads.is_terminal ths1 /\ Threads.is_terminal ths2.
-  Proof. apply compose_forall. Qed.
+  Proof.
+    refine (compose_forall _). . ; eauto. Qed.
 
   Lemma compose_threads_consistent mem:
     Threads.consistent (Threads.compose ths1 ths2) mem <->
