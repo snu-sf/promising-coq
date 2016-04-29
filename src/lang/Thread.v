@@ -40,6 +40,13 @@ Module Thread.
     .
 
     Inductive internal_step (th1:t) (mem1:Memory.t): forall (th2:t) (mem2:Memory.t), Prop :=
+    | step_promise
+        loc from ts msg commit2 promise2 mem2
+        (COMMIT: Commit.le th1.(commit) commit2)
+        (COMMIT_WF: Commit.wf commit2 mem2)
+        (MEMORY: Memory.promise th1.(promise) mem1 loc from ts msg promise2 mem2):
+        internal_step th1 mem1
+                      (mk th1.(state) commit2 promise2) mem2
     | step_read
         loc val ts released ord st2 commit2
         (STATE: lang.(Language.step) th1.(state) (Some (ThreadEvent.mem (MemEvent.read loc val ord))) st2)
@@ -84,13 +91,6 @@ Module Thread.
         (COMMIT_WF: Commit.wf commit2 mem1):
         internal_step th1 mem1
                       (mk st2 commit2 th1.(promise)) mem1
-    | step_promise
-        loc from ts msg commit2 promise2 mem2
-        (COMMIT: Commit.le th1.(commit) commit2)
-        (COMMIT_WF: Commit.wf commit2 mem2)
-        (MEMORY: Memory.promise th1.(promise) mem1 loc from ts msg promise2 mem2):
-        internal_step th1 mem1
-                      (mk th1.(state) commit2 promise2) mem2
     .
 
     Inductive step: forall (e:option Event.t) (th1:t) (mem1:Memory.t) (th2:t) (mem2:Memory.t), Prop :=
@@ -138,9 +138,9 @@ Module Thread.
       <<FUTURE: Memory.future mem1 mem2>>.
     Proof.
       inv WF1. inv STEP; try by (splits; ss; reflexivity).
-      - exploit Memory.write_future; try apply MEMORY; eauto. i. des. ss.
-      - exploit Memory.write_future; try apply MEMORY; eauto. i. des. ss.
       - exploit Memory.promise_future; try apply MEMORY; eauto. i. des. ss.
+      - exploit Memory.write_future; try apply MEMORY; eauto. i. des. ss.
+      - exploit Memory.write_future; try apply MEMORY; eauto. i. des. ss.
     Qed.
 
     Lemma internal_step_disjoint
@@ -154,9 +154,9 @@ Module Thread.
       <<LE2: Memory.le mem_o mem2>>.
     Proof.
       inv WF1. inv STEP; ss.
-      - eapply Memory.write_disjoint; try apply MEMORY; eauto.
-      - eapply Memory.write_disjoint; try apply MEMORY; eauto.
       - eapply Memory.promise_disjoint; try apply MEMORY; eauto.
+      - eapply Memory.write_disjoint; try apply MEMORY; eauto.
+      - eapply Memory.write_disjoint; try apply MEMORY; eauto.
     Qed.
 
     Lemma step_future

@@ -253,9 +253,14 @@ Module CommitFacts.
                 else commit.(Commit.released))
                commit.(Commit.acquirable)).
 
+  Ltac ordtac :=
+    match goal with
+    | [|- context[if ?c then _ else _]] =>
+      destruct c
+    end.
+
   Lemma write_min_spec
         loc ts val released ord commit mem
-        (ORD: Ordering.le ord Ordering.release)
         (WRITABLE: Snapshot.writable (Commit.current commit) loc ts)
         (RELEASE: Snapshot.le ((write_min loc ts ord commit).(Commit.released) loc) released)
         (MEMORY: Memory.wf mem)
@@ -272,19 +277,19 @@ Module CommitFacts.
         * econs; s; try reflexivity.
           apply Times.incr_le.
         * i. unfold LocFun.add, LocFun.find.
-          destruct ord; ss; try reflexivity.
+          ordtac; ss; try reflexivity.
           destruct (Loc.eq_dec loc0 loc).
           { subst. econs; s; apply Times.join_r. }
           { reflexivity. }
       + apply Times.incr_ts.
-      + destruct ord; ss. rewrite LocFun.add_spec.
+      + ordtac; ss. rewrite LocFun.add_spec.
         destruct (Loc.eq_dec loc loc); [|congruence].
         econs; s; apply Times.join_l.
     - econs; ss.
       + econs; ss.
         * apply WF1.
         * eapply Memory.incr_wf_times; eauto. apply WF1.
-      + destruct ord; ss; try apply WF1.
+      + ordtac; ss; try apply WF1.
         i. unfold LocFun.add, LocFun.find.
         destruct (Loc.eq_dec loc0 loc); try apply WF1. subst.
         apply Memory.wf_snapshot_join.
@@ -300,7 +305,6 @@ Module CommitFacts.
 
   Lemma write_min_min
         loc ts released ord commit1 commit2
-        (ORD: Ordering.le ord Ordering.release)
         (COMMIT2: Commit.write commit1 loc ts released ord commit2):
     Commit.le (write_min loc ts ord commit1) commit2.
   Proof.
@@ -308,8 +312,8 @@ Module CommitFacts.
     - econs; s.
       + apply MONOTONE.
       + apply Times.incr_spec; auto. apply MONOTONE.
-    - destruct ord; ss; try apply MONOTONE.
-      i. unfold LocFun.add, LocFun.find.
+    - ss. i. unfold LocFun.add, LocFun.find.
+      ordtac; ss; try apply MONOTONE.
       destruct (Loc.eq_dec loc0 loc); try apply MONOTONE. subst.
       apply Snapshot.join_spec.
       + etransitivity; [|apply RELEASE]; auto. econs; s.

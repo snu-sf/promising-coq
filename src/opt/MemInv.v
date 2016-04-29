@@ -1,3 +1,4 @@
+Require Import RelationClasses.
 Require Import Basics.
 Require Import Bool.
 Require Import List.
@@ -15,9 +16,28 @@ Require Import Memory.
 Require Import Commit.
 Require Import Thread.
 Require Import Configuration.
-Require Import Simulation.
 
 Set Implicit Arguments.
+
+
+Inductive sim_memory (mem_src mem_tgt:Memory.t): Prop :=
+| sim_memory_intro
+    (SPLITS: Memory.splits mem_tgt mem_src)
+.
+
+Program Instance sim_memory_PreOrder: PreOrder sim_memory.
+Next Obligation. ii. econs. reflexivity. Qed.
+Next Obligation. ii. inv H. inv H0. econs. etransitivity; eauto. Qed.
+
+Lemma sim_memory_get
+      mem_src mem_tgt
+      loc ts msg
+      (SIM: sim_memory mem_src mem_tgt)
+      (TGT: Memory.get loc ts mem_tgt = Some msg):
+  Memory.get loc ts mem_src = Some msg.
+Proof.
+  inv SIM. eapply Memory.splits_get; eauto.
+Qed.
 
 Module MemInv.
   Definition t := Memory.t.

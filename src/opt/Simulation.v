@@ -11,28 +11,9 @@ Require Import Memory.
 Require Import Commit.
 Require Import Thread.
 Require Import Configuration.
+Require Import MemInv.
 
 Set Implicit Arguments.
-
-
-Inductive sim_memory (mem_src mem_tgt:Memory.t): Prop :=
-| sim_memory_intro
-    (SPLITS: Memory.splits mem_tgt mem_src)
-.
-
-Program Instance sim_memory_PreOrder: PreOrder sim_memory.
-Next Obligation. ii. econs. reflexivity. Qed.
-Next Obligation. ii. inv H. inv H0. econs. etransitivity; eauto. Qed.
-
-Lemma sim_memory_get
-      mem_src mem_tgt
-      loc ts msg
-      (SIM: sim_memory mem_src mem_tgt)
-      (TGT: Memory.get loc ts mem_tgt = Some msg):
-  Memory.get loc ts mem_src = Some msg.
-Proof.
-  inv SIM. eapply Memory.splits_get; eauto.
-Qed.
 
 
 Section SimulationThread.
@@ -63,7 +44,7 @@ Section SimulationThread.
           <<STEPS: rtc (@Thread._internal_step lang_src) (th1_src, mem1_src) (th2_src, mem2_src)>> /\
           <<MEMORY: sim_memory mem2_src mem1_tgt>> /\
           <<TERMINAL_SRC: lang_src.(Language.is_terminal) th2_src.(Thread.state)>> /\
-          <<PROMISE: th2_src.(Thread.promise) = th1_tgt.(Thread.promise)>> /\
+          <<PROMISE: MemInv.sem Memory.bot th2_src.(Thread.promise) th1_tgt.(Thread.promise)>> /\
           <<SIM: sim_terminal th2_src th1_tgt>>>> /\
       <<FUTURE:
         forall mem2_src
@@ -387,13 +368,15 @@ Proof.
         econs; ss; eauto.
         { eapply singleton_find. }
         { econs 1. eauto. }
-        { ii. eexists _, _. splits; eauto. congruence. }
+        { ii. eexists _, _. splits; eauto.
+          apply MemInv.sem_bot_inv in PROMISE1. etransitivity; eauto.
+        }
       * inv X. s. rewrite singleton_add. econs.
     + ii. ss.
       rewrite singleton_add in *.
       apply singleton_find_inv in FIND. des.
-      Configuration.simplify.
-      econs; eauto. congruence.
+      Configuration.simplify. econs; eauto.
+      apply MemInv.sem_bot_inv in PROMISE1. etransitivity; eauto.
   - i. inv STEP_TGT. ss.
     apply singleton_find_inv in TID. des.
     Configuration.simplify.

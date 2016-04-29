@@ -8,6 +8,7 @@ Require Import Memory.
 Require Import Commit.
 Require Import Thread.
 Require Import Configuration.
+Require Import MemInv.
 Require Import Simulation.
 Require Import Behavior.
 

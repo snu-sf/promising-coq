@@ -1688,6 +1688,31 @@ Module Memory.
     exploit confirm_disjoint; try apply CONFIRM; eauto.
   Qed.
 
+  Lemma add_get promise1 global1 loc from to msg promise2 global2
+        (LE: le promise1 global1)
+        (ADD: Memory.add promise1 global1 loc from to msg promise2 global2):
+    Memory.get loc to global2 = Some msg.
+  Proof.
+    inv ADD. inv PROMISE.
+    - exploit confirm_get; eauto. i.
+      eapply le_get; eauto. apply le_join; tac.
+      + apply le_join_l. tac.
+      + reflexivity.
+    - generalize (splits_intro loc msg msg0 LT1 LT2). i. des.
+      exploit splits_disjoint.
+      { symmetry. apply GLOBAL2. }
+      { apply splits_join. reflexivity. eauto. tac. }
+      i. tac.
+      exploit splits_disjoint.
+      { symmetry. apply PROMISE2. }
+      { apply splits_intro. }
+      instantiate (1 := msg). i. tac.
+      rewrite join_comm. apply join_get_inv; repeat (splits; tac; eauto).
+      rewrite join_comm. apply join_get_inv; repeat (splits; tac; eauto).
+      apply join_get_inv; repeat (splits; tac; eauto).
+      apply singleton_get.
+  Qed.
+
   Inductive write (promise1 global1:t) (loc:Loc.t) (from to:Time.t) (msg:Message.t) (ord:Ordering.t):
     forall (promise2:t) (global2:t), Prop :=
   | write_confirm
@@ -1734,6 +1759,17 @@ Module Memory.
     inv WRITE.
     - exploit confirm_disjoint; try apply CONFIRM; eauto.
     - eapply add_disjoint; try apply ADD; eauto.
+  Qed.
+
+  Lemma write_get promise1 global1 loc from to msg ord promise2 global2
+        (LE: le promise1 global1)
+        (WRITE: Memory.write promise1 global1 loc from to msg ord promise2 global2):
+    Memory.get loc to global2 = Some msg.
+  Proof.
+    inv WRITE.
+    - exploit confirm_get; eauto. i.
+      eapply le_get; eauto.
+    - eapply add_get; eauto.
   Qed.
 
   Inductive fence (promise:t) (ord:Ordering.t): Prop :=
