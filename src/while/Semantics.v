@@ -27,14 +27,16 @@ Module RegFile.
     | Instr.expr_op2 op op1 op2 => Op2.eval op (eval_value rf op1) (eval_value rf op2)
     end.
 
+  Inductive eval_rmw: forall (rf:t) (rmw:Instr.rmw) (old new:Const.t), Prop :=
+  | eval_fetch_add
+      rf addendum old:
+      eval_rmw rf (Instr.fetch_add addendum) old (Const.add old (eval_value rf addendum))
+  | eval_cas
+      rf o n old:
+      eval_rmw rf (Instr.cas o n) old (if Const.eq_dec (eval_value rf o) old then eval_value rf n else old)
+  .
+
   Inductive eval_instr: forall (rf1:t) (i:Instr.t) (e:option ThreadEvent.t) (rf2:t), Prop :=
-  | eval_nop
-      rf:
-      eval_instr
-        rf
-        Instr.nop
-        None
-        rf
   | eval_assign
       rf lhs rhs:
       eval_instr
@@ -56,13 +58,14 @@ Module RegFile.
         (Instr.store lhs rhs ord)
         (Some (ThreadEvent.mem (MemEvent.write lhs (eval_value rf rhs) ord)))
         rf
-  | eval_fetch_add
-      rf lhs loc addendum ord val:
+  | eval_update
+      rf lhs loc rmw ord old new
+      (RMW: eval_rmw rf rmw old new):
       eval_instr
         rf
-        (Instr.fetch_add lhs loc addendum ord)
-        (Some (ThreadEvent.mem (MemEvent.update loc val (Const.add val (eval_value rf addendum)) ord)))
-        (RegFun.add lhs val rf)
+        (Instr.update lhs loc rmw ord)
+        (Some (ThreadEvent.mem (MemEvent.update loc old new ord)))
+        (RegFun.add lhs new rf)
   | eval_fence
       rf ord:
       eval_instr
@@ -163,6 +166,27 @@ Module RegFile.
         apply RegSet.union_spec. auto.
   Qed.
 
+  Lemma eq_except_rmw
+        rs_src rs_tgt regs rmw old new
+        (REGS: RegSet.disjoint regs (Instr.regs_of_rmw rmw))
+        (RS: eq_except regs rs_src rs_tgt):
+    RegFile.eval_rmw rs_src rmw old new <-> RegFile.eval_rmw rs_tgt rmw old new.
+  Proof.
+    destruct rmw; ss.
+    - econs; intro X; inv X.
+      + erewrite eq_except_value; eauto. econs.
+      + erewrite <- eq_except_value; eauto. econs.
+    - econs; intro X; inv X.
+      + erewrite ? (@eq_except_value rs_src rs_tgt); eauto.
+        * econs.
+        * admit.
+        * admit.
+      + erewrite <- ? (@eq_except_value rs_src rs_tgt); eauto.
+        * econs.
+        * admit.
+        * admit.
+  Admitted.
+
   Lemma eq_except_instr
         rs1_src rs1_tgt rs2_tgt regs instr e
         (TGT: RegFile.eval_instr rs1_tgt instr e rs2_tgt)
@@ -170,11 +194,9 @@ Module RegFile.
         (RS: eq_except regs rs1_src rs1_tgt):
     exists rs2_src,
       <<SRC: RegFile.eval_instr rs1_src instr e rs2_src>> /\
-             <<RS: eq_except regs rs2_src rs2_tgt>>.
+      <<RS: eq_except regs rs2_src rs2_tgt>>.
   Proof.
     inv TGT; ss.
-    - eexists. splits; [econs|].
-      ii. apply RS. auto.
     - eexists. splits; [econs|].
       ii. generalize (RS reg). i.
       unfold RegFun.add, RegFun.find.
@@ -193,15 +215,10 @@ Module RegFile.
       ii. specialize (RS reg).
       unfold RegFun.add, RegFun.find.
       destruct (Reg.eq_dec reg lhs); auto.
-    - erewrite <- eq_except_value; eauto.
-      + eexists. splits; [econs|].
-        ii. specialize (RS reg).
-        unfold RegFun.add, RegFun.find.
-        destruct (Reg.eq_dec reg lhs); auto.
-      + ii. eapply REGS; eauto.
-        apply RegSet.Facts.mem_iff in RHS.
-        apply RegSet.Facts.mem_iff.
-        apply RegSet.add_spec. auto.
+    - eexists. splits.
+      + econs. eapply eq_except_rmw; eauto.
+        admit.
+      + admit.
     - eexists. splits; [econs|]. auto.
     - erewrite <- eq_except_value_list; eauto.
       + eexists. splits; [econs|].
@@ -212,7 +229,7 @@ Module RegFile.
         apply RegSet.Facts.mem_iff in RHS.
         apply RegSet.Facts.mem_iff.
         apply RegSet.add_spec. auto.
-  Qed.
+  Admitted.
 End RegFile.
 
 Module State.

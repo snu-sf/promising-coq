@@ -18,17 +18,17 @@ Set Implicit Arguments.
 
 Module Threads.
   Definition syntax := IdentMap.t {lang:Language.t & lang.(Language.syntax)}.
-  Definition t := IdentMap.t ({lang:Language.t & lang.(Language.state)} * Thread.t).
+  Definition t := IdentMap.t ({lang:Language.t & lang.(Language.state)} * Local.t).
 
   Definition init (s:syntax): t :=
     IdentMap.map
-      (fun s => (existT _ _ (s.(projT1).(Language.init) s.(projT2)), Thread.init))
+      (fun s => (existT _ _ (s.(projT1).(Language.init) s.(projT2)), Local.init))
       s.
 
   Definition is_terminal (ths:t): Prop :=
-    forall tid lang st th (FIND: IdentMap.find tid ths = Some (existT _ lang st, th)),
+    forall tid lang st th (FIND: IdentMap.find tid ths = Some (existT Language.state lang st, th)),
       <<STATE: lang.(Language.is_terminal) st>> /\
-      <<THREAD: Thread.is_terminal th>>.
+      <<THREAD: Local.is_terminal th>>.
 
   Inductive consistent (ths:t) (mem:Memory.t): Prop :=
   | consistent_intro
@@ -38,10 +38,10 @@ Module Threads.
            (TID: tid1 <> tid2)
            (TH1: IdentMap.find tid1 ths = Some (existT _ lang1 st1, th1))
            (TH2: IdentMap.find tid2 ths = Some (existT _ lang2 st2, th2)),
-           Thread.disjoint th1 th2)
+           Local.disjoint th1 th2)
       (THREADS: forall tid lang st th
                   (TH: IdentMap.find tid ths = Some (existT _ lang st, th)),
-          <<WF: Thread.wf th mem>> /\ <<CONSISTENT: Executor.consistent lang st th mem>>)
+          <<WF: Local.wf th mem>> /\ <<CONSISTENT: Thread.consistent lang st th mem>>)
       (MEMORY: Memory.wf mem)
   .
 
@@ -57,7 +57,7 @@ Module Threads.
            tid2 lang2 st2 th2
            (TH1: IdentMap.find tid1 ths1 = Some (existT _ lang1 st1, th1))
            (TH2: IdentMap.find tid2 ths2 = Some (existT _ lang2 st2, th2)),
-           Thread.disjoint th1 th2)
+           Local.disjoint th1 th2)
   .
 
   Global Program Instance disjoint_Symmetric: Symmetric disjoint.
@@ -98,9 +98,9 @@ Module Configuration.
   | step_intro
       tid lang st1 th1 e2 st3 th3 memory3
       (TID: IdentMap.find tid c1.(threads) = Some (existT _ lang st1, th1))
-      (STEPS: rtc (@Executor.internal_step lang) (Executor.mk lang st1 th1 c1.(memory)) e2)
-      (STEP: Executor.step e2 e (Executor.mk lang st3 th3 memory3))
-      (CONSISTENT: Executor.consistent lang st3 th3 memory3):
+      (STEPS: rtc (@Thread.internal_step lang) (Thread.mk _ st1 th1 c1.(memory)) e2)
+      (STEP: Thread.step e2 e (Thread.mk _ st3 th3 memory3))
+      (CONSISTENT: Thread.consistent lang st3 th3 memory3):
       step e c1 (mk (IdentMap.add tid (existT _ _ st3, th3) c1.(threads)) memory3)
   .
 
@@ -131,25 +131,25 @@ Module Configuration.
   Proof.
     inv CONSISTENT1. inv STEP. s.
     exploit THREADS; eauto. i. des.
-    exploit Executor.rtc_internal_step_future; eauto. s. i. des.
-    exploit Executor.step_future; eauto. s. i. des.
+    exploit Thread.rtc_internal_step_future; eauto. s. i. des.
+    exploit Thread.step_future; eauto. s. i. des.
     splits; [|by etransitivity; eauto].
     econs.
     - i. simplify.
       + congruence.
       + exploit THREADS; try apply TH1; eauto. i. des.
-        exploit Executor.rtc_internal_step_disjoint; eauto. i. des.
-        exploit Executor.step_disjoint; eauto. s. i. des.
+        exploit Thread.rtc_internal_step_disjoint; eauto. i. des.
+        exploit Thread.step_disjoint; eauto. s. i. des.
         symmetry. auto.
       + exploit THREADS; try apply TH2; eauto. i. des.
-        exploit Executor.rtc_internal_step_disjoint; eauto. i. des.
-        exploit Executor.step_disjoint; eauto. i. des.
+        exploit Thread.rtc_internal_step_disjoint; eauto. i. des.
+        exploit Thread.step_disjoint; eauto. i. des.
         auto.
       + eapply DISJOINT; [|eauto|eauto]. auto.
     - i. simplify.
       exploit THREADS; try apply TH; eauto. i. des.
-      exploit Executor.rtc_internal_step_disjoint; eauto. i. des.
-      exploit Executor.step_disjoint; eauto. s. i. des.
+      exploit Thread.rtc_internal_step_disjoint; eauto. i. des.
+      exploit Thread.step_disjoint; eauto. s. i. des.
       splits; ss. ii. apply CONSISTENT1; auto.
       repeat (etransitivity; eauto).
     - s. apply WF0.
@@ -168,30 +168,30 @@ Module Configuration.
     - econs; s; ii; simplify.
       + inv DISJOINT. eapply THREAD; eauto.
       + inv DISJOINT. eapply THREAD; eauto.
-      + exploit Executor.rtc_internal_step_future; eauto.
+      + exploit Thread.rtc_internal_step_future; eauto.
         { econs; eapply CONSISTENT1; eauto. }
         s. i. des.
-        exploit Executor.rtc_internal_step_disjoint; eauto.
+        exploit Thread.rtc_internal_step_disjoint; eauto.
         { econs; eapply CONSISTENT1; eauto. }
         { eapply DISJOINT; eauto. }
         { eapply CONSISTENT; eauto. }
         i. des.
-        exploit Executor.step_disjoint; eauto. s. i. des.
+        exploit Thread.step_disjoint; eauto. s. i. des.
         auto.
       + inv DISJOINT. eapply MEMORY; eauto.
-    - exploit Executor.rtc_internal_step_future; eauto.
+    - exploit Thread.rtc_internal_step_future; eauto.
       { econs; eapply CONSISTENT1; eauto. }
       s. i. des.
-      exploit Executor.step_future; eauto. s. i. des.
+      exploit Thread.step_future; eauto. s. i. des.
       econs; eauto.
       + i. eapply CONSISTENT; eauto.
       + i.
-        exploit Executor.rtc_internal_step_disjoint; eauto.
+        exploit Thread.rtc_internal_step_disjoint; eauto.
         { econs; eapply CONSISTENT1; eauto. }
         { eapply DISJOINT; eauto. }
         { eapply CONSISTENT; eauto. }
         i. des.
-        exploit Executor.step_disjoint; eauto. s. i. des.
+        exploit Thread.step_disjoint; eauto. s. i. des.
         splits; ss. inv CONSISTENT. exploit THREADS; eauto. i. des.
         ii. eapply CONSISTENT; eauto.
         repeat (etransitivity; eauto).

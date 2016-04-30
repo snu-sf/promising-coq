@@ -192,12 +192,13 @@ Module CommitFacts.
                (Snapshot.join released commit.(Commit.acquirable))).
 
   Lemma read_min_spec
-        loc ts val released commit mem
+        loc ts val released ord commit mem
+        (ORD: Ordering.le ord Ordering.relaxed)
         (READABLE: Snapshot.readable (Commit.current commit) loc ts)
         (MEMORY: Memory.wf mem)
         (WF1: Commit.wf commit mem)
         (WF2: Memory.get loc ts mem = Some (Message.mk val released)):
-    <<READ: Commit.read commit loc ts released Ordering.relaxed (read_min loc ts released commit)>> /\
+    <<READ: Commit.read commit loc ts released ord (read_min loc ts released commit)>> /\
     <<WF: Commit.wf (read_min loc ts released commit) mem>> /\
     <<CURRENT: forall loc' (LOC: loc' <> loc), Snapshot.le_on loc' (read_min loc ts released commit).(Commit.current) commit.(Commit.current)>>.
   Proof.
@@ -208,6 +209,7 @@ Module CommitFacts.
           apply Times.incr_le.
         * apply Snapshot.join_r.
       + apply Times.incr_ts.
+      + destruct ord; ss.
       + apply Snapshot.join_l.
     - econs; ss.
       + econs; ss.
@@ -224,8 +226,9 @@ Module CommitFacts.
   Qed.
 
   Lemma read_min_min
-        loc ts released commit1 commit2
-        (COMMIT2: Commit.read commit1 loc ts released Ordering.relaxed commit2):
+        loc ts released ord commit1 commit2
+        (ORD: Ordering.le ord Ordering.relaxed)
+        (COMMIT2: Commit.read commit1 loc ts released ord commit2):
     Commit.le (read_min loc ts released commit1) commit2.
   Proof.
     inv COMMIT2. econs; s.
