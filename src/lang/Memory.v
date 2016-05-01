@@ -216,6 +216,32 @@ Module Snapshot <: JoinableType.
     - eapply TimeFacts.le_lt_lt; eauto.
     - eapply TimeFacts.le_lt_lt; eauto.
   Qed.
+
+  Definition incr_reads loc ts s :=
+    mk (Times.incr loc ts s.(reads)) s.(writes).
+
+  Lemma incr_reads_spec
+        loc ts s1 s2
+        (LE: le s1 s2)
+        (TS: Time.le ts (s2.(reads) loc)):
+    le (incr_reads loc ts s1) s2.
+  Proof.
+    inv LE. econs; ss.
+    apply Times.incr_spec; ss.
+  Qed.
+
+  Definition incr_writes loc ts s :=
+    mk s.(reads) (Times.incr loc ts s.(writes)).
+
+  Lemma incr_writes_spec
+        loc ts s1 s2
+        (LE: le s1 s2)
+        (TS: Time.le ts (s2.(writes) loc)):
+    le (incr_writes loc ts s1) s2.
+  Proof.
+    inv LE. econs; ss.
+    apply Times.incr_spec; ss.
+  Qed.
 End Snapshot.
 
 Module Message.
@@ -1426,6 +1452,15 @@ Module Memory.
   Lemma splits_future: splits <2= future.
   Proof.
     i. econs; eauto. reflexivity.
+  Qed.
+
+  Lemma future_get
+        loc ts msg mem1 mem2
+        (LE: future mem1 mem2)
+        (GET: Memory.get loc ts mem1 = Some msg):
+    Memory.get loc ts mem2 = Some msg.
+  Proof.
+    inv LE. eapply le_get; eauto. eapply splits_get; eauto.
   Qed.
 
   Lemma future_wf_times

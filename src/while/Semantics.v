@@ -27,14 +27,15 @@ Module RegFile.
     | Instr.expr_op2 op op1 op2 => Op2.eval op (eval_value rf op1) (eval_value rf op2)
     end.
 
-  Inductive eval_rmw: forall (rf:t) (rmw:Instr.rmw) (old new:Const.t), Prop :=
-  | eval_fetch_add
-      rf addendum old:
-      eval_rmw rf (Instr.fetch_add addendum) old (Const.add old (eval_value rf addendum))
-  | eval_cas
-      rf o n old:
-      eval_rmw rf (Instr.cas o n) old (if Const.eq_dec (eval_value rf o) old then eval_value rf n else old)
-  .
+  Definition eval_rmw (rf:t) (rmw:Instr.rmw) (val:Const.t): Const.t * Const.t :=
+    match rmw with
+    | Instr.fetch_add addendum =>
+      (Const.add val (eval_value rf addendum), Const.add val (eval_value rf addendum))
+    | Instr.cas o n =>
+      if Const.eq_dec (eval_value rf o) val
+      then (1, eval_value rf n)
+      else (0, val)
+    end.
 
   Inductive eval_instr: forall (rf1:t) (i:Instr.t) (e:option ThreadEvent.t) (rf2:t), Prop :=
   | eval_assign
@@ -59,13 +60,13 @@ Module RegFile.
         (Some (ThreadEvent.mem (MemEvent.write lhs (eval_value rf rhs) ord)))
         rf
   | eval_update
-      rf lhs loc rmw ord old new
-      (RMW: eval_rmw rf rmw old new):
+      rf lhs loc rmw ord val rval mval
+      (RMW: eval_rmw rf rmw val = (rval, mval)):
       eval_instr
         rf
         (Instr.update lhs loc rmw ord)
-        (Some (ThreadEvent.mem (MemEvent.update loc old new ord)))
-        (RegFun.add lhs new rf)
+        (Some (ThreadEvent.mem (MemEvent.update loc val mval ord)))
+        (RegFun.add lhs rval rf)
   | eval_fence
       rf ord:
       eval_instr
@@ -167,24 +168,16 @@ Module RegFile.
   Qed.
 
   Lemma eq_except_rmw
-        rs_src rs_tgt regs rmw old new
+        rs_src rs_tgt regs rmw val
         (REGS: RegSet.disjoint regs (Instr.regs_of_rmw rmw))
         (RS: eq_except regs rs_src rs_tgt):
-    RegFile.eval_rmw rs_src rmw old new <-> RegFile.eval_rmw rs_tgt rmw old new.
+    RegFile.eval_rmw rs_src rmw val = RegFile.eval_rmw rs_tgt rmw val.
   Proof.
     destruct rmw; ss.
-    - econs; intro X; inv X.
-      + erewrite eq_except_value; eauto. econs.
-      + erewrite <- eq_except_value; eauto. econs.
-    - econs; intro X; inv X.
-      + erewrite ? (@eq_except_value rs_src rs_tgt); eauto.
-        * econs.
-        * admit.
-        * admit.
-      + erewrite <- ? (@eq_except_value rs_src rs_tgt); eauto.
-        * econs.
-        * admit.
-        * admit.
+    - erewrite ? (@eq_except_value rs_src rs_tgt); eauto.
+    - erewrite ? (@eq_except_value rs_src rs_tgt); eauto.
+      + admit. (* regset disjoint *)
+      + admit. (* regset disjoint *)
   Admitted.
 
   Lemma eq_except_instr
@@ -215,10 +208,11 @@ Module RegFile.
       ii. specialize (RS reg).
       unfold RegFun.add, RegFun.find.
       destruct (Reg.eq_dec reg lhs); auto.
-    - eexists. splits.
-      + econs. eapply eq_except_rmw; eauto.
-        admit.
-      + admit.
+    - erewrite <- eq_except_rmw in RMW; eauto.
+      + eexists. splits.
+        * econs. eauto.
+        * admit. (* eq_except add *)
+      + admit. (* regset disjoint *)
     - eexists. splits; [econs|]. auto.
     - erewrite <- eq_except_value_list; eauto.
       + eexists. splits; [econs|].

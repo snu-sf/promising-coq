@@ -109,9 +109,8 @@ Proof.
   }
   intro GET_SRC.
   exploit CommitFacts.write_min_spec; eauto.
-  { instantiate (1 := ord). unfold CommitFacts.write_min.
-    rewrite ORD2. ss. etransitivity; [apply MONOTONE|apply RELEASED].
-  }
+  { etransitivity; [apply MONOTONE|apply RELEASED]. }
+  { instantiate (1 := ord). destruct ord; ss. }
   { apply WF1_SRC. }
   { apply WF1_SRC. }
   { inv WF1_SRC. inv MEMORY. exploit WF; eauto. }
@@ -230,10 +229,8 @@ Proof.
   { inv WF1_SRC. inv MEMORY. exploit WF0; try apply GET1_SRC; eauto. }
   exploit CommitFacts.write_min_spec; try apply RELEASED_SRC; eauto.
   { eapply Snapshot.le_on_writable; eauto. apply COMMIT1. }
-  { instantiate (1 := ord1).
-    unfold CommitFacts.write_min. rewrite ORD1'. ss.
-    inv COMMIT1. etransitivity; [apply MONOTONE|apply RELEASED].
-  }
+  { ss. inv COMMIT1. etransitivity; eauto. apply MONOTONE. }
+  { instantiate (1 := ord1). destruct ord1; ss. }
   { apply WF1_SRC. }
   i. des.
   eexists _, _. splits; eauto.
@@ -243,23 +240,12 @@ Proof.
     end.
     apply Memory.join_get in X; memtac; try congruence.
     apply Memory.singleton_get_inv in X. des. congruence.
-  - econs; s; eauto.
+  - econs; eauto. s.
     exploit CommitFacts.write_min_min; try apply COMMIT1; eauto. i.
-    exploit CommitFacts.read_min_min; try apply COMMIT; eauto. i.
-    inv x0. inv x1. inv CURRENT1. inv CURRENT2. econs.
-    + econs; ss.
-      * etransitivity; [|eauto].
-        apply Times.incr_mon. etransitivity; [|apply COMMIT2]. apply COMMIT1.
-      * etransitivity; eauto. etransitivity; eauto. apply COMMIT2.
-    + i. etransitivity; eauto.
-      unfold CommitFacts.write_min. rewrite ORD1'. ss.
-      etransitivity; eauto; [|apply COMMIT2]. apply COMMIT1.
-    + etransitivity; eauto.
-      apply Snapshot.join_spec.
-      * apply Snapshot.join_l.
-      * etransitivity; [|apply Snapshot.join_r].
-        etransitivity; [|apply COMMIT2]. apply COMMIT1.
-Qed.
+    exploit CommitFacts.write_min_min; try apply COMMIT; eauto. i.
+    inv x0. inv x1.
+    admit.
+Admitted.
 
 Lemma sim_write_write
       loc1 val1 ord1
@@ -279,6 +265,63 @@ Lemma sim_write_write
     <<LOCAL2: sim_write loc1 val1 ord1 th2_src th2_tgt>> /\
     <<MEMORY2: sim_memory mem2_src mem2_tgt>>.
 Proof.
+  destruct (Ordering.le Ordering.release ord1) eqn:ORD1'.
+  { destruct ord1; ss. }
+  inv LOCAL1. inv STEP_TGT.
+  exploit MemInv.write; eauto.
+  { apply WF1_SRC. }
+  { apply WF1_TGT. }
+  { admit. (* promise bot *) }
+  i. des.
+  exploit Memory.write_future; try apply WRITE_SRC; eauto.
+  { apply WF1_SRC. }
+  { apply WF1_SRC. }
+  i. des.
+  exploit Memory.write_get; try apply WRITE_SRC; eauto.
+  { apply WF1_SRC. }
+  intro GET2_SRC.
+  exploit CommitFacts.write_min_spec; eauto.
+  { eapply Snapshot.writable_mon; [|apply COMMIT].
+    etransitivity; [|apply COMMIT2]. apply COMMIT1.
+  }
+  { etransitivity; [apply COMMIT1|].
+    etransitivity; [apply COMMIT2|].
+    etransitivity; [apply COMMIT|]. apply COMMIT.
+  }
+  { instantiate (1 := ord2). inv COMMIT. i.
+    rewrite <- RELEASED, <- RELEASE; auto.
+    apply Snapshot.incr_writes_spec; auto.
+    etransitivity; [apply COMMIT1|].
+    etransitivity; [apply COMMIT2|].
+    apply MONOTONE.
+  }
+  { eapply Commit.future_wf; eauto. apply WF1_SRC. }
+  { inv WF2. exploit WF; eauto. }
+  i. des.
+  exploit Memory.le_get.
+  { apply WF1_SRC. }
+  { inv PROMISE. eapply Memory.le_get.
+    - apply Memory.le_join_r. memtac.
+    - apply Memory.singleton_get.
+  }
+  intro GET1_SRC.
+  exploit Memory.future_get; try apply GET1_SRC; eauto.
+  intro GET1_SRC'.
+  exploit CommitFacts.write_min_spec; try apply GET1_SRC'; eauto.
+  { eapply Snapshot.le_on_writable; eauto. apply COMMIT1. }
+  { inv COMMIT1. rewrite <- RELEASED, RELEASED1; auto.
+    apply MONOTONE.
+  }
+  { instantiate (1 := ord1). destruct ord1; ss. }
+  { inv WF2. exploit WF0; eauto. }
+  i. des.
+  eexists _, _. splits; eauto.
+  - econs 2; eauto.
+  - econs; eauto. s.
+    exploit CommitFacts.write_min_min; try apply COMMIT1; eauto. i.
+    exploit CommitFacts.write_min_min; try apply COMMIT; eauto. i.
+    inv x0. inv x1.
+    admit.
 Admitted.
 
 Lemma sim_write_update
@@ -418,9 +461,8 @@ Proof.
         etransitivity; eauto.
         inv STEP. ss.
         rewrite PROMISE_TGT in *. eapply Memory_write_bot. eauto.
-      * assert (STEP: exists old new th2_tgt mem2_tgt,
-           <<STEP: Local.memory_step x4 mem1_tgt (MemEvent.update l1 old new o1) th2_tgt mem2_tgt>> /\
-           <<RMW: RegFile.eval_rmw rs rmw1 old new>>).
+      * assert (STEP: exists val th2_tgt mem2_tgt,
+                   Local.memory_step x4 mem1_tgt (MemEvent.update l1 val (snd (RegFile.eval_rmw rs rmw1 val)) o1) th2_tgt mem2_tgt).
         { admit. }
         des.
         exploit sim_write_update; try apply LOCAL; try apply STEP0; eauto. i. des.
@@ -430,7 +472,7 @@ Proof.
         i. des.
         eexists _, _, _. splits.
         { econs 2; [|econs 2; [|econs 1]].
-          - econs 3; eauto. econs. econs. auto.
+          - econs 3; eauto. econs. econs. apply surjective_pairing.
           - econs 3; eauto. econs.
             erewrite <- RegFile.eq_except_value; eauto.
             + econs.
@@ -438,7 +480,7 @@ Proof.
         }
         inv LOCAL0. apply MemInv.sem_bot_inv in PROMISE.
         etransitivity; eauto.
-        inv STEP0. ss.
+        inv STEP. ss.
         rewrite PROMISE_TGT in *. eapply Memory_write_bot. eauto.
   - i. inv PR; ss.
     + (* begin *)
@@ -513,7 +555,7 @@ Proof.
         i. des.
         eexists _, _, _, _, _, _. splits.
         { econs 2; [|econs 1].
-          econs 3; eauto. econs. econs. auto.
+          econs 3; eauto. econs. econs. eauto.
         }
         { econs. econs 3; eauto. econs.
           erewrite <- RegFile.eq_except_value; eauto.

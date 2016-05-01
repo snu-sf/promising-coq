@@ -185,9 +185,7 @@ Module CommitFacts.
 
   Definition read_min
              loc ts released commit: Commit.t :=
-    (Commit.mk (Snapshot.mk
-                  (Times.incr loc ts (commit.(Commit.current).(Snapshot.reads)))
-                  commit.(Commit.current).(Snapshot.writes))
+    (Commit.mk (Snapshot.incr_reads loc ts commit.(Commit.current))
                commit.(Commit.released)
                (Snapshot.join released commit.(Commit.acquirable))).
 
@@ -232,9 +230,8 @@ Module CommitFacts.
     Commit.le (read_min loc ts released commit1) commit2.
   Proof.
     inv COMMIT2. econs; s.
-    - econs; s.
-      + apply Times.incr_spec; auto. apply MONOTONE.
-      + apply MONOTONE.
+    - apply Snapshot.incr_reads_spec; ss.
+      apply MONOTONE.
     - apply MONOTONE.
     - apply Snapshot.join_spec; auto.
       apply MONOTONE.
@@ -242,18 +239,15 @@ Module CommitFacts.
 
   Definition write_min
              loc ts ord commit: Commit.t :=
-    (Commit.mk (Snapshot.mk
-                  commit.(Commit.current).(Snapshot.reads)
-                  (Times.incr loc ts commit.(Commit.current).(Snapshot.writes)))
-               (if Ordering.le Ordering.release ord
-                then LocFun.add
-                       loc (Snapshot.join
-                              (Snapshot.mk
-                                 commit.(Commit.current).(Snapshot.reads)
-                                 (Times.incr loc ts commit.(Commit.current).(Snapshot.writes)))
-                              (commit.(Commit.released) loc))
-                       commit.(Commit.released)
-                else commit.(Commit.released))
+    (Commit.mk (Snapshot.incr_writes loc ts commit.(Commit.current))
+               (LocFun.add
+                  loc
+                  (if Ordering.le Ordering.release ord
+                   then Snapshot.join
+                          (Snapshot.incr_writes loc ts commit.(Commit.current))
+                          (commit.(Commit.released) loc)
+                   else commit.(Commit.released) loc)
+                  commit.(Commit.released))
                commit.(Commit.acquirable)).
 
   Ltac ordtac :=
@@ -265,14 +259,18 @@ Module CommitFacts.
   Lemma write_min_spec
         loc ts val released ord commit mem
         (WRITABLE: Snapshot.writable (Commit.current commit) loc ts)
-        (RELEASE: Snapshot.le ((write_min loc ts ord commit).(Commit.released) loc) released)
+        (RELEASED1: Snapshot.le (commit.(Commit.released) loc) released)
+        (RELEASED2: Ordering.le Ordering.release ord -> Snapshot.le (Snapshot.incr_writes loc ts commit.(Commit.current)) released)
         (MEMORY: Memory.wf mem)
         (WF1: Commit.wf commit mem)
         (WF2: Memory.get loc ts mem = Some (Message.mk val released))
         (WF3: Memory.wf_snapshot released mem):
     <<WRITE: Commit.write commit loc ts released ord (write_min loc ts ord commit)>> /\
     <<WF: Commit.wf (write_min loc ts ord commit) mem>> /\
-    <<CURRENT: forall loc' (LOC: loc' <> loc), Snapshot.le_on loc' (write_min loc ts ord commit).(Commit.current) commit.(Commit.current)>>.
+    <<CURRENT: forall loc' (LOC: loc' <> loc),
+        Snapshot.le_on loc' (write_min loc ts ord commit).(Commit.current) commit.(Commit.current)>> /\
+    <<RELEASED1: forall loc' (LOC: loc' <> loc),
+        Snapshot.le ((write_min loc ts ord commit).(Commit.released) loc') (commit.(Commit.released) loc')>>.
   Proof.
     splits.
     - inv WRITABLE. econs; ss.
@@ -280,30 +278,32 @@ Module CommitFacts.
         * econs; s; try reflexivity.
           apply Times.incr_le.
         * i. unfold LocFun.add, LocFun.find.
-          ordtac; ss; try reflexivity.
-          destruct (Loc.eq_dec loc0 loc).
-          { subst. econs; s; apply Times.join_r. }
-          { reflexivity. }
+          repeat ordtac; ss; subst; try reflexivity.
+          apply Snapshot.join_r.
       + apply Times.incr_ts.
-      + ordtac; ss. rewrite LocFun.add_spec.
-        destruct (Loc.eq_dec loc loc); [|congruence].
-        econs; s; apply Times.join_l.
+      + ordtac; ss. unfold LocFun.add, LocFun.find.
+        ordtac; [|congruence].
+        i. apply Snapshot.join_l.
+      + unfold LocFun.add, LocFun.find.
+        ordtac; [|congruence].
+        ordtac; ss. apply Snapshot.join_spec; auto.
     - econs; ss.
       + econs; ss.
         * apply WF1.
         * eapply Memory.incr_wf_times; eauto. apply WF1.
-      + ordtac; ss; try apply WF1.
-        i. unfold LocFun.add, LocFun.find.
-        destruct (Loc.eq_dec loc0 loc); try apply WF1. subst.
-        apply Memory.wf_snapshot_join.
-        * econs; s; try apply WF1.
-          eapply Memory.incr_wf_times; try apply WF1. eauto.
-        * apply WF1.
+      + i. unfold LocFun.add, LocFun.find.
+        ordtac; try apply WF1. subst.
+        ordtac; try apply WF1.
+        apply Memory.wf_snapshot_join; try apply WF1.
+        econs; try apply WF1.
+        eapply Memory.incr_wf_times; try apply WF1. eauto.
       + apply WF1.
-    - s. i. econs; s; [reflexivity|].
-      unfold Times.incr, LocFun.add, LocFun.find.
-      destruct (Loc.eq_dec loc' loc); [congruence|].
-      reflexivity.
+    - i. econs; s; [reflexivity|].
+        unfold Times.incr, LocFun.add, LocFun.find.
+        destruct (Loc.eq_dec loc' loc); [congruence|].
+        reflexivity.
+    - ss. i. unfold LocFun.add, LocFun.find.
+      ordtac; ss. reflexivity.
   Qed.
 
   Lemma write_min_min
@@ -312,16 +312,15 @@ Module CommitFacts.
     Commit.le (write_min loc ts ord commit1) commit2.
   Proof.
     i. inv COMMIT2. econs; s.
-    - econs; s.
-      + apply MONOTONE.
-      + apply Times.incr_spec; auto. apply MONOTONE.
+    - apply Snapshot.incr_writes_spec; ss.
+      apply MONOTONE.
     - ss. i. unfold LocFun.add, LocFun.find.
-      ordtac; ss; try apply MONOTONE.
-      destruct (Loc.eq_dec loc0 loc); try apply MONOTONE. subst.
+      ordtac; try apply MONOTONE. subst.
+      ordtac; try apply MONOTONE.
       apply Snapshot.join_spec.
-      + etransitivity; [|apply RELEASE]; auto. econs; s.
-        { apply MONOTONE. }
-        { apply Times.incr_spec; auto. apply MONOTONE. }
+      + etransitivity; [|apply RELEASE]; auto.
+        apply Snapshot.incr_writes_spec; auto.
+        apply MONOTONE.
       + apply MONOTONE.
     - apply MONOTONE.
   Qed.
