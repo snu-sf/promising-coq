@@ -230,6 +230,29 @@ Module Snapshot <: JoinableType.
     apply Times.incr_spec; ss.
   Qed.
 
+  Lemma incr_reads_inv
+        loc ts s1 s2
+        (LE: le (incr_reads loc ts s1) s2):
+    <<LE:le s1 s2>> /\
+    <<TS: Time.le ts (s2.(reads) loc)>>.
+  Proof.
+    inv LE. splits.
+    - econs; ss. etransitivity; eauto.
+      apply Times.incr_le.
+    - etransitivity; eauto.
+      apply Times.incr_ts.
+  Qed.
+
+  Lemma incr_reads_mon loc ts s1 s2
+        (LE: le s1 s2):
+    le (incr_reads loc ts s1) (incr_reads loc ts s2).
+  Proof.
+    apply incr_reads_spec.
+    - etransitivity; eauto. econs; try reflexivity.
+      apply Times.incr_le.
+    - apply Times.incr_ts.
+  Qed.
+
   Definition incr_writes loc ts s :=
     mk s.(reads) (Times.incr loc ts s.(writes)).
 
@@ -241,6 +264,29 @@ Module Snapshot <: JoinableType.
   Proof.
     inv LE. econs; ss.
     apply Times.incr_spec; ss.
+  Qed.
+
+  Lemma incr_writes_inv
+        loc ts s1 s2
+        (LE: le (incr_writes loc ts s1) s2):
+    <<LE:le s1 s2>> /\
+    <<TS: Time.le ts (s2.(writes) loc)>>.
+  Proof.
+    inv LE. splits.
+    - econs; ss. etransitivity; eauto.
+      apply Times.incr_le.
+    - etransitivity; eauto.
+      apply Times.incr_ts.
+  Qed.
+
+  Lemma incr_writes_mon loc ts s1 s2
+        (LE: le s1 s2):
+    le (incr_writes loc ts s1) (incr_writes loc ts s2).
+  Proof.
+    apply incr_writes_spec.
+    - etransitivity; eauto. econs; try reflexivity.
+      apply Times.incr_le.
+    - apply Times.incr_ts.
   Qed.
 End Snapshot.
 

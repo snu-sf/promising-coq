@@ -242,10 +242,35 @@ Proof.
     apply Memory.singleton_get_inv in X. des. congruence.
   - econs; eauto. s.
     exploit CommitFacts.write_min_min; try apply COMMIT1; eauto. i.
-    exploit CommitFacts.write_min_min; try apply COMMIT; eauto. i.
+    exploit CommitFacts.read_min_min; try apply COMMIT; eauto. i.
     inv x0. inv x1.
-    admit.
-Admitted.
+    apply Snapshot.incr_writes_inv in CURRENT1.
+    apply Snapshot.incr_reads_inv in CURRENT2. des.
+    econs; ss.
+    + apply Snapshot.incr_writes_spec.
+      * apply Snapshot.incr_reads_spec; ss.
+        etransitivity; [apply COMMIT1|].
+        etransitivity; [apply COMMIT2|].
+        apply COMMIT.
+      * etransitivity; [apply COMMIT1|].
+        etransitivity; [apply COMMIT2|].
+        apply COMMIT.
+    + i. unfold LocFun.add, LocFun.find.
+      destruct (Loc.eq_dec loc loc1).
+      * subst. rewrite ORD1'.
+        etransitivity; [apply COMMIT1|].
+        etransitivity; [apply COMMIT2|].
+        apply COMMIT.
+      * etransitivity; [apply COMMIT1|].
+        etransitivity; [apply COMMIT2|].
+        apply COMMIT.
+    + etransitivity; eauto.
+      apply Snapshot.join_spec.
+      * apply Snapshot.join_l.
+      * etransitivity; [|apply Snapshot.join_r].
+        etransitivity; [apply COMMIT1|].
+        apply COMMIT2.
+Qed.
 
 Lemma sim_write_write
       loc1 val1 ord1
@@ -271,7 +296,11 @@ Proof.
   exploit MemInv.write; eauto.
   { apply WF1_SRC. }
   { apply WF1_TGT. }
-  { admit. (* promise bot *) }
+  { inv PROMISE. unfold Memory.join.
+    unfold Memory.singleton, LocFun.add, LocFun.find.
+    destruct (Loc.eq_dec loc2 loc1); [congruence|].
+    unfold LocFun.init. rewrite Cell.bot_join. auto.
+  }
   i. des.
   exploit Memory.write_future; try apply WRITE_SRC; eauto.
   { apply WF1_SRC. }
@@ -321,8 +350,39 @@ Proof.
     exploit CommitFacts.write_min_min; try apply COMMIT1; eauto. i.
     exploit CommitFacts.write_min_min; try apply COMMIT; eauto. i.
     inv x0. inv x1.
-    admit.
-Admitted.
+    apply Snapshot.incr_writes_inv in CURRENT1.
+    apply Snapshot.incr_writes_inv in CURRENT2. des.
+    econs; ss.
+    + repeat apply Snapshot.incr_writes_spec; ss.
+      * etransitivity; [apply COMMIT1|].
+        etransitivity; [apply COMMIT2|].
+        apply COMMIT.
+      * etransitivity; [apply COMMIT1|].
+        etransitivity; [apply COMMIT2|].
+        apply COMMIT.
+    + i. unfold LocFun.add, LocFun.find. rewrite ORD1'.
+      etransitivity; [|apply RELEASED2].
+      unfold LocFun.add, LocFun.find.
+      destruct (Loc.eq_dec loc loc1).
+      * subst. destruct (Loc.eq_dec loc1 loc2); [congruence|].
+        etransitivity; [apply COMMIT1|]. apply COMMIT2.
+      * destruct (Loc.eq_dec loc loc2).
+        { subst.
+          match goal with
+          | [|- context[if ?c then _ else _]] => destruct c
+          end.
+          - apply Snapshot.join_spec.
+            + etransitivity; [|apply Snapshot.join_l].
+              apply Snapshot.incr_writes_mon.
+              etransitivity; [apply COMMIT1|]. apply COMMIT2.
+            + etransitivity; [|apply Snapshot.join_r].
+              etransitivity; [apply COMMIT1|]. apply COMMIT2.
+          - etransitivity; [apply COMMIT1|]. apply COMMIT2.
+        }
+        { etransitivity; [apply COMMIT1|]. apply COMMIT2. }
+    + etransitivity; [apply COMMIT1|].
+      etransitivity; [apply COMMIT2|]. eauto.
+Qed.
 
 Lemma sim_write_update
       loc1 val1 ord1
