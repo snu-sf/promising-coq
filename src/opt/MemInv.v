@@ -134,36 +134,36 @@ Module MemInv.
         * admit. (* wf_snapshot *)
   Admitted.
 
-  Lemma confirm_tgt
+  Lemma fulfill_tgt
         inv promise1_src promise1_tgt promise2_tgt
         loc from to msg
         (INV: sem inv promise1_src promise1_tgt)
-        (CONFIRM: Memory.confirm promise1_tgt loc from to msg promise2_tgt):
+        (FULFILL: Memory.fulfill promise1_tgt loc from to msg promise2_tgt):
     exists (LT: Time.lt from to),
       <<DISJOINT: Memory.disjoint inv (Memory.singleton loc msg LT)>> /\
       <<INV: sem (Memory.join inv (Memory.singleton loc msg LT)) promise1_src promise2_tgt>>.
   Proof.
-    inv INV. inv CONFIRM. memtac.
+    inv INV. inv FULFILL. memtac.
     exists LT. splits; memtac.
     rewrite <- Memory.join_assoc, Memory.join_comm.
     econs. memtac. splits; memtac.
   Qed.
 
-  Lemma confirm_src
+  Lemma fulfill_src
         inv1 inv2 promise1_src promise1_tgt
         loc from to msg
         (INV: sem inv1 promise1_src promise1_tgt)
-        (CONFIRM: Memory.confirm inv1 loc from to msg inv2):
+        (FULFILL: Memory.fulfill inv1 loc from to msg inv2):
     exists (LT: Time.lt from to) promise2_src,
-      <<CONFIRM: Memory.confirm promise1_src loc from to msg promise2_src>> /\
+      <<FULFILL: Memory.fulfill promise1_src loc from to msg promise2_src>> /\
       <<INV: sem inv2 promise2_src promise1_tgt>>.
   Proof.
-    inv INV. inv CONFIRM. memtac.
+    inv INV. inv FULFILL. memtac.
     exists LT. eexists. splits; memtac.
     rewrite Memory.join_assoc. econs; memtac. splits; memtac.
   Qed.
 
-  Lemma confirm
+  Lemma fulfill
         inv
         loc from to msg
         promise1_src global1_src
@@ -172,17 +172,17 @@ Module MemInv.
         (LE1_TGT: Memory.le promise1_tgt global1_tgt)
         (SIM1: sim_memory global1_src global1_tgt)
         (INV1: sem inv promise1_src promise1_tgt)
-        (CONFIRM_TGT: Memory.confirm promise1_tgt loc from to msg promise2_tgt):
+        (FULFILL_TGT: Memory.fulfill promise1_tgt loc from to msg promise2_tgt):
     exists promise2_src,
       <<LE1_SRC: Memory.le promise2_src global1_src>> /\
       <<INV2: sem inv promise2_src promise2_tgt>> /\
-      <<CONFIRM_SRC: Memory.confirm promise1_src loc from to msg promise2_src>>.
+      <<FULFILL_SRC: Memory.fulfill promise1_src loc from to msg promise2_src>>.
   Proof.
-    exploit confirm_tgt; eauto. i. des.
-    exploit confirm_src; eauto.
+    exploit fulfill_tgt; eauto. i. des.
+    exploit fulfill_src; eauto.
     { econs; eauto. }
     i. des.
-    exploit Memory.confirm_future; try apply CONFIRM; eauto.
+    exploit Memory.fulfill_future; try apply FULFILL; eauto.
   Qed.
 
   Lemma add
@@ -204,7 +204,7 @@ Module MemInv.
   Proof.
     inv ADD_TGT.
     exploit promise; try apply SIM1; eauto. i. des.
-    exploit confirm_tgt; try apply SIM2; eauto. i. des.
+    exploit fulfill_tgt; try apply SIM2; eauto. i. des.
     eexists _, _, _. splits; eauto.
   Qed.
 
@@ -226,15 +226,15 @@ Module MemInv.
       <<WRITE_SRC: Memory.write promise1_src global1_src loc from to msg ord promise2_src global2_src>>.
   Proof.
     inv WRITE_TGT.
-    - exploit confirm; try apply SIM1; eauto. i. des.
+    - exploit fulfill; try apply SIM1; eauto. i. des.
       eexists _, _. splits; try apply INV2; eauto.
       econs 1; eauto.
     - exploit add; try apply SIM1; eauto. i. des.
-      exploit confirm_src; eauto.
+      exploit fulfill_src; eauto.
       { econs; eauto. }
       i. des.
       eexists _, _. splits; try apply INV; eauto.
-      + eapply Memory.confirm_future; eauto.
+      + eapply Memory.fulfill_future; eauto.
       + econs 2; eauto. econs; eauto.
   Qed.
 

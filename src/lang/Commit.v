@@ -184,40 +184,54 @@ Module CommitFacts.
   Qed.
 
   Definition read_min
-             loc ts released commit: Commit.t :=
-    (Commit.mk (Snapshot.incr_reads loc ts commit.(Commit.current))
+             loc ts released ord commit: Commit.t :=
+    (Commit.mk (if Ordering.le Ordering.acquire ord
+                then Snapshot.join
+                       released
+                       (Snapshot.incr_reads loc ts commit.(Commit.current))
+                else Snapshot.incr_reads loc ts commit.(Commit.current))
                commit.(Commit.released)
                (Snapshot.join released commit.(Commit.acquirable))).
 
   Lemma read_min_spec
         loc ts val released ord commit mem
-        (ORD: Ordering.le ord Ordering.relaxed)
         (READABLE: Snapshot.readable (Commit.current commit) loc ts)
         (MEMORY: Memory.wf mem)
         (WF1: Commit.wf commit mem)
         (WF2: Memory.get loc ts mem = Some (Message.mk val released)):
-    <<READ: Commit.read commit loc ts released ord (read_min loc ts released commit)>> /\
-    <<WF: Commit.wf (read_min loc ts released commit) mem>> /\
-    <<CURRENT: forall loc' (LOC: loc' <> loc), Snapshot.le_on loc' (read_min loc ts released commit).(Commit.current) commit.(Commit.current)>>.
+    <<READ: Commit.read commit loc ts released ord (read_min loc ts released ord commit)>> /\
+    <<WF: Commit.wf (read_min loc ts released ord commit) mem>> /\
+    <<CURRENT: Ordering.le ord Ordering.release -> forall loc' (LOC: loc' <> loc), Snapshot.le_on loc' (read_min loc ts released ord commit).(Commit.current) commit.(Commit.current)>>.
   Proof.
-    splits.
-    - inv READABLE. econs; ss.
-      + econs; s; try reflexivity.
-        * econs; s; try reflexivity.
-          apply Times.incr_le.
-        * apply Snapshot.join_r.
-      + apply Times.incr_ts.
-      + destruct ord; ss.
-      + apply Snapshot.join_l.
-    - econs; ss.
-      + econs; ss.
-        * eapply Memory.incr_wf_times; eauto. apply WF1.
-        * apply WF1.
-      + apply WF1.
-      + apply Memory.wf_snapshot_join.
-        * inv MEMORY. exploit WF; eauto.
-        * apply WF1.
-    - s. i. econs; s; [|reflexivity].
+    unfold read_min. splits.
+    - econs; eauto.
+      + econs; try reflexivity.
+        * destruct (Ordering.le Ordering.acquire ord); s.
+          { etransitivity; [|apply Snapshot.join_r].
+            eapply Snapshot.incr_reads_le.
+          }
+          { eapply Snapshot.incr_reads_le. }
+        * s. apply Snapshot.join_r.
+      + destruct (Ordering.le Ordering.acquire ord); s.
+        * etransitivity; [|apply Times.join_r].
+          apply Times.incr_ts.
+        * apply Times.incr_ts.
+      + i. rewrite ORDERING. s.
+        apply Snapshot.join_l.
+      + s. apply Snapshot.join_l.
+    - econs.
+      + destruct (Ordering.le Ordering.acquire ord); s.
+        * apply Memory.wf_snapshot_join.
+          { inv MEMORY. exploit WF; eauto. }
+          { eapply Memory.wf_incr_reads; eauto. apply WF1. }
+        * eapply Memory.wf_incr_reads; eauto. apply WF1.
+      + s. apply WF1.
+      + s. apply Memory.wf_snapshot_join.
+        { inv MEMORY. exploit WF; eauto. }
+        { apply WF1. }
+    - destruct (Ordering.le Ordering.acquire ord) eqn:ORD.
+      { destruct ord; ss. }
+      s. econs; s; [|reflexivity].
       unfold Times.incr, LocFun.add, LocFun.find.
       destruct (Loc.eq_dec loc' loc); [congruence|].
       reflexivity.
@@ -225,13 +239,16 @@ Module CommitFacts.
 
   Lemma read_min_min
         loc ts released ord commit1 commit2
-        (ORD: Ordering.le ord Ordering.relaxed)
         (COMMIT2: Commit.read commit1 loc ts released ord commit2):
-    Commit.le (read_min loc ts released commit1) commit2.
+    Commit.le (read_min loc ts released ord commit1) commit2.
   Proof.
-    inv COMMIT2. econs; s.
-    - apply Snapshot.incr_reads_spec; ss.
-      apply MONOTONE.
+    inv COMMIT2. unfold read_min. econs.
+    - destruct (Ordering.le Ordering.acquire ord); s.
+      + apply Snapshot.join_spec; auto.
+        apply Snapshot.incr_reads_spec; auto.
+        apply MONOTONE.
+      + apply Snapshot.incr_reads_spec; auto.
+        apply MONOTONE.
     - apply MONOTONE.
     - apply Snapshot.join_spec; auto.
       apply MONOTONE.

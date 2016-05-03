@@ -48,13 +48,12 @@ Module Local.
     econs. symmetry. apply H.
   Qed.
 
-  Inductive silent_step (th1:t) (mem1:Memory.t): forall (th2:t) (mem2:Memory.t), Prop :=
+  Inductive silent_step (th1:t) (mem1:Memory.t): forall (th2:t), Prop :=
   | step_silent
       commit2
       (COMMIT: Commit.le th1.(commit) commit2)
       (COMMIT_WF: Commit.wf commit2 mem1):
-      silent_step th1 mem1
-                  (mk commit2 th1.(promise)) mem1
+      silent_step th1 mem1 (mk commit2 th1.(promise))
   .
 
   Inductive promise_step (th1:t) (mem1:Memory.t): forall (th2:t) (mem2:Memory.t), Prop :=
@@ -63,57 +62,43 @@ Module Local.
       (COMMIT: Commit.le th1.(commit) commit2)
       (COMMIT_WF: Commit.wf commit2 mem2)
       (MEMORY: Memory.promise th1.(promise) mem1 loc from ts msg promise2 mem2):
-      promise_step th1 mem1
-                   (mk commit2 promise2) mem2
+      promise_step th1 mem1 (mk commit2 promise2) mem2
   .
 
-  Inductive memory_step (th1:t) (mem1:Memory.t): forall (e:MemEvent.t) (th2:t) (mem2:Memory.t), Prop :=
+  Inductive read_step (th1:t) (mem1:Memory.t) (loc:Loc.t) (ts:Time.t) (val:Const.t) (released:Snapshot.t) (ord:Ordering.t): forall (th2:t), Prop :=
   | step_read
-      loc val ts released ord commit2
+      commit2
       (COMMIT: Commit.read th1.(commit) loc ts released ord commit2)
       (COMMIT_WF: Commit.wf commit2 mem1)
       (GET: Memory.get loc ts mem1 = Some (Message.mk val released))
       (GET_PROMISE: Memory.get loc ts th1.(promise) = None):
-      memory_step th1 mem1
-                  (MemEvent.read loc val ord)
-                  (mk commit2 th1.(promise)) mem1
+      read_step th1 mem1 loc ts val released ord (mk commit2 th1.(promise))
+  .
+
+  Inductive write_step (th1:t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:Snapshot.t) (ord:Ordering.t): forall (th2:t) (mem2:Memory.t), Prop :=
   | step_write
-      loc val from ts released ord commit2 promise2 mem2
-      (COMMIT: Commit.write th1.(commit) loc ts released ord commit2)
+      commit2 promise2 mem2
+      (COMMIT: Commit.write th1.(commit) loc to released ord commit2)
       (COMMIT_WF: Commit.wf commit2 mem2)
-      (MEMORY: Memory.write th1.(promise) mem1 loc from ts (Message.mk val released) ord promise2 mem2):
-      memory_step th1 mem1
-                  (MemEvent.write loc val ord)
-                  (mk commit2 promise2) mem2
-  | step_update
-      loc valr tsr releasedr valw tsw releasedw ord commit2 commit3 promise3 mem3
-      (COMMIT_READ: Commit.read th1.(commit) loc tsr releasedr ord commit2)
-      (COMMIT_WRITE: Commit.write commit2 loc tsw releasedw ord commit3)
-      (COMMIT_WF: Commit.wf commit3 mem3)
-      (RELEASED: Snapshot.le releasedr releasedw)
-      (GET: Memory.get loc tsr mem1 = Some (Message.mk valr releasedr))
-      (GET_PROMISE: Memory.get loc tsr th1.(promise) = None)
-      (MEMORY: Memory.write th1.(promise) mem1 loc tsr tsw (Message.mk valw releasedw) ord promise3 mem3):
-      memory_step th1 mem1
-                  (MemEvent.update loc valr valw ord)
-                  (mk commit3 promise3) mem3
+      (MEMORY: Memory.write th1.(promise) mem1 loc from to (Message.mk val released) ord promise2 mem2):
+      write_step th1 mem1 loc from to val released ord (mk commit2 promise2) mem2
+  .
+
+  Inductive fence_step (th1:t) (mem1:Memory.t) (ord:Ordering.t): forall (th2:t), Prop :=
   | step_fence
-      ord commit2
+      commit2
       (COMMIT: Commit.fence th1.(commit) ord commit2)
       (COMMIT_WF: Commit.wf commit2 mem1)
       (MEMORY: Memory.fence th1.(promise) ord):
-      memory_step th1 mem1
-                  (MemEvent.fence ord)
-                  (mk commit2 th1.(promise)) mem1
+      fence_step th1 mem1 ord (mk commit2 th1.(promise))
   .
 
-  Lemma silent_step_future th1 mem1 th2 mem2
-        (STEP: silent_step th1 mem1 th2 mem2)
+  Lemma silent_step_future th1 mem1 th2
+        (STEP: silent_step th1 mem1 th2)
         (WF1: wf th1 mem1):
-    <<WF2: wf th2 mem2>> /\
-    <<FUTURE: Memory.future mem1 mem2>>.
+    wf th2 mem1.
   Proof.
-    inv WF1. inv STEP. splits; ss. reflexivity.
+    inv WF1. inv STEP. ss.
   Qed.
 
   Lemma promise_step_future th1 mem1 th2 mem2
@@ -127,25 +112,40 @@ Module Local.
     splits; ss.
   Qed.
 
-  Lemma memory_step_future th1 mem1 e th2 mem2
-        (STEP: memory_step th1 mem1 e th2 mem2)
+  Lemma read_step_future th1 mem1 loc ts val released ord th2
+        (STEP: read_step th1 mem1 loc ts val released ord th2)
+        (WF1: wf th1 mem1):
+    wf th2 mem1.
+  Proof.
+    inv WF1. inv STEP. ss.
+  Qed.
+
+  Lemma write_step_future th1 mem1 loc from to val released ord th2 mem2
+        (STEP: write_step th1 mem1 loc from to val released ord th2 mem2)
         (WF1: wf th1 mem1):
     <<WF2: wf th2 mem2>> /\
     <<FUTURE: Memory.future mem1 mem2>>.
   Proof.
-    inv WF1. inv STEP; try by splits; ss; reflexivity.
-    - exploit Memory.write_future; eauto. i. des. ss.
-    - exploit Memory.write_future; eauto. i. des. ss.
+    inv WF1. inv STEP.
+    exploit Memory.write_future; eauto. i. des.
+    splits; ss.
+  Qed.
+
+  Lemma fence_step_future th1 mem1 ord th2
+        (STEP: fence_step th1 mem1 ord th2)
+        (WF1: wf th1 mem1):
+    wf th2 mem1.
+  Proof.
+    inv WF1. inv STEP. ss.
   Qed.
 
   Lemma silent_step_disjoint
-        th1 mem1 th2 mem2 th
-        (STEP: silent_step th1 mem1 th2 mem2)
+        th1 mem1 th2 th
+        (STEP: silent_step th1 mem1 th2)
         (WF1: wf th1 mem1)
         (DISJOINT1: disjoint th1 th)
         (WF: wf th mem1):
-    <<DISJOINT2: disjoint th2 th>> /\
-    <<WF: wf th mem2>>.
+    disjoint th2 th.
   Proof.
     inv WF1. inv DISJOINT1. inv WF. inv STEP. ss.
   Qed.
@@ -166,30 +166,48 @@ Module Local.
     eapply Commit.future_wf; eauto.
   Qed.
 
-  Lemma memory_step_disjoint
-        th1 mem1 th2 e mem2 th
-        (STEP: memory_step th1 mem1 e th2 mem2)
+  Lemma read_step_disjoint
+        th1 mem1 th2 loc ts val released ord th
+        (STEP: read_step th1 mem1 loc ts val released ord th2)
+        (WF1: wf th1 mem1)
+        (DISJOINT1: disjoint th1 th)
+        (WF: wf th mem1):
+    disjoint th2 th.
+  Proof.
+    inv WF1. inv DISJOINT1. inv WF. inv STEP. ss.
+  Qed.
+
+  Lemma write_step_disjoint
+        th1 mem1 th2 loc from to val released ord mem2 th
+        (STEP: write_step th1 mem1 loc from to val released ord th2 mem2)
         (WF1: wf th1 mem1)
         (DISJOINT1: disjoint th1 th)
         (WF: wf th mem1):
     <<DISJOINT2: disjoint th2 th>> /\
     <<WF: wf th mem2>>.
   Proof.
-    inv WF1. inv DISJOINT1. inv WF. inv STEP; ss.
-    - exploit Memory.write_future; try apply MEMORY1; eauto. i. des.
-      exploit Memory.write_disjoint; try apply MEMORY1; eauto. i. des.
-      splits; ss. econs; ss.
-      eapply Commit.future_wf; eauto.
-    - exploit Memory.write_future; try apply MEMORY1; eauto. i. des.
-      exploit Memory.write_disjoint; try apply MEMORY1; eauto. i. des.
-      splits; ss. econs; ss.
-      eapply Commit.future_wf; eauto.
+    inv WF1. inv DISJOINT1. inv WF. inv STEP.
+    exploit Memory.write_future; try apply MEMORY1; eauto. i. des.
+    exploit Memory.write_disjoint; try apply MEMORY1; eauto. i. des.
+    splits; ss. econs; ss.
+    eapply Commit.future_wf; eauto.
+  Qed.
+
+  Lemma fence_step_disjoint
+        th1 mem1 th2 ord th
+        (STEP: fence_step th1 mem1 ord th2)
+        (WF1: wf th1 mem1)
+        (DISJOINT1: disjoint th1 th)
+        (WF: wf th mem1):
+    disjoint th2 th.
+  Proof.
+    inv WF1. inv DISJOINT1. inv WF. inv STEP. ss.
   Qed.
 
   Lemma fence_relaxed
         th mem
         (WF: wf th mem):
-    memory_step th mem (MemEvent.fence Ordering.relaxed) th mem.
+    fence_step th mem Ordering.relaxed th.
   Proof.
     destruct th. econs; s.
     - econs; ss. reflexivity.
@@ -211,26 +229,45 @@ Module Thread.
     Inductive internal_step (e1:t): forall (e2:t), Prop :=
     | step_promise
         th2 mem2
-        (STEP: Local.promise_step e1.(thread) e1.(memory) th2 mem2):
+        (LOCAL: Local.promise_step e1.(thread) e1.(memory) th2 mem2):
         internal_step e1 (mk e1.(state) th2 mem2)
     | step_silent
-        st2 th2 mem2
+        st2 th2
         (STATE: lang.(Language.step) e1.(state) None st2)
-        (STEP: Local.silent_step e1.(thread) e1.(memory) th2 mem2):
+        (LOCAL: Local.silent_step e1.(thread) e1.(memory) th2):
+        internal_step e1 (mk st2 th2 e1.(memory))
+    | step_read
+        st2 loc ts val released ord th2
+        (STATE: lang.(Language.step) e1.(state) (Some (ThreadEvent.mem (MemEvent.read loc val ord))) st2)
+        (LOCAL: Local.read_step e1.(thread) e1.(memory) loc ts val released ord th2):
+        internal_step e1 (mk st2 th2 e1.(memory))
+    | step_write
+        st2 loc from to val released ord th2 mem2
+        (STATE: lang.(Language.step) e1.(state) (Some (ThreadEvent.mem (MemEvent.write loc val ord))) st2)
+        (LOCAL: Local.write_step e1.(thread) e1.(memory) loc from to val released ord th2 mem2):
         internal_step e1 (mk st2 th2 mem2)
-    | step_memory
-        e st2 th2 mem2
-        (STATE: lang.(Language.step) e1.(state) (Some (ThreadEvent.mem e)) st2)
-        (STEP: Local.memory_step e1.(thread) e1.(memory) e th2 mem2):
-        internal_step e1 (mk st2 th2 mem2)
+    | step_update
+        st3 loc ord
+        tsr valr releasedr th2
+        tsw valw releasedw th3 mem3
+        (STATE: lang.(Language.step) e1.(state) (Some (ThreadEvent.mem (MemEvent.update loc valr valw ord))) st3)
+        (LOCAL1: Local.read_step e1.(thread) e1.(memory) loc tsr valr releasedr ord th2)
+        (LOCAL2: Local.write_step th2 e1.(memory) loc tsr tsw valw releasedw ord th3 mem3)
+        (RELEASE: Snapshot.le releasedr releasedw):
+        internal_step e1 (mk st3 th3 mem3)
+    | step_fence
+        st2 ord th2
+        (STATE: lang.(Language.step) e1.(state) (Some (ThreadEvent.mem (MemEvent.fence ord))) st2)
+        (LOCAL: Local.fence_step e1.(thread) e1.(memory) ord th2):
+        internal_step e1 (mk st2 th2 e1.(memory))
     .
 
     Inductive external_step (e1:t) (e:Event.t): forall (e2:t), Prop :=
     | step_syscall
-        st2 th2 mem2
+        st2 th2
         (STATE: lang.(Language.step) e1.(state) (Some (ThreadEvent.syscall e)) st2)
-        (STEP: Local.silent_step e1.(thread) e1.(memory) th2 mem2):
-        external_step e1 e (mk st2 th2 mem2)
+        (LOCAL: Local.silent_step e1.(thread) e1.(memory) th2):
+        external_step e1 e (mk st2 th2 e1.(memory))
     .
 
     Inductive step (e1:t): forall (e:option Event.t) (e2:t), Prop :=
@@ -258,13 +295,14 @@ Module Thread.
       <<WF2: Local.wf e2.(thread) e2.(memory)>> /\
       <<FUTURE: Memory.future e1.(memory) e2.(memory)>>.
     Proof.
-      inv WF1. inv STEP.
-      - exploit Local.promise_step_future; eauto. i. des.
-        splits; ss.
-      - exploit Local.silent_step_future; eauto. i. des.
-        splits; ss.
-      - exploit Local.memory_step_future; eauto. i. des.
-        splits; ss.
+      inv STEP; s.
+      - exploit Local.promise_step_future; eauto.
+      - exploit Local.silent_step_future; eauto. i. splits; ss. reflexivity.
+      - exploit Local.read_step_future; eauto. i. splits; ss. reflexivity.
+      - exploit Local.write_step_future; eauto.
+      - exploit Local.read_step_future; eauto. i.
+        exploit Local.write_step_future; eauto.
+      - exploit Local.fence_step_future; eauto. i. splits; ss. reflexivity.
     Qed.
 
     Lemma rtc_internal_step_future e1 e2
@@ -287,9 +325,8 @@ Module Thread.
       <<WF2: Local.wf e2.(thread) e2.(memory)>> /\
       <<FUTURE: Memory.future e1.(memory) e2.(memory)>>.
     Proof.
-      inv WF1. inv STEP.
-      exploit Local.silent_step_future; eauto. i. des.
-      splits; ss.
+      inv STEP. exploit Local.silent_step_future; eauto. i.
+      splits; ss. reflexivity.
     Qed.
 
     Lemma step_future e1 e e2
@@ -314,10 +351,18 @@ Module Thread.
       inv STEP.
       - exploit Local.promise_step_future; eauto. i. des.
         eapply Local.promise_step_disjoint; eauto.
-      - exploit Local.silent_step_future; eauto. i. des.
-        eapply Local.silent_step_disjoint; eauto.
-      - exploit Local.memory_step_future; eauto. i. des.
-        eapply Local.memory_step_disjoint; eauto.
+      - exploit Local.silent_step_future; eauto. i.
+        exploit Local.silent_step_disjoint; eauto.
+      - exploit Local.read_step_future; eauto. i.
+        exploit Local.read_step_disjoint; eauto.
+      - exploit Local.write_step_future; eauto. i. des.
+        exploit Local.write_step_disjoint; eauto.
+      - exploit Local.read_step_future; eauto. i.
+        exploit Local.read_step_disjoint; eauto. i.
+        exploit Local.write_step_future; eauto. i. des.
+        exploit Local.write_step_disjoint; eauto.
+      - exploit Local.fence_step_future; eauto. i.
+        exploit Local.fence_step_disjoint; eauto.
     Qed.
 
     Lemma rtc_internal_step_disjoint e1 e2 th
@@ -342,9 +387,8 @@ Module Thread.
       <<DISJOINT2: Local.disjoint e2.(thread) th>> /\
       <<WF: Local.wf th e2.(memory)>>.
     Proof.
-      inv STEP.
-      exploit Local.silent_step_future; eauto. i. des.
-      eapply Local.silent_step_disjoint; eauto.
+      inv STEP. exploit Local.silent_step_future; eauto. i.
+      exploit Local.silent_step_disjoint; eauto.
     Qed.
 
     Lemma step_disjoint e1 e e2 th

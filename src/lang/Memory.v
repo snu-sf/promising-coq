@@ -220,6 +220,15 @@ Module Snapshot <: JoinableType.
   Definition incr_reads loc ts s :=
     mk (Times.incr loc ts s.(reads)) s.(writes).
 
+  Lemma incr_reads_le
+        loc ts s:
+    le s (incr_reads loc ts s).
+  Proof.
+    econs; ss.
+    - apply Times.incr_le.
+    - reflexivity.
+  Qed.
+
   Lemma incr_reads_spec
         loc ts s1 s2
         (LE: le s1 s2)
@@ -255,6 +264,15 @@ Module Snapshot <: JoinableType.
 
   Definition incr_writes loc ts s :=
     mk s.(reads) (Times.incr loc ts s.(writes)).
+
+  Lemma incr_writes_le
+        loc ts s:
+    le s (incr_writes loc ts s).
+  Proof.
+    econs; ss.
+    - reflexivity.
+    - apply Times.incr_le.
+  Qed.
 
   Lemma incr_writes_spec
         loc ts s1 s2
@@ -1571,6 +1589,24 @@ Module Memory.
       + apply RHS.
   Qed.
 
+  Lemma wf_incr_reads
+        loc ts s msg mem
+        (WF: wf_snapshot s mem)
+        (GET: get loc ts mem = Some msg):
+    wf_snapshot (Snapshot.incr_reads loc ts s) mem.
+  Proof.
+    inv WF. econs; auto. s. eapply incr_wf_times; eauto.
+  Qed.
+
+  Lemma wf_incr_writes
+        loc ts s msg mem
+        (WF: wf_snapshot s mem)
+        (GET: get loc ts mem = Some msg):
+    wf_snapshot (Snapshot.incr_writes loc ts s) mem.
+  Proof.
+    inv WF. econs; auto. s. eapply incr_wf_times; eauto.
+  Qed.
+
   Ltac tac :=
     repeat
       (try match goal with
@@ -1682,46 +1718,46 @@ Module Memory.
       rewrite <- join_assoc. apply le_join_l. repeat (splits; tac).
   Qed.
 
-  Inductive confirm (promise1:t) (loc:Loc.t) (from to:Time.t) (msg:Message.t): forall (promise2:t), Prop :=
-  | confirm_intro
+  Inductive fulfill (promise1:t) (loc:Loc.t) (from to:Time.t) (msg:Message.t): forall (promise2:t), Prop :=
+  | fulfill_intro
       promise1_ctx
       (LT: Time.lt from to)
       (PROMISE1: promise1 = join promise1_ctx (singleton loc msg LT))
       (PROMISE2: disjoint promise1_ctx (singleton loc msg LT)):
-      confirm promise1 loc from to msg promise1_ctx
+      fulfill promise1 loc from to msg promise1_ctx
   .
 
-  Lemma confirm_future
+  Lemma fulfill_future
         promise1 global loc from to msg promise2
         (LE1: le promise1 global)
-        (CONFIRM: confirm promise1 loc from to msg promise2):
+        (FULFILL: fulfill promise1 loc from to msg promise2):
     le promise2 global.
   Proof.
-    inv CONFIRM; tac.
+    inv FULFILL; tac.
     rewrite <- join_assoc. apply le_join_l. repeat (splits; tac).
   Qed.
 
-  Lemma confirm_disjoint
+  Lemma fulfill_disjoint
         promise1 global loc from to msg promise2 ctx
         (LE1: le promise1 global)
         (LE2: le ctx global)
         (DISJOINT1: disjoint promise1 ctx)
-        (CONFIRM: confirm promise1 loc from to msg promise2):
+        (FULFILL: fulfill promise1 loc from to msg promise2):
     <<DISJOINT2: disjoint promise2 ctx>> /\
     <<LE2: le ctx global>>.
   Proof.
-    inv CONFIRM; tac.
+    inv FULFILL; tac.
     apply join2_inv in JOIN; tac. splits.
     - repeat (splits; tac).
     - etransitivity; [|apply le_join_r]; repeat (splits; tac).
       apply le_join_l; tac.
   Qed.
 
-  Lemma confirm_get promise1 loc from to msg promise2
-        (CONFIRM: Memory.confirm promise1 loc from to msg promise2):
+  Lemma fulfill_get promise1 loc from to msg promise2
+        (FULFILL: Memory.fulfill promise1 loc from to msg promise2):
     Memory.get loc to promise1 = Some msg.
   Proof.
-    inv CONFIRM. rewrite Memory.join_comm.
+    inv FULFILL. rewrite Memory.join_comm.
     apply join_get_inv; tac.
     apply Memory.singleton_get.
   Qed.
@@ -1731,7 +1767,7 @@ Module Memory.
   | add_intro
       promise2 promise3 global3
       (PROMISE: promise promise1 global1 loc from to msg promise2 global3)
-      (CONFIRM: confirm promise2 loc from to msg promise3):
+      (FULFILL: fulfill promise2 loc from to msg promise3):
       add promise1 global1 loc from to msg promise3 global3
   .
 
@@ -1748,7 +1784,7 @@ Module Memory.
   Proof.
     inv ADD.
     exploit promise_future; eauto. i. des.
-    exploit confirm_future; eauto.
+    exploit fulfill_future; eauto.
   Qed.
 
   Lemma add_disjoint
@@ -1766,7 +1802,7 @@ Module Memory.
     inv ADD.
     exploit promise_future; try apply PROMISE; eauto. i. des.
     exploit promise_disjoint; try apply PROMISE; eauto. i. des.
-    exploit confirm_disjoint; try apply CONFIRM; eauto.
+    exploit fulfill_disjoint; try apply FULFILL; eauto.
   Qed.
 
   Lemma add_get promise1 global1 loc from to msg promise2 global2
@@ -1775,7 +1811,7 @@ Module Memory.
     Memory.get loc to global2 = Some msg.
   Proof.
     inv ADD. inv PROMISE.
-    - exploit confirm_get; eauto. i.
+    - exploit fulfill_get; eauto. i.
       eapply le_get; eauto. apply le_join; tac.
       + apply le_join_l. tac.
       + reflexivity.
@@ -1796,9 +1832,9 @@ Module Memory.
 
   Inductive write (promise1 global1:t) (loc:Loc.t) (from to:Time.t) (msg:Message.t) (ord:Ordering.t):
     forall (promise2:t) (global2:t), Prop :=
-  | write_confirm
+  | write_fulfill
       promise2
-      (CONFIRM: confirm promise1 loc from to msg promise2)
+      (FULFILL: fulfill promise1 loc from to msg promise2)
       (RELEASE: Ordering.le Ordering.release ord -> promise1 loc = Cell.bot):
       write promise1 global1 loc from to msg ord promise2 global1
   | write_add
@@ -1821,7 +1857,7 @@ Module Memory.
   Proof.
     inv WRITE.
     - splits; [|auto|reflexivity].
-      eapply confirm_future; eauto.
+      eapply fulfill_future; eauto.
     - eapply add_future; eauto.
   Qed.
 
@@ -1838,7 +1874,7 @@ Module Memory.
     <<LE2: le ctx global2>>.
   Proof.
     inv WRITE.
-    - exploit confirm_disjoint; try apply CONFIRM; eauto.
+    - exploit fulfill_disjoint; try apply FULFILL; eauto.
     - eapply add_disjoint; try apply ADD; eauto.
   Qed.
 
@@ -1848,7 +1884,7 @@ Module Memory.
     Memory.get loc to global2 = Some msg.
   Proof.
     inv WRITE.
-    - exploit confirm_get; eauto. i.
+    - exploit fulfill_get; eauto. i.
       eapply le_get; eauto.
     - eapply add_get; eauto.
   Qed.
