@@ -363,23 +363,23 @@ Inductive reorder l2 v2 o2: forall (i1:Instr.t), Prop :=
     (ORD1: Ordering.le o1 Ordering.relaxed)
     (ORD2: Ordering.le o2 Ordering.relaxed)
     (LOC: l2 <> l1)
-    (DISJOINT: RegSet.disjoint (Instr.regs_of (Instr.load r1 l1 o1))
-                               (Instr.regs_of (Instr.store l2 v2 o2))):
+    (REGS: RegSet.disjoint (Instr.regs_of (Instr.load r1 l1 o1))
+                           (Instr.regs_of (Instr.store l2 v2 o2))):
     reorder l2 v2 o2 (Instr.load r1 l1 o1)
 | reorder_store
     l1 v1 o1
     (ORD2: Ordering.le o2 Ordering.relaxed)
     (LOC: l2 <> l1)
-    (DISJOINT: RegSet.disjoint (Instr.regs_of (Instr.store l1 v1 o1))
-                               (Instr.regs_of (Instr.store l2 v2 o2))):
+    (REGS: RegSet.disjoint (Instr.regs_of (Instr.store l1 v1 o1))
+                           (Instr.regs_of (Instr.store l2 v2 o2))):
     reorder l2 v2 o2 (Instr.store l1 v1 o1)
 | reorder_update
     r1 l1 rmw1 o1
     (ORD1: Ordering.le o1 Ordering.release)
     (ORD2: Ordering.le o2 Ordering.relaxed)
     (LOC: l2 <> l1)
-    (DISJOINT: RegSet.disjoint (Instr.regs_of (Instr.update r1 l1 rmw1 o1))
-                               (Instr.regs_of (Instr.store l2 v2 o2))):
+    (REGS: RegSet.disjoint (Instr.regs_of (Instr.update r1 l1 rmw1 o1))
+                           (Instr.regs_of (Instr.store l2 v2 o2))):
     reorder l2 v2 o2 (Instr.update r1 l1 rmw1 o1)
 .
 
