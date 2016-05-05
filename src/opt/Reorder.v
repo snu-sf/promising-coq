@@ -21,6 +21,8 @@ Require Import MemInv.
 Require Import ReorderBase.
 Require Import ReorderLoad.
 Require Import ReorderStore.
+Require Import ReorderUpdate.
+Require Import ReorderFence.
 
 Require Import Syntax.
 Require Import Semantics.
@@ -36,6 +38,14 @@ Inductive reorder: forall (i1 i2:Instr.t), Prop :=
     l1 v1 o1 i2
     (REORDER: reorder_store l1 v1 o1 i2):
     reorder (Instr.store l1 v1 o1) i2
+| reorder_intro_update
+    l1 v1 rmw1 o1 i2
+    (REORDER: reorder_update l1 v1 rmw1 o1 i2):
+    reorder (Instr.update l1 v1 rmw1 o1) i2
+| reorder_intro_fence
+    o1 i2
+    (REORDER: reorder_fence o1 i2):
+    reorder (Instr.fence o1) i2
 .
 
 Lemma reorder_sim_stmts
@@ -85,4 +95,47 @@ Proof.
       * eauto.
       * left. eapply paco7_mon; [apply sim_store_sim_thread|]; ss.
         econs; eauto.
+  - (* update *)
+    exploit sim_local_read; eauto. i. des.
+    exploit sim_local_write; eauto.
+    { eapply Local.read_step_future; eauto. }
+    { eapply Local.read_step_future; eauto. }
+    i. des.
+    inv STEP_SRC0.
+    + eexists _, _, _, _, _, _. splits; eauto.
+      * econs. econs 6.
+        { econs. econs. }
+        { s. apply Local.fence_relaxed. apply WF_SRC. }
+      * left. eapply paco7_mon; [apply sim_update_sim_thread|]; ss.
+        econs; eauto.
+    + exploit Local.add_step_release; try apply ADD; eauto.
+      { eapply Local.read_step_future; eauto. }
+      { inv REORDER0; destruct ord; ss. }
+      i. des.
+      exploit reorder_read_promise; try apply STEP_SRC; try apply x0; eauto. i. des.
+      exploit sim_local_fulfill; try apply LOCAL4; try reflexivity; eauto.
+      { eapply Local.read_step_future; eauto.
+        eapply Local.promise_step_future; eauto.
+      }
+      { eapply Local.promise_step_future; eauto.
+        eapply Local.read_step_future; eauto.
+      }
+      i. des.
+      eexists _, _, _, _, _, _. splits.
+      * econs 2; [|econs 1]. econs 6.
+        { econs. econs. }
+        { s. apply Local.fence_relaxed. apply WF_SRC. }
+      * econs. econs 1; eauto.
+      * eauto.
+      * left. eapply paco7_mon; [apply sim_update_sim_thread|]; ss.
+        econs; eauto.
+        etransitivity; eauto.
+  - (* fence *)
+    exploit sim_local_fence; eauto. i. des.
+    eexists _, _, _, _, _, _. splits; eauto.
+    + econs. econs 6.
+      { econs. econs. }
+      { s. apply Local.fence_relaxed. apply WF_SRC. }
+    + left. eapply paco7_mon; [apply sim_fence_sim_thread|]; ss.
+      econs; eauto.
 Admitted.

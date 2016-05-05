@@ -135,6 +135,15 @@ Module Local.
     eapply Commit.future_wf; eauto.
   Qed.
 
+  Lemma future_fence_step th1 mem1 mem1' ord th2
+        (FUTURE: Memory.future mem1 mem1')
+        (STEP: fence_step th1 mem1 ord th2):
+    fence_step th1 mem1' ord th2.
+  Proof.
+    inv STEP. econs; eauto.
+    eapply Commit.future_wf; eauto.
+  Qed.
+
   Lemma add_step_release
         th1 mem1 loc from to val released ord th3 mem3
         (WF: Local.wf th1 mem1)
