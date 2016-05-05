@@ -185,57 +185,24 @@ Module MemInv.
     exploit Memory.fulfill_future; try apply FULFILL; eauto.
   Qed.
 
-  Lemma add
+  Lemma future
         inv
-        loc from to msg
-        promise1_src global1_src
-        promise1_tgt global1_tgt promise2_tgt global2_tgt
-        (LE1_SRC: Memory.le promise1_src global1_src)
-        (LE1_TGT: Memory.le promise1_tgt global1_tgt)
+        promise_src global1_src global2_src
+        promise_tgt global1_tgt
+        (LE1_SRC: Memory.le promise_src global1_src)
+        (LE1_TGT: Memory.le promise_tgt global1_tgt)
         (SIM1: sim_memory global1_src global1_tgt)
-        (INV1: sem inv promise1_src promise1_tgt)
-        (ADD_TGT: Memory.add promise1_tgt global1_tgt loc from to msg promise2_tgt global2_tgt):
-    exists (LT: Time.lt from to) promise2_src global2_src,
-      <<LE1_SRC: Memory.le promise2_src global2_src>> /\
-      <<SIM2: sim_memory global2_src global2_tgt>> /\
-      <<DISJOINT: Memory.disjoint inv (Memory.singleton loc msg LT)>> /\
-      <<INV2: sem (Memory.join inv (Memory.singleton loc msg LT)) promise2_src promise2_tgt>> /\
-      <<PROMISE_SRC: Memory.promise promise1_src global1_src loc from to msg promise2_src global2_src>>.
+        (INV1: sem inv promise_src promise_tgt)
+        (FUTURE_SRC: Memory.future global1_src global2_src)
+        (LE2_SRC: Memory.le promise_src global2_src):
+      <<FUTURE_TGT: Memory.future global1_tgt global2_src>> /\
+      <<LE2_TGT: Memory.le promise_tgt global2_src>>.
   Proof.
-    inv ADD_TGT.
-    exploit promise; try apply SIM1; eauto. i. des.
-    exploit fulfill_tgt; try apply SIM2; eauto. i. des.
-    eexists _, _, _. splits; eauto.
-  Qed.
-
-  Lemma write
-        inv
-        loc from to msg ord
-        promise1_src global1_src
-        promise1_tgt global1_tgt promise2_tgt global2_tgt
-        (LE1_SRC: Memory.le promise1_src global1_src)
-        (LE1_TGT: Memory.le promise1_tgt global1_tgt)
-        (SIM1: sim_memory global1_src global1_tgt)
-        (INV1: sem inv promise1_src promise1_tgt)
-        (RELEASE: Ordering.le Ordering.release ord -> promise1_tgt loc = Cell.bot -> promise1_src loc = Cell.bot)
-        (WRITE_TGT: Memory.write promise1_tgt global1_tgt loc from to msg ord promise2_tgt global2_tgt):
-    exists promise2_src global2_src,
-      <<LE1_SRC: Memory.le promise2_src global2_src>> /\
-      <<SIM2: sim_memory global2_src global2_tgt>> /\
-      <<INV2: sem inv promise2_src promise2_tgt>> /\
-      <<WRITE_SRC: Memory.write promise1_src global1_src loc from to msg ord promise2_src global2_src>>.
-  Proof.
-    inv WRITE_TGT.
-    - exploit fulfill; try apply SIM1; eauto. i. des.
-      eexists _, _. splits; try apply INV2; eauto.
-      econs 1; eauto.
-    - exploit add; try apply SIM1; eauto. i. des.
-      exploit fulfill_src; eauto.
-      { econs; eauto. }
-      i. des.
-      eexists _, _. splits; try apply INV; eauto.
-      + eapply Memory.fulfill_future; eauto.
-      + econs 2; eauto. econs; eauto.
+    splits.
+    - rewrite <- FUTURE_SRC.
+      apply Memory.splits_future. inv SIM1. auto.
+    - rewrite <- LE2_SRC. inv INV1.
+      apply Memory.le_join_l. memtac.
   Qed.
 
   Lemma sem_bot promise:

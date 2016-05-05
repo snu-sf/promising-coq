@@ -1718,6 +1718,97 @@ Module Memory.
       rewrite <- join_assoc. apply le_join_l. repeat (splits; tac).
   Qed.
 
+  Lemma disjoint_get
+        lhs rhs loc to msgl msgr
+        (DISJOINT: disjoint lhs rhs)
+        (LHS: get loc to lhs = Some msgl)
+        (RHS: get loc to rhs = Some msgr):
+    False.
+  Proof.
+    inv DISJOINT. eapply DISJOINT0.
+    - eapply Cell.WF. eauto.
+    - eapply Cell.WF. eauto.
+  Qed.
+
+  Lemma promise_get1 promise1 global1 loc from to msg promise2 global2
+        (LE: le promise1 global1)
+        (PROMISE: Memory.promise promise1 global1 loc from to msg promise2 global2):
+    Memory.get loc to global1 = None.
+  Proof.
+    destruct (get loc to global1) eqn:MSG1; auto.
+    inv PROMISE.
+    - exfalso. eapply disjoint_get; eauto.
+      apply singleton_get.
+    - generalize (splits_intro loc msg msg0 LT1 LT2). i. des.
+      exploit splits_disjoint.
+      { symmetry. apply GLOBAL2. }
+      { apply splits_join. reflexivity. eauto. tac. }
+      i. tac.
+      exploit splits_disjoint.
+      { symmetry. apply PROMISE2. }
+      { apply SPLIT. }
+      i. tac.
+      apply join_get in MSG1; (splits; tac).
+      { exfalso. eapply disjoint_get; try apply x1; eauto.
+        apply singleton_get.
+      }
+      apply join_get in MSG1; (splits; tac).
+      { exfalso. eapply disjoint_get; try apply x3; eauto.
+        apply singleton_get.
+      }
+      apply singleton_get_inv in MSG1. des. subst.
+      exfalso. eapply Time.lt_strorder. eauto.
+  Qed.
+
+  Lemma promise_get2 promise1 global1 loc from to msg promise2 global2
+        (LE: le promise1 global1)
+        (PROMISE: Memory.promise promise1 global1 loc from to msg promise2 global2):
+    Memory.get loc to global2 = Some msg.
+  Proof.
+    inv PROMISE.
+    - rewrite join_comm. apply join_get_inv; repeat (splits; tac).
+      apply singleton_get.
+    - generalize (splits_intro loc msg msg0 LT1 LT2). i. des.
+      exploit splits_disjoint.
+      { symmetry. apply GLOBAL2. }
+      { apply splits_join. reflexivity. eauto. tac. }
+      i. tac.
+      rewrite join_comm. apply join_get_inv; repeat (splits; tac).
+      rewrite join_comm. apply join_get_inv; repeat (splits; tac).
+      apply join_get_inv; repeat (splits; tac).
+      apply singleton_get.
+  Qed.
+
+  Lemma promise_get_inv promise1 global1 loc from to msg promise2 global2
+        loc' to' msg'
+        (LE: le promise1 global1)
+        (PROMISE: Memory.promise promise1 global1 loc from to msg promise2 global2)
+        (GET: Memory.get loc' to' promise2 = Some msg'):
+    Memory.get loc' to' promise1 = Some msg' \/
+    loc = loc' /\ to = to' /\ msg = msg'.
+  Proof.
+    inv PROMISE.
+    - apply join_get in GET; tac.
+      apply singleton_get_inv in GET. des. auto.
+    - generalize (splits_intro loc msg msg0 LT1 LT2). i. des.
+      exploit splits_disjoint.
+      { symmetry. apply GLOBAL2. }
+      { apply splits_join. reflexivity. eauto. tac. }
+      i. tac.
+      exploit splits_disjoint.
+      { symmetry. apply PROMISE2. }
+      { apply SPLIT. }
+      i. tac.
+      apply join_get in GET; repeat (splits; tac).
+      + left. apply join_get_inv; repeat (splits; tac).
+      + apply join_get in GET; repeat (splits; tac).
+        * apply singleton_get_inv in GET. des. auto.
+        * apply singleton_get_inv in GET. des. subst.
+          left. rewrite join_comm.
+          apply join_get_inv; repeat (splits; tac).
+          apply singleton_get.
+  Qed.
+
   Inductive fulfill (promise1:t) (loc:Loc.t) (from to:Time.t) (msg:Message.t): forall (promise2:t), Prop :=
   | fulfill_intro
       promise1_ctx
@@ -1762,137 +1853,50 @@ Module Memory.
     apply Memory.singleton_get.
   Qed.
 
-  Inductive add (promise1 global1:t) (loc:Loc.t) (from to:Time.t) (msg:Message.t):
-    forall (promise2:t) (global2:t), Prop :=
-  | add_intro
-      promise2 promise3 global3
-      (PROMISE: promise promise1 global1 loc from to msg promise2 global3)
-      (FULFILL: fulfill promise2 loc from to msg promise3):
-      add promise1 global1 loc from to msg promise3 global3
-  .
-
-  Lemma add_future
-        promise1 global1
-        loc from to msg
-        promise2 global2
-        (LE1: le promise1 global1)
-        (WF1: wf global1)
-        (ADD: add promise1 global1 loc from to msg promise2 global2):
-    <<LE2: le promise2 global2>> /\
-    <<WF2: wf global2>> /\
-    <<FUTURE: future global1 global2>>.
-  Proof.
-    inv ADD.
-    exploit promise_future; eauto. i. des.
-    exploit fulfill_future; eauto.
-  Qed.
-
-  Lemma add_disjoint
-        promise1 global1
-        loc from to msg
-        promise2 global2 ctx
-        (LE1: le promise1 global1)
-        (LE2: le ctx global1)
-        (WF1: wf global1)
-        (DISJOINT1: disjoint promise1 ctx)
-        (ADD: add promise1 global1 loc from to msg promise2 global2):
-    <<DISJOINT2: disjoint promise2 ctx>> /\
-    <<LE2: le ctx global2>>.
-  Proof.
-    inv ADD.
-    exploit promise_future; try apply PROMISE; eauto. i. des.
-    exploit promise_disjoint; try apply PROMISE; eauto. i. des.
-    exploit fulfill_disjoint; try apply FULFILL; eauto.
-  Qed.
-
-  Lemma add_get promise1 global1 loc from to msg promise2 global2
-        (LE: le promise1 global1)
-        (ADD: Memory.add promise1 global1 loc from to msg promise2 global2):
-    Memory.get loc to global2 = Some msg.
-  Proof.
-    inv ADD. inv PROMISE.
-    - exploit fulfill_get; eauto. i.
-      eapply le_get; eauto. apply le_join; tac.
-      + apply le_join_l. tac.
-      + reflexivity.
-    - generalize (splits_intro loc msg msg0 LT1 LT2). i. des.
-      exploit splits_disjoint.
-      { symmetry. apply GLOBAL2. }
-      { apply splits_join. reflexivity. eauto. tac. }
-      i. tac.
-      exploit splits_disjoint.
-      { symmetry. apply PROMISE2. }
-      { apply splits_intro. }
-      instantiate (1 := msg). i. tac.
-      rewrite join_comm. apply join_get_inv; repeat (splits; tac; eauto).
-      rewrite join_comm. apply join_get_inv; repeat (splits; tac; eauto).
-      apply join_get_inv; repeat (splits; tac; eauto).
-      apply singleton_get.
-  Qed.
-
-  Inductive write (promise1 global1:t) (loc:Loc.t) (from to:Time.t) (msg:Message.t) (ord:Ordering.t):
-    forall (promise2:t) (global2:t), Prop :=
-  | write_fulfill
-      promise2
-      (FULFILL: fulfill promise1 loc from to msg promise2)
-      (RELEASE: Ordering.le Ordering.release ord -> promise1 loc = Cell.bot):
-      write promise1 global1 loc from to msg ord promise2 global1
-  | write_add
-      promise2 global2
-      (ADD: add promise1 global1 loc from to msg promise2 global2)
-      (RELEASE: Ordering.le Ordering.release ord -> promise1 loc = Cell.bot):
-      write promise1 global1 loc from to msg ord promise2 global2
-  .
-
-  Lemma write_future
-        promise1 global1
-        loc from to msg ord
-        promise2 global2
-        (LE1: le promise1 global1)
-        (WF1: wf global1)
-        (WRITE: write promise1 global1 loc from to msg ord promise2 global2):
-    <<LE2: le promise2 global2>> /\
-    <<WF2: wf global2>> /\
-    <<FUTURE: future global1 global2>>.
-  Proof.
-    inv WRITE.
-    - splits; [|auto|reflexivity].
-      eapply fulfill_future; eauto.
-    - eapply add_future; eauto.
-  Qed.
-
-  Lemma write_disjoint
-        promise1 global1
-        loc from to msg ord
-        promise2 global2 ctx
-        (LE1: le promise1 global1)
-        (LE2: le ctx global1)
-        (WF1: wf global1)
-        (DISJOINT1: disjoint promise1 ctx)
-        (WRITE: write promise1 global1 loc from to msg ord promise2 global2):
-    <<DISJOINT2: disjoint promise2 ctx>> /\
-    <<LE2: le ctx global2>>.
-  Proof.
-    inv WRITE.
-    - exploit fulfill_disjoint; try apply FULFILL; eauto.
-    - eapply add_disjoint; try apply ADD; eauto.
-  Qed.
-
-  Lemma write_get promise1 global1 loc from to msg ord promise2 global2
-        (LE: le promise1 global1)
-        (WRITE: Memory.write promise1 global1 loc from to msg ord promise2 global2):
-    Memory.get loc to global2 = Some msg.
-  Proof.
-    inv WRITE.
-    - exploit fulfill_get; eauto. i.
-      eapply le_get; eauto.
-    - eapply add_get; eauto.
-  Qed.
-
   Inductive fence (promise:t) (ord:Ordering.t): Prop :=
   | fence_intro
       (RELEASE: Ordering.le Ordering.release ord -> promise = bot)
   .
+
+  Lemma splits_antisym
+        a b
+        (AB: splits a b)
+        (BA: splits b a):
+    a = b.
+  Proof.
+    extensionality loc. unfold Memory.splits in *.
+    specialize (AB loc). specialize (BA loc).
+    inv AB. inv BA. apply Cell.extensionality'.
+    - i.
+      match goal with
+      | [|- ?a = ?b] => destruct a eqn:A
+      end.
+      { apply MSG in A. auto. }
+      match goal with
+      | [|- ?a = ?b] => destruct b eqn:B; auto
+      end.
+      apply MSG0 in B. congruence.
+    - i. rewrite OWN. auto.
+  Qed.
+
+  Lemma future_future_le_le
+        a b c
+        (AB: future a b)
+        (BC: future b c)
+        (AC: le a c):
+    le a b.
+  Proof.
+    inv AB. inv BC. tac.
+    apply splits_join_inv1 in SPLITS0; auto. des. subst. tac.
+    rewrite <- join_assoc in JOIN.
+    exploit join2_splits; try apply JOIN; repeat (splits; tac).
+    - eapply splits_disjoint; [|apply SPLITSA].
+      symmetry. eapply splits_disjoint; [|apply SPLITSB].
+      symmetry. auto.
+    - rewrite SPLITS. auto.
+    - exploit splits_antisym; eauto. i. subst.
+      apply le_join_l. tac.
+  Qed.
 End Memory.
 
 Ltac memtac := Memory.tac.

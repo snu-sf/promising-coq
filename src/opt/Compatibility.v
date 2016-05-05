@@ -53,6 +53,143 @@ Proof.
   - econs; s; eauto. etransitivity; eauto.
 Qed.
 
+Lemma sim_local_silent
+      th1_src mem1_src
+      th1_tgt mem1_tgt
+      th2_tgt
+      (LOCAL1: sim_local th1_src th1_tgt)
+      (MEMORY1: sim_memory mem1_src mem1_tgt)
+      (WF1_SRC: Local.wf th1_src mem1_src)
+      (WF1_TGT: Local.wf th1_tgt mem1_tgt)
+      (STEP_TGT: Local.silent_step th1_tgt mem1_tgt th2_tgt):
+  exists th2_src,
+    <<STEP_SRC: Local.silent_step th1_src mem1_src th2_src>> /\
+    <<LOCAL2: sim_local th2_src th2_tgt>>.
+Proof.
+  inv LOCAL1. inv STEP_TGT.
+  eexists. splits.
+  - econs.
+    + etransitivity; eauto.
+    + eapply Commit.future_wf; eauto.
+      apply Memory.splits_future. apply MEMORY1.
+  - econs; eauto. s. reflexivity.
+Qed.
+
+Lemma sim_local_read
+      th1_src mem1_src
+      th1_tgt mem1_tgt
+      th2_tgt
+      loc ts val released ord
+      (LOCAL1: sim_local th1_src th1_tgt)
+      (MEMORY1: sim_memory mem1_src mem1_tgt)
+      (WF1_SRC: Local.wf th1_src mem1_src)
+      (WF1_TGT: Local.wf th1_tgt mem1_tgt)
+      (STEP_TGT: Local.read_step th1_tgt mem1_tgt loc ts val released ord th2_tgt):
+  exists th2_src,
+    <<STEP_SRC: Local.read_step th1_src mem1_src loc ts val released ord th2_src>> /\
+    <<LOCAL2: sim_local th2_src th2_tgt>>.
+Proof.
+  inv LOCAL1. inv STEP_TGT.
+  exploit Memory.splits_get; try apply MEMORY1; eauto. i.
+  exploit MemInv.sem_bot_inv; eauto. i.
+  eexists. splits.
+  - econs; eauto.
+    + eapply CommitFacts.read_mon; eauto.
+    + eapply Commit.future_wf; eauto.
+      apply Memory.splits_future. apply MEMORY1.
+    + rewrite x1. auto.
+  - econs; eauto. s. reflexivity.
+Qed.
+
+Lemma sim_local_fulfill
+      th1_src mem1_src
+      th1_tgt mem1_tgt
+      th2_tgt
+      loc from to val released ord
+      (LOCAL1: sim_local th1_src th1_tgt)
+      (MEMORY1: sim_memory mem1_src mem1_tgt)
+      (WF1_SRC: Local.wf th1_src mem1_src)
+      (WF1_TGT: Local.wf th1_tgt mem1_tgt)
+      (STEP_TGT: Local.fulfill_step th1_tgt mem1_tgt loc from to val released ord th2_tgt):
+  exists th2_src,
+    <<STEP_SRC: Local.fulfill_step th1_src mem1_src loc from to val released ord th2_src>> /\
+    <<LOCAL2: sim_local th2_src th2_tgt>>.
+Proof.
+  inv LOCAL1. inv STEP_TGT.
+  exploit MemInv.fulfill; eauto.
+  { apply WF1_SRC. }
+  { apply WF1_TGT. }
+  i. des.
+  eexists. splits; eauto.
+  - econs; eauto.
+    + eapply CommitFacts.write_mon; eauto.
+    + eapply Commit.future_wf; eauto.
+      apply Memory.splits_future. apply MEMORY1.
+    + apply MemInv.sem_bot_inv in PROMISE. rewrite PROMISE. auto.
+  - econs; eauto. s. reflexivity.
+Qed.
+
+Lemma sim_local_write
+      th1_src mem1_src
+      th1_tgt mem1_tgt
+      th2_tgt mem2_tgt
+      loc from to val released ord
+      (LOCAL1: sim_local th1_src th1_tgt)
+      (MEMORY1: sim_memory mem1_src mem1_tgt)
+      (WF1_SRC: Local.wf th1_src mem1_src)
+      (WF1_TGT: Local.wf th1_tgt mem1_tgt)
+      (STEP_TGT: Local.write_step th1_tgt mem1_tgt loc from to val released ord th2_tgt mem2_tgt):
+  exists th2_src mem2_src,
+    <<STEP_SRC: Local.write_step th1_src mem1_src loc from to val released ord th2_src mem2_src>> /\
+    <<LOCAL2: sim_local th2_src th2_tgt>> /\
+    <<MEMORY2: sim_memory mem2_src mem2_tgt>>.
+Proof.
+  inv STEP_TGT.
+  - exploit sim_local_fulfill; eauto. i. des.
+    eexists _, _. splits; eauto. econs 1. eauto.
+  - inv LOCAL1. inv ADD.
+    exploit Memory.promise_future; eauto.
+    { apply WF1_TGT. }
+    { apply WF1_TGT. }
+    i. des.
+    exploit MemInv.promise; try apply MEMORY1; eauto.
+    { apply WF1_SRC. }
+    { apply WF1_TGT. }
+    i. des.
+    exploit MemInv.fulfill; try apply SIM2; eauto. i. des.
+    eexists _, _. splits; eauto.
+    + econs 2. econs; eauto.
+      * eapply CommitFacts.write_mon; eauto.
+      * eapply Commit.future_wf; eauto.
+        apply Memory.splits_future. apply SIM2.
+      * apply MemInv.sem_bot_inv in PROMISE. rewrite PROMISE. auto.
+    + econs; eauto. s. reflexivity.
+Qed.
+
+Lemma sim_local_fence
+      th1_src mem1_src
+      th1_tgt mem1_tgt
+      th2_tgt
+      ord
+      (LOCAL1: sim_local th1_src th1_tgt)
+      (MEMORY1: sim_memory mem1_src mem1_tgt)
+      (WF1_SRC: Local.wf th1_src mem1_src)
+      (WF1_TGT: Local.wf th1_tgt mem1_tgt)
+      (STEP_TGT: Local.fence_step th1_tgt mem1_tgt ord th2_tgt):
+  exists th2_src,
+    <<STEP_SRC: Local.fence_step th1_src mem1_src ord th2_src>> /\
+    <<LOCAL2: sim_local th2_src th2_tgt>>.
+Proof.
+  inv LOCAL1. inv STEP_TGT.
+  eexists. splits.
+  - econs.
+    + eapply CommitFacts.fence_mon; eauto.
+    + eapply Commit.future_wf; eauto.
+      apply Memory.splits_future. apply MEMORY1.
+    + apply MemInv.sem_bot_inv in PROMISE. rewrite PROMISE. auto.
+  - econs; eauto. s. reflexivity.
+Qed.
+
 Definition SIM_REGS := forall (rs_src rs_tgt:RegFile.t), Prop.
 
 Inductive sim_terminal
@@ -369,106 +506,51 @@ Proof.
         { econs 1. econs 1. s. eauto. }
         { apply rclo7_step. apply ctx_instr; auto. }
       * (* silent *)
-        inv LOCAL0. inv STATE. ss.
+        inv STATE.
+        exploit sim_local_silent; eauto. i. des.
         exploit RegFile.eq_except_instr; eauto. i. des.
         eexists _, _, _, _, _, _. splits; eauto.
-        { econs 1. econs 2; ss.
-          - econs; eauto.
-          - econs; eauto.
-            eapply Commit.future_wf; try apply WF_TGT; eauto.
-            apply Memory.splits_future. apply MEMORY.
-        }
-        { apply rclo7_step. apply ctx_nil; auto.
-          econs; ss. apply LOCAL.
-        }
+        { econs 1. econs 2; eauto. s. econs. eauto. }
+        { apply rclo7_step. apply ctx_nil; auto. }
       * (* read *)
-        inv LOCAL0. inv STATE. ss.
+        inv STATE.
+        exploit sim_local_read; eauto. i. des.
         exploit RegFile.eq_except_instr; eauto. i. des.
-        generalize GET. intro X. apply MEMORY in X.
         eexists _, _, _, _, _, _. splits; eauto.
-        { econs 1. econs 3; ss.
-          - econs. eauto.
-          - econs; s; eauto.
-            + eapply CommitFacts.read_mon; eauto.
-            + eapply Commit.future_wf; eauto.
-              apply Memory.splits_future. apply MEMORY.
-        }
-        { apply rclo7_step. apply ctx_nil; auto.
-          econs; ss.
-          - reflexivity.
-          - apply LOCAL.
-        }
+        { econs 1. econs 3; eauto. s. econs. eauto. }
+        { apply rclo7_step. apply ctx_nil; auto. }
       * (* write *)
-        inv LOCAL0. inv STATE. ss.
+        inv STATE.
+        exploit sim_local_write; eauto. i. des.
         exploit RegFile.eq_except_instr; eauto. i. des.
-        exploit MemInv.write; try apply MEMORY0; eauto.
-        { apply WF_SRC. }
-        { apply WF_TGT. }
-        { apply LOCAL. }
-        i. des. apply MemInv.sem_bot_inv in INV2. subst.
         eexists _, _, _, _, _, _. splits; eauto.
-        { econs 1. econs 4; ss.
-          - econs. eauto.
-          - econs; s; eauto.
-            + eapply CommitFacts.write_mon; eauto.
-            + eapply Commit.future_wf; eauto.
-              apply Memory.splits_future. apply SIM2.
-        }
-        { apply rclo7_step. apply ctx_nil; auto. econs; ss.
-          - reflexivity.
-          - apply MemInv.sem_bot.
-        }
+        { econs 1. econs 4; eauto. s. econs. eauto. }
+        { apply rclo7_step. apply ctx_nil; auto. }
       * (* update *)
-        inv LOCAL1. inv LOCAL2. inv STATE. ss.
+        inv STATE.
+        exploit sim_local_read; eauto. i. des.
+        exploit sim_local_write; eauto.
+        { eapply Local.read_step_future; eauto. }
+        { eapply Local.read_step_future; eauto. }
+        i. des.
         exploit RegFile.eq_except_instr; eauto. i. des.
-        generalize GET. intro X. apply MEMORY in X.
-        exploit MemInv.write; try apply MEMORY0; eauto.
-        { apply WF_SRC. }
-        { apply WF_TGT. }
-        { apply MemInv.sem_bot. }
-        i. des. apply MemInv.sem_bot_inv in INV2. subst.
         eexists _, _, _, _, _, _. splits; eauto.
-        { econs 1. econs 5; s; eauto.
-          - econs. eauto.
-          - econs; s; eauto.
-            + eapply CommitFacts.read_mon; eauto.
-            + eapply Commit.future_wf; eauto.
-              apply Memory.splits_future. apply MEMORY.
-          - econs; eauto.
-            eapply Commit.future_wf; eauto.
-            apply Memory.splits_future. apply SIM2.
-        }
-        { apply rclo7_step. apply ctx_nil; auto. econs; ss.
-          - reflexivity.
-          - apply MemInv.sem_bot.
-        }
+        { econs 1. econs 5; eauto. s. econs. eauto. }
+        { apply rclo7_step. apply ctx_nil; auto. }
       * (* fence *)
-        inv LOCAL0. inv STATE. ss.
+        inv STATE.
+        exploit sim_local_fence; eauto. i. des.
         exploit RegFile.eq_except_instr; eauto. i. des.
         eexists _, _, _, _, _, _. splits; eauto.
-        { econs 1. econs 6; s; eauto.
-          - econs. eauto.
-          - econs; s; eauto.
-            + eapply CommitFacts.fence_mon; eauto.
-            + eapply Commit.future_wf; eauto.
-              apply Memory.splits_future. apply MEMORY.
-        }
-        { apply rclo7_step. apply ctx_nil; auto. econs; ss.
-          - reflexivity.
-          - apply MemInv.sem_bot.
-        }
+        { econs 1. econs 6; eauto. econs. eauto. }
+        { apply rclo7_step. apply ctx_nil; auto. }
     + (* external *)
-      inv STEP. inv LOCAL0. inv STATE. ss.
+      inv STEP. inv STATE. ss.
+      exploit sim_local_silent; eauto. i. des.
       exploit RegFile.eq_except_instr; eauto. i. des.
       eexists _, _, _, _, _, _. splits; eauto.
-      * econs 2. econs; ss.
-        { econs. eauto. }
-        { econs; eauto.
-          eapply Commit.future_wf; try apply WF_TGT; eauto.
-          apply Memory.splits_future. apply MEMORY.
-        }
-      * apply rclo7_step. apply ctx_nil; auto. econs; ss.
-        apply MemInv.sem_bot.
+      * econs 2. econs; eauto. econs. eauto.
+      * apply rclo7_step. apply ctx_nil; auto.
   - (* seq *)
     ii. ss.
     exploit GF; eauto. s. i. des.
