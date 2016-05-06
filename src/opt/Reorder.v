@@ -84,10 +84,7 @@ Proof.
         { s. apply Local.fence_relaxed. apply WF_SRC. }
       * left. eapply paco7_mon; [apply sim_store_sim_thread|]; ss.
         econs; eauto.
-    + exploit Local.add_step_release; try apply ADD; eauto.
-      { inv REORDER0; ss. }
-      i. des.
-      eexists _, _, _, _, _, _. splits.
+    + eexists _, _, _, _, _, _. splits.
       * econs 2; [|econs 1]. econs 6.
         { econs. econs. }
         { s. apply Local.fence_relaxed. apply WF_SRC. }
@@ -108,19 +105,7 @@ Proof.
         { s. apply Local.fence_relaxed. apply WF_SRC. }
       * left. eapply paco7_mon; [apply sim_update_sim_thread|]; ss.
         econs; eauto.
-    + exploit Local.add_step_release; try apply ADD; eauto.
-      { eapply Local.read_step_future; eauto. }
-      { inv REORDER0; destruct ord; ss. }
-      i. des.
-      exploit reorder_read_promise; try apply STEP_SRC; try apply x0; eauto. i. des.
-      exploit sim_local_fulfill; try apply LOCAL4; try reflexivity; eauto.
-      { eapply Local.read_step_future; eauto.
-        eapply Local.promise_step_future; eauto.
-      }
-      { eapply Local.promise_step_future; eauto.
-        eapply Local.read_step_future; eauto.
-      }
-      i. des.
+    + exploit reorder_read_promise; try apply STEP_SRC; try apply x0; eauto. i. des.
       eexists _, _, _, _, _, _. splits.
       * econs 2; [|econs 1]. econs 6.
         { econs. econs. }
@@ -129,7 +114,6 @@ Proof.
       * eauto.
       * left. eapply paco7_mon; [apply sim_update_sim_thread|]; ss.
         econs; eauto.
-        etransitivity; eauto.
   - (* fence *)
     exploit sim_local_fence; eauto. i. des.
     eexists _, _, _, _, _, _. splits; eauto.

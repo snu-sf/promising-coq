@@ -27,13 +27,14 @@ Lemma sim_local_promise
       th1_src mem1_src
       th1_tgt mem1_tgt
       th2_tgt mem2_tgt
+      loc from to val released
       (LOCAL1: sim_local th1_src th1_tgt)
       (MEMORY1: sim_memory mem1_src mem1_tgt)
       (WF1_SRC: Local.wf th1_src mem1_src)
       (WF1_TGT: Local.wf th1_tgt mem1_tgt)
-      (STEP_TGT: Local.promise_step th1_tgt mem1_tgt th2_tgt mem2_tgt):
+      (STEP_TGT: Local.promise_step th1_tgt mem1_tgt loc from to val released th2_tgt mem2_tgt):
   exists th2_src mem2_src,
-    <<STEP_SRC: Local.promise_step th1_src mem1_src th2_src mem2_src>> /\
+    <<STEP_SRC: Local.promise_step th1_src mem1_src loc from to val released th2_src mem2_src>> /\
     <<LOCAL2: sim_local th2_src th2_tgt>> /\
     <<MEMORY2: sim_memory mem2_src mem2_tgt>>.
 Proof.
@@ -94,7 +95,7 @@ Proof.
   exploit MemInv.sem_bot_inv; eauto. i.
   eexists. splits.
   - econs; eauto.
-    + eapply CommitFacts.read_mon; eauto.
+    + eapply CommitFacts.read_mon1; eauto.
     + eapply Commit.future_wf; eauto.
       apply Memory.splits_future. apply MEMORY1.
     + rewrite x1. auto.
@@ -122,10 +123,9 @@ Proof.
   i. des.
   eexists. splits; eauto.
   - econs; eauto.
-    + eapply CommitFacts.write_mon; eauto.
+    + eapply CommitFacts.write_mon1; eauto.
     + eapply Commit.future_wf; eauto.
       apply Memory.splits_future. apply MEMORY1.
-    + apply MemInv.sem_bot_inv in PROMISE. rewrite PROMISE. auto.
   - econs; eauto. s. reflexivity.
 Qed.
 
@@ -146,24 +146,15 @@ Lemma sim_local_write
 Proof.
   inv STEP_TGT.
   - exploit sim_local_fulfill; eauto. i. des.
-    eexists _, _. splits; eauto. econs 1. eauto.
-  - inv LOCAL1. inv ADD.
-    exploit Memory.promise_future; eauto.
-    { apply WF1_TGT. }
-    { apply WF1_TGT. }
+    eexists _, _. splits; eauto. econs 1; eauto.
+    inv LOCAL1. apply MemInv.sem_bot_inv in PROMISE. rewrite PROMISE. auto.
+  - exploit sim_local_promise; eauto. i. des.
+    exploit sim_local_fulfill; eauto.
+    { eapply Local.promise_step_future; eauto. }
+    { eapply Local.promise_step_future; eauto. }
     i. des.
-    exploit MemInv.promise; try apply MEMORY1; eauto.
-    { apply WF1_SRC. }
-    { apply WF1_TGT. }
-    i. des.
-    exploit MemInv.fulfill; try apply SIM2; eauto. i. des.
-    eexists _, _. splits; eauto.
-    + econs 2. econs; eauto.
-      * eapply CommitFacts.write_mon; eauto.
-      * eapply Commit.future_wf; eauto.
-        apply Memory.splits_future. apply SIM2.
-      * apply MemInv.sem_bot_inv in PROMISE. rewrite PROMISE. auto.
-    + econs; eauto. s. reflexivity.
+    eexists _, _. splits; eauto. econs 2; eauto.
+    inv LOCAL1. apply MemInv.sem_bot_inv in PROMISE0. rewrite PROMISE0. auto.
 Qed.
 
 Lemma sim_local_fence
@@ -183,7 +174,7 @@ Proof.
   inv LOCAL1. inv STEP_TGT.
   eexists. splits.
   - econs.
-    + eapply CommitFacts.fence_mon; eauto.
+    + eapply CommitFacts.fence_mon1; eauto.
     + eapply Commit.future_wf; eauto.
       apply Memory.splits_future. apply MEMORY1.
     + apply MemInv.sem_bot_inv in PROMISE. rewrite PROMISE. auto.

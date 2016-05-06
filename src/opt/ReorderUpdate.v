@@ -87,22 +87,18 @@ Proof.
         eapply Local.read_step_future; eauto.
       }
       i. des.
+      exploit sim_local_fulfill; try apply x3; try reflexivity; eauto.
+      { eapply Local.read_step_future; eauto. }
+      { eapply Local.read_step_future; eauto. }
+      i. des.
       exploit reorder_fulfill_promise; try apply x3; try apply STEP_SRC; eauto.
       { eapply Local.read_step_future; eauto. }
       i. des.
       exploit reorder_read_promise; try apply x0; try apply STEP1; eauto. i. des.
-      exploit sim_local_fulfill; try apply LOCAL3; try reflexivity; eauto.
-      { eapply Local.read_step_future; eauto.
-        eapply Local.promise_step_future; eauto.
-      }
-      { eapply Local.promise_step_future; eauto.
-        eapply Local.read_step_future; eauto.
-      }
       i. des.
       eexists _, _, _, _, _, _. splits; eauto.
       * econs. econs 1; eauto.
       * right. apply CIH. econs; try apply STEP3; try apply STEP_SRC0; eauto.
-        etransitivity; eauto. etransitivity; eauto.
     + (* load *)
       exploit sim_local_read; eauto.
       { eapply Local.fulfill_step_future; eauto.
@@ -114,14 +110,6 @@ Proof.
       { eapply Local.read_step_future; eauto. }
       i. des.
       exploit reorder_read_read; try apply x0; try apply STEP1; eauto. i. des.
-      exploit sim_local_fulfill; try apply SIM0; try reflexivity; eauto.
-      { eapply Local.read_step_future; eauto.
-        eapply Local.read_step_future; eauto.
-      }
-      { eapply Local.read_step_future; eauto.
-        eapply Local.read_step_future; eauto.
-      }
-      i. des.
       eexists _, _, _, _, _, _. splits.
       * econs 2; [|econs 1]. econs 3; eauto. econs. econs.
       * econs. econs 5; eauto.
@@ -129,11 +117,12 @@ Proof.
           - admit.
           - apply RegFile.eq_except_singleton.
         }
-        { s. econs 1. eauto. }
+        { s. econs 1; eauto.
+          admit. (* promise = bot *)
+        }
       * s. eauto.
       * s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
-        { apply RegFun.add_add. admit. }
-        { etransitivity; eauto. etransitivity; eauto. }
+        apply RegFun.add_add. admit.
     + (* store *)
       exploit sim_local_write; eauto.
       { eapply Local.fulfill_step_future; eauto.
@@ -147,14 +136,6 @@ Proof.
       exploit reorder_read_write; try apply x0; try apply STEP1; eauto.
       { destruct o1; ss. }
       i. des.
-      exploit sim_local_fulfill; try apply SIM0; try reflexivity; eauto.
-      { eapply Local.read_step_future; eauto.
-        eapply Local.write_step_future; eauto.
-      }
-      { eapply Local.write_step_future; eauto.
-        eapply Local.read_step_future; eauto.
-      }
-      i. des.
       eexists _, _, _, _, _, _. splits.
       * econs 2; [|econs 1]. econs 4; eauto. econs.
         erewrite <- RegFile.eq_except_value; eauto.
@@ -162,38 +143,30 @@ Proof.
         { admit. }
       * econs. econs 5; eauto.
         { econs. econs. eauto. }
-        { s. econs 1. eauto. }
+        { s. econs 1; eauto.
+          admit. (* promise = bot *)
+        }
       * s. eauto.
       * s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
-        etransitivity; eauto. etransitivity; eauto.
     + (* update *)
       exploit sim_local_read; eauto.
       { eapply Local.fulfill_step_future; eauto.
         eapply Local.read_step_future; eauto.
       }
       i. des.
+      exploit sim_local_write; eauto.
+      { eapply Local.read_step_future; eauto.
+        eapply Local.fulfill_step_future; eauto.
+        eapply Local.read_step_future; eauto.
+      }
+      { eapply Local.read_step_future; eauto. }
+      i. des.
       exploit reorder_fulfill_read; try apply x3; try apply STEP_SRC; eauto.
       { destruct o1; ss. }
       { eapply Local.read_step_future; eauto. }
       i. des.
       exploit reorder_read_read; try apply x0; try apply STEP1; eauto. i. des.
-      exploit sim_local_fulfill; try apply STEP2; try apply SIM0; try reflexivity; eauto.
-      { eapply Local.read_step_future; eauto.
-        eapply Local.read_step_future; eauto.
-      }
-      { eapply Local.read_step_future; eauto.
-        eapply Local.read_step_future; eauto.
-      }
-      i. des.
-      rewrite SIM, LOCAL0 in LOCAL3.
-      exploit sim_local_write; eauto.
-      { eapply Local.fulfill_step_future; eauto.
-        eapply Local.read_step_future; eauto.
-        eapply Local.read_step_future; eauto.
-      }
-      { eapply Local.read_step_future; eauto. }
-      i. des.
-      exploit reorder_fulfill_write; try apply STEP_SRC0; try apply STEP_SRC1; eauto.
+      exploit reorder_fulfill_write; try apply STEP2; try apply STEP_SRC1; eauto.
       { destruct o1; ss. }
       { eapply Local.read_step_future; eauto.
         eapply Local.read_step_future; eauto.
@@ -203,30 +176,21 @@ Proof.
       { destruct o1; ss. }
       { eapply Local.read_step_future; eauto. }
       i. des.
-      exploit sim_local_fulfill; try apply STEP5; try apply SIM2; try reflexivity; eauto.
-      { eapply Local.read_step_future; eauto.
-        eapply Local.write_step_future; eauto.
-        eapply Local.read_step_future; eauto.
-      }
-      { eapply Local.write_step_future; eauto.
-        eapply Local.read_step_future; eauto.
-        eapply Local.read_step_future; eauto.
-      }
-      i. des.
       eexists _, _, _, _, _, _. splits.
       * econs 2; [|econs 1]. econs 5; eauto. econs. econs.
         erewrite <- RegFile.eq_except_rmw; eauto.
         { admit. }
         { apply RegFile.eq_except_singleton. }
-      * econs. econs 5; try apply STEP7; try apply STEP_SRC2; eauto.
+      * econs. econs 5; try apply STEP7; try apply STEP_SRC0; eauto.
         { econs. econs.
           erewrite RegFile.eq_except_rmw; eauto.
           - admit.
           - apply RegFile.eq_except_singleton.
         }
-        { econs 1. eauto. }
+        { econs 1; eauto.
+          admit. (* promise = bot *)
+        }
       * eauto.
       * left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
-        { apply RegFun.add_add. admit. }
-        { etransitivity; eauto. etransitivity; eauto. }
+        apply RegFun.add_add. admit.
 Admitted.

@@ -87,7 +87,6 @@ Proof.
       eexists _, _, _, _, _, _. splits; eauto.
       * econs. econs 1; eauto.
       * right. apply CIH. econs; eauto.
-        etransitivity; eauto.
     + (* load *)
       exploit sim_local_read; eauto.
       { eapply Local.fulfill_step_future; eauto. }
@@ -100,10 +99,10 @@ Proof.
         { s. econs 1. erewrite RegFile.eq_except_value; eauto.
           - admit. (* RegSet.disjoint symmetry *)
           - apply RegFile.eq_except_singleton.
+          - admit. (* promise = bot *)
         }
       * eauto.
       * left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
-        etransitivity; eauto.
     + (* store *)
       exploit sim_local_write; eauto.
       { eapply Local.fulfill_step_future; eauto. }
@@ -114,23 +113,22 @@ Proof.
       * econs 2; [|econs 1]. econs 4; eauto. econs. econs.
       * econs. econs 4; eauto. econs.
         { econs. }
-        { s. econs 1. eauto. }
+        { s. econs 1; eauto.
+          admit. (* promise = bot *)
+        }
       * s. eauto.
       * s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
-        etransitivity; eauto.
     + (* update *)
       exploit sim_local_read; eauto.
       { eapply Local.fulfill_step_future; eauto. }
       i. des.
-      exploit reorder_fulfill_read; try apply x0; try apply STEP_SRC; eauto.
-      i. des.
-      rewrite LOCAL0 in SIM.
       exploit sim_local_write; eauto.
-      { eapply Local.fulfill_step_future; eauto.
-        eapply Local.read_step_future; eauto.
+      { eapply Local.read_step_future; eauto.
+        eapply Local.fulfill_step_future; eauto.
       }
       { eapply Local.read_step_future; eauto. }
       i. des.
+      exploit reorder_fulfill_read; try apply x0; try apply STEP_SRC; eauto. i. des.
       exploit reorder_fulfill_write; try apply STEP2; try apply STEP_SRC0; eauto.
       { eapply Local.read_step_future; eauto. }
       i. des.
@@ -141,8 +139,8 @@ Proof.
         { s. econs 1. erewrite RegFile.eq_except_value; eauto.
           - admit. (* RegSet.disjoint symmetry *)
           - apply RegFile.eq_except_singleton.
+          - admit. (* promise = bot *)
         }
       * s. eauto.
       * s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
-        etransitivity; eauto.
 Admitted.

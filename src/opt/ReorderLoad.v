@@ -87,7 +87,6 @@ Proof.
       eexists _, _, _, _, _, _. splits; eauto.
       * econs. econs 1; eauto.
       * right. apply CIH. econs; eauto.
-        etransitivity; eauto.
     + (* load *)
       exploit sim_local_read; eauto.
       { eapply Local.read_step_future; eauto. }
@@ -98,8 +97,7 @@ Proof.
       * econs. econs 3; eauto. econs. econs.
       * s. eauto.
       * s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
-        { apply RegFun.add_add. admit. }
-        { etransitivity; eauto. }
+        apply RegFun.add_add. admit.
     + (* store *)
       exploit sim_local_write; eauto.
       { eapply Local.read_step_future; eauto. }
@@ -113,20 +111,18 @@ Proof.
       * econs. econs 3; eauto. econs. econs.
       * s. eauto.
       * s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
-        etransitivity; eauto.
     + (* update *)
       exploit sim_local_read; eauto.
       { eapply Local.read_step_future; eauto. }
       i. des.
-      exploit reorder_read_read; try apply x0; try apply STEP_SRC; eauto. i. des.
-      rewrite LOCAL0 in SIM.
       exploit sim_local_write; eauto.
       { eapply Local.read_step_future; eauto.
         eapply Local.read_step_future; eauto.
       }
       { eapply Local.read_step_future; eauto. }
       i. des.
-      exploit reorder_read_write; try apply STEP2; try apply STEP_SRC0; eauto.
+      exploit reorder_read_read; try apply x0; try apply STEP_SRC; eauto. i. des.
+      exploit reorder_read_write; try apply STEP2; try apply LOCAL2; eauto.
       { destruct ord; ss. }
       { eapply Local.read_step_future; eauto. }
       i. des.
@@ -139,7 +135,6 @@ Proof.
       * s. eauto.
       * s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
         { apply RegFun.add_add. admit. }
-        { etransitivity; eauto. }
     + (* fence *)
       exploit sim_local_fence; eauto.
       { eapply Local.read_step_future; eauto. }
@@ -150,5 +145,4 @@ Proof.
       * econs. econs 3; eauto. econs. econs.
       * s. eauto.
       * s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
-        etransitivity; eauto.
 Admitted.

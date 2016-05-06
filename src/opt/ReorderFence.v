@@ -68,7 +68,6 @@ Proof.
       eexists _, _, _, _, _, _. splits; eauto.
       * econs. econs 1; eauto.
       * right. apply CIH. econs; eauto.
-        etransitivity; eauto.
     + (* store *)
       exploit sim_local_write; eauto.
       { eapply Local.fence_step_future; eauto. }
@@ -79,5 +78,4 @@ Proof.
       * econs. econs 6; eauto. econs. econs.
       * s. eauto.
       * s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
-        etransitivity; eauto.
 Admitted.

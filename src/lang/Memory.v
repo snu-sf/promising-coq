@@ -306,6 +306,15 @@ Module Snapshot <: JoinableType.
       apply Times.incr_le.
     - apply Times.incr_ts.
   Qed.
+
+  Lemma le_join_if
+        (cond:bool) a b c
+        (A: cond -> le a c)
+        (B: le b c):
+    le (if cond then join a b else b) c.
+  Proof.
+    destruct cond; auto. apply join_spec; auto.
+  Qed.
 End Snapshot.
 
 Module Message.
