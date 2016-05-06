@@ -272,6 +272,66 @@ Proof.
       * rewrite ACQUIRABLE0. auto.
 Admitted.
 
+Lemma reorder_Memory_fulfill_promise
+      promise1 loc1 from1 to1 msg1
+      promise2 loc2 from2 to2 msg2
+      promise3
+      mem1 mem3
+      (LE: Memory.le promise1 mem1)
+      (FULFILL: Memory.fulfill promise1 loc1 from1 to1 msg1 promise2)
+      (PROMISE: Memory.promise promise2 mem1 loc2 from2 to2 msg2 promise3 mem3):
+  exists promise2',
+    Memory.promise promise1 mem1 loc2 from2 to2 msg2 promise2' mem3 /\
+    Memory.fulfill promise2' loc1 from1 to1 msg1 promise3.
+Proof.
+  inv FULFILL. inv PROMISE; memtac.
+  - eexists. splits.
+    + econs 1; eauto. repeat (splits; memtac).
+    + econs; repeat (splits; memtac).
+      * rewrite <- ? Memory.join_assoc. f_equal. apply Memory.join_comm.
+      * symmetry. auto.
+      * symmetry. auto.
+  - rewrite <- ? Memory.join_assoc in JOIN.
+    rewrite (Memory.join_assoc global1_ctx _ _) in JOIN.
+    rewrite (Memory.join_comm global1_ctx _) in JOIN.
+    rewrite <- ? Memory.join_assoc in JOIN.
+    apply Memory.join2_cancel in JOIN; repeat (splits; memtac).
+    rewrite (Memory.join_comm global1_ctx _) in JOIN.
+    apply Memory.join2_cancel in JOIN; repeat (splits; memtac).
+    eexists. splits.
+    + econs 2.
+      * rewrite <- Memory.join_assoc.
+        rewrite (Memory.join_comm (Memory.singleton _ _ _) _).
+        rewrite Memory.join_assoc. eauto.
+      * repeat (splits; memtac).
+      * rewrite <- Memory.join_assoc.
+        rewrite Memory.join_comm.
+        rewrite ? Memory.join_assoc. f_equal.
+      * repeat (splits; memtac).
+      * repeat (splits; memtac).
+      * rewrite <- Memory.join_assoc.
+        rewrite Memory.join_comm.
+        rewrite <- Memory.join_assoc. f_equal.
+        rewrite <- ? Memory.join_assoc. f_equal.
+        rewrite Memory.join_comm.
+        rewrite <- ? Memory.join_assoc.
+        rewrite Memory.join_comm.
+        rewrite <- ? Memory.join_assoc. auto.
+      * auto.
+    + generalize (Memory.splits_intro loc2 msg2 msg0 LT1 LT2). i. des.
+      econs; repeat (splits; memtac).
+      * rewrite <- ? Memory.join_assoc. f_equal.
+        rewrite Memory.join_comm.
+        rewrite <- ? Memory.join_assoc. eauto.
+      * exploit Memory.splits_disjoint; try apply SPLIT; eauto.
+      * exploit Memory.splits_disjoint;
+          try apply SPLIT; try (symmetry; apply PROMISE1); eauto.
+        i. memtac.
+      * exploit Memory.splits_disjoint;
+          try apply SPLIT; try (symmetry; apply PROMISE1); eauto.
+        i. memtac.
+Qed.
+
 Lemma reorder_fulfill_promise
       loc1 from1 to1 val1 released1 ord1
       loc2 from2 to2 val2 released2
@@ -285,7 +345,40 @@ Lemma reorder_fulfill_promise
     <<STEP1: Local.promise_step th0 mem0 loc2 from2 to2 val2 released2 th1' mem2>> /\
     <<STEP2: Local.fulfill_step th1' mem2 loc1 from1 to1 val1 released1 ord1 th2>>.
 Proof.
-Admitted.
+  inv STEP1. inv STEP2. ss.
+  exploit reorder_Memory_fulfill_promise; try apply MEMORY; try apply WF0; eauto. i. des.
+  exploit Memory.promise_future; try apply x0; try apply WF0; eauto. i. des.
+  exploit Commit.future_wf; try apply WF0; eauto. i.
+  exploit Memory.fulfill_get; try apply x0; eauto. i.
+  exploit Memory.le_get; try apply LE2; eauto. i.
+  exploit CommitFacts.write_min_spec; try apply COMMIT; eauto.
+  { inv WF2. exploit WF; eauto. }
+  i. des.
+  eexists. splits.
+  - econs; try reflexivity; try apply x0; eauto.
+  - destruct th0. ss. econs; try eapply CommitFacts.write_mon2; eauto.
+    rewrite <- COMMIT0. eapply CommitFacts.write_min_min. eauto.
+Qed.
+
+Lemma reorder_Memory_fulfill_fulfill
+      promise1 loc1 from1 to1 msg1
+      promise2 loc2 from2 to2 msg2
+      promise3
+      (FULFILL1: Memory.fulfill promise1 loc1 from1 to1 msg1 promise2)
+      (FULFILL2: Memory.fulfill promise2 loc2 from2 to2 msg2 promise3):
+  exists promise2',
+    Memory.fulfill promise1 loc2 from2 to2 msg2 promise2' /\
+    Memory.fulfill promise2' loc1 from1 to1 msg1 promise3.
+Proof.
+  inv FULFILL1. inv FULFILL2. memtac.
+  eexists. splits.
+  - econs.
+    + rewrite <- Memory.join_assoc.
+      rewrite (Memory.join_comm (Memory.singleton _ _ _) _).
+      rewrite Memory.join_assoc. eauto.
+    + repeat (splits; memtac).
+  - econs; eauto. memtac.
+Qed.
 
 Lemma reorder_fulfill_fulfill
       loc1 from1 to1 val1 released1 ord1
@@ -302,6 +395,39 @@ Lemma reorder_fulfill_fulfill
     <<STEP1: Local.fulfill_step th0 mem0 loc2 from2 to2 val2 released2 ord2 th1'>> /\
     <<STEP2: Local.fulfill_step th1' mem0 loc1 from1 to1 val1 released1 ord1 th2>>.
 Proof.
+  inv STEP1. inv STEP2. ss.
+  exploit reorder_Memory_fulfill_fulfill; try apply MEMORY; eauto. i. des.
+  exploit Memory.fulfill_get; try apply x0; eauto. i.
+  exploit Memory.le_get; try apply WF0; eauto. i.
+  exploit CommitFacts.write_min_spec; try apply x3; try apply WF0; eauto.
+  { eapply Snapshot.writable_mon; try apply COMMIT0; eauto. apply COMMIT. }
+  { etransitivity; [apply COMMIT|]. apply COMMIT0. }
+  { instantiate (1 := ord2). admit. }
+  { inv WF0. inv MEMORY1. exploit WF; eauto. }
+  i. des.
+  exploit Memory.fulfill_get; try apply x1; eauto. i.
+  exploit Memory.le_get; try apply x4; eauto.
+  { eapply Memory.fulfill_future; eauto. apply WF0. }
+  i.
+  exploit CommitFacts.write_min_spec; try apply x5; eauto.
+  { eapply Snapshot.le_on_writable; eauto. apply COMMIT. }
+  { admit. }
+  { instantiate (1 := ord1). admit. }
+  { apply WF0. }
+  { inv WF0. inv MEMORY1. exploit WF0; eauto. }
+  i. des.
+  eexists. splits.
+  - econs; eauto.
+  - destruct th0. ss. econs; try eapply CommitFacts.write_mon2; eauto.
+    inv COMMIT. inv COMMIT0. inv MONOTONE. inv MONOTONE0. ss.
+    econs; committac.
+    + rewrite CURRENT1. auto.
+    + admit.
+    + unfold LocFun.add, LocFun.find.
+      repeat CommitFacts.condtac; committac.
+      { admit. }
+      { etransitivity; [apply RELEASED|apply RELEASED8]. }
+    + rewrite ACQUIRABLE. auto.
 Admitted.
 
 Lemma reorder_fulfill_write
