@@ -32,7 +32,7 @@ Lemma reorder_read_read
       th1
       th2
       (LOC: loc1 <> loc2)
-      (ORD2: Ordering.le ord2 Ordering.release)
+      (ORD2: Ordering.le ord2 Ordering.relaxed)
       (WF0: Local.wf th0 mem0)
       (STEP1: Local.read_step th0 mem0 loc1 ts1 val1 released1 ord1 th1)
       (STEP2: Local.read_step th1 mem0 loc2 ts2 val2 released2 ord2 th2):
@@ -53,19 +53,18 @@ Proof.
   - destruct th0. s. econs; try eapply CommitFacts.read_mon2; eauto.
     s. inv COMMIT. inv COMMIT0. inv MONOTONE. inv MONOTONE0.
     unfold CommitFacts.read_min.
-    destruct (Ordering.le Ordering.acquire ord2) eqn:ORD2'.
-    { destruct ord2; ss. }
-    econs.
-    + destruct (Ordering.le Ordering.acquire ord1) eqn:ORD1; committac.
+    destruct (Ordering.le_dec Ordering.acqrel ord2).
+    { rewrite ORD2 in l. inv l. }
+    econs; committac.
+    + CommitFacts.condtac; committac.
       * rewrite ACQUIRE; auto.
       * rewrite CURRENT1. auto.
       * rewrite READ1. apply CURRENT2.
       * rewrite CURRENT1. auto.
       * rewrite READ1. apply CURRENT2.
-    + ss. i. rewrite RELEASED. auto.
-    + ss. committac.
-      * rewrite ACQUIRABLE. auto.
-      * rewrite ACQUIRABLE1. auto.
+    + rewrite RELEASED. auto.
+    + rewrite ACQUIRABLE. auto.
+    + rewrite ACQUIRABLE1. auto.
 Qed.
 
 Lemma reorder_read_promise
@@ -132,13 +131,16 @@ Proof.
   eexists. splits.
   - econs; eauto.
   - destruct th0. ss. econs; try eapply CommitFacts.read_mon2; eauto.
-    + inv COMMIT. inv COMMIT0. inv MONOTONE. inv MONOTONE0. ss.
-      econs; committac.
-      * i. rewrite ACQUIRE; auto.
+    + inv COMMIT. inv COMMIT0. inv MONOTONE. inv MONOTONE0.
+      unfold CommitFacts.read_min, CommitFacts.write_min. ss.
+      econs; committac; try CommitFacts.condtac; committac.
+      * rewrite ACQUIRE; auto.
+      * rewrite CURRENT1. auto.
+      * rewrite READ0. apply CURRENT2.
       * rewrite CURRENT1. auto.
       * rewrite READ0. apply CURRENT2.
       * unfold LocFun.add, LocFun.find.
-        destruct (Loc.eq_dec loc loc2); committac.
+        CommitFacts.condtac; committac.
         etransitivity; [apply RELEASED|apply RELEASED4].
       * rewrite ACQUIRABLE. auto.
       * rewrite ACQUIRABLE0. auto.
@@ -174,25 +176,28 @@ Qed.
 
 Lemma reorder_read_fence
       loc1 ts1 val1 released1 ord1
-      ord2
+      ordr2 ordw2
       th0 mem0
       th1
       th2
-      (ORD2: Ordering.le ord2 Ordering.release)
+      (ORDR2: Ordering.le ordr2 Ordering.relaxed)
+      (ORDW2: Ordering.le ordw2 Ordering.acqrel)
       (WF0: Local.wf th0 mem0)
       (STEP1: Local.read_step th0 mem0 loc1 ts1 val1 released1 ord1 th1)
-      (STEP2: Local.fence_step th1 mem0 ord2 th2):
+      (STEP2: Local.fence_step th1 mem0 ordr2 ordw2 th2):
   exists th1',
-    <<STEP1: Local.fence_step th0 mem0 ord2 th1'>> /\
+    <<STEP1: Local.fence_step th0 mem0 ordr2 ordw2 th1'>> /\
     <<STEP2: Local.read_step th1' mem0 loc1 ts1 val1 released1 ord1 th2>>.
 Proof.
   inv STEP1. inv STEP2. ss.
-  destruct (Ordering.le Ordering.acquire ord2) eqn:ORD2'.
-  { destruct ord2; ss. }
+  destruct (Ordering.le_dec Ordering.acqrel ordr2) eqn:ORDR2'; committac.
+  { clear ORDR2'. rewrite ORDR2 in l. inv l. }
   exploit CommitFacts.fence_min_spec; try apply WF0; eauto. i. des.
   exploit CommitFacts.read_min_spec; try apply WF; try apply GET; eauto.
-  { instantiate (1 := ord2).
-    unfold CommitFacts.fence_min. rewrite ORD2'. ss. apply COMMIT.
+  { instantiate (1 := ordw2). instantiate (1 := ordr2).
+    unfold CommitFacts.fence_min.
+    rewrite ORDR2'. committac.
+    apply COMMIT.
   }
   { apply WF0. }
   i. des.
@@ -201,21 +206,20 @@ Proof.
   - destruct th0. s. econs; try eapply CommitFacts.read_mon2; eauto.
     inv COMMIT. inv COMMIT0. inv MONOTONE. inv MONOTONE0.
     unfold CommitFacts.read_min, CommitFacts.fence_min.
-    rewrite ORD2'. econs.
-    + destruct (Ordering.le Ordering.acquire ord1) eqn:ORD1; committac.
-      * rewrite ACQUIRE; auto.
-      * rewrite CURRENT0. auto.
-      * rewrite READ0. apply CURRENT1.
-      * rewrite CURRENT0. auto.
-      * rewrite READ0. apply CURRENT1.
-    + ss. i. unfold LocFun.find.
-      CommitFacts.condtac; committac.
+    rewrite ORDR2'. committac.
+    econs; committac; try CommitFacts.condtac; committac.
+    + rewrite ACQUIRE; auto.
+    + rewrite CURRENT0. auto.
+    + rewrite READ0. apply CURRENT1.
+    + rewrite CURRENT0. auto.
+    + rewrite READ0. apply CURRENT1.
+    + unfold LocFun.find. committac.
       * rewrite CURRENT0. eauto.
       * etransitivity; [apply RELEASED|apply RELEASED0].
-      * etransitivity; [apply RELEASED|apply RELEASED0].
-    + ss. committac.
-      * rewrite ACQUIRABLE. auto.
-      * rewrite ACQUIRABLE0. auto.
+    + unfold LocFun.find. committac.
+      etransitivity; [apply RELEASED|apply RELEASED0].
+    + rewrite ACQUIRABLE. auto.
+    + rewrite ACQUIRABLE0. auto.
 Qed.
 
 Lemma reorder_fulfill_read
@@ -225,8 +229,8 @@ Lemma reorder_fulfill_read
       th1
       th2
       (LOC: loc1 <> loc2)
-      (ORD1: Ordering.le ord1 Ordering.acquire)
-      (ORD2: Ordering.le ord2 Ordering.release)
+      (ORD1: Ordering.le ord1 Ordering.relaxed)
+      (ORD2: Ordering.le ord2 Ordering.relaxed)
       (WF0: Local.wf th0 mem0)
       (STEP1: Local.fulfill_step th0 mem0 loc1 from1 to1 val1 released1 ord1 th1)
       (STEP2: Local.read_step th1 mem0 loc2 ts2 val2 released2 ord2 th2):
@@ -243,7 +247,7 @@ Proof.
   exploit CommitFacts.write_min_spec; try apply x1; eauto.
   { eapply Snapshot.le_on_writable; eauto. apply COMMIT. }
   { s. apply COMMIT. }
-  { instantiate (1 := ord1). destruct ord1; ss. }
+  { instantiate (1 := ord1). i. rewrite ORD1 in H. inv H. }
   { apply WF0. }
   { inv WF0. inv MEMORY0. exploit WF0; eauto. }
   i. des.
@@ -253,23 +257,16 @@ Proof.
   - destruct th0. s. econs; try eapply CommitFacts.write_mon2; eauto.
     inv COMMIT. inv COMMIT0. inv MONOTONE. inv MONOTONE0.
     unfold CommitFacts.write_min, CommitFacts.read_min.
-    destruct (Ordering.le Ordering.acquire ord2) eqn:ORD2'; ss.
-    + econs; committac; auto.
-      * rewrite CURRENT1. auto.
-      * rewrite WRITE0. apply CURRENT2.
-      * unfold LocFun.add, LocFun.find.
-        CommitFacts.condtac; committac.
-        { rewrite RELEASED3. apply RELEASED4. }
-        { etransitivity; [apply RELEASED|apply RELEASED4]. }
-      * rewrite ACQUIRABLE0. auto.
-    + econs; committac; auto.
-      * rewrite CURRENT1. auto.
-      * rewrite WRITE0. apply CURRENT2.
-      * unfold LocFun.add, LocFun.find.
-        CommitFacts.condtac; committac.
-        { rewrite RELEASED3. apply RELEASED4. }
-        { etransitivity; [apply RELEASED|apply RELEASED4]. }
-      * rewrite ACQUIRABLE0. auto.
+    CommitFacts.condtac; committac.
+    { rewrite ORD2 in l. inv l. }
+    econs; committac.
+    + rewrite CURRENT1. auto.
+    + rewrite WRITE0. apply CURRENT2.
+    + unfold LocFun.add, LocFun.find.
+      CommitFacts.condtac; committac.
+      * rewrite RELEASED3. apply RELEASED4.
+      * etransitivity; [apply RELEASED|apply RELEASED4].
+    + rewrite ACQUIRABLE0. auto.
 Admitted.
 
 Lemma reorder_Memory_fulfill_promise
@@ -387,7 +384,7 @@ Lemma reorder_fulfill_fulfill
       th1
       th2
       (LOC: loc1 <> loc2)
-      (ORD1: Ordering.le ord1 Ordering.acquire)
+      (ORD1: Ordering.le ord1 Ordering.relaxed)
       (WF0: Local.wf th0 mem0)
       (STEP1: Local.fulfill_step th0 mem0 loc1 from1 to1 val1 released1 ord1 th1)
       (STEP2: Local.fulfill_step th1 mem0 loc2 from2 to2 val2 released2 ord2 th2):
@@ -437,7 +434,7 @@ Lemma reorder_fulfill_write
       th1
       th2 mem2
       (LOC: loc1 <> loc2)
-      (ORD1: Ordering.le ord1 Ordering.acquire)
+      (ORD1: Ordering.le ord1 Ordering.relaxed)
       (WF0: Local.wf th0 mem0)
       (STEP1: Local.fulfill_step th0 mem0 loc1 from1 to1 val1 released1 ord1 th1)
       (STEP2: Local.write_step th1 mem0 loc2 from2 to2 val2 released2 ord2 th2 mem2):
@@ -458,18 +455,19 @@ Proof.
 Admitted.
 
 Lemma reorder_fence_promise
-      ord1
+      ordr1 ordw1
       loc2 from2 to2 val2 released2
       th0 mem0
       th1
       th2 mem2
-      (ORD1: Ordering.le ord1 Ordering.acquire)
+      (ORDR1: Ordering.le ordr1 Ordering.acqrel)
+      (ORDW1: Ordering.le ordw1 Ordering.relaxed)
       (WF0: Local.wf th0 mem0)
-      (STEP1: Local.fence_step th0 mem0 ord1 th1)
+      (STEP1: Local.fence_step th0 mem0 ordr1 ordw1 th1)
       (STEP2: Local.promise_step th1 mem0 loc2 from2 to2 val2 released2 th2 mem2):
   exists th1',
     <<STEP1: Local.promise_step th0 mem0 loc2 from2 to2 val2 released2 th1' mem2>> /\
-    <<STEP2: Local.fence_step th1' mem2 ord1 th2>>.
+    <<STEP2: Local.fence_step th1' mem2 ordr1 ordw1 th2>>.
 Proof.
   inv STEP1. inv STEP2. ss.
   exploit Memory.promise_future; try apply WF0; eauto. i. des.
@@ -479,25 +477,26 @@ Proof.
   - econs; try reflexivity; try apply MEMORY; eauto.
   - destruct th0. ss. econs; try eapply CommitFacts.fence_mon2; eauto.
     + rewrite <- COMMIT0. apply CommitFacts.fence_min_min. auto.
-    + s. econs. destruct ord1; ss.
+    + i. rewrite ORDW1 in H. inv H.
 Qed.
 
 Lemma reorder_fence_fulfill
-      ord1
+      ordr1 ordw1
       loc2 from2 to2 val2 released2 ord2
       th0 mem0
       th1
       th2
-      (ORD1: Ordering.le ord1 Ordering.acquire)
+      (ORDR1: Ordering.le ordr1 Ordering.acqrel)
+      (ORDW1: Ordering.le ordw1 Ordering.relaxed)
       (WF0: Local.wf th0 mem0)
-      (STEP1: Local.fence_step th0 mem0 ord1 th1)
+      (STEP1: Local.fence_step th0 mem0 ordr1 ordw1 th1)
       (STEP2: Local.fulfill_step th1 mem0 loc2 from2 to2 val2 released2 ord2 th2):
   exists th1',
     <<STEP1: Local.fulfill_step th0 mem0 loc2 from2 to2 val2 released2 ord2 th1'>> /\
-    <<STEP2: Local.fence_step th1' mem0 ord1 th2>>.
+    <<STEP2: Local.fence_step th1' mem0 ordr1 ordw1 th2>>.
 Proof.
-  destruct (Ordering.le Ordering.release ord1) eqn:ORD1'.
-  { destruct ord1; ss. }
+  destruct (Ordering.le_dec Ordering.acqrel ordw1) eqn:ORDW1'.
+  { clear ORDW1'. rewrite ORDW1 in l. inv l. }
   inv STEP1. inv STEP2. ss.
   exploit Memory.fulfill_get; eauto. i.
   exploit Memory.le_get; try apply WF0; eauto. i.
@@ -507,7 +506,7 @@ Proof.
   { instantiate (1 := ord2). i. inv COMMIT0.
     rewrite <- RELEASED0; auto. apply Snapshot.incr_writes_mon. apply COMMIT.
   }
-  { inv WF0. inv MEMORY1. exploit WF; eauto. }
+  { inv WF0. inv MEMORY0. exploit WF; eauto. }
   i. des.
   exploit CommitFacts.fence_min_spec; eauto.
   { apply WF0. }
@@ -515,30 +514,35 @@ Proof.
   eexists. splits.
   - econs; eauto.
   - destruct th0. ss. econs; try eapply CommitFacts.fence_mon2; eauto.
-    + inv COMMIT. inv COMMIT0. inv MONOTONE. inv MONOTONE0. ss.
-      econs; committac.
-      * rewrite ACQUIRE; auto.
-      * rewrite CURRENT0. auto.
-      * unfold LocFun.add, LocFun.find. rewrite ORD1'.
+    + inv COMMIT. inv COMMIT0. inv MONOTONE. inv MONOTONE0.
+      unfold CommitFacts.fence_min, CommitFacts.write_min.
+      committac. econs; committac.
+      * CommitFacts.condtac; committac.
+        { rewrite ACQUIRE; auto. }
+        { rewrite CURRENT0. auto. }
+        { rewrite CURRENT0. auto. }
+      * unfold LocFun.add, LocFun.find.
+        CommitFacts.condtac; committac.
         CommitFacts.condtac; committac.
         etransitivity; [apply RELEASED|apply RELEASED4].
       * rewrite ACQUIRABLE. auto.
-    + s. econs. destruct ord1; ss.
+    + i. rewrite ORDW1 in H. inv H.
 Qed.
 
 Lemma reorder_fence_write
-      ord1
+      ordr1 ordw1
       loc2 from2 to2 val2 released2 ord2
       th0 mem0
       th1
       th2 mem2
-      (ORD1: Ordering.le ord1 Ordering.acquire)
+      (ORDR1: Ordering.le ordr1 Ordering.acqrel)
+      (ORDW1: Ordering.le ordw1 Ordering.relaxed)
       (WF0: Local.wf th0 mem0)
-      (STEP1: Local.fence_step th0 mem0 ord1 th1)
+      (STEP1: Local.fence_step th0 mem0 ordr1 ordw1 th1)
       (STEP2: Local.write_step th1 mem0 loc2 from2 to2 val2 released2 ord2 th2 mem2):
   exists th1',
     <<STEP1: Local.write_step th0 mem0 loc2 from2 to2 val2 released2 ord2 th1' mem2>> /\
-    <<STEP2: Local.fence_step th1' mem2 ord1 th2>>.
+    <<STEP2: Local.fence_step th1' mem2 ordr1 ordw1 th2>>.
 Proof.
   inv STEP2.
   - exploit reorder_fence_fulfill; eauto. i. des.

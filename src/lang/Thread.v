@@ -88,23 +88,23 @@ Module Local.
   | step_write_fulfill
       th2
       (FULFILL: fulfill_step th1 mem1 loc from to val released ord th2)
-      (RELEASE: Ordering.le Ordering.release ord -> th1.(promise) loc = Cell.bot):
+      (RELEASE: Ordering.le Ordering.acqrel ord -> th1.(promise) loc = Cell.bot):
       write_step th1 mem1 loc from to val released ord th2 mem1
   | step_write_add
       th2 mem2 th3
       (PROMISE: promise_step th1 mem1 loc from to val released th2 mem2)
       (FULFILL: fulfill_step th2 mem2 loc from to val released ord th3)
-      (RELEASE: Ordering.le Ordering.release ord -> th1.(promise) loc = Cell.bot):
+      (RELEASE: Ordering.le Ordering.acqrel ord -> th1.(promise) loc = Cell.bot):
       write_step th1 mem1 loc from to val released ord th3 mem2
   .
 
-  Inductive fence_step (th1:t) (mem1:Memory.t) (ord:Ordering.t): forall (th2:t), Prop :=
+  Inductive fence_step (th1:t) (mem1:Memory.t) (ordr ordw:Ordering.t): forall (th2:t), Prop :=
   | step_fence
       commit2
-      (COMMIT: Commit.fence th1.(commit) ord commit2)
+      (COMMIT: Commit.fence th1.(commit) ordr ordw commit2)
       (COMMIT_WF: Commit.wf commit2 mem1)
-      (MEMORY: Memory.fence th1.(promise) ord):
-      fence_step th1 mem1 ord (mk commit2 th1.(promise))
+      (RELEASE: Ordering.le Ordering.acqrel ordw -> th1.(promise) = Memory.bot):
+      fence_step th1 mem1 ordr ordw (mk commit2 th1.(promise))
   .
 
   Lemma future_read_step th1 mem1 mem1' loc ts val released ord th2
@@ -126,10 +126,10 @@ Module Local.
     eapply Commit.future_wf; eauto.
   Qed.
 
-  Lemma future_fence_step th1 mem1 mem1' ord th2
+  Lemma future_fence_step th1 mem1 mem1' ordr ordw th2
         (FUTURE: Memory.future mem1 mem1')
-        (STEP: fence_step th1 mem1 ord th2):
-    fence_step th1 mem1' ord th2.
+        (STEP: fence_step th1 mem1 ordr ordw th2):
+    fence_step th1 mem1' ordr ordw th2.
   Proof.
     inv STEP. econs; eauto.
     eapply Commit.future_wf; eauto.
@@ -184,8 +184,8 @@ Module Local.
       exploit fulfill_step_future; eauto.
   Qed.
 
-  Lemma fence_step_future th1 mem1 ord th2
-        (STEP: fence_step th1 mem1 ord th2)
+  Lemma fence_step_future th1 mem1 ordr ordw th2
+        (STEP: fence_step th1 mem1 ordr ordw th2)
         (WF1: wf th1 mem1):
     wf th2 mem1.
   Proof.
@@ -258,8 +258,8 @@ Module Local.
   Qed.
 
   Lemma fence_step_disjoint
-        th1 mem1 th2 ord th
-        (STEP: fence_step th1 mem1 ord th2)
+        th1 mem1 th2 ordr ordw th
+        (STEP: fence_step th1 mem1 ordr ordw th2)
         (WF1: wf th1 mem1)
         (DISJOINT1: disjoint th1 th)
         (WF: wf th mem1):
@@ -268,15 +268,12 @@ Module Local.
     inv WF1. inv DISJOINT1. inv WF. inv STEP. ss.
   Qed.
 
-  Lemma fence_relaxed
+  Lemma silent_min
         th mem
         (WF: wf th mem):
-    fence_step th mem Ordering.relaxed th.
+    silent_step th mem th.
   Proof.
-    destruct th. econs; s.
-    - econs; ss. reflexivity.
-    - apply WF.
-    - econs. ss.
+    destruct th. econs; try apply WF. reflexivity.
   Qed.
 End Local.
 
@@ -311,18 +308,18 @@ Module Thread.
         (LOCAL: Local.write_step e1.(thread) e1.(memory) loc from to val released ord th2 mem2):
         internal_step e1 (mk st2 th2 mem2)
     | step_update
-        st3 loc ord
+        st3 loc ordr ordw
         tsr valr releasedr th2
         tsw valw releasedw th3 mem3
-        (STATE: lang.(Language.step) e1.(state) (Some (ThreadEvent.mem (MemEvent.update loc valr valw ord))) st3)
-        (LOCAL1: Local.read_step e1.(thread) e1.(memory) loc tsr valr releasedr ord th2)
-        (LOCAL2: Local.write_step th2 e1.(memory) loc tsr tsw valw releasedw ord th3 mem3)
+        (STATE: lang.(Language.step) e1.(state) (Some (ThreadEvent.mem (MemEvent.update loc valr valw ordr ordw))) st3)
+        (LOCAL1: Local.read_step e1.(thread) e1.(memory) loc tsr valr releasedr ordr th2)
+        (LOCAL2: Local.write_step th2 e1.(memory) loc tsr tsw valw releasedw ordw th3 mem3)
         (RELEASE: Snapshot.le releasedr releasedw):
         internal_step e1 (mk st3 th3 mem3)
     | step_fence
-        st2 ord th2
-        (STATE: lang.(Language.step) e1.(state) (Some (ThreadEvent.mem (MemEvent.fence ord))) st2)
-        (LOCAL: Local.fence_step e1.(thread) e1.(memory) ord th2):
+        st2 ordr ordw th2
+        (STATE: lang.(Language.step) e1.(state) (Some (ThreadEvent.mem (MemEvent.fence ordr ordw))) st2)
+        (LOCAL: Local.fence_step e1.(thread) e1.(memory) ordr ordw th2):
         internal_step e1 (mk st2 th2 e1.(memory))
     .
 

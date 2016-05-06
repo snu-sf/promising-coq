@@ -39,13 +39,13 @@ Inductive reorder: forall (i1 i2:Instr.t), Prop :=
     (REORDER: reorder_store l1 v1 o1 i2):
     reorder (Instr.store l1 v1 o1) i2
 | reorder_intro_update
-    l1 v1 rmw1 o1 i2
-    (REORDER: reorder_update l1 v1 rmw1 o1 i2):
-    reorder (Instr.update l1 v1 rmw1 o1) i2
+    l1 v1 rmw1 or1 ow1 i2
+    (REORDER: reorder_update l1 v1 rmw1 or1 ow1 i2):
+    reorder (Instr.update l1 v1 rmw1 or1 ow1) i2
 | reorder_intro_fence
-    o1 i2
-    (REORDER: reorder_fence o1 i2):
-    reorder (Instr.fence o1) i2
+    or1 ow1 i2
+    (REORDER: reorder_fence or1 ow1 i2):
+    reorder (Instr.fence or1 ow1) i2
 .
 
 Lemma reorder_sim_stmts
@@ -70,24 +70,24 @@ Proof.
   - (* load *)
     exploit sim_local_read; eauto. i. des.
     eexists _, _, _, _, _, _. splits; eauto.
-    + econs. econs 6.
-      { econs. econs. }
-      { s. apply Local.fence_relaxed. apply WF_SRC. }
+    + econs. econs 2; ss.
+      * econs. econs.
+      * apply Local.silent_min. auto.
     + left. eapply paco7_mon; [apply sim_load_sim_thread|]; ss.
       econs; eauto.
   - (* store *)
     exploit sim_local_write; eauto. i. des.
     inv STEP_SRC.
     + eexists _, _, _, _, _, _. splits; eauto.
-      * econs. econs 6.
+      * econs. econs 2; ss.
         { econs. econs. }
-        { s. apply Local.fence_relaxed. apply WF_SRC. }
+        { apply Local.silent_min. auto. }
       * left. eapply paco7_mon; [apply sim_store_sim_thread|]; ss.
         econs; eauto.
     + eexists _, _, _, _, _, _. splits.
-      * econs 2; [|econs 1]. econs 6.
+      * econs 2; [|econs 1]. econs 2; ss.
         { econs. econs. }
-        { s. apply Local.fence_relaxed. apply WF_SRC. }
+        { apply Local.silent_min. auto. }
       * econs. econs 1; eauto.
       * eauto.
       * left. eapply paco7_mon; [apply sim_store_sim_thread|]; ss.
@@ -100,16 +100,16 @@ Proof.
     i. des.
     inv STEP_SRC0.
     + eexists _, _, _, _, _, _. splits; eauto.
-      * econs. econs 6.
+      * econs. econs 2; ss.
         { econs. econs. }
-        { s. apply Local.fence_relaxed. apply WF_SRC. }
+        { apply Local.silent_min. auto. }
       * left. eapply paco7_mon; [apply sim_update_sim_thread|]; ss.
         econs; eauto.
     + exploit reorder_read_promise; try apply STEP_SRC; try apply x0; eauto. i. des.
       eexists _, _, _, _, _, _. splits.
-      * econs 2; [|econs 1]. econs 6.
+      * econs 2; [|econs 1]. econs 2; ss.
         { econs. econs. }
-        { s. apply Local.fence_relaxed. apply WF_SRC. }
+        { apply Local.silent_min. auto. }
       * econs. econs 1; eauto.
       * eauto.
       * left. eapply paco7_mon; [apply sim_update_sim_thread|]; ss.
@@ -117,9 +117,9 @@ Proof.
   - (* fence *)
     exploit sim_local_fence; eauto. i. des.
     eexists _, _, _, _, _, _. splits; eauto.
-    + econs. econs 6.
-      { econs. econs. }
-      { s. apply Local.fence_relaxed. apply WF_SRC. }
+    + econs. econs 2; ss.
+        { econs. econs. }
+        { apply Local.silent_min. auto. }
     + left. eapply paco7_mon; [apply sim_fence_sim_thread|]; ss.
       econs; eauto.
 Admitted.

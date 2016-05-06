@@ -1862,11 +1862,6 @@ Module Memory.
     apply Memory.singleton_get.
   Qed.
 
-  Inductive fence (promise:t) (ord:Ordering.t): Prop :=
-  | fence_intro
-      (RELEASE: Ordering.le Ordering.release ord -> promise = bot)
-  .
-
   Lemma splits_antisym
         a b
         (AB: splits a b)

@@ -29,7 +29,7 @@ Set Implicit Arguments.
 Inductive reorder_load r1 l1 o1: forall (i2:Instr.t), Prop :=
 | reorder_load_load
     r2 l2 o2
-    (ORD2: Ordering.le o2 Ordering.release)
+    (ORD2: Ordering.le o2 Ordering.relaxed)
     (LOC: l1 <> l2)
     (REGS: RegSet.disjoint (Instr.regs_of (Instr.load r1 l1 o1))
                            (Instr.regs_of (Instr.load r2 l2 o2))):
@@ -42,16 +42,18 @@ Inductive reorder_load r1 l1 o1: forall (i2:Instr.t), Prop :=
                            (Instr.regs_of (Instr.store l2 v2 o2))):
     reorder_load r1 l1 o1 (Instr.store l2 v2 o2)
 | reorder_load_update
-    r2 l2 rmw2 o2
-    (ORD2: Ordering.le o2 Ordering.release)
+    r2 l2 rmw2 or2 ow2
+    (ORDR2: Ordering.le or2 Ordering.relaxed)
+    (ORDW2: Ordering.le Ordering.sc o1 -> Ordering.le Ordering.sc ow2 -> False)
     (LOC: l1 <> l2)
     (REGS: RegSet.disjoint (Instr.regs_of (Instr.load r1 l1 o1))
-                           (Instr.regs_of (Instr.update r2 l2 rmw2 o2))):
-    reorder_load r1 l1 o1 (Instr.update r2 l2 rmw2 o2)
+                           (Instr.regs_of (Instr.update r2 l2 rmw2 or2 ow2))):
+    reorder_load r1 l1 o1 (Instr.update r2 l2 rmw2 or2 ow2)
 | reorder_load_fence
-    o2
-    (ORD2: Ordering.le o2 Ordering.release):
-    reorder_load r1 l1 o1 (Instr.fence o2)
+    or2 ow2
+    (ORDR2: Ordering.le or2 Ordering.relaxed)
+    (ORDW2: Ordering.le ow2 Ordering.acqrel):
+    reorder_load r1 l1 o1 (Instr.fence or2 ow2)
 .
 
 Inductive sim_load: forall (st_src:lang.(Language.state)) (th_src:Local.t) (mem_k_src:Memory.t)
@@ -123,7 +125,6 @@ Proof.
       i. des.
       exploit reorder_read_read; try apply x0; try apply STEP_SRC; eauto. i. des.
       exploit reorder_read_write; try apply STEP2; try apply LOCAL2; eauto.
-      { destruct ord; ss. }
       { eapply Local.read_step_future; eauto. }
       i. des.
       eexists _, _, _, _, _, _. splits.

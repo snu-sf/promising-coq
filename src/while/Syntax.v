@@ -84,35 +84,14 @@ Module Instr.
   .
 
   Inductive t :=
+  | skip
   | assign (lhs:Reg.t) (rhs:expr)
   | load (lhs:Reg.t) (rhs:Loc.t) (ord:Ordering.t)
   | store (lhs:Loc.t) (rhs:Value.t) (ord:Ordering.t)
-  | update (lhs:Reg.t) (loc:Loc.t) (rmw:rmw) (ord:Ordering.t)
-  | fence (ord:Ordering.t)
+  | update (lhs:Reg.t) (loc:Loc.t) (rmw:rmw) (ordr ordw:Ordering.t)
+  | fence (ordr ordw:Ordering.t)
   | syscall (lhs:Reg.t) (rhses:list Value.t)
   .
-
-  Definition skip := fence Ordering.relaxed.
-
-  Definition ordering_of (i:t): Ordering.t :=
-    match i with
-    | assign _ _ => Ordering.relaxed
-    | load _ _ ord => ord
-    | store _ _ ord => ord
-    | update _ _ _ ord => ord
-    | fence ord => ord
-    | syscall _ _ => Ordering.relaxed
-    end.
-
-  Definition loc_of (i:t): option Loc.t :=
-    match i with
-    | assign _ _ => None
-    | load _ loc _ => Some loc
-    | store loc _ _ => Some loc
-    | update _ loc _ _ => Some loc
-    | fence _ => None
-    | syscall _ _ => None
-    end.
 
   Definition regs_of_rmw (rmw:rmw): RegSet.t :=
     match rmw with
@@ -122,11 +101,12 @@ Module Instr.
 
   Definition regs_of (i:t): RegSet.t :=
     match i with
+    | skip => RegSet.empty
     | assign reg rhs => RegSet.add reg (regs_of_expr rhs)
     | load reg _ _ => RegSet.singleton reg
     | store _ val _ => Value.regs_of val
-    | update reg _ rmw _ => RegSet.add reg (regs_of_rmw rmw)
-    | fence _ => RegSet.empty
+    | update reg _ rmw _ _ => RegSet.add reg (regs_of_rmw rmw)
+    | fence _ _ => RegSet.empty
     | syscall lhs rhses => RegSet.add lhs (Value.regs_of_list rhses)
     end.
 End Instr.
@@ -151,9 +131,8 @@ Module SyntaxNotations.
   Notation "'%l' var" := (Loc.of_string var) (at level 41).
 
   Notation "'rlx'" := (Ordering.relaxed) (at level 41).
-  Notation "'rel'" := (Ordering.release) (at level 41).
-  Notation "'acq'" := (Ordering.acquire) (at level 41).
-  Notation "'ra'" := (Ordering.relacq) (at level 41).
+  Notation "'ar'" := (Ordering.acqrel) (at level 41).
+  Notation "'sc'" := (Ordering.sc) (at level 41).
 
   Notation "'NOT' e" := (Instr.expr_op1 Op1.not e) (at level 41).
   Notation "e1 'ADD' e2" := (Instr.expr_op2 Op2.add e1 e2) (at level 41).
@@ -164,9 +143,9 @@ Module SyntaxNotations.
   Notation "'LET' lhs '::=' rhs" := (Instr.assign lhs rhs) (at level 42).
   Notation "'LOAD' lhs '::=' rhs '@' ord" := (Instr.load lhs rhs ord) (at level 42).
   Notation "'STORE' lhs '::=' rhs '@' ord" := (Instr.store lhs rhs ord) (at level 42).
-  Notation "'FETCH_ADD' lhs '::=' loc ',' addendum '@' ord" := (Instr.update lhs loc (Instr.fetch_add addendum) ord) (at level 42).
-  Notation "'CAS' lhs '::=' loc ',' old ',' new '@' ord" := (Instr.update lhs loc (Instr.cas old new) ord) (at level 42).
-  Notation "'FENCE' '@' ord" := (Instr.fence ord) (at level 42).
+  Notation "'FETCH_ADD' lhs '::=' loc ',' addendum '@' ordr ',' ordw" := (Instr.update lhs loc (Instr.fetch_add addendum) ordr ordw) (at level 42).
+  Notation "'CAS' lhs '::=' loc ',' old ',' new '@' ordr ',' ordw" := (Instr.update lhs loc (Instr.cas old new) ordr ordw) (at level 42).
+  Notation "'FENCE' '@' ordr ',' ordw" := (Instr.fence ordr ordw) (at level 42).
   Notation "'SYSCALL' lhs '::=' rhses" := (Instr.syscall lhs rhses) (at level 42).
 
   Notation "'IF' cond 'THEN' c1 'ELSE' c2" := (Stmt.ite cond c1 c2) (at level 43).
@@ -175,7 +154,7 @@ Module SyntaxNotations.
   Program Definition example1: list Stmt.t := [
     DO [
       SKIP;
-      LOAD %r"r1" ::= %l"flag" @ acq;
+      LOAD %r"r1" ::= %l"flag" @ ar;
       LET %r"r2" ::= NOT %r"r1"
     ] WHILE (%r"r2" ADD 0);
     LOAD %r"r3" ::= %l"x" @ rlx
@@ -187,13 +166,13 @@ Module SyntaxNotations.
       LOAD %r"r1" ::= %l"flag" @ rlx;
       LET %r"r2" ::= NOT %r"r1"
     ] WHILE (%r"r2" MUL 1);
-    FENCE @ acq;
+    FENCE @ ar, rlx;
     LOAD %r"r3" ::= %l"x" @ rlx;
     SYSCALL %r"r4" ::= [%r"r3"; 3; 4]
   ].
 
   Program Definition example3: list Stmt.t := [
-    FETCH_ADD %r"r1" ::= %l"x", 1 @ rlx;
-    CAS %r"r1" ::= %l"x", 1, 2 @ rlx
+    FETCH_ADD %r"r1" ::= %l"x", 1 @ rlx, rlx;
+    CAS %r"r1" ::= %l"x", 1, 2 @ rlx, rlx
   ].
 End SyntaxNotations.

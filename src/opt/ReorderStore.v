@@ -29,27 +29,27 @@ Set Implicit Arguments.
 Inductive reorder_store l1 v1 o1: forall (i2:Instr.t), Prop :=
 | reorder_store_load
     r2 l2 o2
-    (ORD1: Ordering.le o1 Ordering.acquire)
-    (ORD2: Ordering.le o2 Ordering.release)
+    (ORD1: Ordering.le o1 Ordering.relaxed)
+    (ORD2: Ordering.le o2 Ordering.relaxed)
     (LOC: l1 <> l2)
     (REGS: RegSet.disjoint (Instr.regs_of (Instr.store l1 v1 o1))
                            (Instr.regs_of (Instr.load r2 l2 o2))):
     reorder_store l1 v1 o1 (Instr.load r2 l2 o2)
 | reorder_store_store
     l2 v2 o2
-    (ORD1: Ordering.le o1 Ordering.acquire)
+    (ORD1: Ordering.le o1 Ordering.relaxed)
     (LOC: l1 <> l2)
     (REGS: RegSet.disjoint (Instr.regs_of (Instr.store l1 v1 o1))
                            (Instr.regs_of (Instr.store l2 v2 o2))):
     reorder_store l1 v1 o1 (Instr.store l2 v2 o2)
 | reorder_store_update
-    r2 l2 rmw2 o2
-    (ORD1: Ordering.le o1 Ordering.acquire)
-    (ORD1: Ordering.le o2 Ordering.release)
+    r2 l2 rmw2 or2 ow2
+    (ORD1: Ordering.le o1 Ordering.relaxed)
+    (ORDR2: Ordering.le or2 Ordering.relaxed)
     (LOC: l1 <> l2)
     (REGS: RegSet.disjoint (Instr.regs_of (Instr.store l1 v1 o1))
-                           (Instr.regs_of (Instr.update r2 l2 rmw2 o2))):
-    reorder_store l1 v1 o1 (Instr.update r2 l2 rmw2 o2)
+                           (Instr.regs_of (Instr.update r2 l2 rmw2 or2 ow2))):
+    reorder_store l1 v1 o1 (Instr.update r2 l2 rmw2 or2 ow2)
 .
 
 Inductive sim_store: forall (st_src:lang.(Language.state)) (th_src:Local.t) (mem_k_src:Memory.t)

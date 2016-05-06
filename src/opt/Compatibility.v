@@ -161,14 +161,14 @@ Lemma sim_local_fence
       th1_src mem1_src
       th1_tgt mem1_tgt
       th2_tgt
-      ord
+      ordr ordw
       (LOCAL1: sim_local th1_src th1_tgt)
       (MEMORY1: sim_memory mem1_src mem1_tgt)
       (WF1_SRC: Local.wf th1_src mem1_src)
       (WF1_TGT: Local.wf th1_tgt mem1_tgt)
-      (STEP_TGT: Local.fence_step th1_tgt mem1_tgt ord th2_tgt):
+      (STEP_TGT: Local.fence_step th1_tgt mem1_tgt ordr ordw th2_tgt):
   exists th2_src,
-    <<STEP_SRC: Local.fence_step th1_src mem1_src ord th2_src>> /\
+    <<STEP_SRC: Local.fence_step th1_src mem1_src ordr ordw th2_src>> /\
     <<LOCAL2: sim_local th2_src th2_tgt>>.
 Proof.
   inv LOCAL1. inv STEP_TGT.

@@ -114,7 +114,7 @@ Module Commit <: JoinableType.
       (MONOTONE: le commit1 commit2)
       (READABLE: Snapshot.readable commit1.(current) loc ts)
       (READ: Time.le ts (Times.get loc commit2.(current).(Snapshot.reads)))
-      (ACQUIRE: forall (ORDERING: Ordering.le Ordering.acquire ord),
+      (ACQUIRE: forall (ORDERING: Ordering.le Ordering.acqrel ord),
           Snapshot.le released commit2.(current))
       (ACQUIRABLE: Snapshot.le released commit2.(acquirable))
   .
@@ -126,20 +126,20 @@ Module Commit <: JoinableType.
       (MONOTONE: le commit1 commit2)
       (WRITABLE: Snapshot.writable commit1.(current) loc ts)
       (WRITE: Time.le ts (Times.get loc commit2.(current).(Snapshot.writes)))
-      (RELEASED0: Ordering.le Ordering.release ord ->
+      (RELEASED0: Ordering.le Ordering.acqrel ord ->
                   Snapshot.le (Snapshot.incr_writes loc ts commit1.(current)) released)
       (RELEASED1: Snapshot.le (LocFun.find loc commit1.(Commit.released)) released)
       (RELEASED2: Snapshot.le released (LocFun.find loc commit2.(Commit.released)))
   .
 
   Inductive fence
-            (commit1:t) (ord:Ordering.t)
+            (commit1:t) (ordr ordw:Ordering.t)
             (commit2:t): Prop :=
   | fence_intro
       (MONOTONE: le commit1 commit2)
-      (ACQUIRE: forall (ORDERING: Ordering.le Ordering.acquire ord),
+      (ACQUIRE: forall (ORDERING: Ordering.le Ordering.acqrel ordr),
           Snapshot.le commit1.(acquirable) commit2.(current))
-      (RELEASE: forall (ORDERING: Ordering.le Ordering.release ord) loc,
+      (RELEASE: forall (ORDERING: Ordering.le Ordering.acqrel ordw) loc,
           Snapshot.le commit1.(current) (LocFun.find loc commit2.(released)))
   .
 End Commit.
@@ -220,7 +220,7 @@ Module CommitFacts.
   Lemma fence_mon1
         commit1 commit2
         (LE: Commit.le commit1 commit2):
-    Commit.fence commit2 <2= Commit.fence commit1.
+    Commit.fence commit2 <3= Commit.fence commit1.
   Proof.
     i. inv PR. econs; auto.
     - rewrite LE. auto.
@@ -256,11 +256,11 @@ Module CommitFacts.
   Qed.
 
   Lemma fence_mon2
-        ord
+        ordr ordw
         commit1 commit2 commit3
-        (FENCE: Commit.fence commit1 ord commit2)
+        (FENCE: Commit.fence commit1 ordr ordw commit2)
         (LE: Commit.le commit2 commit3):
-    Commit.fence commit1 ord commit3.
+    Commit.fence commit1 ordr ordw commit3.
   Proof.
     inv FENCE. econs; auto.
     - rewrite MONOTONE. auto.
@@ -270,7 +270,7 @@ Module CommitFacts.
 
   Definition read_min
              loc ts released ord commit: Commit.t :=
-    (Commit.mk (if Ordering.le Ordering.acquire ord
+    (Commit.mk (if Ordering.le_dec Ordering.acqrel ord
                 then Snapshot.join
                        released
                        (Snapshot.incr_reads loc ts commit.(Commit.current))
@@ -286,20 +286,19 @@ Module CommitFacts.
         (WF2: Memory.get loc ts mem = Some (Message.mk val released)):
     <<READ: Commit.read commit loc ts released ord (read_min loc ts released ord commit)>> /\
     <<WF: Commit.wf (read_min loc ts released ord commit) mem>> /\
-    <<CURRENT: Ordering.le ord Ordering.release -> forall loc' (LOC: loc' <> loc), Snapshot.le_on loc' (read_min loc ts released ord commit).(Commit.current) commit.(Commit.current)>>.
+    <<CURRENT: Ordering.le ord Ordering.relaxed -> forall loc' (LOC: loc' <> loc), Snapshot.le_on loc' (read_min loc ts released ord commit).(Commit.current) commit.(Commit.current)>>.
   Proof.
-    unfold read_min. splits.
-    - econs; eauto.
-      + econs; try reflexivity; tac.
-        etransitivity; [|apply Snapshot.join_r]. tac.
-      + destruct (Ordering.le Ordering.acquire ord); s.
+    unfold read_min. splits; tac.
+    - econs; tac.
+      + econs; tac; try reflexivity.
+        condtac; tac. etransitivity; [|apply Snapshot.join_r]. tac.
+      + condtac; tac.
         * etransitivity; [|apply Times.join_r].
           apply Times.incr_ts.
         * apply Times.incr_ts.
-      + tac.
-      + tac.
+      + i. condtac; [|congruence]. tac.
     - econs.
-      + destruct (Ordering.le Ordering.acquire ord); s.
+      + condtac.
         * apply Memory.wf_snapshot_join.
           { inv MEMORY. exploit WF; eauto. }
           { eapply Memory.wf_incr_reads; eauto. apply WF1. }
@@ -308,11 +307,11 @@ Module CommitFacts.
       + s. apply Memory.wf_snapshot_join.
         { inv MEMORY. exploit WF; eauto. }
         { apply WF1. }
-    - destruct (Ordering.le Ordering.acquire ord) eqn:ORD.
-      { destruct ord; ss. }
-      s. econs; s; [|reflexivity].
+    - condtac.
+      { rewrite H in l. inv l. }
+      econs; tac; try reflexivity.
       unfold Times.incr, LocFun.add, LocFun.find.
-      destruct (Loc.eq_dec loc' loc); [congruence|].
+      condtac; [congruence|].
       reflexivity.
   Qed.
 
@@ -321,16 +320,12 @@ Module CommitFacts.
         (COMMIT2: Commit.read commit1 loc ts released ord commit2):
     Commit.le (read_min loc ts released ord commit1) commit2.
   Proof.
-    inv COMMIT2. unfold read_min. econs.
-    - destruct (Ordering.le Ordering.acquire ord); s.
-      + apply Snapshot.join_spec; auto.
-        apply Snapshot.incr_reads_spec; auto.
-        apply MONOTONE.
-      + apply Snapshot.incr_reads_spec; auto.
-        apply MONOTONE.
+    inv COMMIT2. unfold read_min. econs; tac.
+    - condtac; tac; auto.
+      + apply MONOTONE.
+      + apply MONOTONE.
     - apply MONOTONE.
-    - apply Snapshot.join_spec; auto.
-      apply MONOTONE.
+    - apply MONOTONE.
   Qed.
 
   Definition write_min
@@ -343,7 +338,7 @@ Module CommitFacts.
         loc ts val released ord commit mem
         (WRITABLE: Snapshot.writable (Commit.current commit) loc ts)
         (RELEASED1: Snapshot.le (commit.(Commit.released) loc) released)
-        (RELEASED2: Ordering.le Ordering.release ord -> Snapshot.le (Snapshot.incr_writes loc ts commit.(Commit.current)) released)
+        (RELEASED2: Ordering.le Ordering.acqrel ord -> Snapshot.le (Snapshot.incr_writes loc ts commit.(Commit.current)) released)
         (MEMORY: Memory.wf mem)
         (WF1: Commit.wf commit mem)
         (WF2: Memory.get loc ts mem = Some (Message.mk val released))
@@ -355,20 +350,17 @@ Module CommitFacts.
     <<RELEASED1: forall loc' (LOC: loc' <> loc),
         Snapshot.le ((write_min loc ts released commit).(Commit.released) loc') (commit.(Commit.released) loc')>>.
   Proof.
-    splits.
-    - inv WRITABLE. econs; ss.
-      + econs; s; try reflexivity.
-        * econs; s; try reflexivity.
-          apply Times.incr_le.
-        * i. unfold LocFun.add, LocFun.find.
-          condtac; tac. reflexivity.
+    unfold write_min. splits; tac.
+    - econs; tac.
+      + econs; tac; try reflexivity.
+        unfold LocFun.add, LocFun.find.
+        condtac; tac. reflexivity.
       + apply Times.incr_ts.
       + unfold LocFun.add, LocFun.find.
         condtac; [|congruence]. reflexivity.
     - econs; ss.
-      + econs; ss.
-        * apply WF1.
-        * eapply Memory.incr_wf_times; eauto. apply WF1.
+      + econs; try apply WF1.
+        s. eapply Memory.incr_wf_times; eauto. apply WF1.
       + i. unfold LocFun.add, LocFun.find.
         condtac; tac. apply WF1.
       + apply WF1.
@@ -393,29 +385,30 @@ Module CommitFacts.
   Qed.
 
   Definition fence_min
-             ord commit: Commit.t :=
-    (Commit.mk (if Ordering.le Ordering.acquire ord
+             ordr ordw commit: Commit.t :=
+    (Commit.mk (if Ordering.le_dec Ordering.acqrel ordr
                 then Snapshot.join commit.(Commit.acquirable) commit.(Commit.current)
                 else commit.(Commit.current))
                (fun loc =>
-                  if Ordering.le Ordering.release ord
+                  if Ordering.le_dec Ordering.acqrel ordw
                   then Snapshot.join commit.(Commit.current) (commit.(Commit.released) loc)
                   else commit.(Commit.released) loc)
                commit.(Commit.acquirable)).
 
   Lemma fence_min_spec
-        ord commit mem
+        ordr ordw commit mem
         (MEMORY: Memory.wf mem)
         (WF1: Commit.wf commit mem):
-    <<FENCE: Commit.fence commit ord (fence_min ord commit)>> /\
-    <<WF: Commit.wf (fence_min ord commit) mem>>.
+    <<FENCE: Commit.fence commit ordr ordw (fence_min ordr ordw commit)>> /\
+    <<WF: Commit.wf (fence_min ordr ordw commit) mem>>.
   Proof.
     unfold fence_min. splits.
     - econs; tac.
       + econs; tac.
-        * reflexivity.
+        * condtac; tac. reflexivity.
         * unfold LocFun.find. condtac; tac. reflexivity.
         * reflexivity.
+      + condtac; tac.
       + unfold LocFun.find. condtac; tac.
     - econs; tac; try apply WF1.
       + condtac; try apply WF1.
@@ -425,12 +418,14 @@ Module CommitFacts.
   Qed.  
 
   Lemma fence_min_min
-        ord commit1 commit2
-        (COMMIT2: Commit.fence commit1 ord commit2):
-    Commit.le (fence_min ord commit1) commit2.
+        ordr ordw commit1 commit2
+        (COMMIT2: Commit.fence commit1 ordr ordw commit2):
+    Commit.le (fence_min ordr ordw commit1) commit2.
   Proof.
     inv COMMIT2. unfold fence_min. econs; tac.
-    - apply MONOTONE.
+    - condtac; tac; auto.
+      + apply MONOTONE.
+      + apply MONOTONE.
     - unfold LocFun.find. condtac; tac; eauto.
       + apply MONOTONE.
       + apply MONOTONE.

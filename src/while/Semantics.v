@@ -38,6 +38,13 @@ Module RegFile.
     end.
 
   Inductive eval_instr: forall (rf1:t) (i:Instr.t) (e:option ThreadEvent.t) (rf2:t), Prop :=
+  | eval_skip
+      rf:
+      eval_instr
+        rf
+        Instr.skip
+        None
+        rf
   | eval_assign
       rf lhs rhs:
       eval_instr
@@ -60,19 +67,19 @@ Module RegFile.
         (Some (ThreadEvent.mem (MemEvent.write lhs (eval_value rf rhs) ord)))
         rf
   | eval_update
-      rf lhs loc rmw ord val rval mval
-      (RMW: eval_rmw rf rmw val = (rval, mval)):
+      rf lhs loc rmw ordr ordw valr valret valw
+      (RMW: eval_rmw rf rmw valr = (valret, valw)):
       eval_instr
         rf
-        (Instr.update lhs loc rmw ord)
-        (Some (ThreadEvent.mem (MemEvent.update loc val mval ord)))
-        (RegFun.add lhs rval rf)
+        (Instr.update lhs loc rmw ordr ordw)
+        (Some (ThreadEvent.mem (MemEvent.update loc valr valw ordr ordw)))
+        (RegFun.add lhs valret rf)
   | eval_fence
-      rf ord:
+      rf ordr ordw:
       eval_instr
         rf
-        (Instr.fence ord)
-        (Some (ThreadEvent.mem (MemEvent.fence ord)))
+        (Instr.fence ordr ordw)
+        (Some (ThreadEvent.mem (MemEvent.fence ordr ordw)))
         rf
   | eval_syscall
       rf lhs rhses lhs_val:
@@ -190,6 +197,7 @@ Module RegFile.
       <<RS: eq_except regs rs2_src rs2_tgt>>.
   Proof.
     inv TGT; ss.
+    - eexists. splits; eauto. econs.
     - eexists. splits; [econs|].
       ii. generalize (RS reg). i.
       unfold RegFun.add, RegFun.find.

@@ -26,24 +26,25 @@ Require Import Semantics.
 Set Implicit Arguments.
 
 
-Inductive reorder_fence (o1:Ordering.t): forall (i2:Instr.t), Prop :=
+Inductive reorder_fence (or1 ow1:Ordering.t): forall (i2:Instr.t), Prop :=
 | reorder_fence_store
     l2 v2 o2
-    (ORD1: Ordering.le o1 Ordering.acquire):
-    reorder_fence o1 (Instr.store l2 v2 o2)
+    (ORDR1: Ordering.le or1 Ordering.acqrel)
+    (ORDW1: Ordering.le ow1 Ordering.relaxed):
+    reorder_fence or1 ow1 (Instr.store l2 v2 o2)
 .
 
 Inductive sim_fence: forall (st_src:lang.(Language.state)) (th_src:Local.t) (mem_k_src:Memory.t)
                        (st_tgt:lang.(Language.state)) (th_tgt:Local.t) (mem_k_tgt:Memory.t), Prop :=
 | sim_fence_intro
-    o1 i2
+    or1 ow1 i2
     rs th1_src th1_tgt th2_src
     mem_k_src mem_k_tgt
-    (REORDER: reorder_fence o1 i2)
-    (FENCE: Local.fence_step th1_src mem_k_src o1 th2_src)
+    (REORDER: reorder_fence or1 ow1 i2)
+    (FENCE: Local.fence_step th1_src mem_k_src or1 ow1 th2_src)
     (LOCAL: sim_local th2_src th1_tgt):
     sim_fence
-      (State.mk rs [Stmt.instr i2; Stmt.instr (Instr.fence o1)]) th1_src mem_k_src
+      (State.mk rs [Stmt.instr i2; Stmt.instr (Instr.fence or1 ow1)]) th1_src mem_k_src
       (State.mk rs [Stmt.instr i2]) th1_tgt mem_k_tgt
 .
 
@@ -63,6 +64,7 @@ Proof.
       { eapply Local.fence_step_future; eauto. }
       i. des.
       exploit reorder_fence_promise; try apply x0; try apply STEP_SRC; eauto.
+      { inv REORDER; ss. }
       { inv REORDER; ss. }
       i. des.
       eexists _, _, _, _, _, _. splits; eauto.
