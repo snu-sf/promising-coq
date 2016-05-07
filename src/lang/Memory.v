@@ -1181,7 +1181,7 @@ Module Memory.
     - inv H. inv H0. apply Cell.join_disjoint. splits; auto.
   Qed.
 
-  Lemma join_get_inv
+  Lemma join_get
         a b loc ts msg
         (DISJOINT: disjoint a b)
         (GET: get loc ts a = Some msg):
@@ -1194,7 +1194,20 @@ Module Memory.
     exfalso. eapply DISJOINT; eapply Cell.WF; eauto.
   Qed.
 
-  Lemma join_get
+  Lemma join_get_None
+        a b loc ts
+        (DISJOINT: disjoint a b)
+        (GETA: get loc ts a = None)
+        (GETB: get loc ts b = None):
+    get loc ts (join a b) = None.
+  Proof.
+    unfold get, Cell.get, join, Cell.join in *. ss.
+    destruct (Cell.Raw.messages (Cell.raw (a loc)) ts) eqn:A,
+             (Cell.Raw.messages (Cell.raw (b loc)) ts) eqn:B;
+      inv GETA; inv GETB; auto.
+  Qed.
+
+  Lemma join_get_inv
         a b loc ts msg
         (DISJOINT: disjoint a b)
         (GET: get loc ts (join a b) = Some msg):
@@ -1205,6 +1218,18 @@ Module Memory.
              (Cell.Raw.messages (Cell.raw (b loc)) ts) eqn:B;
       inv GET; auto.
     exfalso. eapply DISJOINT; eapply Cell.WF; eauto.
+  Qed.
+
+  Lemma join_get_None_inv
+        a b loc ts
+        (DISJOINT: disjoint a b)
+        (GET: get loc ts (join a b) = None):
+    get loc ts a = None /\ get loc ts b = None.
+  Proof.
+    unfold get, Cell.get, join, Cell.join in *. ss.
+    destruct (Cell.Raw.messages (Cell.raw (a loc)) ts) eqn:A,
+             (Cell.Raw.messages (Cell.raw (b loc)) ts) eqn:B;
+      inv GET; auto.
   Qed.
 
   Definition bot: t := LocFun.init Cell.bot.
@@ -1451,8 +1476,8 @@ Module Memory.
   Lemma le_get
         loc ts msg mem1 mem2
         (LE: le mem1 mem2)
-        (GET: Memory.get loc ts mem1 = Some msg):
-    Memory.get loc ts mem2 = Some msg.
+        (GET: get loc ts mem1 = Some msg):
+    get loc ts mem2 = Some msg.
   Proof.
     inv LE. unfold get, join, Cell.get, Cell.join in *. ss.
     rewrite GET.
@@ -1530,8 +1555,8 @@ Module Memory.
   Lemma future_get
         loc ts msg mem1 mem2
         (LE: future mem1 mem2)
-        (GET: Memory.get loc ts mem1 = Some msg):
-    Memory.get loc ts mem2 = Some msg.
+        (GET: get loc ts mem1 = Some msg):
+    get loc ts mem2 = Some msg.
   Proof.
     inv LE. eapply le_get; eauto. eapply splits_get; eauto.
   Qed.
@@ -1645,6 +1670,11 @@ Module Memory.
              apply join_disjoint
            | [|- disjoint (join _ _) _] =>
              symmetry; apply join_disjoint
+
+           | [H1: disjoint ?a ?b, H2: get _ _ (join ?a ?b) = Some _ |- _] =>
+             apply join_get_inv in H2; auto
+           | [H1: disjoint ?a ?b, H2: get _ _ (join ?a ?b) = None |- _] =>
+             apply join_get_None_inv in H2; auto
            end;
        ss; des; try subst; auto).
 
@@ -1686,7 +1716,7 @@ Module Memory.
         * rewrite <- join_assoc, (join_comm (singleton loc msg LT)), join_assoc. tac.
         * repeat (splits; tac).
       + inv WF1. econs. i.
-        apply join_get in MSG; [|tac]. des.
+        apply join_get_inv in MSG; [|tac]. des.
         * exploit WF0; eauto. i.
           eapply future_wf_snapshot; eauto.
           apply le_future. apply le_join_l. tac.
@@ -1739,10 +1769,20 @@ Module Memory.
     - eapply Cell.WF. eauto.
   Qed.
 
+  Lemma disjoint_get_None
+        lhs rhs loc to msgl
+        (DISJOINT: disjoint lhs rhs)
+        (LHS: get loc to lhs = Some msgl):
+    get loc to rhs = None.
+  Proof.
+    destruct (get loc to rhs) eqn:RHS; auto.
+    exfalso. eapply disjoint_get; eauto.
+  Qed.
+
   Lemma promise_get1 promise1 global1 loc from to msg promise2 global2
         (LE: le promise1 global1)
-        (PROMISE: Memory.promise promise1 global1 loc from to msg promise2 global2):
-    Memory.get loc to global1 = None.
+        (PROMISE: promise promise1 global1 loc from to msg promise2 global2):
+    get loc to global1 = None.
   Proof.
     destruct (get loc to global1) eqn:MSG1; auto.
     inv PROMISE.
@@ -1757,47 +1797,44 @@ Module Memory.
       { symmetry. apply PROMISE2. }
       { apply SPLIT. }
       i. tac.
-      apply join_get in MSG1; (splits; tac).
-      { exfalso. eapply disjoint_get; try apply x1; eauto.
+      apply join_get_inv in MSG1; (splits; tac).
+      + exfalso. eapply disjoint_get; try apply x1; eauto.
         apply singleton_get.
-      }
-      apply join_get in MSG1; (splits; tac).
-      { exfalso. eapply disjoint_get; try apply x3; eauto.
+      + exfalso. eapply disjoint_get; try apply x3; eauto.
         apply singleton_get.
-      }
-      apply singleton_get_inv in MSG1. des. subst.
-      exfalso. eapply Time.lt_strorder. eauto.
+      + apply singleton_get_inv in MSG1. des. subst.
+        exfalso. eapply Time.lt_strorder. eauto.
   Qed.
 
   Lemma promise_get2 promise1 global1 loc from to msg promise2 global2
         (LE: le promise1 global1)
-        (PROMISE: Memory.promise promise1 global1 loc from to msg promise2 global2):
-    Memory.get loc to global2 = Some msg.
+        (PROMISE: promise promise1 global1 loc from to msg promise2 global2):
+    get loc to global2 = Some msg.
   Proof.
     inv PROMISE.
-    - rewrite join_comm. apply join_get_inv; repeat (splits; tac).
+    - rewrite join_comm. apply join_get; repeat (splits; tac).
       apply singleton_get.
     - generalize (splits_intro loc msg msg0 LT1 LT2). i. des.
       exploit splits_disjoint.
       { symmetry. apply GLOBAL2. }
       { apply splits_join. reflexivity. eauto. tac. }
       i. tac.
-      rewrite join_comm. apply join_get_inv; repeat (splits; tac).
-      rewrite join_comm. apply join_get_inv; repeat (splits; tac).
-      apply join_get_inv; repeat (splits; tac).
+      rewrite join_comm. apply join_get; repeat (splits; tac).
+      rewrite join_comm. apply join_get; repeat (splits; tac).
+      apply join_get; repeat (splits; tac).
       apply singleton_get.
   Qed.
 
   Lemma promise_get_inv promise1 global1 loc from to msg promise2 global2
         loc' to' msg'
         (LE: le promise1 global1)
-        (PROMISE: Memory.promise promise1 global1 loc from to msg promise2 global2)
-        (GET: Memory.get loc' to' promise2 = Some msg'):
-    Memory.get loc' to' promise1 = Some msg' \/
+        (PROMISE: promise promise1 global1 loc from to msg promise2 global2)
+        (GET: get loc' to' promise2 = Some msg'):
+    get loc' to' promise1 = Some msg' \/
     loc = loc' /\ to = to' /\ msg = msg'.
   Proof.
     inv PROMISE.
-    - apply join_get in GET; tac.
+    - apply join_get_inv in GET; tac.
       apply singleton_get_inv in GET. des. auto.
     - generalize (splits_intro loc msg msg0 LT1 LT2). i. des.
       exploit splits_disjoint.
@@ -1808,14 +1845,13 @@ Module Memory.
       { symmetry. apply PROMISE2. }
       { apply SPLIT. }
       i. tac.
-      apply join_get in GET; repeat (splits; tac).
-      + left. apply join_get_inv; repeat (splits; tac).
-      + apply join_get in GET; repeat (splits; tac).
-        * apply singleton_get_inv in GET. des. auto.
-        * apply singleton_get_inv in GET. des. subst.
-          left. rewrite join_comm.
-          apply join_get_inv; repeat (splits; tac).
-          apply singleton_get.
+      apply join_get_inv in GET; repeat (splits; tac).
+      + left. apply join_get; repeat (splits; tac).
+      + apply singleton_get_inv in GET. des. auto.
+      + apply singleton_get_inv in GET. des. subst.
+        left. rewrite join_comm.
+        apply join_get; repeat (splits; tac).
+        apply singleton_get.
   Qed.
 
   Inductive fulfill (promise1:t) (loc:Loc.t) (from to:Time.t) (msg:Message.t): forall (promise2:t), Prop :=
@@ -1854,12 +1890,12 @@ Module Memory.
   Qed.
 
   Lemma fulfill_get promise1 loc from to msg promise2
-        (FULFILL: Memory.fulfill promise1 loc from to msg promise2):
-    Memory.get loc to promise1 = Some msg.
+        (FULFILL: fulfill promise1 loc from to msg promise2):
+    get loc to promise1 = Some msg.
   Proof.
-    inv FULFILL. rewrite Memory.join_comm.
-    apply join_get_inv; tac.
-    apply Memory.singleton_get.
+    inv FULFILL. rewrite join_comm.
+    apply join_get; tac.
+    apply singleton_get.
   Qed.
 
   Lemma splits_antisym
@@ -1868,7 +1904,7 @@ Module Memory.
         (BA: splits b a):
     a = b.
   Proof.
-    extensionality loc. unfold Memory.splits in *.
+    extensionality loc. unfold splits in *.
     specialize (AB loc). specialize (BA loc).
     inv AB. inv BA. apply Cell.extensionality'.
     - i.

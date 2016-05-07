@@ -71,9 +71,13 @@ Lemma sim_store_sim_thread:
 Proof.
   pcofix CIH. i. pfold. ii. ss. splits; ss.
   - i. inv TERMINAL_TGT. inv PR; ss.
-  - admit.
-    (* future; https://github.com/jeehoonkang/memory-model-explorer/blob/86c803103989f87a17f50e6349aa9f285104af09/formalization/src/opt/Reorder.v#L100 *)
-  - admit.
+  - i. inv PR. eapply sim_local_future; try apply LOCAL; eauto.
+    + eapply Local.fulfill_step_future; eauto.
+      eapply Local.future_fulfill_step; eauto.
+    + eapply Local.fulfill_step_future; eauto.
+      eapply Local.future_fulfill_step; eauto.
+      eapply Local.future_fulfill_step; eauto.
+  - admit. (* promise *)
     (* https://github.com/jeehoonkang/memory-model-explorer/blob/11e21b0c9147859fca4c63e0b21bdbac6dac6215/formalization/src/opt/ReorderWrite.v#L430 *)
     (* https://github.com/jeehoonkang/memory-model-explorer/blob/86c803103989f87a17f50e6349aa9f285104af09/formalization/src/opt/Reorder.v#L116 *)
   - inv PR. i. inv STEP_TGT; [|by inv STEP; inv STATE; inv INSTR; inv REORDER].
@@ -99,7 +103,7 @@ Proof.
         { s. econs 1. erewrite RegFile.eq_except_value; eauto.
           - admit. (* RegSet.disjoint symmetry *)
           - apply RegFile.eq_except_singleton.
-          - admit. (* promise = bot *)
+          - i. rewrite ORD1 in H. inv H.
         }
       * eauto.
       * left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
@@ -114,7 +118,7 @@ Proof.
       * econs. econs 4; eauto. econs.
         { econs. }
         { s. econs 1; eauto.
-          admit. (* promise = bot *)
+          i. rewrite ORD1 in H. inv H.
         }
       * s. eauto.
       * s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
@@ -139,7 +143,7 @@ Proof.
         { s. econs 1. erewrite RegFile.eq_except_value; eauto.
           - admit. (* RegSet.disjoint symmetry *)
           - apply RegFile.eq_except_singleton.
-          - admit. (* promise = bot *)
+          - i. rewrite ORD1 in H. inv H.
         }
       * s. eauto.
       * s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.

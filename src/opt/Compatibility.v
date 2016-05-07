@@ -23,6 +23,36 @@ Require Import Semantics.
 
 Set Implicit Arguments.
 
+Lemma sim_local_future
+      inv
+      th_src mem1_src mem2_src
+      th_tgt mem1_tgt
+      (WF1_SRC: Local.wf th_src mem1_src)
+      (WF1_TGT: Local.wf th_tgt mem1_tgt)
+      (MEM1: sim_memory mem1_src mem1_tgt)
+      (INV1: MemInv.sem inv th_src.(Local.promise) th_tgt.(Local.promise))
+      (FUTURE_SRC: Memory.future mem1_src mem2_src)
+      (WF2_SRC: Local.wf th_src mem2_src):
+  exists mem2_tgt,
+    <<MEM2: sim_memory mem2_src mem2_tgt>> /\
+    <<FUTURE: Memory.future mem1_tgt mem2_tgt>> /\
+    <<WF2_TGT: Local.wf th_tgt mem2_tgt>>.
+Proof.
+  exists mem2_src. splits.
+  - reflexivity.
+  - etransitivity; eauto.
+    apply Memory.splits_future. apply MEM1.
+  - econs.
+    + eapply Commit.future_wf; try apply WF1_TGT; eauto.
+      etransitivity; eauto.
+      apply Memory.splits_future. apply MEM1.
+    + inv INV1. inv WF2_SRC. memtac.
+      rewrite <- H0 in *. memtac.
+      rewrite <- Memory.join_assoc.
+      apply Memory.le_join_l. repeat (splits; memtac).
+    + apply WF2_SRC.
+Qed.
+
 Lemma sim_local_promise
       th1_src mem1_src
       th1_tgt mem1_tgt

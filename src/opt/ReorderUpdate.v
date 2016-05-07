@@ -78,9 +78,19 @@ Lemma sim_update_sim_thread:
 Proof.
   pcofix CIH. i. pfold. ii. ss. splits; ss.
   - i. inv TERMINAL_TGT. inv PR; ss.
-  - admit.
-    (* future; https://github.com/jeehoonkang/memory-model-explorer/blob/86c803103989f87a17f50e6349aa9f285104af09/formalization/src/opt/Reorder.v#L100 *)
-  - admit.
+  - i. inv PR. eapply sim_local_future; try apply LOCAL; eauto.
+    + exploit Local.read_step_future; try apply WF_SRC; i.
+      { eapply Local.future_read_step; eauto. }
+      eapply Local.fulfill_step_future; eauto.
+      eapply Local.future_fulfill_step; eauto.
+    + exploit Local.read_step_future; try apply WF_SRC0; i.
+      { eapply Local.future_read_step; eauto.
+        eapply Local.future_read_step; eauto.
+      }
+      eapply Local.fulfill_step_future; try apply x0.
+      eapply Local.future_fulfill_step; eauto.
+      eapply Local.future_fulfill_step; eauto.
+  - admit. (* promise *)
   - inv PR. i. inv STEP_TGT; [|by inv STEP; inv STATE; inv INSTR; inv REORDER].
     exploit Local.future_read_step; try apply READ; eauto. i.
     exploit Local.future_fulfill_step; try apply FULFILL; eauto. i.
@@ -117,15 +127,15 @@ Proof.
       * econs 2; [|econs 1]. econs 3; eauto. econs. econs.
       * econs. econs 5; eauto.
         { econs. econs. erewrite RegFile.eq_except_rmw; eauto.
-          - admit.
+          - admit. (* disjoint add => disjoint *)
           - apply RegFile.eq_except_singleton.
         }
         { s. econs 1; eauto.
-          admit. (* promise = bot *)
+          i. rewrite ORDW1 in H. inv H.
         }
       * s. eauto.
       * s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
-        apply RegFun.add_add. admit.
+        apply RegFun.add_add. admit. (* singleton disjoint => neq *)
     + (* store *)
       exploit sim_local_write; eauto.
       { eapply Local.fulfill_step_future; eauto.
@@ -142,11 +152,11 @@ Proof.
       * econs 2; [|econs 1]. econs 4; eauto. econs.
         erewrite <- RegFile.eq_except_value; eauto.
         { econs. }
-        { admit. }
+        { admit. (* eq_except *) }
       * econs. econs 5; eauto.
         { econs. econs. eauto. }
         { s. econs 1; eauto.
-          admit. (* promise = bot *)
+          i. rewrite ORDW1 in H. inv H.
         }
       * s. eauto.
       * s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
@@ -179,18 +189,18 @@ Proof.
       eexists _, _, _, _, _, _. splits.
       * econs 2; [|econs 1]. econs 5; eauto. econs. econs.
         erewrite <- RegFile.eq_except_rmw; eauto.
-        { admit. }
+        { admit. (* disjoint add => disjoint *) }
         { apply RegFile.eq_except_singleton. }
       * econs. econs 5; try apply STEP7; try apply STEP_SRC0; eauto.
         { econs. econs.
           erewrite RegFile.eq_except_rmw; eauto.
-          - admit.
+          - admit. (* disjoint add => disjoint *)
           - apply RegFile.eq_except_singleton.
         }
         { econs 1; eauto.
-          admit. (* promise = bot *)
+          i. rewrite ORDW1 in H. inv H.
         }
       * eauto.
       * left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
-        apply RegFun.add_add. admit.
+        apply RegFun.add_add. admit. (* singleton disjoint => neq *)
 Admitted.
