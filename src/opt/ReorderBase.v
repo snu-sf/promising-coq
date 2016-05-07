@@ -380,13 +380,13 @@ Proof.
   inv STEP2.
   - exploit reorder_fulfill_fulfill; eauto. i. des.
     eexists. splits; eauto. econs 1. eauto.
-    inv STEP1. erewrite reorder_memory_cell_fulfill; eauto. apply WF0.
+    inv STEP1. erewrite reorder_memory_cell_fulfill; eauto.
   - exploit reorder_fulfill_promise; eauto. i. des.
     exploit reorder_fulfill_fulfill; try apply STEP2; eauto.
     { eapply Local.promise_step_future; eauto. }
     i. des.
     eexists. splits; eauto. econs 2; eauto.
-    inv STEP1. erewrite reorder_memory_cell_fulfill; eauto. apply WF0.
+    inv STEP1. erewrite reorder_memory_cell_fulfill; eauto.
 Qed.
 
 Lemma reorder_fence_promise

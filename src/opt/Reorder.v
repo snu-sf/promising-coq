@@ -18,6 +18,7 @@ Require Import Configuration.
 Require Import Simulation.
 Require Import Compatibility.
 Require Import MemInv.
+Require Import Progress.
 Require Import ReorderBase.
 Require Import ReorderLoad.
 Require Import ReorderStore.
@@ -72,7 +73,7 @@ Proof.
     eexists _, _, _, _, _, _. splits; eauto.
     + econs. econs 2; ss.
       * econs. econs.
-      * apply Local.silent_min. auto.
+      * apply progress_silent_step. auto.
     + left. eapply paco7_mon; [apply sim_load_sim_thread|]; ss.
       econs; eauto.
   - (* store *)
@@ -81,13 +82,13 @@ Proof.
     + eexists _, _, _, _, _, _. splits; eauto.
       * econs. econs 2; ss.
         { econs. econs. }
-        { apply Local.silent_min. auto. }
+        { apply progress_silent_step. auto. }
       * left. eapply paco7_mon; [apply sim_store_sim_thread|]; ss.
         econs; eauto.
     + eexists _, _, _, _, _, _. splits.
       * econs 2; [|econs 1]. econs 2; ss.
         { econs. econs. }
-        { apply Local.silent_min. auto. }
+        { apply progress_silent_step. auto. }
       * econs. econs 1; eauto.
       * eauto.
       * left. eapply paco7_mon; [apply sim_store_sim_thread|]; ss.
@@ -102,14 +103,14 @@ Proof.
     + eexists _, _, _, _, _, _. splits; eauto.
       * econs. econs 2; ss.
         { econs. econs. }
-        { apply Local.silent_min. auto. }
+        { apply progress_silent_step. auto. }
       * left. eapply paco7_mon; [apply sim_update_sim_thread|]; ss.
         econs; eauto.
     + exploit reorder_read_promise; try apply STEP_SRC; try apply x0; eauto. i. des.
       eexists _, _, _, _, _, _. splits.
       * econs 2; [|econs 1]. econs 2; ss.
         { econs. econs. }
-        { apply Local.silent_min. auto. }
+        { apply progress_silent_step. auto. }
       * econs. econs 1; eauto.
       * eauto.
       * left. eapply paco7_mon; [apply sim_update_sim_thread|]; ss.
@@ -119,7 +120,7 @@ Proof.
     eexists _, _, _, _, _, _. splits; eauto.
     + econs. econs 2; ss.
         { econs. econs. }
-        { apply Local.silent_min. auto. }
+        { apply progress_silent_step. auto. }
     + left. eapply paco7_mon; [apply sim_fence_sim_thread|]; ss.
       econs; eauto.
 Admitted.

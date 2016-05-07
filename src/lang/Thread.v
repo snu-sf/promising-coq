@@ -48,14 +48,6 @@ Module Local.
     econs. symmetry. apply H.
   Qed.
 
-  Inductive silent_step (th1:t) (mem1:Memory.t): forall (th2:t), Prop :=
-  | step_silent
-      commit2
-      (COMMIT: Commit.le th1.(commit) commit2)
-      (COMMIT_WF: Commit.wf commit2 mem1):
-      silent_step th1 mem1 (mk commit2 th1.(promise))
-  .
-
   Inductive promise_step (th1:t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:Snapshot.t): forall (th2:t) (mem2:Memory.t), Prop :=
   | step_promise
       commit2 promise2 mem2
@@ -63,6 +55,14 @@ Module Local.
       (COMMIT_WF: Commit.wf commit2 mem2)
       (MEMORY: Memory.promise th1.(promise) mem1 loc from to (Message.mk val released) promise2 mem2):
       promise_step th1 mem1 loc from to val released (mk commit2 promise2) mem2
+  .
+
+  Inductive silent_step (th1:t) (mem1:Memory.t): forall (th2:t), Prop :=
+  | step_silent
+      commit2
+      (COMMIT: Commit.le th1.(commit) commit2)
+      (COMMIT_WF: Commit.wf commit2 mem1):
+      silent_step th1 mem1 (mk commit2 th1.(promise))
   .
 
   Inductive read_step (th1:t) (mem1:Memory.t) (loc:Loc.t) (ts:Time.t) (val:Const.t) (released:Snapshot.t) (ord:Ordering.t): forall (th2:t), Prop :=
@@ -135,14 +135,6 @@ Module Local.
     eapply Commit.future_wf; eauto.
   Qed.
 
-  Lemma silent_step_future th1 mem1 th2
-        (STEP: silent_step th1 mem1 th2)
-        (WF1: wf th1 mem1):
-    wf th2 mem1.
-  Proof.
-    inv WF1. inv STEP. ss.
-  Qed.
-
   Lemma promise_step_future th1 mem1 loc from to val released th2 mem2
         (STEP: promise_step th1 mem1 loc from to val released th2 mem2)
         (WF1: wf th1 mem1):
@@ -152,6 +144,14 @@ Module Local.
     inv WF1. inv STEP.
     exploit Memory.promise_future; eauto. i. des.
     splits; ss.
+  Qed.
+
+  Lemma silent_step_future th1 mem1 th2
+        (STEP: silent_step th1 mem1 th2)
+        (WF1: wf th1 mem1):
+    wf th2 mem1.
+  Proof.
+    inv WF1. inv STEP. ss.
   Qed.
 
   Lemma read_step_future th1 mem1 loc ts val released ord th2
@@ -192,17 +192,6 @@ Module Local.
     inv WF1. inv STEP. ss.
   Qed.
 
-  Lemma silent_step_disjoint
-        th1 mem1 th2 th
-        (STEP: silent_step th1 mem1 th2)
-        (WF1: wf th1 mem1)
-        (DISJOINT1: disjoint th1 th)
-        (WF: wf th mem1):
-    disjoint th2 th.
-  Proof.
-    inv WF1. inv DISJOINT1. inv WF. inv STEP. ss.
-  Qed.
-
   Lemma promise_step_disjoint
         th1 mem1 loc from to val released th2 mem2 th
         (STEP: promise_step th1 mem1 loc from to val released th2 mem2)
@@ -217,6 +206,17 @@ Module Local.
     exploit Memory.promise_disjoint; try apply MEMORY1; eauto. i. des.
     splits; ss. econs; ss.
     eapply Commit.future_wf; eauto.
+  Qed.
+
+  Lemma silent_step_disjoint
+        th1 mem1 th2 th
+        (STEP: silent_step th1 mem1 th2)
+        (WF1: wf th1 mem1)
+        (DISJOINT1: disjoint th1 th)
+        (WF: wf th mem1):
+    disjoint th2 th.
+  Proof.
+    inv WF1. inv DISJOINT1. inv WF. inv STEP. ss.
   Qed.
 
   Lemma read_step_disjoint
@@ -266,14 +266,6 @@ Module Local.
     disjoint th2 th.
   Proof.
     inv WF1. inv DISJOINT1. inv WF. inv STEP. ss.
-  Qed.
-
-  Lemma silent_min
-        th mem
-        (WF: wf th mem):
-    silent_step th mem th.
-  Proof.
-    destruct th. econs; try apply WF. reflexivity.
   Qed.
 End Local.
 
