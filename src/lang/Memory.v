@@ -24,7 +24,7 @@ Module Times <: JoinableType.
 
   Global Program Instance le_PreOrder: PreOrder le.
   Next Obligation. ii. reflexivity. Qed.
-  Next Obligation. ii. etransitivity; eauto. Qed.
+  Next Obligation. ii. etrans; eauto. Qed.
 
   Definition get (loc:Loc.t) (c:t) := LocFun.find loc c.
 
@@ -70,7 +70,7 @@ Module Times <: JoinableType.
     ii. unfold incr, LocFun.add, LocFun.find.
     destruct (Loc.eq_dec loc0 loc); auto.
     apply Time.join_spec.
-    - etransitivity; [apply LE|]. apply Time.join_l.
+    - etrans; [apply LE|]. apply Time.join_l.
     - apply Time.join_r.
   Qed.
 
@@ -125,7 +125,7 @@ Module Snapshot <: JoinableType.
     ii. econs; reflexivity.
   Qed.
   Next Obligation.
-    ii. inv H. inv H0. econs; etransitivity; eauto.
+    ii. inv H. inv H0. econs; etrans; eauto.
   Qed.
 
   Definition join (lhs rhs:t): t :=
@@ -207,8 +207,8 @@ Module Snapshot <: JoinableType.
     readable rhs loc <2= readable lhs loc.
   Proof.
     i. inv LE. inv PR. econs.
-    - etransitivity; eauto.
-    - etransitivity; eauto.
+    - etrans; eauto.
+    - etrans; eauto.
   Qed.
 
   Lemma le_on_writable
@@ -250,9 +250,9 @@ Module Snapshot <: JoinableType.
     <<TS: Time.le ts (s2.(reads) loc)>>.
   Proof.
     inv LE. splits.
-    - econs; ss. etransitivity; eauto.
+    - econs; ss. etrans; eauto.
       apply Times.incr_le.
-    - etransitivity; eauto.
+    - etrans; eauto.
       apply Times.incr_ts.
   Qed.
 
@@ -261,7 +261,7 @@ Module Snapshot <: JoinableType.
     le (incr_reads loc ts s1) (incr_reads loc ts s2).
   Proof.
     apply incr_reads_spec.
-    - etransitivity; eauto. econs; try reflexivity.
+    - etrans; eauto. econs; try reflexivity.
       apply Times.incr_le.
     - apply Times.incr_ts.
   Qed.
@@ -295,9 +295,9 @@ Module Snapshot <: JoinableType.
     <<TS: Time.le ts (s2.(writes) loc)>>.
   Proof.
     inv LE. splits.
-    - econs; ss. etransitivity; eauto.
+    - econs; ss. etrans; eauto.
       apply Times.incr_le.
-    - etransitivity; eauto.
+    - etrans; eauto.
       apply Times.incr_ts.
   Qed.
 
@@ -306,7 +306,7 @@ Module Snapshot <: JoinableType.
     le (incr_writes loc ts s1) (incr_writes loc ts s2).
   Proof.
     apply incr_writes_spec.
-    - etransitivity; eauto. econs; try reflexivity.
+    - etrans; eauto. econs; try reflexivity.
       apply Times.incr_le.
     - apply Times.incr_ts.
   Qed.
@@ -1024,7 +1024,7 @@ Module Cell.
     ii. unfold splits in *. reflexivity.
   Qed.
   Next Obligation.
-    ii. unfold splits in *. etransitivity; eauto.
+    ii. unfold splits in *. etrans; eauto.
   Qed.
 
   Lemma splits_disjoint a b a'
@@ -1290,7 +1290,7 @@ Module Memory.
 
   Global Program Instance splits_PreOrder: PreOrder splits.
   Next Obligation. ii. reflexivity. Qed.
-  Next Obligation. ii. etransitivity; eauto. Qed.
+  Next Obligation. ii. etrans; eauto. Qed.
 
   Lemma splits_get a b
         loc ts msg
@@ -1512,7 +1512,7 @@ Module Memory.
     apply join_disjoint in CD. des.
     symmetry in CD. apply join_disjoint in CD. des.
     symmetry in CD0. apply join_disjoint in CD0. des.
-    etransitivity; [|apply le_join_l].
+    etrans; [|apply le_join_l].
     - apply le_join_l.
       symmetry. apply join_disjoint. splits; symmetry; auto.
     - symmetry. apply join_disjoint. splits; auto.
@@ -1536,7 +1536,7 @@ Module Memory.
     ii. inv H. inv H0. inv LE. inv LE0.
     exploit (@splits_join_inv1 lhs' ohs lhs'0); eauto. i. des. subst.
     rewrite <- join_assoc. econs.
-    - etransitivity; eauto.
+    - etrans; eauto.
     - apply le_join_l.
       symmetry in DISJOINT0. apply join_disjoint in DISJOINT0. des.
       apply join_disjoint. splits.
@@ -1889,7 +1889,7 @@ Module Memory.
     inv FULFILL; tac.
     apply join2_inv in JOIN; tac. splits.
     - repeat (splits; tac).
-    - etransitivity; [|apply le_join_r]; repeat (splits; tac).
+    - etrans; [|apply le_join_r]; repeat (splits; tac).
       apply le_join_l; tac.
   Qed.
 

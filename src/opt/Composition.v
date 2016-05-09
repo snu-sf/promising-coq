@@ -305,14 +305,14 @@ Proof.
     exploit Configuration.rtc_step_disjoint; eauto. s. i. des.
     exploit compose_rtc_step1; eauto. s. i. des.
     punfold SIM2. exploit SIM2; eauto.
-    { etransitivity; eauto. }
+    { etrans; eauto. }
     i. des.
     exploit TERMINAL0; eauto. i. des.
     exploit Configuration.rtc_step_consistent; eauto. s. i. des.
     exploit Configuration.rtc_step_disjoint; try symmetry; eauto. s. i. des.
     exploit compose_rtc_step2; eauto. s. i. des.
     eexists _, _. splits; [|eauto|].
-    + etransitivity; eauto.
+    + etrans; eauto.
     + apply compose_is_terminal; auto.
   - i. apply compose_step in STEP_TGT; auto. des; subst.
     + exploit Configuration.step_consistent; eauto. s. i. des.
@@ -327,7 +327,7 @@ Proof.
       exploit compose_step1; eauto. i. des.
       eexists _, _, _, _. splits; eauto.
       right. apply CIH; auto.
-      eapply sim_future; eauto; repeat (etransitivity; eauto). 
+      eapply sim_future; eauto; repeat (etrans; eauto). 
     + exploit Configuration.step_consistent; eauto. s. i. des.
       exploit Configuration.step_disjoint; try symmetry; eauto. s. i. des.
       punfold SIM2. exploit SIM2; eauto. i. des.
@@ -341,5 +341,5 @@ Proof.
       eexists _, _, _, _. splits; eauto.
       right. apply CIH; auto.
       { symmetry. auto. }
-      eapply sim_future; eauto; repeat (etransitivity; eauto).
+      eapply sim_future; eauto; repeat (etrans; eauto).
 Qed.

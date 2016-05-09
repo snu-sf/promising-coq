@@ -133,7 +133,7 @@ Module Configuration.
     exploit THREADS; eauto. i. des.
     exploit Thread.rtc_step_future; eauto. s. i. des.
     exploit Thread.step_future; eauto. s. i. des.
-    splits; [|by etransitivity; eauto].
+    splits; [|by etrans; eauto].
     econs.
     - i. simplify.
       + congruence.
@@ -151,7 +151,7 @@ Module Configuration.
       exploit Thread.rtc_step_disjoint; eauto. i. des.
       exploit Thread.step_disjoint; eauto. s. i. des.
       splits; ss. ii. apply CONSISTENT1; auto.
-      repeat (etransitivity; eauto).
+      repeat (etrans; eauto).
     - s. apply WF0.
   Qed.
 
@@ -194,7 +194,7 @@ Module Configuration.
         exploit Thread.step_disjoint; eauto. s. i. des.
         splits; ss. inv CONSISTENT. exploit THREADS; eauto. i. des.
         ii. eapply CONSISTENT; eauto.
-        repeat (etransitivity; eauto).
+        repeat (etrans; eauto).
       + apply WF0.
   Qed.
 
@@ -209,7 +209,7 @@ Module Configuration.
     - splits; auto. reflexivity.
     - exploit step_consistent; eauto. i. des.
       exploit IHSTEPS; eauto. i. des.
-      splits; eauto. etransitivity; eauto.
+      splits; eauto. etrans; eauto.
   Qed.
 
   Lemma rtc_step_disjoint

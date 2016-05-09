@@ -107,7 +107,9 @@ Proof.
     + econs 2. econs 2; eauto. econs. econs.
     + s. eauto.
     + s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
-      apply RegFun.add_add. admit. (* singleton disjoint => neq *)
+      apply RegFun.add_add. ii. subst. eapply REGS.
+      * apply RegSet.singleton_spec. eauto.
+      * apply RegSet.singleton_spec. eauto.
   - (* store *)
     exploit sim_local_write; eauto.
     { eapply Local.read_step_future; eauto. }
@@ -137,13 +139,16 @@ Proof.
     i. des.
     eexists _, _, _, _, _, _. splits.
     + econs 2; [|econs 1]. econs 2. econs 4; eauto. econs. econs.
-      erewrite <- RegFile.eq_except_rmw; eauto.
-      * admit. (* disjoint add => disjoint *)
-      * apply RegFile.eq_except_singleton.
+      erewrite <- RegFile.eq_except_rmw; eauto; try apply RegFile.eq_except_singleton.
+      ii. eapply REGS; eauto.
+      apply RegSet.singleton_spec in LHS. subst.
+      apply RegSet.add_spec. auto.
     + econs 2. econs 2; eauto. econs. econs.
     + s. eauto.
     + s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
-      apply RegFun.add_add. admit. (* disjoint singleton => neq *)
+      apply RegFun.add_add. ii. subst. eapply REGS.
+      * apply RegSet.singleton_spec. eauto.
+      * apply RegSet.add_spec. eauto.
   - (* fence *)
     exploit sim_local_fence; eauto.
     { eapply Local.read_step_future; eauto. }
@@ -154,7 +159,7 @@ Proof.
     + econs 2. econs 2; eauto. econs. econs.
     + s. eauto.
     + s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
-Admitted.
+Qed.
 
 Lemma sim_load_sim_thread:
   sim_load <6= (sim_thread (sim_terminal eq)).

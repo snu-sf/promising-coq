@@ -40,11 +40,11 @@ Lemma sim_local_future
 Proof.
   exists mem2_src. splits.
   - reflexivity.
-  - etransitivity; eauto.
+  - etrans; eauto.
     apply Memory.splits_future. apply MEM1.
   - econs.
     + eapply Commit.future_wf; try apply WF1_TGT; eauto.
-      etransitivity; eauto.
+      etrans; eauto.
       apply Memory.splits_future. apply MEM1.
     + inv INV1. inv WF2_SRC. memtac.
       rewrite <- H0 in *. memtac.
@@ -81,7 +81,7 @@ Proof.
   - econs; try apply PROMISE_SRC.
     + reflexivity.
     + eapply Commit.future_wf; [|eauto]. apply WF1_SRC.
-  - econs; s; eauto. etransitivity; eauto.
+  - econs; s; eauto. etrans; eauto.
 Qed.
 
 Lemma sim_local_silent
@@ -100,7 +100,7 @@ Proof.
   inv LOCAL1. inv STEP_TGT.
   eexists. splits.
   - econs.
-    + etransitivity; eauto.
+    + etrans; eauto.
     + eapply Commit.future_wf; eauto.
       apply Memory.splits_future. apply MEMORY1.
   - econs; eauto. s. reflexivity.
@@ -497,10 +497,10 @@ Proof.
     splits; s; ii.
     { inv TERMINAL_TGT. ss. eexists _, _, _. splits; eauto; ss. }
     { eexists. splits; try reflexivity; eauto.
-      - etransitivity; eauto. apply Memory.splits_future. apply MEMORY.
+      - etrans; eauto. apply Memory.splits_future. apply MEMORY.
       - inv WF_SRC0. inv WF_TGT. ss. econs; ss.
         eapply Commit.future_wf; eauto.
-        etransitivity; eauto.
+        etrans; eauto.
         apply Memory.splits_future. apply MEMORY.
     }
     { subst. eexists _, _, _. splits; eauto. }
@@ -517,10 +517,10 @@ Proof.
     splits; s; ii.
     { inv TERMINAL_TGT. }
     { ss. eexists. splits; try reflexivity; eauto.
-      - etransitivity; eauto. apply Memory.splits_future. apply MEMORY.
+      - etrans; eauto. apply Memory.splits_future. apply MEMORY.
       - inv WF_SRC0. inv WF_TGT. ss. econs; ss.
         eapply Commit.future_wf; eauto.
-        etransitivity; eauto.
+        etrans; eauto.
         apply Memory.splits_future. apply MEMORY.
     }
     { ss. subst. eexists _, _, _. splits; eauto. }
@@ -594,7 +594,7 @@ Proof.
       exploit TERMINAL0; try by econs. i. des.
       destruct st2_src, th2_src. inv TERMINAL_SRC. ss. subst.
       eexists _, _, _. splits; [|eauto| |eauto|eauto].
-      + etransitivity; [|eauto].
+      + etrans; [|eauto].
         eapply rtc_internal_step_seq in STEPS. eauto.
       + econs.
     }
@@ -616,7 +616,7 @@ Proof.
       exploit STEP0; eauto. i. des.
       eexists _, _, _, _, _, _. splits; [|eauto|eauto|].
       * eapply rtc_internal_step_seq in STEPS.
-        etransitivity; [apply STEPS|eauto].
+        etrans; [apply STEPS|eauto].
       * apply rclo7_incl. auto.
     + destruct st3_tgt, th3_tgt.
       exploit thread_step_deseq; eauto. i. des. ss. subst.
@@ -637,10 +637,10 @@ Proof.
     splits; s; ii.
     { inv TERMINAL_TGT. }
     { ss. eexists. splits; try reflexivity; eauto.
-      - etransitivity; eauto. apply Memory.splits_future. apply MEMORY.
+      - etrans; eauto. apply Memory.splits_future. apply MEMORY.
       - inv WF_SRC0. inv WF_TGT. ss.
         econs; ss. eapply Commit.future_wf; eauto.
-        etransitivity; eauto.
+        etrans; eauto.
         apply Memory.splits_future. apply MEMORY.
     }
     { ss. subst. eexists _, _. splits; eauto. }
@@ -678,10 +678,10 @@ Proof.
     splits; s; ii.
     { inv TERMINAL_TGT. }
     { ss. eexists. splits; try reflexivity; eauto.
-      - etransitivity; eauto. apply Memory.splits_future. apply MEMORY.
+      - etrans; eauto. apply Memory.splits_future. apply MEMORY.
       - inv WF_SRC0. inv WF_TGT. ss.
         econs; ss. eapply Commit.future_wf; eauto.
-        etransitivity; eauto.
+        etrans; eauto.
         apply Memory.splits_future. apply MEMORY.
     }
     { ss. subst. eexists _, _. splits; eauto. }

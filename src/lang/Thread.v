@@ -406,7 +406,7 @@ Module Thread.
       - i.
         exploit step_future; eauto. i. des.
         exploit IHSTEP; eauto. i. des.
-        splits; ss. etransitivity; eauto.
+        splits; ss. etrans; eauto.
     Qed.
 
     Lemma promise_step_disjoint e1 e2 th

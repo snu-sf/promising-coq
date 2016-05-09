@@ -121,17 +121,19 @@ Proof.
     { eapply Local.read_step_future; eauto. }
     i. des.
     exploit reorder_read_read; try apply x0; try apply STEP1; eauto. i. des.
+    apply RegSet.disjoint_add in REGS. des.
     eexists _, _, _, _, _, _. splits.
     + econs 2; [|econs 1]. econs 2. econs 2; eauto. econs. econs.
     + econs 2. econs 4; eauto.
       * econs. econs. erewrite RegFile.eq_except_rmw; eauto.
-        { admit. (* disjoint add => disjoint *) }
+        { symmetry. eauto. }
         { apply RegFile.eq_except_singleton. }
       * s. econs 1; eauto.
         i. rewrite ORDW1 in H. inv H.
     + s. eauto.
     + s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
-      apply RegFun.add_add. admit. (* singleton disjoint => neq *)
+      apply RegFun.add_add. ii. subst. apply REGS.
+      apply RegSet.Facts.singleton_iff. auto.
   - (* store *)
     exploit sim_local_write; eauto.
     { eapply Local.fulfill_step_future; eauto.
@@ -148,7 +150,10 @@ Proof.
     + econs 2; [|econs 1]. econs 2. econs 3; eauto. econs.
       erewrite <- RegFile.eq_except_value; eauto.
       * econs.
-      * admit. (* eq_except *)
+      * symmetry.
+        eapply RegFile.eq_except_mon; try apply RegFile.eq_except_singleton.
+        ii. apply RegSet.singleton_spec in H. subst.
+        apply RegSet.add_spec. auto.
     + econs 2. econs 4; eauto.
       * econs. econs. eauto.
       * s. econs 1; eauto.
@@ -183,20 +188,24 @@ Proof.
     i. des.
     eexists _, _, _, _, _, _. splits.
     + econs 2; [|econs 1]. econs 2. econs 4; eauto. econs. econs.
-      erewrite <- RegFile.eq_except_rmw; eauto.
-      * admit. (* disjoint add => disjoint *)
-      * apply RegFile.eq_except_singleton.
+      erewrite <- RegFile.eq_except_rmw; eauto; try apply RegFile.eq_except_singleton.
+      ii. eapply REGS; apply RegSet.add_spec.
+      * left. eauto.
+      * right. apply RegSet.singleton_spec in LHS. subst. eauto.
     + econs 2. econs 4; try apply STEP7; try apply STEP_SRC0; eauto.
       * econs. econs.
-        erewrite RegFile.eq_except_rmw; eauto.
-        { admit. (* disjoint add => disjoint *) }
-        { apply RegFile.eq_except_singleton. }
+        erewrite RegFile.eq_except_rmw; eauto; try apply RegFile.eq_except_singleton.
+        ii. eapply REGS; apply RegSet.add_spec.
+        { right. apply RegSet.singleton_spec in LHS. subst. eauto. }
+        { left. eauto. }
       * econs 1; eauto.
         i. rewrite ORDW1 in H. inv H.
     + eauto.
     + left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
-      apply RegFun.add_add. admit. (* singleton disjoint => neq *)
-Admitted.
+      apply RegFun.add_add. ii. subst. eapply REGS.
+      * apply RegSet.add_spec. left. eauto.
+      * apply RegSet.add_spec. left. eauto.
+Qed.
 
 Lemma sim_update_sim_thread:
   sim_update <6= (sim_thread (sim_terminal eq)).
@@ -229,9 +238,9 @@ Proof.
       { exploit Thread.internal_step_future; eauto. s. i. des. auto. }
       i. des. exploit PROMISE; eauto. i. des.
       eexists _, _, _. splits; [|eauto].
-      etransitivity; eauto.
-      etransitivity; [econs 2; eauto|].
-      etransitivity; eauto.
+      etrans; eauto.
+      etrans; [econs 2; eauto|].
+      etrans; eauto.
     + inv SIM. inv STEP; inv STATE.
   - ii. exploit sim_update_step; eauto. i. des.
     + eexists _, _, _, _, _, _. splits; eauto.

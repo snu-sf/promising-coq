@@ -56,7 +56,7 @@ Module Commit <: JoinableType.
     ii. econs; reflexivity.
   Qed.
   Next Obligation.
-    ii. inv H. inv H0. econs; etransitivity; eauto.
+    ii. inv H. inv H0. econs; etrans; eauto.
   Qed.
 
   Definition join (lhs rhs:t): t :=
@@ -216,7 +216,7 @@ Module CommitFacts.
     - rewrite LE. auto.
     - eapply Snapshot.writable_mon; eauto. apply LE.
     - i. rewrite <- RELEASED0; auto. apply Snapshot.incr_writes_mon. apply LE.
-    - etransitivity; eauto. apply LE.
+    - etrans; eauto. apply LE.
   Qed.
 
   Lemma fence_mon1
@@ -226,9 +226,9 @@ Module CommitFacts.
   Proof.
     i. inv PR. econs; auto.
     - rewrite LE. auto.
-    - i. etransitivity; [apply LE|]. apply RELAXED. auto.
-    - i. etransitivity; [apply LE|]. apply ACQUIRE. auto.
-    - i. etransitivity; [apply LE|]. apply RELEASE. auto.
+    - i. etrans; [apply LE|]. apply RELAXED. auto.
+    - i. etrans; [apply LE|]. apply ACQUIRE. auto.
+    - i. etrans; [apply LE|]. apply RELEASE. auto.
   Qed.
 
   Lemma read_mon2
@@ -296,12 +296,12 @@ Module CommitFacts.
     - econs; tac.
       + econs; tac; try reflexivity.
         condtac; tac.
-        * etransitivity; [|apply Snapshot.join_r]. tac.
-        * etransitivity; [|apply Snapshot.join_r]. tac.
+        * etrans; [|apply Snapshot.join_r]. tac.
+        * etrans; [|apply Snapshot.join_r]. tac.
       + condtac; tac.
-        * etransitivity; [|apply Times.join_r].
+        * etrans; [|apply Times.join_r].
           apply Times.incr_ts.
-        * etransitivity; [|apply Times.join_r].
+        * etrans; [|apply Times.join_r].
           apply Times.incr_ts.
       + i. condtac; [|congruence]. tac.
     - econs; tac; try apply WF1.
@@ -413,13 +413,13 @@ Module CommitFacts.
     unfold fence_min. splits.
     - econs; tac.
       + econs; tac; try reflexivity.
-        * etransitivity; [|apply Snapshot.join_r].
+        * etrans; [|apply Snapshot.join_r].
           apply Snapshot.join_r.
         * apply Snapshot.join_r.
-      + etransitivity; [|apply Times.join_r].
-        etransitivity; [|apply Times.join_l].
+      + etrans; [|apply Times.join_r].
+        etrans; [|apply Times.join_l].
         condtac; [|congruence]. reflexivity.
-      + etransitivity; [|apply Snapshot.join_l].
+      + etrans; [|apply Snapshot.join_l].
         condtac; [|congruence]. reflexivity.
       + condtac; [|congruence].
         apply Snapshot.join_l.

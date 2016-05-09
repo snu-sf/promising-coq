@@ -58,7 +58,7 @@ Proof.
       i. des.
       left. eexists. econs 4; s; eauto.
       * econs. econs. apply surjective_pairing.
-      * admit.
+      * reflexivity.
     + hexploit progress_fence_step; eauto. i. des.
       left. eexists. econs 5; s; eauto.
       econs. econs.
@@ -71,7 +71,10 @@ Proof.
   - left. eexists. econs 1; ss.
     + econs.
     + apply progress_silent_step. auto.
-Admitted.
+Grab Existential Variables.
+  { auto. }
+  { apply Snapshot.init. }
+Qed.
 
 
 Lemma reorder_read_read
@@ -177,7 +180,7 @@ Proof.
   exploit Memory.le_get; try apply WF0; eauto. i.
   exploit CommitFacts.write_min_spec; try apply x1; try apply WF0; eauto.
   { eapply Snapshot.writable_mon; try apply COMMIT0; eauto. apply COMMIT. }
-  { etransitivity; [apply COMMIT|]. apply COMMIT0. }
+  { etrans; [apply COMMIT|]. apply COMMIT0. }
   { instantiate (1 := ord2). i. inv COMMIT0.
     rewrite <- RELEASED0; auto. apply Snapshot.incr_writes_mon. apply COMMIT.
   }
@@ -200,7 +203,7 @@ Proof.
       * rewrite READ0. apply CURRENT2.
       * unfold LocFun.add, LocFun.find.
         condtac; committac.
-        etransitivity; [apply RELEASED|apply RELEASED4].
+        etrans; [apply RELEASED|apply RELEASED4].
       * rewrite ACQUIRABLE. auto.
       * rewrite ACQUIRABLE0. auto.
     + erewrite <- reorder_memory_get_fulfill; eauto. apply WF0.
@@ -276,24 +279,24 @@ Proof.
     + rewrite CURRENT0. auto.
     + condtac; committac.
       * econs; committac.
-        { etransitivity; [apply CURRENT0|apply CURRENT1]. }
-        { etransitivity; [apply CURRENT0|apply RELAXED; auto]. }
+        { etrans; [apply CURRENT0|apply CURRENT1]. }
+        { etrans; [apply CURRENT0|apply RELAXED; auto]. }
       * rewrite CURRENT0. auto.
     + rewrite CURRENT0. auto.
     + rewrite READ0. apply CURRENT1.
     + rewrite CURRENT0. auto.
     + econs; committac.
-      * etransitivity; [apply CURRENT0|apply CURRENT1].
-      * etransitivity; [apply CURRENT0|apply RELAXED; auto].
+      * etrans; [apply CURRENT0|apply CURRENT1].
+      * etrans; [apply CURRENT0|apply RELAXED; auto].
     + rewrite CURRENT0. auto.
     + rewrite CURRENT0. auto.
     + rewrite READ0. apply CURRENT1.
     + unfold LocFun.find. committac.
       * rewrite CURRENT0. eauto.
-      * etransitivity; [apply RELEASED|apply RELEASED0].
+      * etrans; [apply RELEASED|apply RELEASED0].
     + unfold LocFun.find. committac.
-      * etransitivity; [apply RELEASED|apply RELEASED0].
-      * etransitivity; [apply RELEASED|apply RELEASED0].
+      * etrans; [apply RELEASED|apply RELEASED0].
+      * etrans; [apply RELEASED|apply RELEASED0].
     + rewrite ACQUIRABLE. auto.
     + rewrite ACQUIRABLE0. auto.
 Qed.
@@ -341,7 +344,7 @@ Proof.
     + unfold LocFun.add, LocFun.find.
       condtac; committac.
       * rewrite RELEASED3. apply RELEASED4.
-      * etransitivity; [apply RELEASED|apply RELEASED4].
+      * etrans; [apply RELEASED|apply RELEASED4].
     + rewrite ACQUIRABLE0. auto.
 Qed.
 
@@ -394,11 +397,11 @@ Proof.
   exploit Memory.le_get; try apply WF0; eauto. i.
   exploit CommitFacts.write_min_spec; try apply x3; try apply WF0; eauto.
   { eapply Snapshot.writable_mon; try apply COMMIT0; eauto. apply COMMIT. }
-  { etransitivity; [apply COMMIT|]. apply COMMIT0. }
+  { etrans; [apply COMMIT|]. apply COMMIT0. }
   { instantiate (1 := ord2). committac.
     - inv COMMIT0. rewrite <- RELEASED0; auto.
-      etransitivity; [apply COMMIT|]. committac.
-    - inv COMMIT0. etransitivity; [|apply RELEASED0; auto].
+      etrans; [apply COMMIT|]. committac.
+    - inv COMMIT0. etrans; [|apply RELEASED0; auto].
       s. apply Times.incr_ts.
   }
   { inv WF0. inv MEMORY1. exploit WF; eauto. }
@@ -426,7 +429,7 @@ Proof.
     + unfold LocFun.add, LocFun.find.
       repeat condtac; committac.
       { rewrite RELEASED4. eauto. }
-      { etransitivity; [apply RELEASED|apply RELEASED8]. }
+      { etrans; [apply RELEASED|apply RELEASED8]. }
     + rewrite ACQUIRABLE. auto.
 Qed.
 
@@ -505,7 +508,7 @@ Proof.
   exploit Memory.le_get; try apply WF0; eauto. i.
   exploit CommitFacts.write_min_spec; try apply x1; try apply WF0; eauto.
   { eapply Snapshot.writable_mon; try apply COMMIT0; eauto. apply COMMIT. }
-  { etransitivity; [apply COMMIT|]. apply COMMIT0. }
+  { etrans; [apply COMMIT|]. apply COMMIT0. }
   { instantiate (1 := ord2). i. inv COMMIT0.
     rewrite <- RELEASED0; auto. apply Snapshot.incr_writes_mon. apply COMMIT.
   }
@@ -525,15 +528,15 @@ Proof.
         { rewrite CURRENT0. auto. }
       * condtac; committac.
         { econs; committac.
-          - etransitivity; [apply CURRENT0|apply CURRENT1].
-          - etransitivity; [apply RELAXED; auto|apply CURRENT1].
+          - etrans; [apply CURRENT0|apply CURRENT1].
+          - etrans; [apply RELAXED; auto|apply CURRENT1].
         }
         { rewrite CURRENT0. auto. }
       * rewrite CURRENT0. auto.
       * unfold LocFun.add, LocFun.find.
         repeat condtac; committac.
-        { etransitivity; [apply RELEASED|apply RELEASED4]. }
-        { etransitivity; [apply RELEASED|apply RELEASED4]. }
+        { etrans; [apply RELEASED|apply RELEASED4]. }
+        { etrans; [apply RELEASED|apply RELEASED4]. }
       * rewrite ACQUIRABLE. auto.
     + i. rewrite ORDW1 in H. inv H.
 Qed.

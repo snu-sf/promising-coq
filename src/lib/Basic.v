@@ -74,3 +74,5 @@ Ltac condtac :=
   | [|- context[if ?c then _ else _]] =>
     destruct c
   end.
+
+Ltac etrans := etransitivity.

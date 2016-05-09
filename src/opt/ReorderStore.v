@@ -39,17 +39,14 @@ Inductive reorder_store l1 v1 o1: forall (i2:Instr.t), Prop :=
 | reorder_store_store
     l2 v2 o2
     (ORD1: Ordering.le o1 Ordering.relaxed)
-    (LOC: l1 <> l2)
-    (REGS: RegSet.disjoint (Instr.regs_of (Instr.store l1 v1 o1))
-                           (Instr.regs_of (Instr.store l2 v2 o2))):
+    (LOC: l1 <> l2):
     reorder_store l1 v1 o1 (Instr.store l2 v2 o2)
 | reorder_store_update
     r2 l2 rmw2 or2 ow2
     (ORD1: Ordering.le o1 Ordering.relaxed)
     (ORDR2: Ordering.le or2 Ordering.relaxed)
     (LOC: l1 <> l2)
-    (REGS: RegSet.disjoint (Instr.regs_of (Instr.store l1 v1 o1))
-                           (Instr.regs_of (Instr.update r2 l2 rmw2 or2 ow2))):
+    (REGS: RegSet.disjoint (Instr.regs_of (Instr.store l1 v1 o1)) (RegSet.singleton r2)):
     reorder_store l1 v1 o1 (Instr.update r2 l2 rmw2 or2 ow2)
 .
 
@@ -103,7 +100,7 @@ Proof.
     + econs 2. econs 3; eauto. econs.
       * econs.
       * s. econs 1. erewrite RegFile.eq_except_value; eauto.
-        { admit. (* RegSet.disjoint symmetry *) }
+        { symmetry. eauto. }
         { apply RegFile.eq_except_singleton. }
         { i. rewrite ORD1 in H. inv H. }
     + eauto.
@@ -141,12 +138,12 @@ Proof.
     + econs 2. econs 3; eauto.
       * econs. econs.
       * s. econs 1. erewrite RegFile.eq_except_value; eauto.
-        { admit. (* RegSet.disjoint symmetry *) }
+        { symmetry. eauto. }
         { apply RegFile.eq_except_singleton. }
         { i. rewrite ORD1 in H. inv H. }
     +  s. eauto.
     + s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
-Admitted.
+Qed.
 
 Lemma sim_store_sim_thread:
   sim_store <6= (sim_thread (sim_terminal eq)).
@@ -173,9 +170,9 @@ Proof.
       { exploit Thread.internal_step_future; eauto. s. i. des. auto. }
       i. des. exploit PROMISE; eauto. i. des.
       eexists _, _, _. splits; [|eauto].
-      etransitivity; eauto.
-      etransitivity; [econs 2; eauto|].
-      etransitivity; eauto.
+      etrans; eauto.
+      etrans; [econs 2; eauto|].
+      etrans; eauto.
     + inv SIM. inv STEP; inv STATE.
   - ii. exploit sim_store_step; eauto. i. des.
     + eexists _, _, _, _, _, _. splits; eauto.

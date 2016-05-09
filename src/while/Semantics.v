@@ -1,3 +1,4 @@
+Require Import RelationClasses.
 Require Import Axioms.
 Require Import List.
 Require Import Event.
@@ -91,14 +92,26 @@ Module RegFile.
   .
 
   Definition eq_except (regs:RegSet.t) (rs_src rs_tgt:RegFile.t): Prop :=
-    forall reg (REG: ~ RegSet.mem reg regs), rs_src reg = rs_tgt reg.
+    forall reg (REG: ~ RegSet.In reg regs), rs_src reg = rs_tgt reg.
+
+  Global Program Instance eq_except_Equivalence regs: Equivalence (eq_except regs).
+  Next Obligation.
+    ii. auto.
+  Qed.
+  Next Obligation.
+    ii. rewrite H; auto.
+  Qed.
+  Next Obligation.
+    ii. rewrite H; auto.
+  Qed.
 
   Lemma eq_except_nil rs_src rs_tgt:
     rs_src = rs_tgt <-> eq_except RegSet.empty rs_src rs_tgt.
   Proof.
     econs; i; subst; auto.
     - econs.
-    - extensionality reg. apply H. auto.
+    - extensionality reg. apply H.
+      ii. eapply RegSet.Facts.empty_iff; eauto.
   Qed.
 
   Lemma eq_except_mon regs1 regs2
@@ -106,8 +119,7 @@ Module RegFile.
     eq_except regs1 <2= eq_except regs2.
   Proof.
     ii. specialize (PR reg). apply PR. contradict REG.
-    apply RegSet.Facts.mem_iff. apply SUB.
-    apply RegSet.Facts.mem_iff. auto.
+    apply SUB. auto.
   Qed.
 
   Lemma eq_except_singleton r v rs:
@@ -115,8 +127,7 @@ Module RegFile.
   Proof.
     ii. unfold RegFun.add, RegFun.find.
     destruct (Reg.eq_dec reg r); auto. subst.
-    contradict REG. rewrite LocSet.Facts.singleton_b.
-    unfold LocSet.Facts.eqb. destruct (Reg.eq_dec r r); congruence.
+    contradict REG. apply RegSet.Facts.singleton_iff. auto.
   Qed.
 
   Lemma eq_except_value
@@ -127,7 +138,6 @@ Module RegFile.
   Proof.
     destruct v; auto. ss. apply RS. ii.
     eapply REGS; eauto.
-    apply RegSet.Facts.mem_iff.
     apply RegSet.Facts.singleton_iff. auto.
   Qed.
 
@@ -141,15 +151,12 @@ Module RegFile.
     - eapply eq_except_value; eauto.
       ii. eapply REGS; eauto.
       destruct a; ss.
-      apply RegSet.Facts.mem_iff in RHS.
-      apply RegSet.Facts.mem_iff.
-      apply RegSet.singleton_spec in RHS. subst.
-      apply RegSet.add_spec. auto.
+      + apply RegSet.singleton_spec in RHS. subst.
+        apply RegSet.add_spec. auto.
+      + inv RHS.
     - apply IHvl.
       ii. eapply REGS; eauto.
       destruct a; ss.
-      apply RegSet.Facts.mem_iff in RHS.
-      apply RegSet.Facts.mem_iff.
       apply RegSet.add_spec. auto.
   Qed.
 
@@ -165,12 +172,8 @@ Module RegFile.
     - erewrite (eq_except_value op1); eauto.
       + erewrite (eq_except_value op2); eauto.
         ii. eapply REGS; eauto.
-        apply RegSet.Facts.mem_iff in RHS.
-        apply RegSet.Facts.mem_iff.
         apply RegSet.union_spec. auto.
       + ii. eapply REGS; eauto.
-        apply RegSet.Facts.mem_iff in RHS.
-        apply RegSet.Facts.mem_iff.
         apply RegSet.union_spec. auto.
   Qed.
 
@@ -183,9 +186,11 @@ Module RegFile.
     destruct rmw; ss.
     - erewrite ? (@eq_except_value rs_src rs_tgt); eauto.
     - erewrite ? (@eq_except_value rs_src rs_tgt); eauto.
-      + admit. (* regset disjoint *)
-      + admit. (* regset disjoint *)
-  Admitted.
+      + ii. eapply REGS; eauto.
+        apply RegSet.union_spec. auto.
+      + ii. eapply REGS; eauto.
+        apply RegSet.union_spec. auto.
+  Qed.
 
   Lemma eq_except_instr
         rs1_src rs1_tgt rs2_tgt regs instr e
@@ -204,8 +209,6 @@ Module RegFile.
       destruct (Reg.eq_dec reg lhs); auto.
       subst. eapply eq_except_expr; eauto.
       ii. eapply REGS; eauto.
-      apply RegSet.Facts.mem_iff in RHS.
-      apply RegSet.Facts.mem_iff.
       apply RegSet.add_spec. auto.
     - eexists. splits; [econs|].
       ii. specialize (RS reg).
@@ -219,8 +222,11 @@ Module RegFile.
     - erewrite <- eq_except_rmw in RMW; eauto.
       + eexists. splits.
         * econs. eauto.
-        * admit. (* eq_except add *)
-      + admit. (* regset disjoint *)
+        * ii. unfold RegFun.add.
+          destruct (RegSet.Facts.eq_dec reg lhs); auto.
+          eapply RS; eauto.
+      + ii. eapply REGS; eauto.
+        apply RegSet.add_spec. auto.
     - eexists. splits; [econs|]. auto.
     - erewrite <- eq_except_value_list; eauto.
       + eexists. splits; [econs|].
@@ -228,10 +234,8 @@ Module RegFile.
         unfold RegFun.add, RegFun.find.
         destruct (Reg.eq_dec reg lhs); auto.
       + ii. eapply REGS; eauto.
-        apply RegSet.Facts.mem_iff in RHS.
-        apply RegSet.Facts.mem_iff.
         apply RegSet.add_spec. auto.
-  Admitted.
+  Qed.
 End RegFile.
 
 Module State.

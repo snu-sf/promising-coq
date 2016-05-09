@@ -232,7 +232,7 @@ Module DenseOrderFacts.
     DenseOrder.lt a c.
   Proof.
     apply DenseOrder.le_lteq in BC. des; subst; auto.
-    etransitivity; eauto.
+    etrans; eauto.
   Qed.
 
   Lemma le_lt_lt a b c
@@ -241,7 +241,7 @@ Module DenseOrderFacts.
     DenseOrder.lt a c.
   Proof.
     apply DenseOrder.le_lteq in AB. des; subst; auto.
-    etransitivity; eauto.
+    etrans; eauto.
   Qed.
 
   Lemma le_lt_dec (lhs rhs:DenseOrder.t): {DenseOrder.le lhs rhs} + {DenseOrder.lt rhs lhs}.

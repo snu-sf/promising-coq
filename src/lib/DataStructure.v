@@ -174,9 +174,25 @@ Module UsualSet (S: UsualOrderedType).
 
   Definition disjoint (lhs rhs:t): Prop :=
     forall s
-      (LHS: mem s lhs)
-      (RHS: mem s rhs),
+      (LHS: In s lhs)
+      (RHS: In s rhs),
       False.
+
+  Global Program Instance disjoint_Symmetric: Symmetric disjoint.
+  Next Obligation.
+    ii. eapply H; eauto.
+  Qed.
+
+  Lemma disjoint_add a lhs rhs:
+    disjoint (add a lhs) rhs <-> ~ In a rhs /\ disjoint lhs rhs.
+  Proof.
+    econs; i.
+    - splits; ii; eapply H; eauto.
+      + apply add_spec. auto.
+      + apply add_spec. auto.
+    - ii. apply add_spec in LHS. des; subst; auto. 
+      eapply H0; eauto.
+  Qed.
 
   Lemma ext lhs rhs
         (EXT: forall i, mem i lhs = mem i rhs):

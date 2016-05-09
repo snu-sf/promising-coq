@@ -27,7 +27,7 @@ Inductive sim_memory (mem_src mem_tgt:Memory.t): Prop :=
 
 Program Instance sim_memory_PreOrder: PreOrder sim_memory.
 Next Obligation. ii. econs. reflexivity. Qed.
-Next Obligation. ii. inv H. inv H0. econs. etransitivity; eauto. Qed.
+Next Obligation. ii. inv H. inv H0. econs. etrans; eauto. Qed.
 
 Lemma sim_memory_get
       mem_src mem_tgt
