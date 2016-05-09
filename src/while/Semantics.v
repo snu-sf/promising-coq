@@ -246,28 +246,25 @@ Module State.
   Definition is_terminal (s:t): Prop :=
     stmts s = nil.
 
-  Inductive step: forall (s1:t) (e:option ThreadEvent.t) (s1:t), Prop :=
+  Inductive step: forall (e:option ThreadEvent.t) (s1:t) (s1:t), Prop :=
   | step_instr
       rf1 i e rf2 stmts
       (INSTR: RegFile.eval_instr rf1 i e rf2):
-      step
-        (mk rf1 ((Stmt.instr i)::stmts))
-        e
-        (mk rf2 stmts)
+      step e
+           (mk rf1 ((Stmt.instr i)::stmts))
+           (mk rf2 stmts)
   | step_ite
       rf cond s1 s2 stmts:
-      step
-        (mk rf ((Stmt.ite cond s1 s2)::stmts))
-        None
-        (mk rf ((if RegFile.eval_expr rf cond
-                 then s1
-                 else s2) ++ stmts))
+      step None
+           (mk rf ((Stmt.ite cond s1 s2)::stmts))
+           (mk rf ((if RegFile.eval_expr rf cond
+                    then s1
+                    else s2) ++ stmts))
   | step_dowhile
       rf s cond stmts:
-      step
-        (mk rf ((Stmt.dowhile s cond)::stmts))
-        None
-        (mk rf (s ++ (Stmt.ite cond ((Stmt.dowhile s cond)::nil) nil) :: stmts))
+      step None
+           (mk rf ((Stmt.dowhile s cond)::stmts))
+           (mk rf (s ++ (Stmt.ite cond ((Stmt.dowhile s cond)::nil) nil) :: stmts))
   .
 End State.
 

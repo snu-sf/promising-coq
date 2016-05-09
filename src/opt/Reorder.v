@@ -58,20 +58,19 @@ Lemma reorder_sim_stmts
 Proof.
   pcofix CIH. ii. subst. pfold. ii. splits.
   { i. inv TERMINAL_TGT. }
-  { admit. }
+  { i. eapply sim_local_future; try apply MEMORY; eauto. apply LOCAL. }
   { i. eexists _, _, _. splits; eauto.
     inv LOCAL. apply MemInv.sem_bot_inv in PROMISE. rewrite PROMISE. auto.
   }
-  i. inv STEP_TGT; [|by inv STEP; inv STATE; inv INSTR; inv REORDER].
-  inv STEP; try (inv STATE; inv INSTR; inv REORDER); ss.
+  ii. inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR; inv REORDER); ss.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
     eexists _, _, _, _, _, _. splits; eauto.
-    econs. econs 1; eauto.
+    econs 1. econs; eauto.
   - (* load *)
     exploit sim_local_read; eauto. i. des.
     eexists _, _, _, _, _, _. splits; eauto.
-    + econs. econs 2; ss.
+    + econs 2. econs 1; ss.
       * econs. econs.
       * apply progress_silent_step. auto.
     + left. eapply paco7_mon; [apply sim_load_sim_thread|]; ss.
@@ -80,16 +79,16 @@ Proof.
     exploit sim_local_write; eauto. i. des.
     inv STEP_SRC.
     + eexists _, _, _, _, _, _. splits; eauto.
-      * econs. econs 2; ss.
+      * econs 2. econs 1; ss.
         { econs. econs. }
         { apply progress_silent_step. auto. }
       * left. eapply paco7_mon; [apply sim_store_sim_thread|]; ss.
         econs; eauto.
     + eexists _, _, _, _, _, _. splits.
-      * econs 2; [|econs 1]. econs 2; ss.
+      * econs 2; [|econs 1]. econs 2. econs 1; ss.
         { econs. econs. }
         { apply progress_silent_step. auto. }
-      * econs. econs 1; eauto.
+      * econs. econs; eauto.
       * eauto.
       * left. eapply paco7_mon; [apply sim_store_sim_thread|]; ss.
         econs; eauto.
@@ -101,26 +100,26 @@ Proof.
     i. des.
     inv STEP_SRC0.
     + eexists _, _, _, _, _, _. splits; eauto.
-      * econs. econs 2; ss.
+      * econs 2. econs 1; ss.
         { econs. econs. }
         { apply progress_silent_step. auto. }
       * left. eapply paco7_mon; [apply sim_update_sim_thread|]; ss.
         econs; eauto.
     + exploit reorder_read_promise; try apply STEP_SRC; try apply x0; eauto. i. des.
       eexists _, _, _, _, _, _. splits.
-      * econs 2; [|econs 1]. econs 2; ss.
+      * econs 2; [|econs 1]. econs 2. econs 1; ss.
         { econs. econs. }
         { apply progress_silent_step. auto. }
-      * econs. econs 1; eauto.
+      * econs 1. econs; eauto.
       * eauto.
       * left. eapply paco7_mon; [apply sim_update_sim_thread|]; ss.
         econs; eauto.
   - (* fence *)
     exploit sim_local_fence; eauto. i. des.
     eexists _, _, _, _, _, _. splits; eauto.
-    + econs. econs 2; ss.
+    + econs 2. econs 1; ss.
         { econs. econs. }
         { apply progress_silent_step. auto. }
     + left. eapply paco7_mon; [apply sim_fence_sim_thread|]; ss.
       econs; eauto.
-Admitted.
+Qed.

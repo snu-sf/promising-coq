@@ -17,6 +17,20 @@ Require Import Thread.
 Set Implicit Arguments.
 
 
+Lemma internal_step_promise
+      lang
+      st1 th1 mem1 st2 th2 mem2
+      (STEP: Thread.internal_step (Thread.mk lang st1 th1 mem1) (Thread.mk lang st2 th2 mem2))
+      (PROMISE: th1.(Local.promise) = Memory.bot):
+  th2.(Local.promise) = Memory.bot.
+Proof.
+  inv STEP; try inv LOCAL; ss.
+  - admit.
+  - admit.
+  - admit.
+Admitted.
+
+
 Inductive max_timestamp (loc:Loc.t) (ts:Time.t) (mem:Memory.t): Prop :=
 | max_timestamp_intro
     msg

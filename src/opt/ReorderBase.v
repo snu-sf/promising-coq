@@ -18,12 +18,60 @@ Require Import Configuration.
 Require Import Simulation.
 Require Import Compatibility.
 Require Import MemInv.
+Require Import Progress.
 Require Import ReorderMemory.
 
 Require Import Syntax.
 Require Import Semantics.
 
 Set Implicit Arguments.
+
+
+Lemma progress_step
+      rs1 i1 s1 lc1 mem1
+      (WF1: Local.wf lc1 mem1)
+      (PROMISE1: lc1.(Local.promise) = Memory.bot):
+  (exists th2, <<STEP: Thread.internal_step (Thread.mk lang (State.mk rs1 (i1::s1)) lc1 mem1) th2>>) \/
+  (exists e th2, <<STEP: Thread.external_step e (Thread.mk lang (State.mk rs1 (i1::s1)) lc1 mem1) th2>>).
+Proof.
+  destruct i1.
+  - destruct i.
+    + hexploit progress_silent_step; eauto. i.
+      left. eexists. econs 1; s; eauto.
+      econs. econs.
+    + hexploit progress_silent_step; eauto. i.
+      left. eexists. econs 1; s; eauto.
+      econs. econs.
+    + hexploit exists_max_timestamp; try apply WF1; eauto. i. des.
+      hexploit progress_read_step; eauto. i. des.
+      left. eexists. econs 2; s; eauto.
+      econs. econs.
+    + hexploit exists_max_timestamp; try apply WF1; eauto. i. des.
+      hexploit progress_write_step; try apply Time.incr_spec; eauto. i. des.
+      left. eexists. econs 3; s; eauto.
+      econs. econs.
+    + hexploit exists_max_timestamp; try apply WF1; eauto. i. des.
+      hexploit progress_read_step; eauto. i. des.
+      exploit Local.read_step_future; eauto. i.
+      hexploit progress_write_step; try apply Time.incr_spec; eauto.
+      { inv H0. auto. }
+      i. des.
+      left. eexists. econs 4; s; eauto.
+      * econs. econs. apply surjective_pairing.
+      * admit.
+    + hexploit progress_fence_step; eauto. i. des.
+      left. eexists. econs 5; s; eauto.
+      econs. econs.
+    + hexploit progress_silent_step; eauto. i.
+      right. eexists _, _. econs; s; eauto.
+      econs. econs.
+  - left. eexists. econs 1; ss.
+    + econs.
+    + apply progress_silent_step. auto.
+  - left. eexists. econs 1; ss.
+    + econs.
+    + apply progress_silent_step. auto.
+Admitted.
 
 
 Lemma reorder_read_read
