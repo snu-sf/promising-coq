@@ -22,21 +22,32 @@ Module Const := Nat.
 
 
 Module Ordering.
-  (* TODO: support the unordered/monotonic atomics (#46) *)
   (* TODO: support the SC atomics (#40) *)
   Inductive t :=
+  | unordered
   | relaxed
   | acqrel
-  | sc
+  | seqcst
   .
 
   Inductive le: forall (lhs rhs:t), Prop :=
-  | le_relaxed_o o:
-      le relaxed o
-  | le_o_sc o:
-      le o sc
+  | le_unordered_o o:
+      le unordered o
+
+  | le_relaxed_relaxed:
+      le relaxed relaxed
+  | le_relaxed_acqrel:
+      le relaxed acqrel
+  | le_relaxed_seqcst:
+      le relaxed seqcst
+
   | le_acqrel_acqrel:
       le acqrel acqrel
+  | le_acqrel_seqcst:
+      le acqrel seqcst
+
+  | le_seqcst_seqcst:
+      le seqcst seqcst
   .
 
   Global Program Instance le_PreOrder: PreOrder le.

@@ -130,9 +130,10 @@ Module SyntaxNotations.
   Notation "'%r' var" := (Reg.of_string var) (at level 41).
   Notation "'%l' var" := (Loc.of_string var) (at level 41).
 
+  Notation "'uno'" := (Ordering.unordered) (at level 41).
   Notation "'rlx'" := (Ordering.relaxed) (at level 41).
   Notation "'ar'" := (Ordering.acqrel) (at level 41).
-  Notation "'sc'" := (Ordering.sc) (at level 41).
+  Notation "'sc'" := (Ordering.seqcst) (at level 41).
 
   Notation "'NOT' e" := (Instr.expr_op1 Op1.not e) (at level 41).
   Notation "e1 'ADD' e2" := (Instr.expr_op2 Op2.add e1 e2) (at level 41).

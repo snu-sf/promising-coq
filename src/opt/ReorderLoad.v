@@ -36,7 +36,7 @@ Inductive reorder_load r1 l1 o1: forall (i2:Instr.t), Prop :=
     reorder_load r1 l1 o1 (Instr.load r2 l2 o2)
 | reorder_load_store
     l2 v2 o2
-    (ORD: Ordering.le Ordering.sc o1 -> Ordering.le Ordering.sc o2 -> False)
+    (ORD: Ordering.le Ordering.seqcst o1 -> Ordering.le Ordering.seqcst o2 -> False)
     (LOC: l1 <> l2)
     (REGS: RegSet.disjoint (Instr.regs_of (Instr.load r1 l1 o1))
                            (Instr.regs_of (Instr.store l2 v2 o2))):
@@ -44,7 +44,7 @@ Inductive reorder_load r1 l1 o1: forall (i2:Instr.t), Prop :=
 | reorder_load_update
     r2 l2 rmw2 or2 ow2
     (ORDR2: Ordering.le or2 Ordering.relaxed)
-    (ORDW2: Ordering.le Ordering.sc o1 -> Ordering.le Ordering.sc ow2 -> False)
+    (ORDW2: Ordering.le Ordering.seqcst o1 -> Ordering.le Ordering.seqcst ow2 -> False)
     (LOC: l1 <> l2)
     (REGS: RegSet.disjoint (Instr.regs_of (Instr.load r1 l1 o1))
                            (Instr.regs_of (Instr.update r2 l2 rmw2 or2 ow2))):

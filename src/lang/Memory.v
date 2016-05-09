@@ -163,9 +163,9 @@ Module Snapshot <: JoinableType.
     econs; apply Times.join_spec; eauto.
   Qed.
 
-  Inductive readable (history:t) (loc:Loc.t) (ts:Time.t): Prop :=
+  Inductive readable (history:t) (loc:Loc.t) (ts:Time.t) (ord:Ordering.t): Prop :=
   | readable_intro
-      (* (CoRR: Time.le (Times.get loc history.(Snapshot.reads)) ts) *)
+      (CoRR: Ordering.le Ordering.relaxed ord -> Time.le (Times.get loc history.(Snapshot.reads)) ts)
       (CoWR: Time.le (Times.get loc history.(Snapshot.writes)) ts)
   .
 
@@ -178,9 +178,11 @@ Module Snapshot <: JoinableType.
   Lemma readable_mon
         history1 history2
         (LE: le history1 history2):
-    readable history2 <2= readable history1.
+    readable history2 <3= readable history1.
   Proof.
-    i. inv PR. inv LE. econs. rewrite <- CoWR. eauto.
+    i. inv PR. inv LE. econs.
+    - i. rewrite <- CoRR; eauto.
+    - rewrite <- CoWR. eauto.
   Qed.
 
   Lemma writable_mon
@@ -202,9 +204,11 @@ Module Snapshot <: JoinableType.
   Lemma le_on_readable
         loc lhs rhs
         (LE: le_on loc lhs rhs):
-    readable rhs loc <1= readable lhs loc.
+    readable rhs loc <2= readable lhs loc.
   Proof.
-    i. inv LE. inv PR. econs. etransitivity; eauto.
+    i. inv LE. inv PR. econs.
+    - etransitivity; eauto.
+    - etransitivity; eauto.
   Qed.
 
   Lemma le_on_writable

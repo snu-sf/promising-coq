@@ -112,10 +112,9 @@ Module Commit <: JoinableType.
             (commit2:t): Prop :=
   | read_intro
       (MONOTONE: le commit1 commit2)
-      (READABLE: Snapshot.readable commit1.(current) loc ts)
+      (READABLE: Snapshot.readable commit1.(current) loc ts ord)
       (READ: Time.le ts (Times.get loc commit2.(current).(Snapshot.reads)))
-      (ACQUIRE: forall (ORDERING: Ordering.le Ordering.acqrel ord),
-          Snapshot.le released commit2.(current))
+      (ACQUIRE: Ordering.le Ordering.acqrel ord -> Snapshot.le released commit2.(current))
       (ACQUIRABLE: Snapshot.le released commit2.(acquirable))
   .
 
@@ -132,15 +131,14 @@ Module Commit <: JoinableType.
       (RELEASED2: Snapshot.le released (LocFun.find loc commit2.(Commit.released)))
   .
 
+  (* TODO: the semantics of relaxed fences? (#46) *)
   Inductive fence
             (commit1:t) (ordr ordw:Ordering.t)
             (commit2:t): Prop :=
   | fence_intro
       (MONOTONE: le commit1 commit2)
-      (ACQUIRE: forall (ORDERING: Ordering.le Ordering.acqrel ordr),
-          Snapshot.le commit1.(acquirable) commit2.(current))
-      (RELEASE: forall (ORDERING: Ordering.le Ordering.acqrel ordw) loc,
-          Snapshot.le commit1.(current) (LocFun.find loc commit2.(released)))
+      (ACQUIRE: Ordering.le Ordering.acqrel ordr -> Snapshot.le commit1.(acquirable) commit2.(current))
+      (RELEASE: Ordering.le Ordering.acqrel ordw -> forall loc, Snapshot.le commit1.(current) (LocFun.find loc commit2.(released)))
   .
 End Commit.
 
@@ -179,12 +177,6 @@ Module CommitFacts.
            | [|- Snapshot.le _ (if _ then _ else _)] =>
              apply le_join_if2
            end; subst; ss; i).
-
-  Ltac condtac :=
-    match goal with
-    | [|- context[if ?c then _ else _]] =>
-      destruct c
-    end.
 
   Lemma wf_get
         loc commit1 mem
@@ -280,7 +272,7 @@ Module CommitFacts.
 
   Lemma read_min_spec
         loc ts val released ord commit mem
-        (READABLE: Snapshot.readable (Commit.current commit) loc ts)
+        (READABLE: Snapshot.readable (Commit.current commit) loc ts ord)
         (MEMORY: Memory.wf mem)
         (WF1: Commit.wf commit mem)
         (WF2: Memory.get loc ts mem = Some (Message.mk val released)):

@@ -105,7 +105,7 @@ Proof.
     destruct (Ordering.le_dec Ordering.acqrel ord2).
     { rewrite ORD2 in l. inv l. }
     econs; committac.
-    + CommitFacts.condtac; committac.
+    + condtac; committac.
       * rewrite ACQUIRE; auto.
       * rewrite CURRENT1. auto.
       * rewrite READ1. apply CURRENT2.
@@ -162,7 +162,7 @@ Lemma reorder_read_fulfill
       th1
       th2
       (LOC: loc1 <> loc2)
-      (ORD: Ordering.le Ordering.sc ord2 -> Ordering.le Ordering.sc ord1 -> False)
+      (ORD: Ordering.le Ordering.seqcst ord2 -> Ordering.le Ordering.seqcst ord1 -> False)
       (WF0: Local.wf th0 mem0)
       (STEP1: Local.read_step th0 mem0 loc1 ts1 val1 released1 ord1 th1)
       (STEP2: Local.fulfill_step th1 mem0 loc2 from2 to2 val2 released2 ord2 th2):
@@ -190,14 +190,14 @@ Proof.
   - destruct th0. ss. econs; try eapply CommitFacts.read_mon2; eauto.
     + inv COMMIT. inv COMMIT0. inv MONOTONE. inv MONOTONE0.
       unfold CommitFacts.read_min, CommitFacts.write_min. ss.
-      econs; committac; try CommitFacts.condtac; committac.
+      econs; committac; try condtac; committac.
       * rewrite ACQUIRE; auto.
       * rewrite CURRENT1. auto.
       * rewrite READ0. apply CURRENT2.
       * rewrite CURRENT1. auto.
       * rewrite READ0. apply CURRENT2.
       * unfold LocFun.add, LocFun.find.
-        CommitFacts.condtac; committac.
+        condtac; committac.
         etransitivity; [apply RELEASED|apply RELEASED4].
       * rewrite ACQUIRABLE. auto.
       * rewrite ACQUIRABLE0. auto.
@@ -211,7 +211,7 @@ Lemma reorder_read_write
       th1 mem1
       th2
       (LOC: loc1 <> loc2)
-      (ORD: Ordering.le Ordering.sc ord2 -> Ordering.le Ordering.sc ord1 -> False)
+      (ORD: Ordering.le Ordering.seqcst ord2 -> Ordering.le Ordering.seqcst ord1 -> False)
       (WF0: Local.wf th0 mem0)
       (STEP1: Local.read_step th0 mem0 loc1 ts1 val1 released1 ord1 th1)
       (STEP2: Local.write_step th1 mem0 loc2 from2 to2 val2 released2 ord2 th2 mem1):
@@ -251,11 +251,7 @@ Proof.
   { clear ORDR2'. rewrite ORDR2 in l. inv l. }
   exploit CommitFacts.fence_min_spec; try apply WF0; eauto. i. des.
   exploit CommitFacts.read_min_spec; try apply WF; try apply GET; eauto.
-  { instantiate (1 := ordw2). instantiate (1 := ordr2).
-    unfold CommitFacts.fence_min.
-    rewrite ORDR2'. committac.
-    apply COMMIT.
-  }
+  { unfold CommitFacts.fence_min. rewrite ORDR2'. committac. apply COMMIT. }
   { apply WF0. }
   i. des.
   eexists. splits.
@@ -264,7 +260,7 @@ Proof.
     inv COMMIT. inv COMMIT0. inv MONOTONE. inv MONOTONE0.
     unfold CommitFacts.read_min, CommitFacts.fence_min.
     rewrite ORDR2'. committac.
-    econs; committac; try CommitFacts.condtac; committac.
+    econs; committac; try condtac; committac.
     + rewrite ACQUIRE; auto.
     + rewrite CURRENT0. auto.
     + rewrite READ0. apply CURRENT1.
@@ -313,13 +309,13 @@ Proof.
   - destruct th0. s. econs; try eapply CommitFacts.write_mon2; eauto.
     inv COMMIT. inv COMMIT0. inv MONOTONE. inv MONOTONE0.
     unfold CommitFacts.write_min, CommitFacts.read_min.
-    CommitFacts.condtac; committac.
+    condtac; committac.
     { rewrite ORD2 in l. inv l. }
     econs; committac.
     + rewrite CURRENT1. auto.
     + rewrite WRITE0. apply CURRENT2.
     + unfold LocFun.add, LocFun.find.
-      CommitFacts.condtac; committac.
+      condtac; committac.
       * rewrite RELEASED3. apply RELEASED4.
       * etransitivity; [apply RELEASED|apply RELEASED4].
     + rewrite ACQUIRABLE0. auto.
@@ -390,7 +386,7 @@ Proof.
   exploit CommitFacts.write_min_spec; try apply x5; eauto.
   { eapply Snapshot.le_on_writable; eauto. apply COMMIT. }
   { committac. unfold LocFun.add, LocFun.find.
-    CommitFacts.condtac; [congruence|]. apply COMMIT.
+    condtac; [congruence|]. apply COMMIT.
   }
   { instantiate (1 := ord1). i. rewrite ORD1 in H. inv H. }
   { apply WF0. }
@@ -404,7 +400,7 @@ Proof.
     + rewrite CURRENT1. auto.
     + rewrite WRITE1. apply CURRENT2.
     + unfold LocFun.add, LocFun.find.
-      repeat CommitFacts.condtac; committac.
+      repeat condtac; committac.
       { rewrite RELEASED4. eauto. }
       { etransitivity; [apply RELEASED|apply RELEASED8]. }
     + rewrite ACQUIRABLE. auto.
@@ -500,13 +496,13 @@ Proof.
     + inv COMMIT. inv COMMIT0. inv MONOTONE. inv MONOTONE0.
       unfold CommitFacts.fence_min, CommitFacts.write_min.
       committac. econs; committac.
-      * CommitFacts.condtac; committac.
+      * condtac; committac.
         { rewrite ACQUIRE; auto. }
         { rewrite CURRENT0. auto. }
         { rewrite CURRENT0. auto. }
       * unfold LocFun.add, LocFun.find.
-        CommitFacts.condtac; committac.
-        CommitFacts.condtac; committac.
+        condtac; committac.
+        condtac; committac.
         etransitivity; [apply RELEASED|apply RELEASED4].
       * rewrite ACQUIRABLE. auto.
     + i. rewrite ORDW1 in H. inv H.

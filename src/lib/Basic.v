@@ -68,3 +68,9 @@ Lemma fapp A (B:A->Type) (a:A) (P Q:forall (a:A), B a)
       (EQ: P = Q):
   P a = Q a.
 Proof. rewrite EQ. auto. Qed.
+
+Ltac condtac :=
+  match goal with
+  | [|- context[if ?c then _ else _]] =>
+    destruct c
+  end.

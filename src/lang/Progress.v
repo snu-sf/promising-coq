@@ -93,7 +93,7 @@ Proof.
     admit. (* readable *)
   - (* TODO: redundant proof? *)
     unfold CommitFacts.read_min. econs; committac.
-    + CommitFacts.condtac; committac.
+    + condtac; committac.
       * apply Memory.wf_snapshot_join.
         { inv WF1. inv MEMORY. exploit WF; eauto. }
         { eapply Memory.wf_incr_reads; eauto. apply WF1. }
