@@ -92,16 +92,10 @@ Proof.
   - eapply CommitFacts.read_min_spec; try apply WF1; eauto.
     admit. (* readable *)
   - (* TODO: redundant proof? *)
-    unfold CommitFacts.read_min. econs; committac.
-    + condtac; committac.
-      * apply Memory.wf_snapshot_join.
-        { inv WF1. inv MEMORY. exploit WF; eauto. }
-        { eapply Memory.wf_incr_reads; eauto. apply WF1. }
-      * eapply Memory.wf_incr_reads; eauto. apply WF1.
-    + apply WF1.
-    + apply Memory.wf_snapshot_join.
-      * inv WF1. inv MEMORY. exploit WF; eauto.
-      * apply WF1.
+    unfold CommitFacts.read_min. econs; committac; try apply WF1.
+    + condtac; committac; try apply WF1.
+      inv WF1. inv MEMORY. exploit WF; eauto.
+    + inv WF1. inv MEMORY. exploit WF; eauto.
   - rewrite PROMISE1. auto.
 Admitted.
 

@@ -131,12 +131,12 @@ Module Commit <: JoinableType.
       (RELEASED2: Snapshot.le released (LocFun.find loc commit2.(Commit.released)))
   .
 
-  (* TODO: the semantics of relaxed fences? (#46) *)
   Inductive fence
             (commit1:t) (ordr ordw:Ordering.t)
             (commit2:t): Prop :=
   | fence_intro
       (MONOTONE: le commit1 commit2)
+      (RELAXED: Ordering.le Ordering.relaxed ordw -> Times.le commit1.(current).(Snapshot.reads) commit2.(current).(Snapshot.writes))
       (ACQUIRE: Ordering.le Ordering.acqrel ordr -> Snapshot.le commit1.(acquirable) commit2.(current))
       (RELEASE: Ordering.le Ordering.acqrel ordw -> forall loc, Snapshot.le commit1.(current) (LocFun.find loc commit2.(released)))
   .
@@ -176,6 +176,16 @@ Module CommitFacts.
              apply Snapshot.le_join_if
            | [|- Snapshot.le _ (if _ then _ else _)] =>
              apply le_join_if2
+
+            | [|- Memory.wf_snapshot (Snapshot.incr_reads _ _ _) _] =>
+              eapply Memory.wf_incr_reads; eauto
+            | [|- Memory.wf_snapshot (Snapshot.incr_writes _ _ _) _] =>
+              eapply Memory.wf_incr_writes; eauto
+            | [|- Memory.wf_snapshot (Snapshot.join _ _) _] =>
+              eapply Memory.wf_snapshot_join; eauto
+
+            | [|- Time.le (Times.join _ _ _) _] =>
+              apply Time.join_spec
            end; subst; ss; i).
 
   Lemma wf_get
@@ -216,6 +226,7 @@ Module CommitFacts.
   Proof.
     i. inv PR. econs; auto.
     - rewrite LE. auto.
+    - i. etransitivity; [apply LE|]. apply RELAXED. auto.
     - i. etransitivity; [apply LE|]. apply ACQUIRE. auto.
     - i. etransitivity; [apply LE|]. apply RELEASE. auto.
   Qed.
@@ -256,17 +267,18 @@ Module CommitFacts.
   Proof.
     inv FENCE. econs; auto.
     - rewrite MONOTONE. auto.
+    - i. rewrite RELAXED; auto. apply LE.
     - i. rewrite ACQUIRE; auto. apply LE.
     - i. rewrite RELEASE; auto. apply LE.
   Qed.
 
   Definition read_min
              loc ts released ord commit: Commit.t :=
-    (Commit.mk (if Ordering.le_dec Ordering.acqrel ord
-                then Snapshot.join
-                       released
-                       (Snapshot.incr_reads loc ts commit.(Commit.current))
-                else Snapshot.incr_reads loc ts commit.(Commit.current))
+    (Commit.mk (Snapshot.join
+                  (if Ordering.le_dec Ordering.acqrel ord
+                   then released
+                   else (Snapshot.incr_reads loc ts commit.(Commit.current)))
+                  (Snapshot.incr_reads loc ts commit.(Commit.current)))
                commit.(Commit.released)
                (Snapshot.join released commit.(Commit.acquirable))).
 
@@ -283,28 +295,24 @@ Module CommitFacts.
     unfold read_min. splits; tac.
     - econs; tac.
       + econs; tac; try reflexivity.
-        condtac; tac. etransitivity; [|apply Snapshot.join_r]. tac.
+        condtac; tac.
+        * etransitivity; [|apply Snapshot.join_r]. tac.
+        * etransitivity; [|apply Snapshot.join_r]. tac.
       + condtac; tac.
         * etransitivity; [|apply Times.join_r].
           apply Times.incr_ts.
-        * apply Times.incr_ts.
+        * etransitivity; [|apply Times.join_r].
+          apply Times.incr_ts.
       + i. condtac; [|congruence]. tac.
-    - econs.
-      + condtac.
-        * apply Memory.wf_snapshot_join.
-          { inv MEMORY. exploit WF; eauto. }
-          { eapply Memory.wf_incr_reads; eauto. apply WF1. }
-        * eapply Memory.wf_incr_reads; eauto. apply WF1.
-      + s. apply WF1.
-      + s. apply Memory.wf_snapshot_join.
-        { inv MEMORY. exploit WF; eauto. }
-        { apply WF1. }
-    - condtac.
+    - econs; tac; try apply WF1.
+      + condtac; tac; try apply WF1.
+        inv MEMORY. exploit WF; eauto.
+      + inv MEMORY. exploit WF; eauto.
+    - condtac; tac.
       { rewrite H in l. inv l. }
       econs; tac; try reflexivity.
-      unfold Times.incr, LocFun.add, LocFun.find.
-      condtac; [congruence|].
-      reflexivity.
+      + unfold Times.incr, LocFun.add, LocFun.find. condtac; [congruence|]. reflexivity.
+      + unfold Times.incr, LocFun.add, LocFun.find. condtac; [congruence|]. reflexivity.
   Qed.
 
   Lemma read_min_min
@@ -313,9 +321,8 @@ Module CommitFacts.
     Commit.le (read_min loc ts released ord commit1) commit2.
   Proof.
     inv COMMIT2. unfold read_min. econs; tac.
-    - condtac; tac; auto.
-      + apply MONOTONE.
-      + apply MONOTONE.
+    - condtac; tac; auto. apply MONOTONE.
+    - apply MONOTONE.
     - apply MONOTONE.
     - apply MONOTONE.
   Qed.
@@ -378,13 +385,22 @@ Module CommitFacts.
 
   Definition fence_min
              ordr ordw commit: Commit.t :=
-    (Commit.mk (if Ordering.le_dec Ordering.acqrel ordr
-                then Snapshot.join commit.(Commit.acquirable) commit.(Commit.current)
-                else commit.(Commit.current))
+    (Commit.mk (Snapshot.join
+                  (if Ordering.le_dec Ordering.acqrel ordr
+                   then commit.(Commit.acquirable)
+                   else commit.(Commit.current))
+                  (Snapshot.join
+                     (if Ordering.le_dec Ordering.relaxed ordw
+                      then Snapshot.mk commit.(Commit.current).(Snapshot.reads)
+                                       commit.(Commit.current).(Snapshot.reads)
+                      else commit.(Commit.current))
+                     commit.(Commit.current)))
                (fun loc =>
-                  if Ordering.le_dec Ordering.acqrel ordw
-                  then Snapshot.join commit.(Commit.current) (commit.(Commit.released) loc)
-                  else commit.(Commit.released) loc)
+                  Snapshot.join
+                    (if Ordering.le_dec Ordering.acqrel ordw
+                     then commit.(Commit.current)
+                     else commit.(Commit.released) loc)
+                    (commit.(Commit.released) loc))
                commit.(Commit.acquirable)).
 
   Lemma fence_min_spec
@@ -396,18 +412,23 @@ Module CommitFacts.
   Proof.
     unfold fence_min. splits.
     - econs; tac.
-      + econs; tac.
-        * condtac; tac. reflexivity.
-        * unfold LocFun.find. condtac; tac. reflexivity.
-        * reflexivity.
-      + condtac; tac.
-      + unfold LocFun.find. condtac; tac.
+      + econs; tac; try reflexivity.
+        * etransitivity; [|apply Snapshot.join_r].
+          apply Snapshot.join_r.
+        * apply Snapshot.join_r.
+      + etransitivity; [|apply Times.join_r].
+        etransitivity; [|apply Times.join_l].
+        condtac; [|congruence]. reflexivity.
+      + etransitivity; [|apply Snapshot.join_l].
+        condtac; [|congruence]. reflexivity.
+      + condtac; [|congruence].
+        apply Snapshot.join_l.
     - econs; tac; try apply WF1.
       + condtac; try apply WF1.
-        apply Memory.wf_snapshot_join; apply WF1.
       + condtac; try apply WF1.
-        apply Memory.wf_snapshot_join; apply WF1.
-  Qed.  
+        inv WF1. inv CURRENT. econs; eauto.
+      + condtac; try apply WF1.
+  Qed.
 
   Lemma fence_min_min
         ordr ordw commit1 commit2
@@ -415,12 +436,14 @@ Module CommitFacts.
     Commit.le (fence_min ordr ordw commit1) commit2.
   Proof.
     inv COMMIT2. unfold fence_min. econs; tac.
-    - condtac; tac; auto.
+    - condtac; tac; auto. apply MONOTONE.
+    - condtac; tac.
+      + econs; eauto. s. apply MONOTONE.
       + apply MONOTONE.
-      + apply MONOTONE.
-    - unfold LocFun.find. condtac; tac; eauto.
-      + apply MONOTONE.
-      + apply MONOTONE.
+    - apply MONOTONE.
+    - condtac; tac.
+      + apply Snapshot.join_spec; eauto. apply MONOTONE.
+      + apply Snapshot.join_spec; eauto. apply MONOTONE. apply MONOTONE.
     - apply MONOTONE.
   Qed.
 End CommitFacts.

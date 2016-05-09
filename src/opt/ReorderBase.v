@@ -108,9 +108,11 @@ Proof.
     + condtac; committac.
       * rewrite ACQUIRE; auto.
       * rewrite CURRENT1. auto.
-      * rewrite READ1. apply CURRENT2.
       * rewrite CURRENT1. auto.
       * rewrite READ1. apply CURRENT2.
+    + rewrite CURRENT1. auto.
+    + rewrite CURRENT1. auto.
+    + rewrite READ1. apply CURRENT2.
     + rewrite RELEASED. auto.
     + rewrite ACQUIRABLE. auto.
     + rewrite ACQUIRABLE1. auto.
@@ -237,6 +239,7 @@ Lemma reorder_read_fence
       th0 mem0
       th1
       th2
+      (ORD1: Ordering.le Ordering.relaxed ord1)
       (ORDR2: Ordering.le ordr2 Ordering.relaxed)
       (ORDW2: Ordering.le ordw2 Ordering.acqrel)
       (WF0: Local.wf th0 mem0)
@@ -249,9 +252,17 @@ Proof.
   inv STEP1. inv STEP2. ss.
   destruct (Ordering.le_dec Ordering.acqrel ordr2) eqn:ORDR2'; committac.
   { clear ORDR2'. rewrite ORDR2 in l. inv l. }
+  destruct (Ordering.le_dec Ordering.relaxed ord1) eqn:ORD1'; committac.
   exploit CommitFacts.fence_min_spec; try apply WF0; eauto. i. des.
   exploit CommitFacts.read_min_spec; try apply WF; try apply GET; eauto.
-  { unfold CommitFacts.fence_min. rewrite ORDR2'. committac. apply COMMIT. }
+  { unfold CommitFacts.fence_min. rewrite ORDR2'.
+    instantiate (2 := ordw2). committac.
+    inv COMMIT. inv READABLE. econs; ss.
+    - i. unfold Times.get, LocFun.find. committac; eauto.
+      condtac; committac; eauto.
+    - unfold Times.get, LocFun.find. committac; eauto.
+      condtac; committac. eauto.
+  }
   { apply WF0. }
   i. des.
   eexists. splits.
@@ -263,14 +274,26 @@ Proof.
     econs; committac; try condtac; committac.
     + rewrite ACQUIRE; auto.
     + rewrite CURRENT0. auto.
+    + condtac; committac.
+      * econs; committac.
+        { etransitivity; [apply CURRENT0|apply CURRENT1]. }
+        { etransitivity; [apply CURRENT0|apply RELAXED; auto]. }
+      * rewrite CURRENT0. auto.
+    + rewrite CURRENT0. auto.
     + rewrite READ0. apply CURRENT1.
+    + rewrite CURRENT0. auto.
+    + econs; committac.
+      * etransitivity; [apply CURRENT0|apply CURRENT1].
+      * etransitivity; [apply CURRENT0|apply RELAXED; auto].
+    + rewrite CURRENT0. auto.
     + rewrite CURRENT0. auto.
     + rewrite READ0. apply CURRENT1.
     + unfold LocFun.find. committac.
       * rewrite CURRENT0. eauto.
       * etransitivity; [apply RELEASED|apply RELEASED0].
     + unfold LocFun.find. committac.
-      etransitivity; [apply RELEASED|apply RELEASED0].
+      * etransitivity; [apply RELEASED|apply RELEASED0].
+      * etransitivity; [apply RELEASED|apply RELEASED0].
     + rewrite ACQUIRABLE. auto.
     + rewrite ACQUIRABLE0. auto.
 Qed.
@@ -312,6 +335,7 @@ Proof.
     condtac; committac.
     { rewrite ORD2 in l. inv l. }
     econs; committac.
+    + rewrite CURRENT1. auto.
     + rewrite CURRENT1. auto.
     + rewrite WRITE0. apply CURRENT2.
     + unfold LocFun.add, LocFun.find.
@@ -499,11 +523,17 @@ Proof.
       * condtac; committac.
         { rewrite ACQUIRE; auto. }
         { rewrite CURRENT0. auto. }
+      * condtac; committac.
+        { econs; committac.
+          - etransitivity; [apply CURRENT0|apply CURRENT1].
+          - etransitivity; [apply RELAXED; auto|apply CURRENT1].
+        }
         { rewrite CURRENT0. auto. }
+      * rewrite CURRENT0. auto.
       * unfold LocFun.add, LocFun.find.
-        condtac; committac.
-        condtac; committac.
-        etransitivity; [apply RELEASED|apply RELEASED4].
+        repeat condtac; committac.
+        { etransitivity; [apply RELEASED|apply RELEASED4]. }
+        { etransitivity; [apply RELEASED|apply RELEASED4]. }
       * rewrite ACQUIRABLE. auto.
     + i. rewrite ORDW1 in H. inv H.
 Qed.
