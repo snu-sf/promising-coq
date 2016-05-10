@@ -57,34 +57,34 @@ Inductive reorder_load r1 l1 o1: forall (i2:Instr.t), Prop :=
     reorder_load r1 l1 o1 (Instr.fence or2 ow2)
 .
 
-Inductive sim_load: forall (st_src:lang.(Language.state)) (th_src:Local.t) (mem_k_src:Memory.t)
-                      (st_tgt:lang.(Language.state)) (th_tgt:Local.t) (mem_k_tgt:Memory.t), Prop :=
+Inductive sim_load: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (mem_k_src:Memory.t)
+                      (st_tgt:lang.(Language.state)) (lc_tgt:Local.t) (mem_k_tgt:Memory.t), Prop :=
 | sim_load_intro
     r1 l1 ts1 v1 released1 o1 i2
-    rs th1_src th1_tgt th2_src
+    rs lc1_src lc1_tgt lc2_src
     mem_k_src mem_k_tgt
     (REORDER: reorder_load r1 l1 o1 i2)
-    (READ: Local.read_step th1_src mem_k_src l1 ts1 v1 released1 o1 th2_src)
-    (LOCAL: sim_local th2_src th1_tgt):
+    (READ: Local.read_step lc1_src mem_k_src l1 ts1 v1 released1 o1 lc2_src)
+    (LOCAL: sim_local lc2_src lc1_tgt):
     sim_load
-      (State.mk rs [Stmt.instr i2; Stmt.instr (Instr.load r1 l1 o1)]) th1_src mem_k_src
-      (State.mk (RegFun.add r1 v1 rs) [Stmt.instr i2]) th1_tgt mem_k_tgt
+      (State.mk rs [Stmt.instr i2; Stmt.instr (Instr.load r1 l1 o1)]) lc1_src mem_k_src
+      (State.mk (RegFun.add r1 v1 rs) [Stmt.instr i2]) lc1_tgt mem_k_tgt
 .
 
 Lemma sim_load_step
-      st1_src th1_src mem_k_src
-      st1_tgt th1_tgt mem_k_tgt
-      (SIM: sim_load st1_src th1_src mem_k_src
-                     st1_tgt th1_tgt mem_k_tgt):
+      st1_src lc1_src mem_k_src
+      st1_tgt lc1_tgt mem_k_tgt
+      (SIM: sim_load st1_src lc1_src mem_k_src
+                     st1_tgt lc1_tgt mem_k_tgt):
   forall mem1_src mem1_tgt
     (MEMORY: sim_memory mem1_src mem1_tgt)
     (FUTURE_SRC: Memory.future mem_k_src mem1_src)
     (FUTURE_TGT: Memory.future mem_k_tgt mem1_tgt)
-    (WF_SRC: Local.wf th1_src mem1_src)
-    (WF_TGT: Local.wf th1_tgt mem1_tgt),
+    (WF_SRC: Local.wf lc1_src mem1_src)
+    (WF_TGT: Local.wf lc1_tgt mem1_tgt),
     _sim_thread_step lang lang ((sim_thread (sim_terminal eq)) \6/ sim_load)
-                     st1_src th1_src mem1_src
-                     st1_tgt th1_tgt mem1_tgt.
+                     st1_src lc1_src mem1_src
+                     st1_tgt lc1_tgt mem1_tgt.
 Proof.
   inv SIM. ii.
   exploit Local.future_read_step; try apply READ; eauto. i.

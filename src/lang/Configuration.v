@@ -26,38 +26,38 @@ Module Threads.
       s.
 
   Definition is_terminal (ths:t): Prop :=
-    forall tid lang st th (FIND: IdentMap.find tid ths = Some (existT Language.state lang st, th)),
+    forall tid lang st lc (FIND: IdentMap.find tid ths = Some (existT Language.state lang st, lc)),
       <<STATE: lang.(Language.is_terminal) st>> /\
-      <<THREAD: Local.is_terminal th>>.
+      <<THREAD: Local.is_terminal lc>>.
 
   Inductive consistent (ths:t) (mem:Memory.t): Prop :=
   | consistent_intro
       (DISJOINT:
-         forall tid1 lang1 st1 th1
-           tid2 lang2 st2 th2
+         forall tid1 lang1 st1 lc1
+           tid2 lang2 st2 lc2
            (TID: tid1 <> tid2)
-           (TH1: IdentMap.find tid1 ths = Some (existT _ lang1 st1, th1))
-           (TH2: IdentMap.find tid2 ths = Some (existT _ lang2 st2, th2)),
-           Local.disjoint th1 th2)
-      (THREADS: forall tid lang st th
-                  (TH: IdentMap.find tid ths = Some (existT _ lang st, th)),
-          <<WF: Local.wf th mem>> /\ <<CONSISTENT: Thread.consistent lang st th mem>>)
+           (TH1: IdentMap.find tid1 ths = Some (existT _ lang1 st1, lc1))
+           (TH2: IdentMap.find tid2 ths = Some (existT _ lang2 st2, lc2)),
+           Local.disjoint lc1 lc2)
+      (THREADS: forall tid lang st lc
+                  (TH: IdentMap.find tid ths = Some (existT _ lang st, lc)),
+          <<WF: Local.wf lc mem>> /\ <<CONSISTENT: Thread.consistent lang st lc mem>>)
       (MEMORY: Memory.wf mem)
   .
 
   Inductive disjoint (ths1 ths2:t): Prop :=
   | disjoint_intro
       (THREAD:
-         forall tid lth1 lth2
-           (TH1: IdentMap.find tid ths1 = Some lth1)
-           (TH2: IdentMap.find tid ths2 = Some lth2),
+         forall tid llc1 llc2
+           (TH1: IdentMap.find tid ths1 = Some llc1)
+           (TH2: IdentMap.find tid ths2 = Some llc2),
            False)
       (MEMORY:
-         forall tid1 lang1 st1 th1
-           tid2 lang2 st2 th2
-           (TH1: IdentMap.find tid1 ths1 = Some (existT _ lang1 st1, th1))
-           (TH2: IdentMap.find tid2 ths2 = Some (existT _ lang2 st2, th2)),
-           Local.disjoint th1 th2)
+         forall tid1 lang1 st1 lc1
+           tid2 lang2 st2 lc2
+           (TH1: IdentMap.find tid1 ths1 = Some (existT _ lang1 st1, lc1))
+           (TH2: IdentMap.find tid2 ths2 = Some (existT _ lang2 st2, lc2)),
+           Local.disjoint lc1 lc2)
   .
 
   Global Program Instance disjoint_Symmetric: Symmetric disjoint.
@@ -67,10 +67,10 @@ Module Threads.
     - symmetry. eapply MEMORY; eauto.
   Qed.
 
-  Definition compose_option {A} (th1 th2:option A) :=
-    match th1 with
-    | None => th2
-    | Some _ => th1
+  Definition compose_option {A} (lc1 lc2:option A) :=
+    match lc1 with
+    | None => lc2
+    | Some _ => lc1
     end.
 
   Definition compose (ths1 ths2:t): t :=
@@ -96,12 +96,12 @@ Module Configuration.
 
   Inductive step (e:option Event.t) (c1:t): forall (c2:t), Prop :=
   | step_intro
-      tid lang st1 th1 e2 st3 th3 memory3
-      (TID: IdentMap.find tid c1.(threads) = Some (existT _ lang st1, th1))
-      (STEPS: rtc (Thread.step None) (Thread.mk _ st1 th1 c1.(memory)) e2)
-      (STEP: Thread.step e e2 (Thread.mk _ st3 th3 memory3))
-      (CONSISTENT: Thread.consistent lang st3 th3 memory3):
-      step e c1 (mk (IdentMap.add tid (existT _ _ st3, th3) c1.(threads)) memory3)
+      tid lang st1 lc1 e2 st3 lc3 memory3
+      (TID: IdentMap.find tid c1.(threads) = Some (existT _ lang st1, lc1))
+      (STEPS: rtc (Thread.step None) (Thread.mk _ st1 lc1 c1.(memory)) e2)
+      (STEP: Thread.step e e2 (Thread.mk _ st3 lc3 memory3))
+      (CONSISTENT: Thread.consistent lang st3 lc3 memory3):
+      step e c1 (mk (IdentMap.add tid (existT _ _ st3, lc3) c1.(threads)) memory3)
   .
 
   Ltac simplify :=

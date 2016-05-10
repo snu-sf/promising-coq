@@ -25,18 +25,18 @@ Set Implicit Arguments.
 
 Lemma sim_local_future
       inv
-      th_src mem1_src mem2_src
-      th_tgt mem1_tgt
-      (WF1_SRC: Local.wf th_src mem1_src)
-      (WF1_TGT: Local.wf th_tgt mem1_tgt)
+      lc_src mem1_src mem2_src
+      lc_tgt mem1_tgt
+      (WF1_SRC: Local.wf lc_src mem1_src)
+      (WF1_TGT: Local.wf lc_tgt mem1_tgt)
       (MEM1: sim_memory mem1_src mem1_tgt)
-      (INV1: MemInv.sem inv th_src.(Local.promise) th_tgt.(Local.promise))
+      (INV1: MemInv.sem inv lc_src.(Local.promise) lc_tgt.(Local.promise))
       (FUTURE_SRC: Memory.future mem1_src mem2_src)
-      (WF2_SRC: Local.wf th_src mem2_src):
+      (WF2_SRC: Local.wf lc_src mem2_src):
   exists mem2_tgt,
     <<MEM2: sim_memory mem2_src mem2_tgt>> /\
     <<FUTURE: Memory.future mem1_tgt mem2_tgt>> /\
-    <<WF2_TGT: Local.wf th_tgt mem2_tgt>>.
+    <<WF2_TGT: Local.wf lc_tgt mem2_tgt>>.
 Proof.
   exists mem2_src. splits.
   - reflexivity.
@@ -54,18 +54,18 @@ Proof.
 Qed.
 
 Lemma sim_local_promise
-      th1_src mem1_src
-      th1_tgt mem1_tgt
-      th2_tgt mem2_tgt
+      lc1_src mem1_src
+      lc1_tgt mem1_tgt
+      lc2_tgt mem2_tgt
       loc from to val released
-      (LOCAL1: sim_local th1_src th1_tgt)
+      (LOCAL1: sim_local lc1_src lc1_tgt)
       (MEMORY1: sim_memory mem1_src mem1_tgt)
-      (WF1_SRC: Local.wf th1_src mem1_src)
-      (WF1_TGT: Local.wf th1_tgt mem1_tgt)
-      (STEP_TGT: Local.promise_step th1_tgt mem1_tgt loc from to val released th2_tgt mem2_tgt):
-  exists th2_src mem2_src,
-    <<STEP_SRC: Local.promise_step th1_src mem1_src loc from to val released th2_src mem2_src>> /\
-    <<LOCAL2: sim_local th2_src th2_tgt>> /\
+      (WF1_SRC: Local.wf lc1_src mem1_src)
+      (WF1_TGT: Local.wf lc1_tgt mem1_tgt)
+      (STEP_TGT: Local.promise_step lc1_tgt mem1_tgt loc from to val released lc2_tgt mem2_tgt):
+  exists lc2_src mem2_src,
+    <<STEP_SRC: Local.promise_step lc1_src mem1_src loc from to val released lc2_src mem2_src>> /\
+    <<LOCAL2: sim_local lc2_src lc2_tgt>> /\
     <<MEMORY2: sim_memory mem2_src mem2_tgt>>.
 Proof.
   inv LOCAL1. inv STEP_TGT.
@@ -85,17 +85,17 @@ Proof.
 Qed.
 
 Lemma sim_local_silent
-      th1_src mem1_src
-      th1_tgt mem1_tgt
-      th2_tgt
-      (LOCAL1: sim_local th1_src th1_tgt)
+      lc1_src mem1_src
+      lc1_tgt mem1_tgt
+      lc2_tgt
+      (LOCAL1: sim_local lc1_src lc1_tgt)
       (MEMORY1: sim_memory mem1_src mem1_tgt)
-      (WF1_SRC: Local.wf th1_src mem1_src)
-      (WF1_TGT: Local.wf th1_tgt mem1_tgt)
-      (STEP_TGT: Local.silent_step th1_tgt mem1_tgt th2_tgt):
-  exists th2_src,
-    <<STEP_SRC: Local.silent_step th1_src mem1_src th2_src>> /\
-    <<LOCAL2: sim_local th2_src th2_tgt>>.
+      (WF1_SRC: Local.wf lc1_src mem1_src)
+      (WF1_TGT: Local.wf lc1_tgt mem1_tgt)
+      (STEP_TGT: Local.silent_step lc1_tgt mem1_tgt lc2_tgt):
+  exists lc2_src,
+    <<STEP_SRC: Local.silent_step lc1_src mem1_src lc2_src>> /\
+    <<LOCAL2: sim_local lc2_src lc2_tgt>>.
 Proof.
   inv LOCAL1. inv STEP_TGT.
   eexists. splits.
@@ -107,18 +107,18 @@ Proof.
 Qed.
 
 Lemma sim_local_read
-      th1_src mem1_src
-      th1_tgt mem1_tgt
-      th2_tgt
+      lc1_src mem1_src
+      lc1_tgt mem1_tgt
+      lc2_tgt
       loc ts val released ord
-      (LOCAL1: sim_local th1_src th1_tgt)
+      (LOCAL1: sim_local lc1_src lc1_tgt)
       (MEMORY1: sim_memory mem1_src mem1_tgt)
-      (WF1_SRC: Local.wf th1_src mem1_src)
-      (WF1_TGT: Local.wf th1_tgt mem1_tgt)
-      (STEP_TGT: Local.read_step th1_tgt mem1_tgt loc ts val released ord th2_tgt):
-  exists th2_src,
-    <<STEP_SRC: Local.read_step th1_src mem1_src loc ts val released ord th2_src>> /\
-    <<LOCAL2: sim_local th2_src th2_tgt>>.
+      (WF1_SRC: Local.wf lc1_src mem1_src)
+      (WF1_TGT: Local.wf lc1_tgt mem1_tgt)
+      (STEP_TGT: Local.read_step lc1_tgt mem1_tgt loc ts val released ord lc2_tgt):
+  exists lc2_src,
+    <<STEP_SRC: Local.read_step lc1_src mem1_src loc ts val released ord lc2_src>> /\
+    <<LOCAL2: sim_local lc2_src lc2_tgt>>.
 Proof.
   inv LOCAL1. inv STEP_TGT.
   exploit Memory.splits_get; try apply MEMORY1; eauto. i.
@@ -133,18 +133,18 @@ Proof.
 Qed.
 
 Lemma sim_local_fulfill
-      th1_src mem1_src
-      th1_tgt mem1_tgt
-      th2_tgt
+      lc1_src mem1_src
+      lc1_tgt mem1_tgt
+      lc2_tgt
       loc from to val released ord
-      (LOCAL1: sim_local th1_src th1_tgt)
+      (LOCAL1: sim_local lc1_src lc1_tgt)
       (MEMORY1: sim_memory mem1_src mem1_tgt)
-      (WF1_SRC: Local.wf th1_src mem1_src)
-      (WF1_TGT: Local.wf th1_tgt mem1_tgt)
-      (STEP_TGT: Local.fulfill_step th1_tgt mem1_tgt loc from to val released ord th2_tgt):
-  exists th2_src,
-    <<STEP_SRC: Local.fulfill_step th1_src mem1_src loc from to val released ord th2_src>> /\
-    <<LOCAL2: sim_local th2_src th2_tgt>>.
+      (WF1_SRC: Local.wf lc1_src mem1_src)
+      (WF1_TGT: Local.wf lc1_tgt mem1_tgt)
+      (STEP_TGT: Local.fulfill_step lc1_tgt mem1_tgt loc from to val released ord lc2_tgt):
+  exists lc2_src,
+    <<STEP_SRC: Local.fulfill_step lc1_src mem1_src loc from to val released ord lc2_src>> /\
+    <<LOCAL2: sim_local lc2_src lc2_tgt>>.
 Proof.
   inv LOCAL1. inv STEP_TGT.
   exploit MemInv.fulfill; eauto.
@@ -160,18 +160,18 @@ Proof.
 Qed.
 
 Lemma sim_local_write
-      th1_src mem1_src
-      th1_tgt mem1_tgt
-      th2_tgt mem2_tgt
+      lc1_src mem1_src
+      lc1_tgt mem1_tgt
+      lc2_tgt mem2_tgt
       loc from to val released ord
-      (LOCAL1: sim_local th1_src th1_tgt)
+      (LOCAL1: sim_local lc1_src lc1_tgt)
       (MEMORY1: sim_memory mem1_src mem1_tgt)
-      (WF1_SRC: Local.wf th1_src mem1_src)
-      (WF1_TGT: Local.wf th1_tgt mem1_tgt)
-      (STEP_TGT: Local.write_step th1_tgt mem1_tgt loc from to val released ord th2_tgt mem2_tgt):
-  exists th2_src mem2_src,
-    <<STEP_SRC: Local.write_step th1_src mem1_src loc from to val released ord th2_src mem2_src>> /\
-    <<LOCAL2: sim_local th2_src th2_tgt>> /\
+      (WF1_SRC: Local.wf lc1_src mem1_src)
+      (WF1_TGT: Local.wf lc1_tgt mem1_tgt)
+      (STEP_TGT: Local.write_step lc1_tgt mem1_tgt loc from to val released ord lc2_tgt mem2_tgt):
+  exists lc2_src mem2_src,
+    <<STEP_SRC: Local.write_step lc1_src mem1_src loc from to val released ord lc2_src mem2_src>> /\
+    <<LOCAL2: sim_local lc2_src lc2_tgt>> /\
     <<MEMORY2: sim_memory mem2_src mem2_tgt>>.
 Proof.
   inv STEP_TGT.
@@ -188,18 +188,18 @@ Proof.
 Qed.
 
 Lemma sim_local_fence
-      th1_src mem1_src
-      th1_tgt mem1_tgt
-      th2_tgt
+      lc1_src mem1_src
+      lc1_tgt mem1_tgt
+      lc2_tgt
       ordr ordw
-      (LOCAL1: sim_local th1_src th1_tgt)
+      (LOCAL1: sim_local lc1_src lc1_tgt)
       (MEMORY1: sim_memory mem1_src mem1_tgt)
-      (WF1_SRC: Local.wf th1_src mem1_src)
-      (WF1_TGT: Local.wf th1_tgt mem1_tgt)
-      (STEP_TGT: Local.fence_step th1_tgt mem1_tgt ordr ordw th2_tgt):
-  exists th2_src,
-    <<STEP_SRC: Local.fence_step th1_src mem1_src ordr ordw th2_src>> /\
-    <<LOCAL2: sim_local th2_src th2_tgt>>.
+      (WF1_SRC: Local.wf lc1_src mem1_src)
+      (WF1_TGT: Local.wf lc1_tgt mem1_tgt)
+      (STEP_TGT: Local.fence_step lc1_tgt mem1_tgt ordr ordw lc2_tgt):
+  exists lc2_src,
+    <<STEP_SRC: Local.fence_step lc1_src mem1_src ordr ordw lc2_src>> /\
+    <<LOCAL2: sim_local lc2_src lc2_tgt>>.
 Proof.
   inv LOCAL1. inv STEP_TGT.
   eexists. splits.
@@ -231,13 +231,13 @@ Definition _sim_stmts
            (sim_regs0:SIM_REGS)
            (stmts_src stmts_tgt:list Stmt.t)
            (sim_regs1:SIM_REGS): Prop :=
-  forall rs_src rs_tgt th_src th_tgt mem_k_src mem_k_tgt
+  forall rs_src rs_tgt lc_src lc_tgt mem_k_src mem_k_tgt
     (RS: sim_regs0 rs_src rs_tgt)
-    (LOCAL: sim_local th_src th_tgt),
+    (LOCAL: sim_local lc_src lc_tgt),
     sim_thread
       (sim_terminal sim_regs1)
-      (State.mk rs_src stmts_src) th_src mem_k_src
-      (State.mk rs_tgt stmts_tgt) th_tgt mem_k_tgt.
+      (State.mk rs_src stmts_src) lc_src mem_k_src
+      (State.mk rs_tgt stmts_tgt) lc_tgt mem_k_tgt.
 
 Lemma _sim_stmts_mon
       s1 s2 (S: s1 <7= s2):
@@ -280,14 +280,14 @@ Qed.
 
 Lemma internal_step_seq
       stmts
-      rs1 stmts1 th1 mem1
-      rs2 stmts2 th2 mem2
+      rs1 stmts1 lc1 mem1
+      rs2 stmts2 lc2 mem2
       (STEP: Thread.internal_step
-               (Thread.mk lang (State.mk rs1 stmts1) th1 mem1)
-               (Thread.mk lang (State.mk rs2 stmts2) th2 mem2)):
+               (Thread.mk lang (State.mk rs1 stmts1) lc1 mem1)
+               (Thread.mk lang (State.mk rs2 stmts2) lc2 mem2)):
   Thread.internal_step
-    (Thread.mk lang (State.mk rs1 (stmts1 ++ stmts)) th1 mem1)
-    (Thread.mk lang (State.mk rs2 (stmts2 ++ stmts)) th2 mem2).
+    (Thread.mk lang (State.mk rs1 (stmts1 ++ stmts)) lc1 mem1)
+    (Thread.mk lang (State.mk rs2 (stmts2 ++ stmts)) lc2 mem2).
 Proof.
   inv STEP; ss.
   - econs 1; s; eauto. apply lang_step_seq. auto.
@@ -299,14 +299,14 @@ Qed.
 
 Lemma step_seq
       stmts e
-      rs1 stmts1 th1 mem1
-      rs2 stmts2 th2 mem2
+      rs1 stmts1 lc1 mem1
+      rs2 stmts2 lc2 mem2
       (STEP: Thread.step e
-                         (Thread.mk lang (State.mk rs1 stmts1) th1 mem1)
-                         (Thread.mk lang (State.mk rs2 stmts2) th2 mem2)):
+                         (Thread.mk lang (State.mk rs1 stmts1) lc1 mem1)
+                         (Thread.mk lang (State.mk rs2 stmts2) lc2 mem2)):
   Thread.step e
-              (Thread.mk lang (State.mk rs1 (stmts1 ++ stmts)) th1 mem1)
-              (Thread.mk lang (State.mk rs2 (stmts2 ++ stmts)) th2 mem2).
+              (Thread.mk lang (State.mk rs1 (stmts1 ++ stmts)) lc1 mem1)
+              (Thread.mk lang (State.mk rs2 (stmts2 ++ stmts)) lc2 mem2).
 Proof.
   inv STEP; ss.
   - econs 1. inv STEP0. econs; ss. eauto.
@@ -316,16 +316,16 @@ Qed.
 
 Lemma thread_step_deseq
       stmts e
-      rs1 stmt1 stmts1 th1 mem1
-      rs2 stmts2 th2 mem2
+      rs1 stmt1 stmts1 lc1 mem1
+      rs2 stmts2 lc2 mem2
       (STEP: Thread.step e
-                         (Thread.mk lang (State.mk rs1 (stmt1 :: stmts1 ++ stmts)) th1 mem1)
-                         (Thread.mk lang (State.mk rs2 stmts2) th2 mem2)):
+                         (Thread.mk lang (State.mk rs1 (stmt1 :: stmts1 ++ stmts)) lc1 mem1)
+                         (Thread.mk lang (State.mk rs2 stmts2) lc2 mem2)):
   exists stmts2',
     stmts2 = stmts2' ++ stmts /\
   Thread.step e
-              (Thread.mk lang (State.mk rs1 (stmt1 :: stmts1)) th1 mem1)
-              (Thread.mk lang (State.mk rs2 stmts2') th2 mem2).
+              (Thread.mk lang (State.mk rs1 (stmt1 :: stmts1)) lc1 mem1)
+              (Thread.mk lang (State.mk rs2 stmts2') lc2 mem2).
 Proof.
   inv STEP.
   - inv STEP0. ss.
@@ -376,22 +376,22 @@ Qed.
 
 Inductive sim_seq (s:list Stmt.t): forall (lhs rhs:Thread.t lang), Prop :=
 | sim_seq_intro
-    rs stmts th mem:
+    rs stmts lc mem:
     sim_seq s
-            (Thread.mk lang (State.mk rs stmts) th mem)
-            (Thread.mk lang (State.mk rs (stmts ++ s)) th mem)
+            (Thread.mk lang (State.mk rs stmts) lc mem)
+            (Thread.mk lang (State.mk rs (stmts ++ s)) lc mem)
 .
 
 Lemma rtc_internal_step_seq
       stmts
-      rs1 stmts1 th1 mem1
-      rs2 stmts2 th2 mem2
+      rs1 stmts1 lc1 mem1
+      rs2 stmts2 lc2 mem2
       (STEP: rtc (@Thread.step lang None)
-                 (Thread.mk lang (State.mk rs1 stmts1) th1 mem1)
-                 (Thread.mk lang (State.mk rs2 stmts2) th2 mem2)):
+                 (Thread.mk lang (State.mk rs1 stmts1) lc1 mem1)
+                 (Thread.mk lang (State.mk rs2 stmts2) lc2 mem2)):
   rtc (@Thread.step lang None)
-      (Thread.mk lang (State.mk rs1 (stmts1 ++ stmts)) th1 mem1)
-      (Thread.mk lang (State.mk rs2 (stmts2 ++ stmts)) th2 mem2).
+      (Thread.mk lang (State.mk rs1 (stmts1 ++ stmts)) lc1 mem1)
+      (Thread.mk lang (State.mk rs2 (stmts2 ++ stmts)) lc2 mem2).
 Proof.
   exploit (sim_rtc (sim_seq stmts)); eauto.
   - i. inv SIM1. destruct a2. destruct state. destruct thread.
@@ -404,71 +404,71 @@ Qed.
 Inductive ctx (sim_thread:SIM_THREAD lang lang): SIM_THREAD lang lang :=
 | ctx_incl
     sim_terminal
-    st1 th1 mem_k_src st2 th2 mem_k_tgt
-    (SIM: sim_thread sim_terminal st1 th1 mem_k_src st2 th2 mem_k_tgt):
-    ctx sim_thread sim_terminal st1 th1 mem_k_src st2 th2 mem_k_tgt
+    st1 lc1 mem_k_src st2 lc2 mem_k_tgt
+    (SIM: sim_thread sim_terminal st1 lc1 mem_k_src st2 lc2 mem_k_tgt):
+    ctx sim_thread sim_terminal st1 lc1 mem_k_src st2 lc2 mem_k_tgt
 | ctx_nil
     (sim_regs:SIM_REGS)
     rs_src mem_k_src
     rs_tgt mem_k_tgt
-    th_src th_tgt
+    lc_src lc_tgt
     (RS: sim_regs rs_src rs_tgt)
-    (LOCAL: sim_local th_src th_tgt):
+    (LOCAL: sim_local lc_src lc_tgt):
     ctx sim_thread
         (sim_terminal sim_regs)
-        (State.mk rs_src []) th_src mem_k_src
-        (State.mk rs_tgt []) th_tgt mem_k_tgt
+        (State.mk rs_src []) lc_src mem_k_src
+        (State.mk rs_tgt []) lc_tgt mem_k_tgt
 | ctx_instr
     instr regs
     rs_src mem_k_src
     rs_tgt mem_k_tgt
-    th_src th_tgt
+    lc_src lc_tgt
     (REGS: RegSet.disjoint regs (Instr.regs_of instr))
     (RS: RegFile.eq_except regs rs_src rs_tgt)
-    (LOCAL: sim_local th_src th_tgt):
+    (LOCAL: sim_local lc_src lc_tgt):
     ctx sim_thread
         (sim_terminal (RegFile.eq_except regs))
-        (State.mk rs_src [Stmt.instr instr]) th_src mem_k_src
-        (State.mk rs_tgt [Stmt.instr instr]) th_tgt mem_k_tgt
+        (State.mk rs_src [Stmt.instr instr]) lc_src mem_k_src
+        (State.mk rs_tgt [Stmt.instr instr]) lc_tgt mem_k_tgt
 | ctx_seq
     sim_regs1 sim_regs2
-    stmts1_src stmts2_src rs_src th_src mem_k_src
-    stmts1_tgt stmts2_tgt rs_tgt th_tgt mem_k_tgt
+    stmts1_src stmts2_src rs_src lc_src mem_k_src
+    stmts1_tgt stmts2_tgt rs_tgt lc_tgt mem_k_tgt
     (SIM1: sim_thread (sim_terminal sim_regs1)
-                      (State.mk rs_src stmts1_src) th_src mem_k_src
-                      (State.mk rs_tgt stmts1_tgt) th_tgt mem_k_tgt)
+                      (State.mk rs_src stmts1_src) lc_src mem_k_src
+                      (State.mk rs_tgt stmts1_tgt) lc_tgt mem_k_tgt)
     (SIM2: _sim_stmts sim_thread sim_regs1 stmts2_src stmts2_tgt sim_regs2):
     ctx sim_thread
         (sim_terminal sim_regs2)
-        (State.mk rs_src (stmts1_src ++ stmts2_src)) th_src mem_k_src
-        (State.mk rs_tgt (stmts1_tgt ++ stmts2_tgt)) th_tgt mem_k_tgt
+        (State.mk rs_src (stmts1_src ++ stmts2_src)) lc_src mem_k_src
+        (State.mk rs_tgt (stmts1_tgt ++ stmts2_tgt)) lc_tgt mem_k_tgt
 | ctx_ite
     sim_regs0 sim_regs1
     cond_src stmts1_src stmts2_src rs_src mem_k_src
     cond_tgt stmts1_tgt stmts2_tgt rs_tgt mem_k_tgt
-    th_src th_tgt
+    lc_src lc_tgt
     (COND: sim_expr sim_regs0 cond_src cond_tgt)
     (RS: sim_regs0 rs_src rs_tgt)
-    (LOCAL: sim_local th_src th_tgt)
+    (LOCAL: sim_local lc_src lc_tgt)
     (SIM1: _sim_stmts sim_thread sim_regs0 stmts1_src stmts1_tgt sim_regs1)
     (SIM2: _sim_stmts sim_thread sim_regs0 stmts2_src stmts2_tgt sim_regs1):
     ctx sim_thread
         (sim_terminal sim_regs1)
-        (State.mk rs_src [Stmt.ite cond_src stmts1_src stmts2_src]) th_src mem_k_src
-        (State.mk rs_tgt [Stmt.ite cond_tgt stmts1_tgt stmts2_tgt]) th_tgt mem_k_tgt
+        (State.mk rs_src [Stmt.ite cond_src stmts1_src stmts2_src]) lc_src mem_k_src
+        (State.mk rs_tgt [Stmt.ite cond_tgt stmts1_tgt stmts2_tgt]) lc_tgt mem_k_tgt
 | ctx_dowhile
     sim_regs
     cond_src stmts_src rs_src mem_k_src
     cond_tgt stmts_tgt rs_tgt mem_k_tgt
-    th_src th_tgt
+    lc_src lc_tgt
     (COND: sim_expr sim_regs cond_src cond_tgt)
     (RS: sim_regs rs_src rs_tgt)
-    (LOCAL: sim_local th_src th_tgt)
+    (LOCAL: sim_local lc_src lc_tgt)
     (SIM: _sim_stmts sim_thread sim_regs stmts_src stmts_tgt sim_regs):
     ctx sim_thread
         (sim_terminal sim_regs)
-        (State.mk rs_src [Stmt.dowhile stmts_src cond_src]) th_src mem_k_src
-        (State.mk rs_tgt [Stmt.dowhile stmts_tgt cond_tgt]) th_tgt mem_k_tgt
+        (State.mk rs_src [Stmt.dowhile stmts_src cond_src]) lc_src mem_k_src
+        (State.mk rs_tgt [Stmt.dowhile stmts_tgt cond_tgt]) lc_tgt mem_k_tgt
 .
 Hint Constructors ctx.
 
@@ -493,7 +493,7 @@ Proof.
   - (* nil *)
     ii.
     inversion LOCAL. apply MemInv.sem_bot_inv in PROMISE.
-    destruct th_src, th_tgt. ss. subst.
+    destruct lc_src, lc_tgt. ss. subst.
     splits; s; ii.
     { inv TERMINAL_TGT. ss. eexists _, _, _. splits; eauto; ss. }
     { eexists. splits; try reflexivity; eauto.
@@ -513,7 +513,7 @@ Proof.
   - (* instr *)
     ii.
     inversion LOCAL. apply MemInv.sem_bot_inv in PROMISE.
-    destruct th_src, th_tgt. ss. subst.
+    destruct lc_src, lc_tgt. ss. subst.
     splits; s; ii.
     { inv TERMINAL_TGT. }
     { ss. eexists. splits; try reflexivity; eauto.
@@ -585,14 +585,14 @@ Proof.
     { inv TERMINAL_TGT. destruct stmts1_tgt, stmts2_tgt; inv H0.
       exploit TERMINAL; try by econs. i. des.
       inversion LOCAL. exploit MemInv.sem_bot_inv; eauto. i.
-      destruct th2_src. ss. subst.
+      destruct lc2_src. ss. subst.
       destruct st2_src. inv TERMINAL_SRC. ss. subst.
       exploit Thread.rtc_step_future; eauto. s. i. des.
       inv TERMINAL0. ss. subst.
-      exploit SIM2; eauto. intro TH2.
+      exploit SIM2; eauto. intro LC2.
       exploit GF; eauto. s. i. des.
       exploit TERMINAL0; try by econs. i. des.
-      destruct st2_src, th2_src. inv TERMINAL_SRC. ss. subst.
+      destruct st2_src, lc2_src. inv TERMINAL_SRC. ss. subst.
       eexists _, _, _. splits; [|eauto| |eauto|eauto].
       + etrans; [|eauto].
         eapply rtc_internal_step_seq in STEPS. eauto.
@@ -600,7 +600,7 @@ Proof.
     }
     { eapply FUTURE; eauto. }
     { subst. exploit PROMISE; eauto. i. des.
-      destruct th_tgt, st2_src, th2_src. ss. subst.
+      destruct lc_tgt, st2_src, lc2_src. ss. subst.
       eexists _, _, _. splits; [|eauto].
       - eapply rtc_internal_step_seq. apply STEPS.
       - ss.
@@ -608,20 +608,20 @@ Proof.
     destruct stmts1_tgt.
     + exploit TERMINAL; try by econs. i. des.
       inversion LOCAL. exploit MemInv.sem_bot_inv; eauto. i. subst.
-      destruct st2_src, th2_src. inv TERMINAL_SRC. ss. subst.
+      destruct st2_src, lc2_src. inv TERMINAL_SRC. ss. subst.
       exploit Thread.rtc_step_future; eauto. s. i. des.
       inv TERMINAL0. ss. subst.
-      exploit SIM2; eauto. intro TH2.
+      exploit SIM2; eauto. intro LC2.
       exploit GF; eauto. s. i. des.
       exploit STEP0; eauto. i. des.
       eexists _, _, _, _, _, _. splits; [|eauto|eauto|].
       * eapply rtc_internal_step_seq in STEPS.
         etrans; [apply STEPS|eauto].
       * apply rclo7_incl. auto.
-    + destruct st3_tgt, th3_tgt.
+    + destruct st3_tgt, lc3_tgt.
       exploit thread_step_deseq; eauto. i. des. ss. subst.
       exploit STEP; eauto. i. des.
-      destruct st2_src, th2_src. destruct st3_src, th3_src.
+      destruct st2_src, lc2_src. destruct st3_src, lc3_src.
       eexists _, _, _, _, _, _. splits; [| |eauto|].
       * eapply rtc_internal_step_seq. eauto.
       * eapply step_seq. eauto.
@@ -633,7 +633,7 @@ Proof.
   - (* ite *)
     ii.
     inversion LOCAL. exploit MemInv.sem_bot_inv; eauto. i.
-    destruct th_src, th_tgt. ss. subst.
+    destruct lc_src, lc_tgt. ss. subst.
     splits; s; ii.
     { inv TERMINAL_TGT. }
     { ss. eexists. splits; try reflexivity; eauto.
@@ -674,7 +674,7 @@ Proof.
   - (* dowhile *)
     ii.
     inversion LOCAL. exploit MemInv.sem_bot_inv; eauto. i.
-    destruct th_src, th_tgt. ss. subst.
+    destruct lc_src, lc_tgt. ss. subst.
     splits; s; ii.
     { inv TERMINAL_TGT. }
     { ss. eexists. splits; try reflexivity; eauto.

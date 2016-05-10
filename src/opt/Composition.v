@@ -163,13 +163,13 @@ Proof.
   destruct (IdentMap.find tid ths1) eqn:TH1,
            (IdentMap.find tid ths2) eqn:TH2; inv TID.
   - exfalso. inv DISJOINT. eapply THREAD; eauto.
-  - left. exists (IdentMap.add tid (existT _ lang st3, th3) ths1). splits; [|econs; eauto].
+  - left. exists (IdentMap.add tid (existT _ lang st3, lc3) ths1). splits; [|econs; eauto].
     apply IdentMap.eq_leibniz. ii.
     rewrite ? IdentMap.Facts.add_o.
     rewrite ? Threads.compose_spec.
     rewrite ? IdentMap.Facts.add_o.
     destruct (IdentMap.Facts.eq_dec tid y); auto.
-  - right. exists (IdentMap.add tid (existT _ lang st3, th3) ths2). splits; [|econs; eauto].
+  - right. exists (IdentMap.add tid (existT _ lang st3, lc3) ths2). splits; [|econs; eauto].
     apply IdentMap.eq_leibniz. ii.
     rewrite ? IdentMap.Facts.add_o.
     rewrite ? Threads.compose_spec.
@@ -197,8 +197,8 @@ Lemma compose_step1
 Proof.
   exploit Configuration.step_disjoint; eauto. s. i. des.
   splits; eauto. inv STEP. ss.
-  replace (Threads.compose (IdentMap.add tid (existT _ lang st3, th3) ths1) ths2)
-  with (IdentMap.add tid (existT _ lang st3, th3) (Threads.compose ths1 ths2)).
+  replace (Threads.compose (IdentMap.add tid (existT _ lang st3, lc3) ths1) ths2)
+  with (IdentMap.add tid (existT _ lang st3, lc3) (Threads.compose ths1 ths2)).
   - econs; eauto.
     s. rewrite Threads.compose_spec. unfold Threads.compose_option.
     rewrite TID. auto.

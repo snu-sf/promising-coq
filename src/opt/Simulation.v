@@ -22,12 +22,12 @@ Section SimulationLocal.
   Definition SIM_TERMINAL :=
     forall (st_src:lang_src.(Language.state)) (st_tgt:lang_tgt.(Language.state)), Prop.
 
-  Definition SIM_LOCAL := forall (th_src th_tgt:Local.t), Prop.
+  Definition SIM_LOCAL := forall (lc_src lc_tgt:Local.t), Prop.
 
-  Inductive sim_local (th_src th_tgt:Local.t): Prop :=
+  Inductive sim_local (lc_src lc_tgt:Local.t): Prop :=
   | sim_local_intro
-      (COMMIT: Commit.le th_src.(Local.commit) th_tgt.(Local.commit))
-      (PROMISE: MemInv.sem Memory.bot th_src.(Local.promise) th_tgt.(Local.promise))
+      (COMMIT: Commit.le lc_src.(Local.commit) lc_tgt.(Local.commit))
+      (PROMISE: MemInv.sem Memory.bot lc_src.(Local.promise) lc_tgt.(Local.promise))
   .
 
   Global Program Instance sim_local_Preorder: PreOrder sim_local.
@@ -47,69 +47,69 @@ Section SimulationLocal.
 
   Definition SIM_THREAD :=
     forall (sim_terminal: SIM_TERMINAL)
-      (st1_src:lang_src.(Language.state)) (th1_src:Local.t) (mem_k_src:Memory.t)
-      (st1_tgt:lang_tgt.(Language.state)) (th1_tgt:Local.t) (mem_k_tgt:Memory.t), Prop.
+      (st1_src:lang_src.(Language.state)) (lc1_src:Local.t) (mem_k_src:Memory.t)
+      (st1_tgt:lang_tgt.(Language.state)) (lc1_tgt:Local.t) (mem_k_tgt:Memory.t), Prop.
 
   Definition _sim_thread_step
-             (sim_thread: forall (st1_src:lang_src.(Language.state)) (th1_src:Local.t) (mem_k_src:Memory.t)
-                            (st1_tgt:lang_tgt.(Language.state)) (th1_tgt:Local.t) (mem_k_tgt:Memory.t), Prop)
-             st1_src th1_src mem1_src
-             st1_tgt th1_tgt mem1_tgt
+             (sim_thread: forall (st1_src:lang_src.(Language.state)) (lc1_src:Local.t) (mem_k_src:Memory.t)
+                            (st1_tgt:lang_tgt.(Language.state)) (lc1_tgt:Local.t) (mem_k_tgt:Memory.t), Prop)
+             st1_src lc1_src mem1_src
+             st1_tgt lc1_tgt mem1_tgt
     :=
-    forall e st3_tgt th3_tgt mem3_tgt
+    forall e st3_tgt lc3_tgt mem3_tgt
       (STEP_TGT: Thread.step e
-                             (Thread.mk _ st1_tgt th1_tgt mem1_tgt)
-                             (Thread.mk _ st3_tgt th3_tgt mem3_tgt)),
-    exists st2_src th2_src mem2_src st3_src th3_src mem3_src,
+                             (Thread.mk _ st1_tgt lc1_tgt mem1_tgt)
+                             (Thread.mk _ st3_tgt lc3_tgt mem3_tgt)),
+    exists st2_src lc2_src mem2_src st3_src lc3_src mem3_src,
       <<STEPS: rtc (Thread.step None)
-                   (Thread.mk _ st1_src th1_src mem1_src)
-                   (Thread.mk _ st2_src th2_src mem2_src)>> /\
+                   (Thread.mk _ st1_src lc1_src mem1_src)
+                   (Thread.mk _ st2_src lc2_src mem2_src)>> /\
       <<STEP_SRC: Thread.step e
-                              (Thread.mk _ st2_src th2_src mem2_src)
-                              (Thread.mk _ st3_src th3_src mem3_src)>> /\
+                              (Thread.mk _ st2_src lc2_src mem2_src)
+                              (Thread.mk _ st3_src lc3_src mem3_src)>> /\
       <<MEMORY2: sim_memory mem3_src mem3_tgt>> /\
-      <<SIM: sim_thread st3_src th3_src mem3_src st3_tgt th3_tgt mem3_tgt>>.
+      <<SIM: sim_thread st3_src lc3_src mem3_src st3_tgt lc3_tgt mem3_tgt>>.
 
   (* TODO: inftau & liveness *)
   Definition _sim_thread
              (sim_thread: SIM_THREAD)
              (sim_terminal: SIM_TERMINAL)
-             (st1_src:lang_src.(Language.state)) (th1_src:Local.t) (mem_k_src:Memory.t)
-             (st1_tgt:lang_tgt.(Language.state)) (th1_tgt:Local.t) (mem_k_tgt:Memory.t): Prop :=
+             (st1_src:lang_src.(Language.state)) (lc1_src:Local.t) (mem_k_src:Memory.t)
+             (st1_tgt:lang_tgt.(Language.state)) (lc1_tgt:Local.t) (mem_k_tgt:Memory.t): Prop :=
     forall mem1_src mem1_tgt
       (MEMORY: sim_memory mem1_src mem1_tgt)
       (FUTURE_SRC: Memory.future mem_k_src mem1_src)
       (FUTURE_TGT: Memory.future mem_k_tgt mem1_tgt)
-      (WF_SRC: Local.wf th1_src mem1_src)
-      (WF_TGT: Local.wf th1_tgt mem1_tgt),
+      (WF_SRC: Local.wf lc1_src mem1_src)
+      (WF_TGT: Local.wf lc1_tgt mem1_tgt),
       <<TERMINAL:
         forall (TERMINAL_TGT: lang_tgt.(Language.is_terminal) st1_tgt),
-        exists st2_src th2_src mem2_src,
+        exists st2_src lc2_src mem2_src,
           <<STEPS: rtc (Thread.step None)
-                       (Thread.mk _ st1_src th1_src mem1_src)
-                       (Thread.mk _ st2_src th2_src mem2_src)>> /\
+                       (Thread.mk _ st1_src lc1_src mem1_src)
+                       (Thread.mk _ st2_src lc2_src mem2_src)>> /\
           <<MEMORY: sim_memory mem2_src mem1_tgt>> /\
           <<TERMINAL_SRC: lang_src.(Language.is_terminal) st2_src>> /\
-          <<LOCAL: sim_local th2_src th1_tgt>> /\
+          <<LOCAL: sim_local lc2_src lc1_tgt>> /\
           <<TERMINAL: sim_terminal st2_src st1_tgt>>>> /\
       <<FUTURE:
         forall mem2_src
           (FUTURE_SRC: Memory.future mem1_src mem2_src)
-          (WF_SRC: Local.wf th1_src mem2_src),
+          (WF_SRC: Local.wf lc1_src mem2_src),
         exists mem2_tgt,
           <<MEMORY: sim_memory mem2_src mem2_tgt>> /\
           <<FUTURE_TGT: Memory.future mem1_tgt mem2_tgt>> /\
-          <<WF_TGT: Local.wf th1_tgt mem2_tgt>>>> /\
+          <<WF_TGT: Local.wf lc1_tgt mem2_tgt>>>> /\
       <<PROMISE:
-        forall (PROMISE_TGT: th1_tgt.(Local.promise) = Memory.bot),
-        exists st2_src th2_src mem2_src,
+        forall (PROMISE_TGT: lc1_tgt.(Local.promise) = Memory.bot),
+        exists st2_src lc2_src mem2_src,
           <<STEPS: rtc (Thread.step None)
-                       (Thread.mk _ st1_src th1_src mem1_src)
-                       (Thread.mk _ st2_src th2_src mem2_src)>> /\
-          <<PROMISE_SRC: th2_src.(Local.promise) = Memory.bot>>>> /\
+                       (Thread.mk _ st1_src lc1_src mem1_src)
+                       (Thread.mk _ st2_src lc2_src mem2_src)>> /\
+          <<PROMISE_SRC: lc2_src.(Local.promise) = Memory.bot>>>> /\
       <<STEP: _sim_thread_step (sim_thread sim_terminal)
-                               st1_src th1_src mem1_src
-                               st1_tgt th1_tgt mem1_tgt>>.
+                               st1_src lc1_src mem1_src
+                               st1_tgt lc1_tgt mem1_tgt>>.
 
   Lemma _sim_thread_mon: monotone7 _sim_thread.
   Proof.
@@ -187,12 +187,12 @@ Hint Resolve _sim_mon: paco.
 Lemma sim_thread_future
       lang_src lang_tgt
       sim_terminal
-      st_src th_src mem_k1_src mem_k2_src
-      st_tgt th_tgt mem_k1_tgt mem_k2_tgt
-      (SIM: @sim_thread lang_src lang_tgt sim_terminal st_src th_src mem_k1_src st_tgt th_tgt mem_k1_tgt)
+      st_src lc_src mem_k1_src mem_k2_src
+      st_tgt lc_tgt mem_k1_tgt mem_k2_tgt
+      (SIM: @sim_thread lang_src lang_tgt sim_terminal st_src lc_src mem_k1_src st_tgt lc_tgt mem_k1_tgt)
       (FUTURE_SRC: Memory.future mem_k1_src mem_k2_src)
       (FUTURE_TGT: Memory.future mem_k1_tgt mem_k2_tgt):
-  sim_thread sim_terminal st_src th_src mem_k2_src st_tgt th_tgt mem_k2_tgt.
+  sim_thread sim_terminal st_src lc_src mem_k2_src st_tgt lc_tgt mem_k2_tgt.
 Proof.
   pfold. ii.
   punfold SIM. exploit SIM; eauto.
@@ -216,10 +216,10 @@ Proof.
 Qed.
 
 Lemma singleton_consistent
-      tid lang st th mem:
-  Configuration.consistent (Configuration.mk (IdentMap.singleton tid (existT _ _ st, th)) mem) <->
-  <<WF: Local.wf th mem>> /\
-  <<CONSISTENT: Thread.consistent lang st th mem>>.
+      tid lang st lc mem:
+  Configuration.consistent (Configuration.mk (IdentMap.singleton tid (existT _ _ st, lc)) mem) <->
+  <<WF: Local.wf lc mem>> /\
+  <<CONSISTENT: Thread.consistent lang st lc mem>>.
 Proof.
   econs; intro X.
   - inv X. ss.
@@ -235,10 +235,10 @@ Proof.
 Qed.
 
 Lemma singleton_is_terminal
-      tid lang st th:
-  Threads.is_terminal (IdentMap.singleton tid (existT _ _ st, th)) <->
+      tid lang st lc:
+  Threads.is_terminal (IdentMap.singleton tid (existT _ _ st, lc)) <->
   <<STATE: lang.(Language.is_terminal) st>> /\
-  <<THREAD: Local.is_terminal th>>.
+  <<THREAD: Local.is_terminal lc>>.
 Proof.
   econs; intro X.
   - eapply X. apply IdentMap.singleton_find.
@@ -250,27 +250,27 @@ Lemma sim_step
       lang_src lang_tgt
       sim_terminal
       e
-      st1_src th1_src mem1_src
-      st1_tgt th1_tgt mem1_tgt
-      st3_tgt th3_tgt mem3_tgt
+      st1_src lc1_src mem1_src
+      st1_tgt lc1_tgt mem1_tgt
+      st3_tgt lc3_tgt mem3_tgt
       (STEP: @Thread.step lang_tgt e
-                          (Thread.mk _ st1_tgt th1_tgt mem1_tgt)
-                          (Thread.mk _ st3_tgt th3_tgt mem3_tgt))
+                          (Thread.mk _ st1_tgt lc1_tgt mem1_tgt)
+                          (Thread.mk _ st3_tgt lc3_tgt mem3_tgt))
       (MEMORY: sim_memory mem1_src mem1_tgt)
-      (WF_SRC: Local.wf th1_src mem1_src)
-      (WF_TGT: Local.wf th1_tgt mem1_tgt)
-      (SIM: sim_thread sim_terminal st1_src th1_src mem1_src st1_tgt th1_tgt mem1_tgt):
-  exists st2_src th2_src mem2_src st3_src th3_src mem3_src,
+      (WF_SRC: Local.wf lc1_src mem1_src)
+      (WF_TGT: Local.wf lc1_tgt mem1_tgt)
+      (SIM: sim_thread sim_terminal st1_src lc1_src mem1_src st1_tgt lc1_tgt mem1_tgt):
+  exists st2_src lc2_src mem2_src st3_src lc3_src mem3_src,
     <<STEPS: rtc (@Thread.step lang_src None)
-                 (Thread.mk _ st1_src th1_src mem1_src)
-                 (Thread.mk _ st2_src th2_src mem2_src)>> /\
+                 (Thread.mk _ st1_src lc1_src mem1_src)
+                 (Thread.mk _ st2_src lc2_src mem2_src)>> /\
     <<STEP: Thread.step e
-                        (Thread.mk _ st2_src th2_src mem2_src)
-                        (Thread.mk _ st3_src th3_src mem3_src)>> /\
+                        (Thread.mk _ st2_src lc2_src mem2_src)
+                        (Thread.mk _ st3_src lc3_src mem3_src)>> /\
     <<MEMORY: sim_memory mem3_src mem3_tgt>> /\
-    <<WF_SRC: Local.wf th3_src mem3_src>> /\
-    <<WF_TGT: Local.wf th3_tgt mem3_tgt>> /\
-    <<SIM: sim_thread sim_terminal st3_src th3_src mem3_src st3_tgt th3_tgt mem3_tgt>>.
+    <<WF_SRC: Local.wf lc3_src mem3_src>> /\
+    <<WF_TGT: Local.wf lc3_tgt mem3_tgt>> /\
+    <<SIM: sim_thread sim_terminal st3_src lc3_src mem3_src st3_tgt lc3_tgt mem3_tgt>>.
 Proof.
   exploit Thread.step_future; eauto. s. i. des.
   punfold SIM. exploit SIM; eauto; try reflexivity. i. des.
@@ -283,23 +283,23 @@ Qed.
 Lemma sim_rtc_step
       lang_src lang_tgt
       sim_terminal
-      st1_src th1_src mem1_src
+      st1_src lc1_src mem1_src
       e1_tgt e2_tgt
       (STEPS: rtc (@Thread.step lang_tgt None) e1_tgt e2_tgt)
       (MEMORY: sim_memory mem1_src e1_tgt.(Thread.memory))
-      (WF_SRC: Local.wf th1_src mem1_src)
+      (WF_SRC: Local.wf lc1_src mem1_src)
       (WF_TGT: Local.wf e1_tgt.(Thread.thread) e1_tgt.(Thread.memory))
-      (SIM: sim_thread sim_terminal st1_src th1_src mem1_src e1_tgt.(Thread.state) e1_tgt.(Thread.thread) e1_tgt.(Thread.memory)):
-  exists st2_src th2_src mem2_src,
+      (SIM: sim_thread sim_terminal st1_src lc1_src mem1_src e1_tgt.(Thread.state) e1_tgt.(Thread.thread) e1_tgt.(Thread.memory)):
+  exists st2_src lc2_src mem2_src,
     <<STEPS: rtc (@Thread.step lang_src None)
-                 (Thread.mk _ st1_src th1_src mem1_src)
-                 (Thread.mk _ st2_src th2_src mem2_src)>> /\
+                 (Thread.mk _ st1_src lc1_src mem1_src)
+                 (Thread.mk _ st2_src lc2_src mem2_src)>> /\
     <<MEMORY: sim_memory mem2_src e2_tgt.(Thread.memory)>> /\
-    <<WF_SRC: Local.wf th2_src mem2_src>> /\
+    <<WF_SRC: Local.wf lc2_src mem2_src>> /\
     <<WF_TGT: Local.wf e2_tgt.(Thread.thread) e2_tgt.(Thread.memory)>> /\
-    <<SIM: sim_thread sim_terminal st2_src th2_src mem2_src e2_tgt.(Thread.state) e2_tgt.(Thread.thread) e2_tgt.(Thread.memory)>>.
+    <<SIM: sim_thread sim_terminal st2_src lc2_src mem2_src e2_tgt.(Thread.state) e2_tgt.(Thread.thread) e2_tgt.(Thread.memory)>>.
 Proof.
-  revert st1_src th1_src mem1_src MEMORY WF_SRC WF_TGT SIM.
+  revert st1_src lc1_src mem1_src MEMORY WF_SRC WF_TGT SIM.
   induction STEPS; i.
   { eexists _, _, _. splits; eauto. }
   destruct x, y. ss.
@@ -313,14 +313,14 @@ Qed.
 Lemma sim_thread_consistent
       lang_src lang_tgt
       sim_terminal
-      st_src th_src mem_src
-      st_tgt th_tgt mem_tgt
-      (SIM: sim_thread sim_terminal st_src th_src mem_src st_tgt th_tgt mem_tgt)
+      st_src lc_src mem_src
+      st_tgt lc_tgt mem_tgt
+      (SIM: sim_thread sim_terminal st_src lc_src mem_src st_tgt lc_tgt mem_tgt)
       (MEMORY: sim_memory mem_src mem_tgt)
-      (WF_SRC: Local.wf th_src mem_src)
-      (WF_TGT: Local.wf th_tgt mem_tgt)
-      (CONSISTENT: Thread.consistent lang_tgt st_tgt th_tgt mem_tgt):
-  Thread.consistent lang_src st_src th_src mem_src.
+      (WF_SRC: Local.wf lc_src mem_src)
+      (WF_TGT: Local.wf lc_tgt mem_tgt)
+      (CONSISTENT: Thread.consistent lang_tgt st_tgt lc_tgt mem_tgt):
+  Thread.consistent lang_src st_src lc_src mem_src.
 Proof.
   generalize SIM. intro X.
   punfold X. exploit X; eauto; try reflexivity. i. des.
@@ -339,17 +339,17 @@ Qed.
 Lemma sim_thread_sim
       lang_src lang_tgt
       sim_terminal
-      st1_src th1_src mem_k_src
-      st1_tgt th1_tgt mem_k_tgt
+      st1_src lc1_src mem_k_src
+      st1_tgt lc1_tgt mem_k_tgt
       tid
       (SIM: @sim_thread lang_src lang_tgt sim_terminal
-                        st1_src th1_src mem_k_src
-                        st1_tgt th1_tgt mem_k_tgt):
+                        st1_src lc1_src mem_k_src
+                        st1_tgt lc1_tgt mem_k_tgt):
   sim
-    (IdentMap.singleton tid (existT _ _ st1_src, th1_src)) mem_k_src
-    (IdentMap.singleton tid (existT _ _ st1_tgt, th1_tgt)) mem_k_tgt.
+    (IdentMap.singleton tid (existT _ _ st1_src, lc1_src)) mem_k_src
+    (IdentMap.singleton tid (existT _ _ st1_tgt, lc1_tgt)) mem_k_tgt.
 Proof.
-  revert st1_src th1_src mem_k_src st1_tgt th1_tgt mem_k_tgt SIM. pcofix CIH. i. pfold. ii.
+  revert st1_src lc1_src mem_k_src st1_tgt lc1_tgt mem_k_tgt SIM. pcofix CIH. i. pfold. ii.
   apply singleton_consistent in CONSISTENT_SRC. 
   apply singleton_consistent in CONSISTENT_TGT.
   des. splits.

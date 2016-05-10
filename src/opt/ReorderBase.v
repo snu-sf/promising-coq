@@ -31,8 +31,8 @@ Lemma progress_step
       rs1 i1 s1 lc1 mem1
       (WF1: Local.wf lc1 mem1)
       (PROMISE1: lc1.(Local.promise) = Memory.bot):
-  (exists th2, <<STEP: Thread.internal_step (Thread.mk lang (State.mk rs1 (i1::s1)) lc1 mem1) th2>>) \/
-  (exists e th2, <<STEP: Thread.external_step e (Thread.mk lang (State.mk rs1 (i1::s1)) lc1 mem1) th2>>).
+  (exists lc2, <<STEP: Thread.internal_step (Thread.mk lang (State.mk rs1 (i1::s1)) lc1 mem1) lc2>>) \/
+  (exists e lc2, <<STEP: Thread.external_step e (Thread.mk lang (State.mk rs1 (i1::s1)) lc1 mem1) lc2>>).
 Proof.
   destruct i1.
   - destruct i.
@@ -81,16 +81,16 @@ Lemma reorder_read_read
       loc1 ts1 val1 released1 ord1
       loc2 ts2 val2 released2 ord2
       promise0 mem0
-      th1
-      th2
+      lc1
+      lc2
       (LOC: loc1 <> loc2)
       (ORD2: Ordering.le ord2 Ordering.relaxed)
       (WF0: Local.wf promise0 mem0)
-      (STEP1: Local.read_step promise0 mem0 loc1 ts1 val1 released1 ord1 th1)
-      (STEP2: Local.read_step th1 mem0 loc2 ts2 val2 released2 ord2 th2):
-  exists th1',
-    <<STEP1: Local.read_step promise0 mem0 loc2 ts2 val2 released2 ord2 th1'>> /\
-    <<STEP2: Local.read_step th1' mem0 loc1 ts1 val1 released1 ord1 th2>>.
+      (STEP1: Local.read_step promise0 mem0 loc1 ts1 val1 released1 ord1 lc1)
+      (STEP2: Local.read_step lc1 mem0 loc2 ts2 val2 released2 ord2 lc2):
+  exists lc1',
+    <<STEP1: Local.read_step promise0 mem0 loc2 ts2 val2 released2 ord2 lc1'>> /\
+    <<STEP2: Local.read_step lc1' mem0 loc1 ts1 val1 released1 ord1 lc2>>.
 Proof.
   inv STEP1. inv STEP2. ss.
   exploit CommitFacts.read_min_spec; try apply WF0; try apply GET0; eauto.
@@ -138,15 +138,15 @@ Qed.
 Lemma reorder_read_promise
       loc1 ts1 val1 released1 ord1
       loc2 from2 to2 val2 released2
-      th0 mem0
-      th1
-      th2 mem2
-      (WF0: Local.wf th0 mem0)
-      (STEP1: Local.read_step th0 mem0 loc1 ts1 val1 released1 ord1 th1)
-      (STEP2: Local.promise_step th1 mem0 loc2 from2 to2 val2 released2 th2 mem2):
-  exists th1',
-    <<STEP1: Local.promise_step th0 mem0 loc2 from2 to2 val2 released2 th1' mem2>> /\
-    <<STEP2: Local.read_step th1' mem2 loc1 ts1 val1 released1 ord1 th2>>.
+      lc0 mem0
+      lc1
+      lc2 mem2
+      (WF0: Local.wf lc0 mem0)
+      (STEP1: Local.read_step lc0 mem0 loc1 ts1 val1 released1 ord1 lc1)
+      (STEP2: Local.promise_step lc1 mem0 loc2 from2 to2 val2 released2 lc2 mem2):
+  exists lc1',
+    <<STEP1: Local.promise_step lc0 mem0 loc2 from2 to2 val2 released2 lc1' mem2>> /\
+    <<STEP2: Local.read_step lc1' mem2 loc1 ts1 val1 released1 ord1 lc2>>.
 Proof.
   inv STEP1. inv STEP2. ss.
   exploit reorder_memory_get_promise; try apply WF0; eauto. i. des.
@@ -156,24 +156,24 @@ Proof.
   exploit CommitFacts.read_min_spec; try apply COMMIT; eauto. i. des.
   eexists. splits.
   - econs; try reflexivity; try apply MEMORY; eauto.
-  - destruct th0. ss. econs; try eapply CommitFacts.read_mon2; eauto.
+  - destruct lc0. ss. econs; try eapply CommitFacts.read_mon2; eauto.
     rewrite <- COMMIT0. apply CommitFacts.read_min_min. auto.
 Qed.
 
 Lemma reorder_read_fulfill
       loc1 ts1 val1 released1 ord1
       loc2 from2 to2 val2 released2 ord2
-      th0 mem0
-      th1
-      th2
+      lc0 mem0
+      lc1
+      lc2
       (LOC: loc1 <> loc2)
       (ORD: Ordering.le Ordering.seqcst ord2 -> Ordering.le Ordering.seqcst ord1 -> False)
-      (WF0: Local.wf th0 mem0)
-      (STEP1: Local.read_step th0 mem0 loc1 ts1 val1 released1 ord1 th1)
-      (STEP2: Local.fulfill_step th1 mem0 loc2 from2 to2 val2 released2 ord2 th2):
-  exists th1',
-    <<STEP1: Local.fulfill_step th0 mem0 loc2 from2 to2 val2 released2 ord2 th1'>> /\
-    <<STEP2: Local.read_step th1' mem0 loc1 ts1 val1 released1 ord1 th2>>.
+      (WF0: Local.wf lc0 mem0)
+      (STEP1: Local.read_step lc0 mem0 loc1 ts1 val1 released1 ord1 lc1)
+      (STEP2: Local.fulfill_step lc1 mem0 loc2 from2 to2 val2 released2 ord2 lc2):
+  exists lc1',
+    <<STEP1: Local.fulfill_step lc0 mem0 loc2 from2 to2 val2 released2 ord2 lc1'>> /\
+    <<STEP2: Local.read_step lc1' mem0 loc1 ts1 val1 released1 ord1 lc2>>.
 Proof.
   inv STEP1. inv STEP2. ss.
   exploit Memory.fulfill_get; eauto. i.
@@ -192,7 +192,7 @@ Proof.
   i. des.
   eexists. splits.
   - econs; eauto.
-  - destruct th0. ss. econs; try eapply CommitFacts.read_mon2; eauto.
+  - destruct lc0. ss. econs; try eapply CommitFacts.read_mon2; eauto.
     + inv COMMIT. inv COMMIT0. inv MONOTONE. inv MONOTONE0.
       unfold CommitFacts.read_min, CommitFacts.write_min. ss.
       econs; committac; try condtac; committac.
@@ -212,17 +212,17 @@ Qed.
 Lemma reorder_read_write
       loc1 ts1 val1 released1 ord1
       loc2 from2 to2 val2 released2 ord2
-      th0 mem0
-      th1 mem1
-      th2
+      lc0 mem0
+      lc1 mem1
+      lc2
       (LOC: loc1 <> loc2)
       (ORD: Ordering.le Ordering.seqcst ord2 -> Ordering.le Ordering.seqcst ord1 -> False)
-      (WF0: Local.wf th0 mem0)
-      (STEP1: Local.read_step th0 mem0 loc1 ts1 val1 released1 ord1 th1)
-      (STEP2: Local.write_step th1 mem0 loc2 from2 to2 val2 released2 ord2 th2 mem1):
-  exists th1',
-    <<STEP1: Local.write_step th0 mem0 loc2 from2 to2 val2 released2 ord2 th1' mem1>> /\
-    <<STEP2: Local.read_step th1' mem1 loc1 ts1 val1 released1 ord1 th2>>.
+      (WF0: Local.wf lc0 mem0)
+      (STEP1: Local.read_step lc0 mem0 loc1 ts1 val1 released1 ord1 lc1)
+      (STEP2: Local.write_step lc1 mem0 loc2 from2 to2 val2 released2 ord2 lc2 mem1):
+  exists lc1',
+    <<STEP1: Local.write_step lc0 mem0 loc2 from2 to2 val2 released2 ord2 lc1' mem1>> /\
+    <<STEP2: Local.read_step lc1' mem1 loc1 ts1 val1 released1 ord1 lc2>>.
 Proof.
   inv STEP2.
   - exploit reorder_read_fulfill; eauto. i. des.
@@ -239,18 +239,18 @@ Qed.
 Lemma reorder_read_fence
       loc1 ts1 val1 released1 ord1
       ordr2 ordw2
-      th0 mem0
-      th1
-      th2
+      lc0 mem0
+      lc1
+      lc2
       (ORD1: Ordering.le Ordering.relaxed ord1)
       (ORDR2: Ordering.le ordr2 Ordering.relaxed)
       (ORDW2: Ordering.le ordw2 Ordering.acqrel)
-      (WF0: Local.wf th0 mem0)
-      (STEP1: Local.read_step th0 mem0 loc1 ts1 val1 released1 ord1 th1)
-      (STEP2: Local.fence_step th1 mem0 ordr2 ordw2 th2):
-  exists th1',
-    <<STEP1: Local.fence_step th0 mem0 ordr2 ordw2 th1'>> /\
-    <<STEP2: Local.read_step th1' mem0 loc1 ts1 val1 released1 ord1 th2>>.
+      (WF0: Local.wf lc0 mem0)
+      (STEP1: Local.read_step lc0 mem0 loc1 ts1 val1 released1 ord1 lc1)
+      (STEP2: Local.fence_step lc1 mem0 ordr2 ordw2 lc2):
+  exists lc1',
+    <<STEP1: Local.fence_step lc0 mem0 ordr2 ordw2 lc1'>> /\
+    <<STEP2: Local.read_step lc1' mem0 loc1 ts1 val1 released1 ord1 lc2>>.
 Proof.
   inv STEP1. inv STEP2. ss.
   destruct (Ordering.le_dec Ordering.acqrel ordr2) eqn:ORDR2'; committac.
@@ -270,7 +270,7 @@ Proof.
   i. des.
   eexists. splits.
   - econs; eauto.
-  - destruct th0. s. econs; try eapply CommitFacts.read_mon2; eauto.
+  - destruct lc0. s. econs; try eapply CommitFacts.read_mon2; eauto.
     inv COMMIT. inv COMMIT0. inv MONOTONE. inv MONOTONE0.
     unfold CommitFacts.read_min, CommitFacts.fence_min.
     rewrite ORDR2'. committac.
@@ -304,18 +304,18 @@ Qed.
 Lemma reorder_fulfill_read
       loc1 from1 to1 val1 released1 ord1
       loc2 ts2 val2 released2 ord2
-      th0 mem0
-      th1
-      th2
+      lc0 mem0
+      lc1
+      lc2
       (LOC: loc1 <> loc2)
       (ORD1: Ordering.le ord1 Ordering.relaxed)
       (ORD2: Ordering.le ord2 Ordering.relaxed)
-      (WF0: Local.wf th0 mem0)
-      (STEP1: Local.fulfill_step th0 mem0 loc1 from1 to1 val1 released1 ord1 th1)
-      (STEP2: Local.read_step th1 mem0 loc2 ts2 val2 released2 ord2 th2):
-  exists th1',
-    <<STEP1: Local.read_step th0 mem0 loc2 ts2 val2 released2 ord2 th1'>> /\
-    <<STEP2: Local.fulfill_step th1' mem0 loc1 from1 to1 val1 released1 ord1 th2>>.
+      (WF0: Local.wf lc0 mem0)
+      (STEP1: Local.fulfill_step lc0 mem0 loc1 from1 to1 val1 released1 ord1 lc1)
+      (STEP2: Local.read_step lc1 mem0 loc2 ts2 val2 released2 ord2 lc2):
+  exists lc1',
+    <<STEP1: Local.read_step lc0 mem0 loc2 ts2 val2 released2 ord2 lc1'>> /\
+    <<STEP2: Local.fulfill_step lc1' mem0 loc1 from1 to1 val1 released1 ord1 lc2>>.
 Proof.
   inv STEP1. inv STEP2. ss.
   exploit Memory.fulfill_get; eauto. i.
@@ -332,7 +332,7 @@ Proof.
   i. des.
   eexists. splits.
   - econs; eauto. erewrite reorder_memory_get_fulfill; eauto. apply WF0.
-  - destruct th0. s. econs; try eapply CommitFacts.write_mon2; eauto.
+  - destruct lc0. s. econs; try eapply CommitFacts.write_mon2; eauto.
     inv COMMIT. inv COMMIT0. inv MONOTONE. inv MONOTONE0.
     unfold CommitFacts.write_min, CommitFacts.read_min.
     condtac; committac.
@@ -351,15 +351,15 @@ Qed.
 Lemma reorder_fulfill_promise
       loc1 from1 to1 val1 released1 ord1
       loc2 from2 to2 val2 released2
-      th0 mem0
-      th1
-      th2 mem2
-      (WF0: Local.wf th0 mem0)
-      (STEP1: Local.fulfill_step th0 mem0 loc1 from1 to1 val1 released1 ord1 th1)
-      (STEP2: Local.promise_step th1 mem0 loc2 from2 to2 val2 released2 th2 mem2):
-  exists th1',
-    <<STEP1: Local.promise_step th0 mem0 loc2 from2 to2 val2 released2 th1' mem2>> /\
-    <<STEP2: Local.fulfill_step th1' mem2 loc1 from1 to1 val1 released1 ord1 th2>>.
+      lc0 mem0
+      lc1
+      lc2 mem2
+      (WF0: Local.wf lc0 mem0)
+      (STEP1: Local.fulfill_step lc0 mem0 loc1 from1 to1 val1 released1 ord1 lc1)
+      (STEP2: Local.promise_step lc1 mem0 loc2 from2 to2 val2 released2 lc2 mem2):
+  exists lc1',
+    <<STEP1: Local.promise_step lc0 mem0 loc2 from2 to2 val2 released2 lc1' mem2>> /\
+    <<STEP2: Local.fulfill_step lc1' mem2 loc1 from1 to1 val1 released1 ord1 lc2>>.
 Proof.
   inv STEP1. inv STEP2. ss.
   exploit reorder_memory_fulfill_promise; try apply MEMORY; try apply WF0; eauto. i. des.
@@ -372,24 +372,24 @@ Proof.
   i. des.
   eexists. splits.
   - econs; try reflexivity; try apply x0; eauto.
-  - destruct th0. ss. econs; try eapply CommitFacts.write_mon2; eauto.
+  - destruct lc0. ss. econs; try eapply CommitFacts.write_mon2; eauto.
     rewrite <- COMMIT0. eapply CommitFacts.write_min_min. eauto.
 Qed.
 
 Lemma reorder_fulfill_fulfill
       loc1 from1 to1 val1 released1 ord1
       loc2 from2 to2 val2 released2 ord2
-      th0 mem0
-      th1
-      th2
+      lc0 mem0
+      lc1
+      lc2
       (LOC: loc1 <> loc2)
       (ORD1: Ordering.le ord1 Ordering.relaxed)
-      (WF0: Local.wf th0 mem0)
-      (STEP1: Local.fulfill_step th0 mem0 loc1 from1 to1 val1 released1 ord1 th1)
-      (STEP2: Local.fulfill_step th1 mem0 loc2 from2 to2 val2 released2 ord2 th2):
-  exists th1',
-    <<STEP1: Local.fulfill_step th0 mem0 loc2 from2 to2 val2 released2 ord2 th1'>> /\
-    <<STEP2: Local.fulfill_step th1' mem0 loc1 from1 to1 val1 released1 ord1 th2>>.
+      (WF0: Local.wf lc0 mem0)
+      (STEP1: Local.fulfill_step lc0 mem0 loc1 from1 to1 val1 released1 ord1 lc1)
+      (STEP2: Local.fulfill_step lc1 mem0 loc2 from2 to2 val2 released2 ord2 lc2):
+  exists lc1',
+    <<STEP1: Local.fulfill_step lc0 mem0 loc2 from2 to2 val2 released2 ord2 lc1'>> /\
+    <<STEP2: Local.fulfill_step lc1' mem0 loc1 from1 to1 val1 released1 ord1 lc2>>.
 Proof.
   inv STEP1. inv STEP2. ss.
   exploit reorder_memory_fulfill_fulfill; try apply MEMORY; eauto. i. des.
@@ -421,7 +421,7 @@ Proof.
   i. des.
   eexists. splits.
   - econs; eauto.
-  - destruct th0. ss. econs; try eapply CommitFacts.write_mon2; eauto.
+  - destruct lc0. ss. econs; try eapply CommitFacts.write_mon2; eauto.
     inv COMMIT. inv COMMIT0. inv MONOTONE. inv MONOTONE0. ss.
     econs; committac.
     + rewrite CURRENT1. auto.
@@ -436,17 +436,17 @@ Qed.
 Lemma reorder_fulfill_write
       loc1 from1 to1 val1 released1 ord1
       loc2 from2 to2 val2 released2 ord2
-      th0 mem0
-      th1
-      th2 mem2
+      lc0 mem0
+      lc1
+      lc2 mem2
       (LOC: loc1 <> loc2)
       (ORD1: Ordering.le ord1 Ordering.relaxed)
-      (WF0: Local.wf th0 mem0)
-      (STEP1: Local.fulfill_step th0 mem0 loc1 from1 to1 val1 released1 ord1 th1)
-      (STEP2: Local.write_step th1 mem0 loc2 from2 to2 val2 released2 ord2 th2 mem2):
-  exists th1',
-    <<STEP1: Local.write_step th0 mem0 loc2 from2 to2 val2 released2 ord2 th1' mem2>> /\
-    <<STEP2: Local.fulfill_step th1' mem2 loc1 from1 to1 val1 released1 ord1 th2>>.
+      (WF0: Local.wf lc0 mem0)
+      (STEP1: Local.fulfill_step lc0 mem0 loc1 from1 to1 val1 released1 ord1 lc1)
+      (STEP2: Local.write_step lc1 mem0 loc2 from2 to2 val2 released2 ord2 lc2 mem2):
+  exists lc1',
+    <<STEP1: Local.write_step lc0 mem0 loc2 from2 to2 val2 released2 ord2 lc1' mem2>> /\
+    <<STEP2: Local.fulfill_step lc1' mem2 loc1 from1 to1 val1 released1 ord1 lc2>>.
 Proof.
   inv STEP2.
   - exploit reorder_fulfill_fulfill; eauto. i. des.
@@ -463,17 +463,17 @@ Qed.
 Lemma reorder_fence_promise
       ordr1 ordw1
       loc2 from2 to2 val2 released2
-      th0 mem0
-      th1
-      th2 mem2
+      lc0 mem0
+      lc1
+      lc2 mem2
       (ORDR1: Ordering.le ordr1 Ordering.acqrel)
       (ORDW1: Ordering.le ordw1 Ordering.relaxed)
-      (WF0: Local.wf th0 mem0)
-      (STEP1: Local.fence_step th0 mem0 ordr1 ordw1 th1)
-      (STEP2: Local.promise_step th1 mem0 loc2 from2 to2 val2 released2 th2 mem2):
-  exists th1',
-    <<STEP1: Local.promise_step th0 mem0 loc2 from2 to2 val2 released2 th1' mem2>> /\
-    <<STEP2: Local.fence_step th1' mem2 ordr1 ordw1 th2>>.
+      (WF0: Local.wf lc0 mem0)
+      (STEP1: Local.fence_step lc0 mem0 ordr1 ordw1 lc1)
+      (STEP2: Local.promise_step lc1 mem0 loc2 from2 to2 val2 released2 lc2 mem2):
+  exists lc1',
+    <<STEP1: Local.promise_step lc0 mem0 loc2 from2 to2 val2 released2 lc1' mem2>> /\
+    <<STEP2: Local.fence_step lc1' mem2 ordr1 ordw1 lc2>>.
 Proof.
   inv STEP1. inv STEP2. ss.
   exploit Memory.promise_future; try apply WF0; eauto. i. des.
@@ -481,7 +481,7 @@ Proof.
   exploit CommitFacts.fence_min_spec; try apply COMMIT; eauto. i. des.
   eexists. splits.
   - econs; try reflexivity; try apply MEMORY; eauto.
-  - destruct th0. ss. econs; try eapply CommitFacts.fence_mon2; eauto.
+  - destruct lc0. ss. econs; try eapply CommitFacts.fence_mon2; eauto.
     + rewrite <- COMMIT0. apply CommitFacts.fence_min_min. auto.
     + i. rewrite ORDW1 in H. inv H.
 Qed.
@@ -489,17 +489,17 @@ Qed.
 Lemma reorder_fence_fulfill
       ordr1 ordw1
       loc2 from2 to2 val2 released2 ord2
-      th0 mem0
-      th1
-      th2
+      lc0 mem0
+      lc1
+      lc2
       (ORDR1: Ordering.le ordr1 Ordering.acqrel)
       (ORDW1: Ordering.le ordw1 Ordering.relaxed)
-      (WF0: Local.wf th0 mem0)
-      (STEP1: Local.fence_step th0 mem0 ordr1 ordw1 th1)
-      (STEP2: Local.fulfill_step th1 mem0 loc2 from2 to2 val2 released2 ord2 th2):
-  exists th1',
-    <<STEP1: Local.fulfill_step th0 mem0 loc2 from2 to2 val2 released2 ord2 th1'>> /\
-    <<STEP2: Local.fence_step th1' mem0 ordr1 ordw1 th2>>.
+      (WF0: Local.wf lc0 mem0)
+      (STEP1: Local.fence_step lc0 mem0 ordr1 ordw1 lc1)
+      (STEP2: Local.fulfill_step lc1 mem0 loc2 from2 to2 val2 released2 ord2 lc2):
+  exists lc1',
+    <<STEP1: Local.fulfill_step lc0 mem0 loc2 from2 to2 val2 released2 ord2 lc1'>> /\
+    <<STEP2: Local.fence_step lc1' mem0 ordr1 ordw1 lc2>>.
 Proof.
   destruct (Ordering.le_dec Ordering.acqrel ordw1) eqn:ORDW1'.
   { clear ORDW1'. rewrite ORDW1 in l. inv l. }
@@ -519,7 +519,7 @@ Proof.
   i. des.
   eexists. splits.
   - econs; eauto.
-  - destruct th0. ss. econs; try eapply CommitFacts.fence_mon2; eauto.
+  - destruct lc0. ss. econs; try eapply CommitFacts.fence_mon2; eauto.
     + inv COMMIT. inv COMMIT0. inv MONOTONE. inv MONOTONE0.
       unfold CommitFacts.fence_min, CommitFacts.write_min.
       committac. econs; committac.
@@ -544,17 +544,17 @@ Qed.
 Lemma reorder_fence_write
       ordr1 ordw1
       loc2 from2 to2 val2 released2 ord2
-      th0 mem0
-      th1
-      th2 mem2
+      lc0 mem0
+      lc1
+      lc2 mem2
       (ORDR1: Ordering.le ordr1 Ordering.acqrel)
       (ORDW1: Ordering.le ordw1 Ordering.relaxed)
-      (WF0: Local.wf th0 mem0)
-      (STEP1: Local.fence_step th0 mem0 ordr1 ordw1 th1)
-      (STEP2: Local.write_step th1 mem0 loc2 from2 to2 val2 released2 ord2 th2 mem2):
-  exists th1',
-    <<STEP1: Local.write_step th0 mem0 loc2 from2 to2 val2 released2 ord2 th1' mem2>> /\
-    <<STEP2: Local.fence_step th1' mem2 ordr1 ordw1 th2>>.
+      (WF0: Local.wf lc0 mem0)
+      (STEP1: Local.fence_step lc0 mem0 ordr1 ordw1 lc1)
+      (STEP2: Local.write_step lc1 mem0 loc2 from2 to2 val2 released2 ord2 lc2 mem2):
+  exists lc1',
+    <<STEP1: Local.write_step lc0 mem0 loc2 from2 to2 val2 released2 ord2 lc1' mem2>> /\
+    <<STEP2: Local.fence_step lc1' mem2 ordr1 ordw1 lc2>>.
 Proof.
   inv STEP2.
   - exploit reorder_fence_fulfill; eauto. i. des.

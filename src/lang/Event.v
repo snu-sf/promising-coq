@@ -24,15 +24,15 @@ Module Const := Nat.
 Module Ordering.
   (* TODO: support the SC atomics (#40) *)
   Inductive t :=
-  | unordered
+  | nonatomic
   | relaxed
   | acqrel
   | seqcst
   .
 
   Inductive le: forall (lhs rhs:t), Prop :=
-  | le_unordered_o o:
-      le unordered o
+  | le_nonatomic_o o:
+      le nonatomic o
 
   | le_relaxed_relaxed:
       le relaxed relaxed

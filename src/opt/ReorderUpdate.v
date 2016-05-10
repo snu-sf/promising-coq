@@ -57,37 +57,37 @@ Inductive reorder_update r1 l1 rmw1 or1 ow1: forall (i2:Instr.t), Prop :=
     reorder_update r1 l1 rmw1 or1 ow1 (Instr.update r2 l2 rmw2 or2 ow2)
 .
 
-Inductive sim_update: forall (st_src:lang.(Language.state)) (th_src:Local.t) (mem_k_src:Memory.t)
-                        (st_tgt:lang.(Language.state)) (th_tgt:Local.t) (mem_k_tgt:Memory.t), Prop :=
+Inductive sim_update: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (mem_k_src:Memory.t)
+                        (st_tgt:lang.(Language.state)) (lc_tgt:Local.t) (mem_k_tgt:Memory.t), Prop :=
 | sim_update_intro
     r1 l1 from1 to1 vr1 vret1 vw1 releasedr1 releasedw1 rmw1 or1 ow1 i2
-    rs th1_src th1_tgt th2_src th3_src
+    rs lc1_src lc1_tgt lc2_src lc3_src
     mem_k_src mem_k_tgt
     (REORDER: reorder_update r1 l1 rmw1 or1 ow1 i2)
     (RMW: RegFile.eval_rmw rs rmw1 vr1 = (vret1, vw1))
-    (READ: Local.read_step th1_src mem_k_src l1 from1 vr1 releasedr1 or1 th2_src)
-    (FULFILL: Local.fulfill_step th2_src mem_k_src l1 from1 to1 vw1 releasedw1 ow1 th3_src)
+    (READ: Local.read_step lc1_src mem_k_src l1 from1 vr1 releasedr1 or1 lc2_src)
+    (FULFILL: Local.fulfill_step lc2_src mem_k_src l1 from1 to1 vw1 releasedw1 ow1 lc3_src)
     (RELEASED: Snapshot.le releasedr1 releasedw1)
-    (LOCAL: sim_local th3_src th1_tgt):
+    (LOCAL: sim_local lc3_src lc1_tgt):
     sim_update
-      (State.mk rs [Stmt.instr i2; Stmt.instr (Instr.update r1 l1 rmw1 or1 ow1)]) th1_src mem_k_src
-      (State.mk (RegFun.add r1 vret1 rs) [Stmt.instr i2]) th1_tgt mem_k_tgt
+      (State.mk rs [Stmt.instr i2; Stmt.instr (Instr.update r1 l1 rmw1 or1 ow1)]) lc1_src mem_k_src
+      (State.mk (RegFun.add r1 vret1 rs) [Stmt.instr i2]) lc1_tgt mem_k_tgt
 .
 
 Lemma sim_update_step
-      st1_src th1_src mem_k_src
-      st1_tgt th1_tgt mem_k_tgt
-      (SIM: sim_update st1_src th1_src mem_k_src
-                      st1_tgt th1_tgt mem_k_tgt):
+      st1_src lc1_src mem_k_src
+      st1_tgt lc1_tgt mem_k_tgt
+      (SIM: sim_update st1_src lc1_src mem_k_src
+                      st1_tgt lc1_tgt mem_k_tgt):
   forall mem1_src mem1_tgt
     (MEMORY: sim_memory mem1_src mem1_tgt)
     (FUTURE_SRC: Memory.future mem_k_src mem1_src)
     (FUTURE_TGT: Memory.future mem_k_tgt mem1_tgt)
-    (WF_SRC: Local.wf th1_src mem1_src)
-    (WF_TGT: Local.wf th1_tgt mem1_tgt),
+    (WF_SRC: Local.wf lc1_src mem1_src)
+    (WF_TGT: Local.wf lc1_tgt mem1_tgt),
     _sim_thread_step lang lang ((sim_thread (sim_terminal eq)) \6/ sim_update)
-                     st1_src th1_src mem1_src
-                     st1_tgt th1_tgt mem1_tgt.
+                     st1_src lc1_src mem1_src
+                     st1_tgt lc1_tgt mem1_tgt.
 Proof.
   inv SIM. ii.
   exploit Local.future_read_step; try apply READ; eauto. i.
@@ -227,7 +227,7 @@ Proof.
   - inversion PR. subst. i.
     exploit (progress_step (RegFun.add r1 vret1 rs) i2 nil); eauto.
     i. des; [|by inv STEP; inv STATE; inv INSTR; inv REORDER].
-    destruct th2. exploit sim_update_step; eauto.
+    destruct lc2. exploit sim_update_step; eauto.
     { econs 2. eauto. }
     i. des.
     + exploit internal_step_promise; eauto. i.

@@ -19,10 +19,10 @@ Set Implicit Arguments.
 
 Lemma internal_step_promise
       lang
-      st1 th1 mem1 st2 th2 mem2
-      (STEP: Thread.internal_step (Thread.mk lang st1 th1 mem1) (Thread.mk lang st2 th2 mem2))
-      (PROMISE: th1.(Local.promise) = Memory.bot):
-  th2.(Local.promise) = Memory.bot.
+      st1 lc1 mem1 st2 lc2 mem2
+      (STEP: Thread.internal_step (Thread.mk lang st1 lc1 mem1) (Thread.mk lang st2 lc2 mem2))
+      (PROMISE: lc1.(Local.promise) = Memory.bot):
+  lc2.(Local.promise) = Memory.bot.
 Proof.
   inv STEP; try inv LOCAL; ss.
   - admit.
@@ -53,15 +53,15 @@ Admitted.
  * - new current <= m.released if ordering >= acqrel
  *)
 Lemma progress_promise_step
-      th1 mem1
+      lc1 mem1
       loc from to released val
       (MAX: max_timestamp loc from mem1)
       (LT: Time.lt from to)
-      (WF1: Local.wf th1 mem1):
+      (WF1: Local.wf lc1 mem1):
   exists promise2 mem2,
-    Local.promise_step th1 mem1 loc from to val released (Local.mk th1.(Local.commit) promise2) mem2.
+    Local.promise_step lc1 mem1 loc from to val released (Local.mk lc1.(Local.commit) promise2) mem2.
 Proof.
-  destruct th1. s.
+  destruct lc1. s.
   eexists _, _. econs; memtac.
   - reflexivity.
   - admit. (* commit.wf *)
@@ -71,21 +71,21 @@ Proof.
 Admitted.
 
 Lemma progress_silent_step
-      th1 mem1
-      (WF1: Local.wf th1 mem1):
-  Local.silent_step th1 mem1 th1.
+      lc1 mem1
+      (WF1: Local.wf lc1 mem1):
+  Local.silent_step lc1 mem1 lc1.
 Proof.
-  destruct th1. econs; try apply WF1. reflexivity.
+  destruct lc1. econs; try apply WF1. reflexivity.
 Qed.
 
 Lemma progress_read_step
-      th1 mem1
+      lc1 mem1
       loc ord ts
-      (WF1: Local.wf th1 mem1)
-      (PROMISE1: th1.(Local.promise) = Memory.bot)
+      (WF1: Local.wf lc1 mem1)
+      (PROMISE1: lc1.(Local.promise) = Memory.bot)
       (MAX: max_timestamp loc ts mem1):
-  exists val released th2,
-    Local.read_step th1 mem1 loc ts val released ord th2.
+  exists val released lc2,
+    Local.read_step lc1 mem1 loc ts val released ord lc2.
 Proof.
   inv MAX. destruct msg.
   eexists _, _, _. splits; eauto. econs; eauto.
@@ -100,13 +100,13 @@ Proof.
 Admitted.
 
 Lemma progress_fulfill_step
-      th1 mem1
+      lc1 mem1
       loc from to val released ord
       (LT: Time.lt from to)
-      (WF1: Local.wf th1 mem1)
-      (PROMISE1: th1.(Local.promise) = Memory.singleton loc (Message.mk val released) LT):
-  exists th2,
-    Local.fulfill_step th1 mem1 loc from to val released ord th2.
+      (WF1: Local.wf lc1 mem1)
+      (PROMISE1: lc1.(Local.promise) = Memory.singleton loc (Message.mk val released) LT):
+  exists lc2,
+    Local.fulfill_step lc1 mem1 loc from to val released ord lc2.
 Proof.
   exploit (@CommitFacts.write_min_spec loc to val released);
     try apply WF1; eauto.
@@ -124,16 +124,16 @@ Proof.
 Admitted.
 
 Lemma progress_write_step
-      th1 mem1
+      lc1 mem1
       loc from to val released ord
       (MAX: max_timestamp loc from mem1)
       (LT: Time.lt from to)
-      (WF1: Local.wf th1 mem1)
-      (PROMISE1: th1.(Local.promise) = Memory.bot):
-  exists th2 mem2,
-    Local.write_step th1 mem1 loc from to val released ord th2 mem2.
+      (WF1: Local.wf lc1 mem1)
+      (PROMISE1: lc1.(Local.promise) = Memory.bot):
+  exists lc2 mem2,
+    Local.write_step lc1 mem1 loc from to val released ord lc2 mem2.
 Proof.
-  destruct th1. ss. subst.
+  destruct lc1. ss. subst.
   exploit progress_promise_step; eauto. s. i. des.
   assert (promise2 = Memory.singleton loc (Message.mk val released) LT).
   { inv x0. inv MEMORY; ss.
@@ -148,12 +148,12 @@ Proof.
 Admitted.
 
 Lemma progress_fence_step
-      th1 mem1
+      lc1 mem1
       ordr ordw
-      (WF1: Local.wf th1 mem1)
-      (PROMISE1: th1.(Local.promise) = Memory.bot):
-  exists th2,
-    Local.fence_step th1 mem1 ordr ordw th2.
+      (WF1: Local.wf lc1 mem1)
+      (PROMISE1: lc1.(Local.promise) = Memory.bot):
+  exists lc2,
+    Local.fence_step lc1 mem1 ordr ordw lc2.
 Proof.
   exploit CommitFacts.fence_min_spec; try apply WF1; eauto. i. des.
   eexists. econs; eauto.
