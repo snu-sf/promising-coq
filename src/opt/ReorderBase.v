@@ -80,16 +80,16 @@ Qed.
 Lemma reorder_read_read
       loc1 ts1 val1 released1 ord1
       loc2 ts2 val2 released2 ord2
-      promise0 mem0
+      lc0 mem0
       lc1
       lc2
       (LOC: loc1 <> loc2)
       (ORD2: Ordering.le ord2 Ordering.relaxed)
-      (WF0: Local.wf promise0 mem0)
-      (STEP1: Local.read_step promise0 mem0 loc1 ts1 val1 released1 ord1 lc1)
+      (WF0: Local.wf lc0 mem0)
+      (STEP1: Local.read_step lc0 mem0 loc1 ts1 val1 released1 ord1 lc1)
       (STEP2: Local.read_step lc1 mem0 loc2 ts2 val2 released2 ord2 lc2):
   exists lc1',
-    <<STEP1: Local.read_step promise0 mem0 loc2 ts2 val2 released2 ord2 lc1'>> /\
+    <<STEP1: Local.read_step lc0 mem0 loc2 ts2 val2 released2 ord2 lc1'>> /\
     <<STEP2: Local.read_step lc1' mem0 loc1 ts1 val1 released1 ord1 lc2>>.
 Proof.
   inv STEP1. inv STEP2. ss.
@@ -102,7 +102,7 @@ Proof.
   i. des.
   eexists. splits.
   - econs; eauto.
-  - destruct promise0. s. econs; try eapply CommitFacts.read_mon2; eauto.
+  - destruct lc0. s. econs; try eapply CommitFacts.read_mon2; eauto.
     s. inv COMMIT. inv COMMIT0. inv MONOTONE. inv MONOTONE0.
     unfold CommitFacts.read_min.
     destruct (Ordering.le_dec Ordering.acqrel ord2).
