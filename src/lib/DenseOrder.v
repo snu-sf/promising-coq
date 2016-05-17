@@ -1,12 +1,14 @@
 Require Import Orders.
 Require Import OrdersFacts.
 Require Import RelationClasses.
+Require Import PArith.
 
 Require Import sflib.
 Require Import paco.
 
 Require Import Basic.
 Require Import DataStructure.
+Require Import UsualFMapPositive.
 
 Module Type IsDense (Import T:EqLtLe).
   Parameter elt: t.
@@ -28,34 +30,38 @@ End IsDense.
 Module Type DenseOrderType := UsualOrderedTypeFull <+ IsDense <+ HasCaseJoin.
 
 Module DenseOrder: DenseOrderType.
-  Definition t := list bool.
-  Definition elt: t := nil.
+  Definition t := positive.
+  Definition elt: t := xH.
 
   Definition eq := @eq t.
   Global Program Instance eq_equiv : Equivalence eq.
 
   Inductive lt_: forall (lhs rhs:t), Prop :=
-  | lt_false lhs:
-      lt_ (false::lhs) []
-  | lt_true rhs:
-      lt_ [] (true::rhs)
-  | lt_false_true lhs rhs:
-      lt_ (false::lhs) (true::rhs)
-  | lt_cons
-      hd lhs rhs
+  | lt_xO_xH lhs:
+      lt_ (xO lhs) xH
+  | lt_xH_xI rhs:
+      lt_ xH (xI rhs)
+  | lt_xO_xI lhs rhs:
+      lt_ (xO lhs) (xI rhs)
+  | lt_xO
+      lhs rhs
       (LT: lt_ lhs rhs):
-      lt_ (hd::lhs) (hd::rhs)
+      lt_ (xO lhs) (xO rhs)
+  | lt_xI
+      lhs rhs
+      (LT: lt_ lhs rhs):
+      lt_ (xI lhs) (xI rhs)
   .
   Definition lt := lt_.
   Global Program Instance lt_strorder: StrictOrder lt.
   Next Obligation.
-    intro x. induction x; intro X; inv X.
-    apply IHx. auto.
+    intro x. induction x; intro X; inv X; eauto.
   Qed.
   Next Obligation.
     intros x y z XY. revert z.
     induction XY; i; inv H; econs.
-    apply IHXY. auto.
+    - apply IHXY. auto.
+    - apply IHXY. auto.
   Qed.
   Global Program Instance lt_compat: Proper (eq ==> eq ==> iff) lt.
   Next Obligation.
@@ -63,18 +69,18 @@ Module DenseOrder: DenseOrderType.
   Qed.
   Fixpoint compare (lhs rhs:t): comparison :=
     match lhs, rhs with
-    | [], [] =>
+    | xH, xH =>
       Eq
-    | false::_, true::_
-    | [], true::_
-    | false::_, [] =>
+    | xO _, xI _
+    | xH, xI _
+    | xO _, xH =>
       Lt
-    | true::_, false::_
-    | [], false::_
-    | true::_, [] =>
+    | xI _, xO _
+    | xH, xO _
+    | xI _, xH =>
       Gt
-    | false::ltl, false::rtl
-    | true::ltl, true::rtl =>
+    | xO ltl, xO rtl
+    | xI ltl, xI rtl =>
       compare ltl rtl
     end.
    Lemma compare_spec :
@@ -91,37 +97,45 @@ Module DenseOrder: DenseOrderType.
 
    Lemma eq_dec: forall x y : t, {x = y} + {x <> y}.
    Proof.
-     induction x; destruct y.
-     - left. auto.
-     - right. congruence.
-     - right. congruence.
-     - destruct (IHx y).
-       + subst. destruct (Bool.eqb a b) eqn:HD.
-         * destruct a, b; auto.
-         * right. destruct a, b; inv HD; congruence.
-       + right. congruence.
-   Qed.
+     apply Pos.eq_dec.
+   Defined.
+   Global Opaque eq_dec.
 
    Definition le := lt \2/ eq.
    Lemma le_lteq : forall x y : t, le x y <-> lt x y \/ x = y.
    Proof. auto. Qed.
+   Global Opaque le.
 
-  Definition decr (x:t) := x ++ [false].
+   Fixpoint decr (x:t) :=
+     match x with
+     | xH => xO xH
+     | xO x => xO (decr x)
+     | xI x => xI (decr x)
+     end.
+
   Lemma decr_spec: forall x, lt (decr x) x.
-    induction x; econs. auto.
+    induction x; ss; econs; eauto.
   Qed.
 
-  Definition incr (x:t) := x ++ [true].
+   Fixpoint incr (x:t) :=
+     match x with
+     | xH => xI xH
+     | xO x => xO (incr x)
+     | xI x => xI (incr x)
+     end.
+
   Lemma incr_spec: forall x, lt x (incr x).
-    induction x; econs. auto.
+    induction x; ss; econs; eauto.
   Qed.
 
   Fixpoint middle (lhs rhs:t): t :=
     match lhs, rhs with
-    | [], rhs => rhs ++ [false]
-    | lhs, [] => lhs ++ [true]
-    | false::ltl, true::rtl => []
-    | lhd::ltl, rhd::rtl => lhd::(middle ltl rtl)
+    | xH, rhs => decr rhs
+    | lhs, xH => incr lhs
+    | xO ltl, xO rtl => xO (middle ltl rtl)
+    | xO ltl, xI rtl => xO (incr ltl)
+    | xI ltl, xO rtl => xI (middle ltl rtl)
+    | xI ltl, xI rtl => xI (middle ltl rtl)
     end.
 
   Lemma middle_spec:
@@ -130,15 +144,10 @@ Module DenseOrder: DenseOrderType.
       lt lhs (middle lhs rhs) /\
       lt (middle lhs rhs) rhs.
   Proof.
-    induction lhs; i; inv LT; splits; try econs; s.
-    - induction rhs0; econs.
-      apply IHrhs0.
-    - clear IHlhs. induction lhs; econs.
-      apply IHlhs.
-    - exploit IHlhs; eauto. i. des.
-      destruct a; econs; auto.
-    - exploit IHlhs; eauto. i. des.
-      destruct a; econs; auto.
+    induction lhs; s; i; inv LT; splits; econs;
+      (try by apply IHlhs; auto);
+      (try by apply incr_spec; auto);
+      (try by apply decr_spec; auto).
   Qed.
 
   Lemma le_lt_dec (lhs rhs:t): {le lhs rhs} + {lt rhs lhs}.
@@ -159,9 +168,9 @@ Module DenseOrder: DenseOrderType.
   Proof.
     unfold join.
     destruct (le_lt_dec lhs rhs), (le_lt_dec rhs lhs); auto.
-    - unfold le in *. des; auto.
-      rewrite l0 in l. apply lt_strorder in l. done.
-    - rewrite l0 in l. apply lt_strorder in l. done.
+    - apply le_lteq in l. apply le_lteq in l0.
+      des; auto. rewrite l in l0. apply lt_strorder in l0. done.
+    - rewrite l in l0. apply lt_strorder in l0. done.
   Qed.
 
   Lemma join_assoc a b c: join (join a b) c = join a (join b c).
@@ -169,13 +178,15 @@ Module DenseOrder: DenseOrderType.
     unfold join.
     repeat
       (try match goal with
+           | [H: le _ _ |- _] =>
+             apply le_lteq in H
            | [|- context[le_lt_dec ?a ?b]] =>
              destruct (le_lt_dec a b)
            | [H: context[le_lt_dec ?a ?b] |- _] =>
              destruct (le_lt_dec a b)
            | [H1: lt ?a ?b, H2: lt ?b ?a |- _] =>
              rewrite H2 in H1; apply lt_strorder in H1; inv H1
-           end; unfold le, eq in *; try subst; des; ss).
+           end; unfold eq in *; try subst; des; ss).
     - rewrite l in l2. rewrite l0 in l2.
       apply lt_strorder in l2. inv l2.
     - rewrite l in l2. rewrite l1 in l2.
@@ -210,7 +221,7 @@ Module DenseOrder: DenseOrderType.
   Qed.
 End DenseOrder.
 
-Program Instance DenseOrder_le_PreOrder: PreOrder DenseOrder.le.
+Global Program Instance DenseOrder_le_PreOrder: PreOrder DenseOrder.le.
 Next Obligation.
   ii. apply DenseOrder.le_lteq. right. auto.
 Qed.
@@ -221,6 +232,20 @@ Next Obligation.
   des; subst; auto.
   left. rewrite H. auto.
 Qed.
+
+(* Module DenseOrderMap. *)
+(*   Include UsualPositiveMap. *)
+
+(*   Inductive Adjacent {A} (k1 k2:DenseOrder.t) (m:t A): Prop := *)
+(*   | Adjacent_intro *)
+(*       v1 *)
+(*       (V1: find k1 m = Some v1) *)
+(*       (ADJ: forall k *)
+(*               (K1: DenseOrder.lt k1 k) *)
+(*               (K2: DenseOrder.lt k k2), *)
+(*           find k m = None) *)
+(*   . *)
+(* End DenseOrderMap. *)
 
 Module DenseOrderFacts.
   Include (OrderedTypeFacts DenseOrder).
