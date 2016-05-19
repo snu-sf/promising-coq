@@ -72,7 +72,8 @@ Proof. rewrite EQ. auto. Qed.
 Ltac condtac :=
   match goal with
   | [|- context[if ?c then _ else _]] =>
-    destruct c
+    let COND := fresh "COND" in
+    destruct c eqn:COND
   end.
 
 Ltac etrans := etransitivity.

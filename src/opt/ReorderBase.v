@@ -73,7 +73,7 @@ Proof.
     + apply progress_silent_step. auto.
 Grab Existential Variables.
   { auto. }
-  { apply Snapshot.init. }
+  { apply Capability.elt. }
 Qed.
 
 
@@ -94,10 +94,10 @@ Lemma reorder_read_read
 Proof.
   inv STEP1. inv STEP2. ss.
   exploit CommitFacts.read_min_spec; try apply WF0; try apply GET0; eauto.
-  { eapply Snapshot.readable_mon; try apply COMMIT0; eauto. apply COMMIT. }
+  { eapply Capability.readable_mon; try apply COMMIT0; eauto. apply COMMIT. }
   i. des.
   exploit CommitFacts.read_min_spec; try apply WF; try apply GET; eauto.
-  { eapply Snapshot.le_on_readable; eauto. apply COMMIT. }
+  { eapply Capability.le_on_readable; eauto. apply COMMIT. }
   { apply WF0. }
   i. des.
   eexists. splits.
@@ -179,15 +179,15 @@ Proof.
   exploit Memory.fulfill_get; eauto. i.
   exploit Memory.le_get; try apply WF0; eauto. i.
   exploit CommitFacts.write_min_spec; try apply x1; try apply WF0; eauto.
-  { eapply Snapshot.writable_mon; try apply COMMIT0; eauto. apply COMMIT. }
+  { eapply Capability.writable_mon; try apply COMMIT0; eauto. apply COMMIT. }
   { etrans; [apply COMMIT|]. apply COMMIT0. }
   { instantiate (1 := ord2). i. inv COMMIT0.
-    rewrite <- RELEASED0; auto. apply Snapshot.incr_writes_mon. apply COMMIT.
+    rewrite <- RELEASED0; auto. apply Capability.incr_writes_mon. apply COMMIT.
   }
   { inv WF0. inv MEMORY0. exploit WF; eauto. }
   i. des.
   exploit CommitFacts.read_min_spec; try apply GET; eauto.
-  { eapply Snapshot.le_on_readable; eauto. apply COMMIT. }
+  { eapply Capability.le_on_readable; eauto. apply COMMIT. }
   { apply WF0. }
   i. des.
   eexists. splits.
@@ -261,9 +261,9 @@ Proof.
   { unfold CommitFacts.fence_min. rewrite ORDR2'.
     instantiate (2 := ordw2). committac.
     inv COMMIT. inv READABLE. econs; ss.
-    - i. unfold Times.get, LocFun.find. committac; eauto.
+    - i. unfold TimeMap.get, LocFun.find. committac; eauto.
       condtac; committac; eauto.
-    - unfold Times.get, LocFun.find. committac; eauto.
+    - unfold TimeMap.get, LocFun.find. committac; eauto.
       condtac; committac. eauto.
   }
   { apply WF0. }
@@ -321,10 +321,10 @@ Proof.
   exploit Memory.fulfill_get; eauto. i.
   exploit Memory.le_get; try apply WF0; eauto. i.
   exploit CommitFacts.read_min_spec; try apply WF0; try apply GET; eauto.
-  { eapply Snapshot.readable_mon; try apply COMMIT0; eauto. apply COMMIT. }
+  { eapply Capability.readable_mon; try apply COMMIT0; eauto. apply COMMIT. }
   i. des.
   exploit CommitFacts.write_min_spec; try apply x1; eauto.
-  { eapply Snapshot.le_on_writable; eauto. apply COMMIT. }
+  { eapply Capability.le_on_writable; eauto. apply COMMIT. }
   { s. apply COMMIT. }
   { instantiate (1 := ord1). i. rewrite ORD1 in H. inv H. }
   { apply WF0. }
@@ -396,13 +396,13 @@ Proof.
   exploit Memory.fulfill_get; try apply x0; eauto. i.
   exploit Memory.le_get; try apply WF0; eauto. i.
   exploit CommitFacts.write_min_spec; try apply x3; try apply WF0; eauto.
-  { eapply Snapshot.writable_mon; try apply COMMIT0; eauto. apply COMMIT. }
+  { eapply Capability.writable_mon; try apply COMMIT0; eauto. apply COMMIT. }
   { etrans; [apply COMMIT|]. apply COMMIT0. }
   { instantiate (1 := ord2). committac.
     - inv COMMIT0. rewrite <- RELEASED0; auto.
       etrans; [apply COMMIT|]. committac.
     - inv COMMIT0. etrans; [|apply RELEASED0; auto].
-      s. apply Times.incr_ts.
+      s. apply TimeMap.incr_ts.
   }
   { inv WF0. inv MEMORY1. exploit WF; eauto. }
   i. des.
@@ -411,7 +411,7 @@ Proof.
   { eapply Memory.fulfill_future; eauto. apply WF0. }
   i.
   exploit CommitFacts.write_min_spec; try apply x5; eauto.
-  { eapply Snapshot.le_on_writable; eauto. apply COMMIT. }
+  { eapply Capability.le_on_writable; eauto. apply COMMIT. }
   { committac. unfold LocFun.add, LocFun.find.
     condtac; [congruence|]. apply COMMIT.
   }
@@ -507,10 +507,10 @@ Proof.
   exploit Memory.fulfill_get; eauto. i.
   exploit Memory.le_get; try apply WF0; eauto. i.
   exploit CommitFacts.write_min_spec; try apply x1; try apply WF0; eauto.
-  { eapply Snapshot.writable_mon; try apply COMMIT0; eauto. apply COMMIT. }
+  { eapply Capability.writable_mon; try apply COMMIT0; eauto. apply COMMIT. }
   { etrans; [apply COMMIT|]. apply COMMIT0. }
   { instantiate (1 := ord2). i. inv COMMIT0.
-    rewrite <- RELEASED0; auto. apply Snapshot.incr_writes_mon. apply COMMIT.
+    rewrite <- RELEASED0; auto. apply Capability.incr_writes_mon. apply COMMIT.
   }
   { inv WF0. inv MEMORY0. exploit WF; eauto. }
   i. des.

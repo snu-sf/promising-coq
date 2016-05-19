@@ -89,7 +89,7 @@ Module MemInv.
           rewrite (Memory.join_comm (Memory.singleton _ _ _) ohs).
           rewrite Memory.join_assoc.
           auto.
-        * eapply Memory.future_wf_snapshot; eauto.
+        * eapply Memory.future_wf_capability; eauto.
           rewrite <- ? Memory.join_assoc. apply Memory.splits_future.
           apply Memory.splits_join; repeat (splits; memtac).
           rewrite (Memory.join_comm _ ohs). rewrite Memory.join_assoc.
@@ -131,7 +131,7 @@ Module MemInv.
         * repeat (splits; memtac).
         * auto.
         * rewrite ? Memory.join_assoc, (Memory.join_comm ohs0 _). auto.
-        * admit. (* wf_snapshot *)
+        * admit. (* wf_capability *)
   Admitted.
 
   Lemma fulfill_tgt

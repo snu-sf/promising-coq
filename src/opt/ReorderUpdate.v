@@ -67,7 +67,7 @@ Inductive sim_update: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (me
     (RMW: RegFile.eval_rmw rs rmw1 vr1 = (vret1, vw1))
     (READ: Local.read_step lc1_src mem_k_src l1 from1 vr1 releasedr1 or1 lc2_src)
     (FULFILL: Local.fulfill_step lc2_src mem_k_src l1 from1 to1 vw1 releasedw1 ow1 lc3_src)
-    (RELEASED: Snapshot.le releasedr1 releasedw1)
+    (RELEASED: Capability.le releasedr1 releasedw1)
     (LOCAL: sim_local lc3_src lc1_tgt):
     sim_update
       (State.mk rs [Stmt.instr i2; Stmt.instr (Instr.update r1 l1 rmw1 or1 ow1)]) lc1_src mem_k_src

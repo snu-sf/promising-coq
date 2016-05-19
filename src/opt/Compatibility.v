@@ -204,7 +204,8 @@ Proof.
   inv LOCAL1. inv STEP_TGT.
   eexists. splits.
   - econs.
-    + eapply CommitFacts.fence_mon1; eauto.
+    + eapply CommitFacts.read_fence_mon1; eauto.
+    + eapply CommitFacts.write_fence_mon1; eauto.
     + eapply Commit.future_wf; eauto.
       apply Memory.splits_future. apply MEMORY1.
     + apply MemInv.sem_bot_inv in PROMISE. rewrite PROMISE. auto.

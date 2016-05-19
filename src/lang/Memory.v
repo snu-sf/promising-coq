@@ -13,9 +13,9 @@ Require Import Time.
 Set Implicit Arguments.
 
 
-Module Times <: JoinableType.
+Module TimeMap <: JoinableType.
   Definition t := LocFun.t Time.t.
-  Definition init: t := LocFun.init Time.elt.
+  Definition elt: t := LocFun.init Time.elt.
 
   Definition eq := @eq t.
 
@@ -94,29 +94,31 @@ Module Times <: JoinableType.
   Lemma incr_spec loc ts c1 c2
         (LE: le c1 c2)
         (TS: Time.le ts (get loc c2)):
-    Times.le (incr loc ts c1) c2.
+    TimeMap.le (incr loc ts c1) c2.
   Proof.
     ii. unfold get, incr, LocFun.add, LocFun.find.
     destruct (Loc.eq_dec loc0 loc); auto. subst.
     apply Time.join_spec; auto.
   Qed.
-End Times.
+End TimeMap.
 
-Module Snapshot <: JoinableType.
+Module Capability <: JoinableType.
   Structure t_ := mk {
-    reads: Times.t;
-    writes: Times.t;
+    ur: TimeMap.t;
+    rw: TimeMap.t;
+    sc: TimeMap.t;
   }.
   Definition t := t_.
 
-  Definition init: t := mk Times.init Times.init.
+  Definition elt: t := mk TimeMap.elt TimeMap.elt TimeMap.elt.
 
   Definition eq := @eq t.
 
   Inductive le_ (lhs rhs:t): Prop :=
   | le_intro
-      (READS: Times.le lhs.(reads) rhs.(reads))
-      (WRITES: Times.le lhs.(writes) rhs.(writes))
+      (UR: TimeMap.le lhs.(ur) rhs.(ur))
+      (RW: TimeMap.le lhs.(rw) rhs.(rw))
+      (SC: TimeMap.le lhs.(sc) rhs.(sc))
   .
   Definition le := le_.
 
@@ -129,29 +131,31 @@ Module Snapshot <: JoinableType.
   Qed.
 
   Definition join (lhs rhs:t): t :=
-    mk (Times.join lhs.(reads) rhs.(reads))
-       (Times.join lhs.(writes) rhs.(writes)).
+    mk (TimeMap.join lhs.(ur) rhs.(ur))
+       (TimeMap.join lhs.(rw) rhs.(rw))
+       (TimeMap.join lhs.(sc) rhs.(sc)).
 
   Lemma join_comm lhs rhs: join lhs rhs = join rhs lhs.
   Proof.
-    unfold join. f_equal; apply Times.join_comm.
+    unfold join. f_equal; apply TimeMap.join_comm.
   Qed.
 
   Lemma join_assoc a b c: join (join a b) c = join a (join b c).
   Proof.
     unfold join. ss. f_equal.
-    - apply Times.join_assoc.
-    - apply Times.join_assoc.
+    - apply TimeMap.join_assoc.
+    - apply TimeMap.join_assoc.
+    - apply TimeMap.join_assoc.
   Qed.
 
   Lemma join_l lhs rhs: le lhs (join lhs rhs).
   Proof.
-    econs; apply Times.join_l.
+    econs; apply TimeMap.join_l.
   Qed.
 
   Lemma join_r lhs rhs: le rhs (join lhs rhs).
   Proof.
-    econs; apply Times.join_r.
+    econs; apply TimeMap.join_r.
   Qed.
 
   Lemma join_spec lhs rhs o
@@ -160,173 +164,142 @@ Module Snapshot <: JoinableType.
     le (join lhs rhs) o.
   Proof.
     inv LHS. inv RHS.
-    econs; apply Times.join_spec; eauto.
+    econs; apply TimeMap.join_spec; eauto.
   Qed.
 
-  Inductive readable (history:t) (loc:Loc.t) (ts:Time.t) (ord:Ordering.t): Prop :=
-  | readable_intro
-      (CoRR: Ordering.le Ordering.relaxed ord -> Time.le (Times.get loc history.(Snapshot.reads)) ts)
-      (CoWR: Time.le (Times.get loc history.(Snapshot.writes)) ts)
-  .
+  Definition incr_ur loc ts s :=
+    mk (TimeMap.incr loc ts s.(ur))
+       (TimeMap.incr loc ts s.(rw))
+       (TimeMap.incr loc ts s.(sc)).
 
-  Inductive writable (history:t) (loc:Loc.t) (ts:Time.t): Prop :=
-  | writable_intro
-      (CoRW: Time.lt (Times.get loc history.(Snapshot.reads)) ts)
-      (CoWW: Time.lt (Times.get loc history.(Snapshot.writes)) ts)
-  .
-
-  Lemma readable_mon
-        history1 history2
-        (LE: le history1 history2):
-    readable history2 <3= readable history1.
-  Proof.
-    i. inv PR. inv LE. econs.
-    - i. rewrite <- CoRR; eauto.
-    - rewrite <- CoWR. eauto.
-  Qed.
-
-  Lemma writable_mon
-        history1 history2
-        (LE: le history1 history2):
-    writable history2 <2= writable history1.
-  Proof.
-    i. inv PR. inv LE. econs.
-    - eapply TimeFacts.le_lt_lt; eauto.
-    - eapply TimeFacts.le_lt_lt; eauto.
-  Qed.
-
-  Inductive le_on (loc:Loc.t) (lhs rhs:t): Prop :=
-  | le_on_intro
-      (READS: Time.le (lhs.(reads) loc) (rhs.(reads) loc))
-      (WRITES: Time.le (lhs.(writes) loc) (rhs.(writes) loc))
-  .
-
-  Lemma le_on_readable
-        loc lhs rhs
-        (LE: le_on loc lhs rhs):
-    readable rhs loc <2= readable lhs loc.
-  Proof.
-    i. inv LE. inv PR. econs.
-    - etrans; eauto.
-    - etrans; eauto.
-  Qed.
-
-  Lemma le_on_writable
-        loc lhs rhs
-        (LE: le_on loc lhs rhs):
-    writable rhs loc <1= writable lhs loc.
-  Proof.
-    i. inv LE. inv PR. econs.
-    - eapply TimeFacts.le_lt_lt; eauto.
-    - eapply TimeFacts.le_lt_lt; eauto.
-  Qed.
-
-  Definition incr_reads loc ts s :=
-    mk (Times.incr loc ts s.(reads)) s.(writes).
-
-  Lemma incr_reads_le
+  Lemma incr_ur_le
         loc ts s:
-    le s (incr_reads loc ts s).
+    le s (incr_ur loc ts s).
   Proof.
     econs; ss.
-    - apply Times.incr_le.
-    - reflexivity.
+    - apply TimeMap.incr_le.
+    - apply TimeMap.incr_le.
+    - apply TimeMap.incr_le.
   Qed.
 
-  Lemma incr_reads_spec
+  Lemma incr_ur_spec
         loc ts s1 s2
         (LE: le s1 s2)
-        (TS: Time.le ts (s2.(reads) loc)):
-    le (incr_reads loc ts s1) s2.
+        (UR: Time.le ts (s2.(ur) loc))
+        (RW: Time.le ts (s2.(rw) loc))
+        (SC: Time.le ts (s2.(sc) loc)):
+    le (incr_ur loc ts s1) s2.
   Proof.
     inv LE. econs; ss.
-    apply Times.incr_spec; ss.
+    - apply TimeMap.incr_spec; ss.
+    - apply TimeMap.incr_spec; ss.
+    - apply TimeMap.incr_spec; ss.
   Qed.
 
-  Lemma incr_reads_inv
+  Lemma incr_ur_inv
         loc ts s1 s2
-        (LE: le (incr_reads loc ts s1) s2):
+        (LE: le (incr_ur loc ts s1) s2):
     <<LE:le s1 s2>> /\
-    <<TS: Time.le ts (s2.(reads) loc)>>.
+    <<UR: Time.le ts (s2.(ur) loc)>> /\
+    <<RW: Time.le ts (s2.(rw) loc)>> /\
+    <<SC: Time.le ts (s2.(sc) loc)>>.
   Proof.
     inv LE. splits.
-    - econs; ss. etrans; eauto.
-      apply Times.incr_le.
-    - etrans; eauto.
-      apply Times.incr_ts.
+    - econs; ss; etrans; eauto; apply TimeMap.incr_le.
+    - etrans; eauto. apply TimeMap.incr_ts.
+    - etrans; eauto. apply TimeMap.incr_ts.
+    - etrans; eauto. apply TimeMap.incr_ts.
   Qed.
 
-  Lemma incr_reads_mon loc ts s1 s2
+  Lemma incr_ur_mon loc ts s1 s2
         (LE: le s1 s2):
-    le (incr_reads loc ts s1) (incr_reads loc ts s2).
+    le (incr_ur loc ts s1) (incr_ur loc ts s2).
   Proof.
-    apply incr_reads_spec.
-    - etrans; eauto. econs; try reflexivity.
-      apply Times.incr_le.
-    - apply Times.incr_ts.
+    apply incr_ur_spec.
+    - etrans; eauto. apply incr_ur_le.
+    - apply TimeMap.incr_ts.
+    - apply TimeMap.incr_ts.
+    - apply TimeMap.incr_ts.
   Qed.
 
-  Definition incr_writes loc ts s :=
-    mk s.(reads) (Times.incr loc ts s.(writes)).
+  Definition incr_rw loc ts s :=
+    mk s.(ur)
+       (TimeMap.incr loc ts s.(rw))
+       (TimeMap.incr loc ts s.(sc)).
 
-  Lemma incr_writes_le
+  Lemma incr_rw_le
         loc ts s:
-    le s (incr_writes loc ts s).
+    le s (incr_rw loc ts s).
   Proof.
     econs; ss.
     - reflexivity.
-    - apply Times.incr_le.
+    - apply TimeMap.incr_le.
+    - apply TimeMap.incr_le.
   Qed.
 
-  Lemma incr_writes_spec
+  Lemma incr_rw_spec
         loc ts s1 s2
         (LE: le s1 s2)
-        (TS: Time.le ts (s2.(writes) loc)):
-    le (incr_writes loc ts s1) s2.
+        (RW: Time.le ts (s2.(rw) loc))
+        (SC: Time.le ts (s2.(sc) loc)):
+    le (incr_rw loc ts s1) s2.
   Proof.
     inv LE. econs; ss.
-    apply Times.incr_spec; ss.
+    - apply TimeMap.incr_spec; ss.
+    - apply TimeMap.incr_spec; ss.
   Qed.
 
-  Lemma incr_writes_inv
+  Lemma incr_rw_inv
         loc ts s1 s2
-        (LE: le (incr_writes loc ts s1) s2):
+        (LE: le (incr_rw loc ts s1) s2):
     <<LE:le s1 s2>> /\
-    <<TS: Time.le ts (s2.(writes) loc)>>.
+    <<RW: Time.le ts (s2.(rw) loc)>> /\
+    <<SC: Time.le ts (s2.(sc) loc)>>.
   Proof.
     inv LE. splits.
-    - econs; ss. etrans; eauto.
-      apply Times.incr_le.
-    - etrans; eauto.
-      apply Times.incr_ts.
+    - econs; ss; etrans; eauto; apply TimeMap.incr_le.
+    - etrans; eauto. apply TimeMap.incr_ts.
+    - etrans; eauto. apply TimeMap.incr_ts.
   Qed.
 
-  Lemma incr_writes_mon loc ts s1 s2
+  Lemma incr_rw_mon loc ts s1 s2
         (LE: le s1 s2):
-    le (incr_writes loc ts s1) (incr_writes loc ts s2).
+    le (incr_rw loc ts s1) (incr_rw loc ts s2).
   Proof.
-    apply incr_writes_spec.
-    - etrans; eauto. econs; try reflexivity.
-      apply Times.incr_le.
-    - apply Times.incr_ts.
+    apply incr_rw_spec.
+    - etrans; eauto. apply incr_rw_le.
+    - apply TimeMap.incr_ts.
+    - apply TimeMap.incr_ts.
   Qed.
 
-  Lemma le_join_if
+  Definition join_if (cond:bool) (a b:t): t :=
+    if cond then join a b else b.
+
+  Lemma join_if_spec
         (cond:bool) a b c
         (A: cond -> le a c)
         (B: le b c):
-    le (if cond then join a b else b) c.
+    le (join_if cond a b) c.
   Proof.
     destruct cond; auto. apply join_spec; auto.
   Qed.
-End Snapshot.
+
+  Lemma join_if_le
+        (cond:bool) a b c
+        (A: cond -> le c a)
+        (B: ~cond -> le c b):
+    le c (if cond then a else b).
+  Proof.
+    destruct cond; auto.
+  Qed.
+End Capability.
 
 Module Message.
   Structure t := mk {
     val: Const.t;
-    released: Snapshot.t;
+    released: Capability.t;
   }.
-  Definition elt: t := mk 0 Snapshot.init.
+  Definition elt: t := mk 0 Capability.elt.
 End Message.
 
 Module Cell.
@@ -1014,7 +987,7 @@ Module Cell.
   Definition init: t :=
     @singleton (Time.decr Time.elt)
                Time.elt
-               (Message.mk 0 Snapshot.init)
+               (Message.mk 0 Capability.elt)
                (Time.decr_spec Time.elt).
 
   Definition splits (lhs rhs:t): Prop := Raw.splits lhs rhs.
@@ -1141,21 +1114,26 @@ Module Memory.
   Definition get (loc:Loc.t) (ts:Time.t) (mem:t): option Message.t :=
     Cell.get ts (mem loc).
 
-  Inductive wf_times (times:Times.t) (mem:t): Prop :=
-  | wf_times_intro
-      (WF: forall loc, exists msg, get loc (times loc) mem = Some msg)
+  Inductive wf_timemap (times:TimeMap.t) (mem:t): Prop :=
+  | wf_timemap_intro
+      (WF: forall loc, exists ts msg,
+            <<TS: Time.le (times loc) ts>> /\
+            <<MSG: get loc ts mem = Some msg>>)
   .
 
-  Inductive wf_snapshot (snapshot:Snapshot.t) (mem:t): Prop :=
-  | wf_snapshot_intro
-      (READS: wf_times snapshot.(Snapshot.reads) mem)
-      (WRITES: wf_times snapshot.(Snapshot.writes) mem)
+  Inductive wf_capability (capability:Capability.t) (mem:t): Prop :=
+  | wf_capability_intro
+      (UR: wf_timemap capability.(Capability.ur) mem)
+      (RW: wf_timemap capability.(Capability.rw) mem)
+      (SC: wf_timemap capability.(Capability.sc) mem)
+      (UR_RW: TimeMap.le capability.(Capability.ur) capability.(Capability.rw))
+      (RW_SC: TimeMap.le capability.(Capability.rw) capability.(Capability.sc))
   .
 
   Inductive wf (mem:t): Prop :=
   | wf_intro
       (WF: forall loc ts msg (MSG: get loc ts mem = Some msg),
-          wf_snapshot msg.(Message.released) mem)
+          wf_capability msg.(Message.released) mem)
   .
 
   Inductive disjoint (lhs rhs:t): Prop :=
@@ -1520,6 +1498,7 @@ Module Memory.
       symmetry. auto.
   Qed.
 
+  (* TODO: define future as the transitive closure of add/split operations *)
   Inductive future (lhs rhs:t): Prop :=
   | future_intro
       lhs'
@@ -1565,84 +1544,108 @@ Module Memory.
     inv LE. eapply le_get; eauto. eapply splits_get; eauto.
   Qed.
 
-  Lemma future_wf_times
+  Lemma future_wf_timemap
         times mem1 mem2
-        (WF: wf_times times mem1)
+        (WF: wf_timemap times mem1)
         (FUTURE: future mem1 mem2):
-    wf_times times mem2.
+    wf_timemap times mem2.
   Proof.
     inv WF. econs. i. specialize (WF0 loc). des.
     inv FUTURE. exploit splits_get; eauto. i.
     inv LE. unfold get, join, Cell.get, Cell.join in *. s.
-    rewrite x0. destruct (Cell.Raw.messages (Cell.raw (ohs loc)) (times loc)); eauto.
+    eexists _. rewrite x0. destruct (Cell.Raw.messages (Cell.raw (ohs loc)) ts); eauto.
   Qed.
 
-  Lemma future_wf_snapshot
-        snapshot mem1 mem2
-        (WF: wf_snapshot snapshot mem1)
+  Lemma future_wf_capability
+        capability mem1 mem2
+        (WF: wf_capability capability mem1)
         (FUTURE: future mem1 mem2):
-    wf_snapshot snapshot mem2.
+    wf_capability capability mem2.
   Proof.
-    inv WF. econs; eapply future_wf_times; eauto.
+    inv WF. econs; eauto.
+    - eapply future_wf_timemap; eauto.
+    - eapply future_wf_timemap; eauto.
+    - eapply future_wf_timemap; eauto.
   Qed.
 
-  Lemma incr_wf_times
+  Lemma incr_wf_timemap
         loc s ts msg mem
-        (WF1: wf_times s mem)
+        (WF1: wf_timemap s mem)
         (WF2: get loc ts mem = Some msg):
-    wf_times (Times.incr loc ts s) mem.
+    wf_timemap (TimeMap.incr loc ts s) mem.
   Proof.
-    unfold Times.incr, LocFun.add, LocFun.find. econs. i.
+    unfold TimeMap.incr, LocFun.add, LocFun.find. econs. i.
     destruct (Loc.eq_dec loc0 loc).
     - subst.
       destruct (Time.join_cases (s loc) ts) as [X|X]; rewrite X; eauto.
-      apply WF1.
+      + apply WF1.
+      + eexists _, _. splits; eauto. reflexivity.
     - apply WF1.
   Qed.
 
-  Lemma join_wf_times
+  Lemma join_wf_timemap
         lhs rhs mem
-        (LHS: wf_times lhs mem)
-        (RHS: wf_times rhs mem):
-    wf_times (Times.join lhs rhs) mem.
+        (LHS: wf_timemap lhs mem)
+        (RHS: wf_timemap rhs mem):
+    wf_timemap (TimeMap.join lhs rhs) mem.
   Proof.
-    econs. i. unfold Times.join.
+    econs. i. unfold TimeMap.join.
     destruct (Time.join_cases (lhs loc) (rhs loc)) as [X|X]; rewrite X.
     - apply LHS.
     - apply RHS.
   Qed.
 
-  Lemma wf_snapshot_join
+  Lemma wf_capability_join
         lhs rhs mem
-        (LHS: wf_snapshot lhs mem)
-        (RHS: wf_snapshot rhs mem):
-    wf_snapshot (Snapshot.join lhs rhs) mem.
+        (LHS: wf_capability lhs mem)
+        (RHS: wf_capability rhs mem):
+    wf_capability (Capability.join lhs rhs) mem.
   Proof.
     econs.
-    - apply join_wf_times.
+    - apply join_wf_timemap.
       + apply LHS.
       + apply RHS.
-    - apply join_wf_times.
+    - apply join_wf_timemap.
       + apply LHS.
       + apply RHS.
+    - apply join_wf_timemap.
+      + apply LHS.
+      + apply RHS.
+    - apply TimeMap.join_spec.
+      + etrans; [apply LHS|]. apply TimeMap.join_l.
+      + etrans; [apply RHS|]. apply TimeMap.join_r.
+    - apply TimeMap.join_spec.
+      + etrans; [apply LHS|]. apply TimeMap.join_l.
+      + etrans; [apply RHS|]. apply TimeMap.join_r.
   Qed.
 
-  Lemma wf_incr_reads
+  Lemma wf_incr_ur
         loc ts s msg mem
-        (WF: wf_snapshot s mem)
+        (WF: wf_capability s mem)
         (GET: get loc ts mem = Some msg):
-    wf_snapshot (Snapshot.incr_reads loc ts s) mem.
+    wf_capability (Capability.incr_ur loc ts s) mem.
   Proof.
-    inv WF. econs; auto. s. eapply incr_wf_times; eauto.
+    inv WF. econs; s.
+    - eapply incr_wf_timemap; eauto.
+    - eapply incr_wf_timemap; eauto.
+    - eapply incr_wf_timemap; eauto.
+    - apply TimeMap.incr_mon. auto.
+    - apply TimeMap.incr_mon. auto.
   Qed.
 
-  Lemma wf_incr_writes
+  Lemma wf_incr_rw
         loc ts s msg mem
-        (WF: wf_snapshot s mem)
+        (WF: wf_capability s mem)
         (GET: get loc ts mem = Some msg):
-    wf_snapshot (Snapshot.incr_writes loc ts s) mem.
+    wf_capability (Capability.incr_rw loc ts s) mem.
   Proof.
-    inv WF. econs; auto. s. eapply incr_wf_times; eauto.
+    inv WF. econs; s.
+    - auto.
+    - eapply incr_wf_timemap; eauto.
+    - eapply incr_wf_timemap; eauto.
+    - etrans; [apply TimeMap.incr_le|].
+      apply TimeMap.incr_mon. auto.
+    - apply TimeMap.incr_mon. auto.
   Qed.
 
   Ltac tac :=
@@ -1691,7 +1694,7 @@ Module Memory.
       (DISJOINT: disjoint global1 (singleton loc msg LT))
       (PROMISEEQ: promise2 = join promise1 (singleton loc msg LT))
       (GLOBALEQ: global2 = join global1 (singleton loc msg LT))
-      (WF: wf_snapshot msg.(Message.released) global2)
+      (WF: wf_capability msg.(Message.released) global2)
   | promise_split
       promise1_ctx global1_ctx to0 msg0
       (LT1: Time.lt from to)
@@ -1702,7 +1705,7 @@ Module Memory.
       (GLOBAL2: disjoint global1_ctx promise1)
       (PROMISEEQ: promise2 = join promise1_ctx (join (singleton loc msg LT1) (singleton loc msg0 LT2)))
       (GLOBALEQ: global2 = join global1_ctx (join promise1_ctx (join (singleton loc msg LT1) (singleton loc msg0 LT2))))
-      (WF: wf_snapshot msg.(Message.released) global2)
+      (WF: wf_capability msg.(Message.released) global2)
   .
 
   Lemma promise_future
@@ -1722,7 +1725,7 @@ Module Memory.
       + inv WF1. econs. i.
         apply join_get_inv in MSG; [|tac]. des.
         * exploit WF0; eauto. i.
-          eapply future_wf_snapshot; eauto.
+          eapply future_wf_capability; eauto.
           apply le_future. apply le_join_l. tac.
         * apply singleton_get_inv in MSG. des. subst. auto.
       + apply le_future. econs; tac.

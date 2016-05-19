@@ -67,7 +67,7 @@ Proof.
   - admit. (* commit.wf *)
   - econs; memtac.
     + instantiate (1 := LT). admit. (* memory disjoint *)
-    + admit. (* wf snapshot *)
+    + admit. (* wf capability *)
 Admitted.
 
 Lemma progress_silent_step
@@ -88,12 +88,13 @@ Lemma progress_read_step
     Local.read_step lc1 mem1 loc ts val released ord lc2.
 Proof.
   inv MAX. destruct msg.
-  eexists _, _, _. splits; eauto. econs; eauto.
+  eexists _, _, _. econs; eauto.
   - eapply CommitFacts.read_min_spec; try apply WF1; eauto.
-    admit. (* readable *)
+    + admit. (* readable *)
+    + admit. (* readable *)
   - (* TODO: redundant proof? *)
     unfold CommitFacts.read_min. econs; committac; try apply WF1.
-    + condtac; committac; try apply WF1.
+    + unfold Capability.join_if. condtac; committac; try apply WF1.
       inv WF1. inv MEMORY. exploit WF; eauto.
     + inv WF1. inv MEMORY. exploit WF; eauto.
   - rewrite PROMISE1. auto.
@@ -111,12 +112,13 @@ Proof.
   exploit (@CommitFacts.write_min_spec loc to val released);
     try apply WF1; eauto.
   { admit. (* writable *) }
+  { admit. (* writable *) }
   { admit. (* released <= m.released *) }
   { admit. (* current <= m.released for acqrel *) }
   { inv WF1. memtac. apply Memory.join_get; memtac.
     rewrite PROMISE1. apply Memory.singleton_get.
   }
-  { admit. (* wf_snapshot m.released *) }
+  { admit. (* wf_capability m.released *) }
   i. des.
   eexists (Local.mk _ Memory.bot). econs; eauto.
   econs; memtac.
@@ -155,6 +157,7 @@ Lemma progress_fence_step
   exists lc2,
     Local.fence_step lc1 mem1 ordr ordw lc2.
 Proof.
-  exploit CommitFacts.fence_min_spec; try apply WF1; eauto. i. des.
+  exploit CommitFacts.read_fence_min_spec; try apply WF1; eauto. i. des.
+  exploit CommitFacts.write_fence_min_spec; try apply WF1; eauto. i. des.
   eexists. econs; eauto.
 Qed.

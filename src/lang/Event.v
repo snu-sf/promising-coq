@@ -30,41 +30,28 @@ Module Ordering.
   | seqcst
   .
 
-  Inductive le: forall (lhs rhs:t), Prop :=
-  | le_nonatomic_o o:
-      le nonatomic o
+  Definition le (lhs rhs:t): bool :=
+    match lhs, rhs with
+    | nonatomic, _ => true
+    | _, nonatomic => false
 
-  | le_relaxed_relaxed:
-      le relaxed relaxed
-  | le_relaxed_acqrel:
-      le relaxed acqrel
-  | le_relaxed_seqcst:
-      le relaxed seqcst
+    | relaxed, _ => true
+    | _, relaxed => false
 
-  | le_acqrel_acqrel:
-      le acqrel acqrel
-  | le_acqrel_seqcst:
-      le acqrel seqcst
+    | acqrel, _ => true
+    | _, acqrel => false
 
-  | le_seqcst_seqcst:
-      le seqcst seqcst
-  .
+    | seqcst, seqcst => true
+    end.
+  Global Opaque le.
 
   Global Program Instance le_PreOrder: PreOrder le.
   Next Obligation.
-    ii. destruct x; econs.
+    ii. destruct x; auto.
   Qed.
   Next Obligation.
-    ii. inv H; inv H0; econs.
+    ii. destruct x, y, z; auto.
   Qed.
-
-  Definition le_dec (lhs rhs:t): {le lhs rhs} + {~ le lhs rhs}.
-  Proof.
-    destruct lhs, rhs;
-      (try by left; econs);
-      (try by right; intro X; inv X).
-  Defined.
-  Global Opaque le_dec.
 End Ordering.
 
 

@@ -23,7 +23,7 @@ Module Local.
   }.
 
   Definition init :=
-    mk Commit.init
+    mk Commit.elt
        Memory.bot.
 
   Inductive is_terminal (lc:t): Prop :=
@@ -48,7 +48,7 @@ Module Local.
     econs. symmetry. apply H.
   Qed.
 
-  Inductive promise_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:Snapshot.t): forall (lc2:t) (mem2:Memory.t), Prop :=
+  Inductive promise_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:Capability.t): forall (lc2:t) (mem2:Memory.t), Prop :=
   | step_promise
       commit2 promise2 mem2
       (COMMIT: Commit.le lc1.(commit) commit2)
@@ -65,7 +65,7 @@ Module Local.
       silent_step lc1 mem1 (mk commit2 lc1.(promise))
   .
 
-  Inductive read_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (ts:Time.t) (val:Const.t) (released:Snapshot.t) (ord:Ordering.t): forall (lc2:t), Prop :=
+  Inductive read_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (ts:Time.t) (val:Const.t) (released:Capability.t) (ord:Ordering.t): forall (lc2:t), Prop :=
   | step_read
       commit2
       (COMMIT: Commit.read lc1.(commit) loc ts released ord commit2)
@@ -75,7 +75,7 @@ Module Local.
       read_step lc1 mem1 loc ts val released ord (mk commit2 lc1.(promise))
   .
 
-  Inductive fulfill_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:Snapshot.t) (ord:Ordering.t): forall (lc2:t), Prop :=
+  Inductive fulfill_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:Capability.t) (ord:Ordering.t): forall (lc2:t), Prop :=
   | step_fulfill
       commit2 promise2
       (COMMIT: Commit.write lc1.(commit) loc to released ord commit2)
@@ -84,7 +84,7 @@ Module Local.
       fulfill_step lc1 mem1 loc from to val released ord (mk commit2 promise2)
   .
 
-  Inductive write_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:Snapshot.t) (ord:Ordering.t): forall (lc2:t) (mem2:Memory.t), Prop :=
+  Inductive write_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:Capability.t) (ord:Ordering.t): forall (lc2:t) (mem2:Memory.t), Prop :=
   | step_write_fulfill
       lc2
       (FULFILL: fulfill_step lc1 mem1 loc from to val released ord lc2)
@@ -100,11 +100,12 @@ Module Local.
 
   Inductive fence_step (lc1:t) (mem1:Memory.t) (ordr ordw:Ordering.t): forall (lc2:t), Prop :=
   | step_fence
-      commit2
-      (COMMIT: Commit.fence lc1.(commit) ordr ordw commit2)
-      (COMMIT_WF: Commit.wf commit2 mem1)
+      commit2 commit3
+      (READ: Commit.read_fence lc1.(commit) ordr commit2)
+      (WRITE: Commit.write_fence lc1.(commit) ordw commit3)
+      (COMMIT_WF: Commit.wf commit3 mem1)
       (RELEASE: Ordering.le Ordering.acqrel ordw -> lc1.(promise) = Memory.bot):
-      fence_step lc1 mem1 ordr ordw (mk commit2 lc1.(promise))
+      fence_step lc1 mem1 ordr ordw (mk commit3 lc1.(promise))
   .
 
   Lemma future_read_step lc1 mem1 mem1' loc ts val released ord lc2
@@ -309,7 +310,7 @@ Module Thread.
         (STATE: lang.(Language.step) (Some (ThreadEvent.mem (MemEvent.update loc valr valw ordr ordw))) e1.(state) st3)
         (LOCAL1: Local.read_step e1.(thread) e1.(memory) loc tsr valr releasedr ordr lc2)
         (LOCAL2: Local.write_step lc2 e1.(memory) loc tsr tsw valw releasedw ordw lc3 mem3)
-        (RELEASE: Snapshot.le releasedr releasedw):
+        (RELEASE: Capability.le releasedr releasedw):
         internal_step e1 (mk st3 lc3 mem3)
     | step_fence
         st2 ordr ordw lc2
