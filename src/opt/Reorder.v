@@ -19,7 +19,7 @@ Require Import Simulation.
 Require Import Compatibility.
 Require Import MemInv.
 Require Import Progress.
-Require Import ReorderBase.
+Require Import ReorderStep.
 Require Import ReorderLoad.
 Require Import ReorderStore.
 Require Import ReorderUpdate.
@@ -60,7 +60,7 @@ Proof.
   { i. inv TERMINAL_TGT. }
   { i. eapply sim_local_future; try apply MEMORY; eauto. apply LOCAL. }
   { i. eexists _, _, _. splits; eauto.
-    inv LOCAL. apply MemInv.sem_bot_inv in PROMISE. rewrite PROMISE. auto.
+    inv LOCAL. apply MemInv.sem_bot_inv in PROMISES. rewrite PROMISES. auto.
   }
   ii. inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR; inv REORDER); ss.
   - (* promise *)

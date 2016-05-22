@@ -67,6 +67,11 @@ Module Interval <: UsualOrderedType.
       (RHS: mem rhs x),
       False.
 
+  Global Program Instance disjoint_Symmetric: Symmetric disjoint.
+  Next Obligation.
+    ii. eapply H; eauto.
+  Qed.
+
   Lemma mem_ub
         lb ub (LT: Time.lt lb ub):
     mem (lb, ub) ub.

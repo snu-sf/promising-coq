@@ -18,7 +18,7 @@ Require Import Configuration.
 Require Import Simulation.
 Require Import Compatibility.
 Require Import MemInv.
-Require Import ReorderBase.
+Require Import ReorderStep.
 
 Require Import Syntax.
 Require Import Semantics.
@@ -53,7 +53,8 @@ Inductive reorder_load r1 l1 o1: forall (i2:Instr.t), Prop :=
     or2 ow2
     (ORD1: Ordering.le Ordering.relaxed o1)
     (ORDR2: Ordering.le or2 Ordering.relaxed)
-    (ORDW2: Ordering.le ow2 Ordering.acqrel):
+    (ORDW2: Ordering.le ow2 Ordering.acqrel)
+    (RLX: Ordering.le Ordering.relaxed ow2 -> Ordering.le o1 Ordering.relaxed):
     reorder_load r1 l1 o1 (Instr.fence or2 ow2)
 .
 
@@ -174,7 +175,7 @@ Proof.
       eapply Local.future_read_step; eauto.
   - i. eexists _, _, _. splits; eauto.
     inv PR. inv READ. inv LOCAL. ss.
-    apply MemInv.sem_bot_inv in PROMISE. rewrite PROMISE. auto.
+    apply MemInv.sem_bot_inv in PROMISES0. rewrite PROMISES0. auto.
   - ii. exploit sim_load_step; eauto. i. des.
     + eexists _, _, _, _, _, _. splits; eauto.
       left. eapply paco7_mon; eauto. ss.

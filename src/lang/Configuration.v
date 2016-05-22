@@ -42,7 +42,7 @@ Module Threads.
       (THREADS: forall tid lang st lc
                   (TH: IdentMap.find tid ths = Some (existT _ lang st, lc)),
           <<WF: Local.wf lc mem>> /\ <<CONSISTENT: Thread.consistent lang st lc mem>>)
-      (MEMORY: Memory.wf mem)
+      (MEMORY: Memory.closed mem)
   .
 
   Inductive disjoint (ths1 ths2:t): Prop :=

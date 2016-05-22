@@ -25,174 +25,119 @@ Require Import Semantics.
 Set Implicit Arguments.
 
 
-Lemma reorder_memory_get_promise_iff
-      promise0 mem0 loc from to msg promise1 mem1
-      (LE: Memory.le promise0 mem0)
-      (PROMISE: Memory.promise promise0 mem0 loc from to msg promise1 mem1):
+Lemma get_promise_iff
+      promises0 mem0 loc from to msg promises1 mem1
+      (CLOSED: Memory.closed_promises promises0 mem0)
+      (PROMISE: Memory.promise promises0 mem0 loc from to msg promises1 mem1):
   forall l t m,
-    (Memory.get l t mem0 = Some m /\ Memory.get l t promise0 = None) <->
-    (Memory.get l t mem1 = Some m /\ Memory.get l t promise1 = None).
+    (Memory.get l t mem0 = Some m /\ ~ Promises.mem l t promises0) <->
+    (Memory.get l t mem1 = Some m /\ ~ Promises.mem l t promises1).
 Proof.
-  inv LE. inv PROMISE; memtac.
-  - i. econs; i; des; memtac; try congruence.
+  inv PROMISE.
+  - i. econs; i; des.
     + splits.
-      * apply Memory.join_get; memtac.
-        rewrite Memory.join_comm.
-        apply Memory.join_get; memtac.
-      * apply Memory.join_get_None; memtac.
-        eapply Memory.disjoint_get_None; eauto. memtac.
-    + apply Memory.join_get_None_inv in H0; memtac.
-      apply Memory.join_get_inv in H; memtac.
-      congruence.
-  - rewrite Memory.join_assoc in GLOBAL1.
-    rewrite (Memory.join_comm _ promise1_ctx) in GLOBAL1.
-    rewrite <- ? Memory.join_assoc in GLOBAL1.
-    apply Memory.join2_cancel in GLOBAL1; repeat (splits; memtac).
-    rewrite (Memory.join_comm global1_ctx _) in GLOBAL1.
-    apply Memory.join2_cancel in GLOBAL1; repeat (splits; memtac).
-    generalize (Memory.splits_intro loc msg msg0 LT1 LT2). i. des.
-    exploit Memory.splits_disjoint; try apply SPLIT; eauto; i.
-    { symmetry. apply GLOBAL0. }
-    i. econs; i; des; memtac; try congruence.
-    + apply Memory.join_get_inv in H; memtac; try congruence.
-      splits.
-      * apply Memory.join_get; repeat (splits; memtac).
-      * apply Memory.join_get_None; memtac.
-        apply Memory.join_get_None; memtac.
-        { eapply Memory.disjoint_get_None; eauto. }
-        { eapply Memory.disjoint_get_None; eauto. }
-    + apply Memory.join_get_None_inv in H0; memtac.
-      apply Memory.join_get_inv in H; repeat (splits; memtac).
-      * rewrite Memory.join_comm.
-        apply Memory.join_get; memtac.
-      * apply Memory.join_get_inv in H; repeat (splits; memtac); try congruence.
-      * apply Memory.join_get_None; memtac.
-        eapply Memory.disjoint_get_None; eauto.
-      * apply Memory.join_get_inv in H; repeat (splits; memtac); try congruence.
-Qed.
+      * eapply Memory.add_get1; eauto.
+      * contradict H0. apply Promises.set_inv in H0. des; auto.
+        subst. admit.
+    + splits.
+      * admit.
+      * contradict H0. admit.
+  - i. econs; i; des.
+    + splits.
+      * eapply Memory.split_get1; eauto.
+      * contradict H0. apply Promises.set_inv in H0. des; auto.
+        subst. admit.
+    + splits.
+      * admit.
+      * contradict H0. admit.
+Admitted.
 
-Lemma reorder_memory_get_promise
-      promise0 mem0 loc from to msg promise1 mem1
+Lemma get_promise
+      promises0 mem0 loc from to msg promises1 mem1
       l t m
-      (LE: Memory.le promise0 mem0)
+      (CLOSED: Memory.closed_promises promises0 mem0)
       (GET1: Memory.get l t mem1 = Some m)
-      (GET2: Memory.get l t promise1 = None)
-      (PROMISE: Memory.promise promise0 mem0 loc from to msg promise1 mem1):
+      (GET2: ~ Promises.mem l t promises1)
+      (PROMISE: Memory.promise promises0 mem0 loc from to msg promises1 mem1):
   Memory.get l t mem0 = Some m /\
-  Memory.get l t promise0 = None.
+  ~ Promises.mem l t promises0.
 Proof.
-  exploit reorder_memory_get_promise_iff; eauto. intros [X1 X2].
+  exploit get_promise_iff; eauto. intros [X1 X2].
   apply X2. auto.
 Qed.
 
-Lemma reorder_memory_fulfill_promise
-      promise1 loc1 from1 to1 msg1
-      promise2 loc2 from2 to2 msg2
-      promise3
-      mem1 mem3
-      (LE: Memory.le promise1 mem1)
-      (FULFILL: Memory.fulfill promise1 loc1 from1 to1 msg1 promise2)
-      (PROMISE: Memory.promise promise2 mem1 loc2 from2 to2 msg2 promise3 mem3):
-  exists promise2',
-    Memory.promise promise1 mem1 loc2 from2 to2 msg2 promise2' mem3 /\
-    Memory.fulfill promise2' loc1 from1 to1 msg1 promise3.
+Lemma get_promise_inv
+      promises0 mem0 loc from to msg promises1 mem1
+      l t m
+      (LE: Memory.closed_promises promises0 mem0)
+      (GET1: Memory.get l t mem0 = Some m)
+      (GET2: ~ Promises.mem l t promises0)
+      (PROMISE: Memory.promise promises0 mem0 loc from to msg promises1 mem1):
+  Memory.get l t mem1 = Some m /\
+  ~ Promises.mem l t promises1.
 Proof.
-  inv FULFILL. inv PROMISE; memtac.
-  - eexists. splits.
-    + econs 1; eauto. repeat (splits; memtac).
-    + econs; repeat (splits; memtac).
-      * rewrite <- ? Memory.join_assoc. f_equal. apply Memory.join_comm.
-      * symmetry. auto.
-      * symmetry. auto.
-  - rewrite <- ? Memory.join_assoc in JOIN.
-    rewrite (Memory.join_assoc global1_ctx _ _) in JOIN.
-    rewrite (Memory.join_comm global1_ctx _) in JOIN.
-    rewrite <- ? Memory.join_assoc in JOIN.
-    apply Memory.join2_cancel in JOIN; repeat (splits; memtac).
-    rewrite (Memory.join_comm global1_ctx _) in JOIN.
-    apply Memory.join2_cancel in JOIN; repeat (splits; memtac).
-    eexists. splits.
-    + econs 2.
-      * rewrite <- Memory.join_assoc.
-        rewrite (Memory.join_comm (Memory.singleton _ _ _) _).
-        rewrite Memory.join_assoc. eauto.
-      * repeat (splits; memtac).
-      * rewrite <- Memory.join_assoc.
-        rewrite Memory.join_comm.
-        rewrite ? Memory.join_assoc. f_equal.
-      * repeat (splits; memtac).
-      * repeat (splits; memtac).
-      * rewrite <- Memory.join_assoc.
-        rewrite Memory.join_comm.
-        rewrite <- Memory.join_assoc. f_equal.
-        rewrite <- ? Memory.join_assoc. f_equal.
-        rewrite Memory.join_comm.
-        rewrite <- ? Memory.join_assoc.
-        rewrite Memory.join_comm.
-        rewrite <- ? Memory.join_assoc. auto.
-      * auto.
-    + generalize (Memory.splits_intro loc2 msg2 msg0 LT1 LT2). i. des.
-      econs; repeat (splits; memtac).
-      * rewrite <- ? Memory.join_assoc. f_equal.
-        rewrite Memory.join_comm.
-        rewrite <- ? Memory.join_assoc. eauto.
-      * exploit Memory.splits_disjoint; try apply SPLIT; eauto.
-      * exploit Memory.splits_disjoint;
-          try apply SPLIT; try (symmetry; apply PROMISE1); eauto.
-        i. memtac.
-      * exploit Memory.splits_disjoint;
-          try apply SPLIT; try (symmetry; apply PROMISE1); eauto.
-        i. memtac.
+  exploit get_promise_iff; eauto. intros [X1 X2].
+  apply X1. auto.
 Qed.
 
-Lemma reorder_memory_get_fulfill
-      promise0 mem0 loc from to msg promise1
+Lemma fulfill_promise
+      promises1 loc1 to1 msg1
+      promises2 loc2 from2 to2 msg2
+      promises3
+      mem1 mem3
+      (CLOSED: Memory.closed_promises promises1 mem1)
+      (FULFILL: Memory.fulfill promises1 mem1 loc1 to1 msg1 promises2)
+      (PROMISE: Memory.promise promises2 mem1 loc2 from2 to2 msg2 promises3 mem3):
+  exists promises2',
+    Memory.promise promises1 mem1 loc2 from2 to2 msg2 promises2' mem3 /\
+    Memory.fulfill promises2' mem3 loc1 to1 msg1 promises3.
+Proof.
+  inv FULFILL. inv PROMISE.
+  - eexists. splits.
+    + econs 1; eauto.
+    + admit.
+  - eexists. splits.
+    + econs 2; eauto.
+      admit.
+    + admit.
+Admitted.
+
+Lemma get_fulfill
+      promises0 mem0 loc to msg promises1
       l t m
       (LOC: loc <> l)
-      (LE: Memory.le promise0 mem0)
+      (CLOSED: Memory.closed_promises promises0 mem0)
       (GET: Memory.get l t mem0 = Some m)
-      (FULFILL: Memory.fulfill promise0 loc from to msg promise1):
-  Memory.get l t promise0 = Memory.get l t promise1.
+      (FULFILL: Memory.fulfill promises0 mem0 loc to msg promises1):
+  Promises.mem l t promises0 = Promises.mem l t promises1.
 Proof.
-  inv FULFILL.
-  destruct (Memory.get l t promise1) eqn:G.
-  - apply Memory.join_get; memtac.
-  - apply Memory.join_get_None; memtac.
-    destruct (Memory.get l t (Memory.singleton loc msg LT)) eqn:G'; auto.
-    apply Memory.singleton_get_inv in G'. des. subst. congruence.
-Qed.
+  inv FULFILL. admit.
+Admitted.
 
-Lemma reorder_memory_cell_fulfill
-      promise0 loc from to msg promise1
+Lemma cell_fulfill
+      promises0 mem0 loc to msg promises1
       l
       (LOC: loc <> l)
-      (FULFILL: Memory.fulfill promise0 loc from to msg promise1):
-  promise0 l = promise1 l.
+      (FULFILL: Memory.fulfill promises0 mem0 loc to msg promises1):
+  promises0 l = promises1 l.
 Proof.
-  inv FULFILL. unfold Memory.join, Cell.join, Memory.singleton in *.
-  unfold LocFun.add, LocFun.find in *. destruct (Loc.eq_dec l loc); [congruence|].
-  unfold LocFun.init, Cell.bot, Cell.Raw.bot in *. s.
-  apply Cell.extensionality'; ss.
-  - i. destruct (Cell.Raw.messages (Cell.raw (promise1 l)) to0); auto.
-  - i. destruct (Cell.Raw.ownership (Cell.raw (promise1 l)) to0); auto.
-Qed.
+  inv FULFILL. admit.
+Admitted.
 
-Lemma reorder_memory_fulfill_fulfill
-      promise1 loc1 from1 to1 msg1
-      promise2 loc2 from2 to2 msg2
-      promise3
-      (FULFILL1: Memory.fulfill promise1 loc1 from1 to1 msg1 promise2)
-      (FULFILL2: Memory.fulfill promise2 loc2 from2 to2 msg2 promise3):
-  exists promise2',
-    Memory.fulfill promise1 loc2 from2 to2 msg2 promise2' /\
-    Memory.fulfill promise2' loc1 from1 to1 msg1 promise3.
+Lemma fulfill_fulfill
+      promises1 loc1 to1 msg1
+      promises2 loc2 to2 msg2
+      promises3
+      mem1
+      (FULFILL1: Memory.fulfill promises1 mem1 loc1 to1 msg1 promises2)
+      (FULFILL2: Memory.fulfill promises2 mem1 loc2 to2 msg2 promises3):
+  exists promises2',
+    Memory.fulfill promises1 mem1 loc2 to2 msg2 promises2' /\
+    Memory.fulfill promises2' mem1 loc1 to1 msg1 promises3.
 Proof.
-  inv FULFILL1. inv FULFILL2. memtac.
+  inv FULFILL1. inv FULFILL2.
   eexists. splits.
-  - econs.
-    + rewrite <- Memory.join_assoc.
-      rewrite (Memory.join_comm (Memory.singleton _ _ _) _).
-      rewrite Memory.join_assoc. eauto.
-    + repeat (splits; memtac).
-  - econs; eauto. memtac.
-Qed.
+  - econs; eauto.
+    admit.
+  - admit.
+Admitted.

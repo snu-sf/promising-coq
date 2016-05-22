@@ -18,7 +18,7 @@ Require Import Configuration.
 Require Import Simulation.
 Require Import Compatibility.
 Require Import MemInv.
-Require Import ReorderBase.
+Require Import ReorderStep.
 
 Require Import Syntax.
 Require Import Semantics.
@@ -102,7 +102,7 @@ Proof.
       eapply Local.future_fence_step; eauto.
   - i. eexists _, _, _. splits; eauto.
     inv PR. inv FENCE. inv LOCAL. ss.
-    apply MemInv.sem_bot_inv in PROMISE. rewrite PROMISE. auto.
+    apply MemInv.sem_bot_inv in PROMISES. rewrite PROMISES. auto.
   - ii. exploit sim_fence_step; eauto. i. des.
     + eexists _, _, _, _, _, _. splits; eauto.
       left. eapply paco7_mon; eauto. ss.

@@ -29,7 +29,7 @@ End IsDense.
 
 Module Type DenseOrderType := UsualOrderedTypeFull <+ IsDense <+ HasCaseJoin.
 
-Module DenseOrder: DenseOrderType.
+Module DenseOrder <: DenseOrderType.
   Definition t := positive.
   Definition elt: t := xH.
 
@@ -219,6 +219,68 @@ Module DenseOrder: DenseOrderType.
   Proof.
     unfold join. destruct (le_lt_dec lhs rhs); auto.
   Qed.
+
+  Definition meet (lhs rhs:t): t :=
+    if le_lt_dec lhs rhs
+    then lhs
+    else rhs.
+
+  Lemma meet_comm lhs rhs: meet lhs rhs = meet rhs lhs.
+  Proof.
+    unfold meet.
+    destruct (le_lt_dec lhs rhs), (le_lt_dec rhs lhs); auto.
+    - apply le_lteq in l. apply le_lteq in l0.
+      des; auto. rewrite l in l0. apply lt_strorder in l0. done.
+    - rewrite l in l0. apply lt_strorder in l0. done.
+  Qed.
+
+  Lemma meet_assoc a b c: meet (meet a b) c = meet a (meet b c).
+  Proof.
+    unfold meet.
+    repeat
+      (try match goal with
+           | [H: le _ _ |- _] =>
+             apply le_lteq in H
+           | [|- context[le_lt_dec ?a ?b]] =>
+             destruct (le_lt_dec a b)
+           | [H: context[le_lt_dec ?a ?b] |- _] =>
+             destruct (le_lt_dec a b)
+           | [H1: lt ?a ?b, H2: lt ?b ?a |- _] =>
+             rewrite H2 in H1; apply lt_strorder in H1; inv H1
+           end; unfold eq in *; try subst; des; ss).
+    - rewrite l2 in l. rewrite l1 in l.
+      apply lt_strorder in l. inv l.
+    - rewrite l2 in l. rewrite l0 in l.
+      apply lt_strorder in l. inv l.
+  Qed.
+
+  Lemma meet_l lhs rhs:
+    le (meet lhs rhs) lhs.
+  Proof.
+    unfold meet. destruct (le_lt_dec lhs rhs); auto.
+    - apply le_lteq. auto.
+    - apply le_lteq. auto.
+  Qed.
+
+  Lemma meet_r lhs rhs:
+    le (meet lhs rhs) rhs.
+  Proof.
+    rewrite meet_comm. apply meet_l.
+  Qed.
+
+  Lemma meet_spec lhs rhs o
+        (LHS: le o lhs)
+        (RHS: le o rhs):
+    le o (meet lhs rhs).
+  Proof.
+    unfold meet. destruct (le_lt_dec lhs rhs); auto.
+  Qed.
+
+  Lemma meet_cases lhs rhs:
+    meet lhs rhs = lhs \/ meet lhs rhs = rhs.
+  Proof.
+    unfold meet. destruct (le_lt_dec lhs rhs); auto.
+  Qed.
 End DenseOrder.
 
 Global Program Instance DenseOrder_le_PreOrder: PreOrder DenseOrder.le.
@@ -233,19 +295,8 @@ Next Obligation.
   left. rewrite H. auto.
 Qed.
 
-(* Module DenseOrderMap. *)
-(*   Include UsualPositiveMap. *)
-
-(*   Inductive Adjacent {A} (k1 k2:DenseOrder.t) (m:t A): Prop := *)
-(*   | Adjacent_intro *)
-(*       v1 *)
-(*       (V1: find k1 m = Some v1) *)
-(*       (ADJ: forall k *)
-(*               (K1: DenseOrder.lt k1 k) *)
-(*               (K2: DenseOrder.lt k k2), *)
-(*           find k m = None) *)
-(*   . *)
-(* End DenseOrderMap. *)
+Module DOMap := UsualPositiveMap.
+Module DOSet := UsualSet DenseOrder.
 
 Module DenseOrderFacts.
   Include (OrderedTypeFacts DenseOrder).

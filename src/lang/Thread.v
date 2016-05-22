@@ -7,6 +7,7 @@ Require Import paco.
 Require Import Axioms.
 Require Import Basic.
 Require Import DataStructure.
+Require Import DenseOrder.
 Require Import Event.
 Require Import Time.
 Require Import Language.
@@ -19,28 +20,27 @@ Set Implicit Arguments.
 Module Local.
   Structure t := mk {
     commit: Commit.t;
-    promise: Memory.t;
+    promises: Promises.t;
   }.
 
-  Definition init :=
-    mk Commit.elt
-       Memory.bot.
+  Definition init := mk Commit.elt Promises.bot.
 
   Inductive is_terminal (lc:t): Prop :=
   | is_terminal_intro
-      (PROMISE: lc.(promise) = Memory.bot)
+      (PROMISES: lc.(promises) = Promises.bot)
   .
 
   Inductive wf (lc:t) (mem:Memory.t): Prop :=
   | wf_intro
-      (COMMIT: Commit.wf lc.(commit) mem)
-      (PROMISE: Memory.le lc.(promise) mem)
-      (MEMORY: Memory.wf mem)
+      (COMMIT_WF: Commit.wf lc.(commit))
+      (COMMIT_CLOSED: Commit.closed lc.(commit) mem)
+      (PROMISES: Memory.closed_promises lc.(promises) mem)
+      (MEMORY: Memory.closed mem)
   .
 
   Inductive disjoint (lc1 lc2:t): Prop :=
   | disjoint_intro
-      (PROMISE: Memory.disjoint lc1.(promise) lc2.(promise))
+      (PROMISES: Promises.disjoint lc1.(promises) lc2.(promises))
   .
 
   Global Program Instance disjoint_Symmetric: Symmetric disjoint.
@@ -50,51 +50,55 @@ Module Local.
 
   Inductive promise_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:Capability.t): forall (lc2:t) (mem2:Memory.t), Prop :=
   | step_promise
-      commit2 promise2 mem2
+      commit2 promises2 mem2
+      (PROMISE: Memory.promise lc1.(promises) mem1 loc from to (Message.mk val released) promises2 mem2)
       (COMMIT: Commit.le lc1.(commit) commit2)
-      (COMMIT_WF: Commit.wf commit2 mem2)
-      (MEMORY: Memory.promise lc1.(promise) mem1 loc from to (Message.mk val released) promise2 mem2):
-      promise_step lc1 mem1 loc from to val released (mk commit2 promise2) mem2
+      (COMMIT_WF: Commit.wf commit2)
+      (COMMIT_CLOSED: Commit.closed commit2 mem2):
+      promise_step lc1 mem1 loc from to val released (mk commit2 promises2) mem2
   .
 
   Inductive silent_step (lc1:t) (mem1:Memory.t): forall (lc2:t), Prop :=
   | step_silent
       commit2
       (COMMIT: Commit.le lc1.(commit) commit2)
-      (COMMIT_WF: Commit.wf commit2 mem1):
-      silent_step lc1 mem1 (mk commit2 lc1.(promise))
+      (COMMIT_WF: Commit.wf commit2)
+      (COMMIT_CLOSED: Commit.closed commit2 mem1):
+      silent_step lc1 mem1 (mk commit2 lc1.(promises))
   .
 
   Inductive read_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (ts:Time.t) (val:Const.t) (released:Capability.t) (ord:Ordering.t): forall (lc2:t), Prop :=
   | step_read
       commit2
-      (COMMIT: Commit.read lc1.(commit) loc ts released ord commit2)
-      (COMMIT_WF: Commit.wf commit2 mem1)
       (GET: Memory.get loc ts mem1 = Some (Message.mk val released))
-      (GET_PROMISE: Memory.get loc ts lc1.(promise) = None):
-      read_step lc1 mem1 loc ts val released ord (mk commit2 lc1.(promise))
+      (PROMISES: ~ Promises.mem loc ts lc1.(promises))
+      (COMMIT: Commit.read lc1.(commit) loc ts released ord commit2)
+      (COMMIT_WF: Commit.wf commit2)
+      (COMMIT_CLOSED: Commit.closed commit2 mem1):
+      read_step lc1 mem1 loc ts val released ord (mk commit2 lc1.(promises))
   .
 
   Inductive fulfill_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:Capability.t) (ord:Ordering.t): forall (lc2:t), Prop :=
   | step_fulfill
-      commit2 promise2
+      commit2 promises2
+      (FULFILL: Memory.fulfill lc1.(promises) mem1 loc to (Message.mk val released) promises2)
       (COMMIT: Commit.write lc1.(commit) loc to released ord commit2)
-      (COMMIT_WF: Commit.wf commit2 mem1)
-      (MEMORY: Memory.fulfill lc1.(promise) loc from to (Message.mk val released) promise2):
-      fulfill_step lc1 mem1 loc from to val released ord (mk commit2 promise2)
+      (COMMIT_WF: Commit.wf commit2)
+      (COMMIT_CLOSED: Commit.closed commit2 mem1):
+      fulfill_step lc1 mem1 loc from to val released ord (mk commit2 promises2)
   .
 
   Inductive write_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:Capability.t) (ord:Ordering.t): forall (lc2:t) (mem2:Memory.t), Prop :=
   | step_write_fulfill
       lc2
       (FULFILL: fulfill_step lc1 mem1 loc from to val released ord lc2)
-      (RELEASE: Ordering.le Ordering.acqrel ord -> lc1.(promise) loc = Cell.bot):
+      (RELEASE: Ordering.le Ordering.acqrel ord -> lc1.(promises) loc = DOSet.empty):
       write_step lc1 mem1 loc from to val released ord lc2 mem1
   | step_write_add
       lc2 mem2 lc3
       (PROMISE: promise_step lc1 mem1 loc from to val released lc2 mem2)
       (FULFILL: fulfill_step lc2 mem2 loc from to val released ord lc3)
-      (RELEASE: Ordering.le Ordering.acqrel ord -> lc1.(promise) loc = Cell.bot):
+      (RELEASE: Ordering.le Ordering.acqrel ord -> lc1.(promises) loc = DOSet.empty):
       write_step lc1 mem1 loc from to val released ord lc3 mem2
   .
 
@@ -102,10 +106,11 @@ Module Local.
   | step_fence
       commit2 commit3
       (READ: Commit.read_fence lc1.(commit) ordr commit2)
-      (WRITE: Commit.write_fence lc1.(commit) ordw commit3)
-      (COMMIT_WF: Commit.wf commit3 mem1)
-      (RELEASE: Ordering.le Ordering.acqrel ordw -> lc1.(promise) = Memory.bot):
-      fence_step lc1 mem1 ordr ordw (mk commit3 lc1.(promise))
+      (WRITE: Commit.write_fence commit2 ordw commit3)
+      (RELEASE: Ordering.le Ordering.acqrel ordw -> lc1.(promises) = Promises.bot)
+      (COMMIT_WF: Commit.wf commit3)
+      (COMMIT_CLOSED: Commit.closed commit3 mem1):
+      fence_step lc1 mem1 ordr ordw (mk commit3 lc1.(promises))
   .
 
   Lemma future_read_step lc1 mem1 mem1' loc ts val released ord lc2
@@ -114,8 +119,8 @@ Module Local.
     read_step lc1 mem1' loc ts val released ord lc2.
   Proof.
     inv STEP. econs; eauto.
-    - eapply Commit.future_wf; eauto.
     - eapply Memory.future_get; eauto.
+    - eapply Commit.future_closed; eauto.
   Qed.
 
   Lemma future_fulfill_step lc1 mem1 mem1' loc from to val released ord lc2
@@ -124,7 +129,8 @@ Module Local.
     fulfill_step lc1 mem1' loc from to val released ord lc2.
   Proof.
     inv STEP. econs; eauto.
-    eapply Commit.future_wf; eauto.
+    - eapply Memory.fulfill_mon; eauto.
+    - eapply Commit.future_closed; eauto.
   Qed.
 
   Lemma future_fence_step lc1 mem1 mem1' ordr ordw lc2
@@ -133,7 +139,7 @@ Module Local.
     fence_step lc1 mem1' ordr ordw lc2.
   Proof.
     inv STEP. econs; eauto.
-    eapply Commit.future_wf; eauto.
+    eapply Commit.future_closed; eauto.
   Qed.
 
   Lemma promise_step_future lc1 mem1 loc from to val released lc2 mem2
@@ -168,9 +174,8 @@ Module Local.
         (WF1: wf lc1 mem1):
     wf lc2 mem1.
   Proof.
-    inv WF1. inv STEP.
-    exploit Memory.fulfill_future; eauto. i.
-    splits; ss.
+    inv WF1. inv STEP. econs; eauto. s.
+    eapply Memory.fulfill_future; eauto.
   Qed.
 
   Lemma write_step_future lc1 mem1 loc from to val released ord lc2 mem2
@@ -203,10 +208,11 @@ Module Local.
     <<WF: wf lc mem2>>.
   Proof.
     inv WF1. inv DISJOINT1. inv WF. inv STEP.
-    exploit Memory.promise_future; try apply MEMORY1; eauto. i. des.
-    exploit Memory.promise_disjoint; try apply MEMORY1; eauto. i. des.
+    exploit Memory.promise_future; try apply PROMISE; eauto. i. des.
+    exploit Memory.promise_disjoint; try apply PROMISE; eauto. i.
     splits; ss. econs; ss.
-    eapply Commit.future_wf; eauto.
+    - eapply Commit.future_closed; eauto.
+    - eapply Memory.future_closed_promises; eauto.
   Qed.
 
   Lemma silent_step_disjoint
@@ -237,10 +243,11 @@ Module Local.
         (DISJOINT1: disjoint lc1 lc):
     disjoint lc2 lc.
   Proof.
-    inv DISJOINT1. inv STEP. inv MEMORY.
-    rewrite PROMISE1 in *. memtac.
-    econs. memtac.
-  Qed.
+    inv DISJOINT1. inv STEP. inv FULFILL.
+    econs. s. econs. i. eapply PROMISES; eauto.
+    apply Promises.unset_inv in LHS. des.
+    admit.
+  Admitted.
 
   Lemma write_step_disjoint
         lc1 mem1 lc2 loc from to val released ord mem2 lc
@@ -348,7 +355,7 @@ Module Thread.
         (WF: Local.wf lc1 mem1),
       exists e2,
         <<STEPS: rtc (step None) (mk st1 lc1 mem1) e2>> /\
-        <<PROMISE: e2.(thread).(Local.promise) = Memory.bot>>.
+        <<PROMISES: e2.(thread).(Local.promises) = Promises.bot>>.
 
     Lemma promise_step_future e1 e2
           (STEP: promise_step e1 e2)

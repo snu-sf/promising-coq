@@ -27,7 +27,7 @@ Section SimulationLocal.
   Inductive sim_local (lc_src lc_tgt:Local.t): Prop :=
   | sim_local_intro
       (COMMIT: Commit.le lc_src.(Local.commit) lc_tgt.(Local.commit))
-      (PROMISE: MemInv.sem Memory.bot lc_src.(Local.promise) lc_tgt.(Local.promise))
+      (PROMISES: MemInv.sem Promises.bot lc_src.(Local.promises) lc_tgt.(Local.promises))
   .
 
   Global Program Instance sim_local_Preorder: PreOrder sim_local.
@@ -39,9 +39,9 @@ Section SimulationLocal.
   Next Obligation.
     ii. inv H. inv H0. econs.
     - etrans; eauto.
-    - apply MemInv.sem_bot_inv in PROMISE.
-      apply MemInv.sem_bot_inv in PROMISE0.
-      rewrite PROMISE, PROMISE0.
+    - apply MemInv.sem_bot_inv in PROMISES.
+      apply MemInv.sem_bot_inv in PROMISES0.
+      rewrite PROMISES, PROMISES0.
       apply MemInv.sem_bot.
   Qed.
 
@@ -100,13 +100,13 @@ Section SimulationLocal.
           <<MEMORY: sim_memory mem2_src mem2_tgt>> /\
           <<FUTURE_TGT: Memory.future mem1_tgt mem2_tgt>> /\
           <<WF_TGT: Local.wf lc1_tgt mem2_tgt>>>> /\
-      <<PROMISE:
-        forall (PROMISE_TGT: lc1_tgt.(Local.promise) = Memory.bot),
+      <<PROMISES:
+        forall (PROMISES_TGT: lc1_tgt.(Local.promises) = Promises.bot),
         exists st2_src lc2_src mem2_src,
           <<STEPS: rtc (Thread.step None)
                        (Thread.mk _ st1_src lc1_src mem1_src)
                        (Thread.mk _ st2_src lc2_src mem2_src)>> /\
-          <<PROMISE_SRC: lc2_src.(Local.promise) = Memory.bot>>>> /\
+          <<PROMISES_SRC: lc2_src.(Local.promises) = Promises.bot>>>> /\
       <<STEP: _sim_thread_step (sim_thread sim_terminal)
                                st1_src lc1_src mem1_src
                                st1_tgt lc1_tgt mem1_tgt>>.
@@ -330,7 +330,7 @@ Proof.
   { s. eapply sim_thread_future; eauto. }
   i. des. destruct e2. ss.
   punfold SIM0. exploit SIM0; eauto; try reflexivity. i. des.
-  exploit PROMISE1; eauto. i. des.
+  exploit PROMISES1; eauto. i. des.
   eexists (Thread.mk _ _ _ _). splits; [|eauto].
   etrans; eauto.
 Qed.
@@ -362,14 +362,14 @@ Proof.
         econs; ss; eauto.
         { eapply IdentMap.singleton_find. }
         { ii. eexists. splits; eauto. ss.
-          inv LOCAL. apply MemInv.sem_bot_inv in PROMISE0. etrans; eauto.
+          inv LOCAL. apply MemInv.sem_bot_inv in PROMISES0. etrans; eauto.
           apply THREAD.
         }
       * inv X. s. erewrite IdentMap.singleton_add. econs.
     + ii. ss. rewrite IdentMap.singleton_add in *.
       apply IdentMap.singleton_find_inv in FIND. des. subst.
       splits; Configuration.simplify. econs; eauto.
-      inv LOCAL. apply MemInv.sem_bot_inv in PROMISE0. etrans; eauto.
+      inv LOCAL. apply MemInv.sem_bot_inv in PROMISES0. etrans; eauto.
       apply THREAD.
   - i. inv STEP_TGT. ss.
     apply IdentMap.singleton_find_inv in TID. des.

@@ -19,7 +19,7 @@ Require Import Simulation.
 Require Import Compatibility.
 Require Import MemInv.
 Require Import Progress.
-Require Import ReorderBase.
+Require Import ReorderStep.
 
 Require Import Syntax.
 Require Import Semantics.
@@ -102,7 +102,7 @@ Proof.
       * s. econs 1. erewrite RegFile.eq_except_value; eauto.
         { symmetry. eauto. }
         { apply RegFile.eq_except_singleton. }
-        { i. rewrite ORD1 in H. inv H. }
+        { i. destruct o1; inv ORD1; inv H. }
     + eauto.
     + left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
   - (* store *)
@@ -116,7 +116,7 @@ Proof.
     + econs 2. econs 3; eauto. econs.
       * econs.
       * s. econs 1; eauto.
-        i. rewrite ORD1 in H. inv H.
+        i. destruct o1; inv ORD1; inv H.
     + s. eauto.
     + s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
   - (* update *)
@@ -140,7 +140,7 @@ Proof.
       * s. econs 1. erewrite RegFile.eq_except_value; eauto.
         { symmetry. eauto. }
         { apply RegFile.eq_except_singleton. }
-        { i. rewrite ORD1 in H. inv H. }
+        { i. destruct o1; inv ORD1; inv H. }
     +  s. eauto.
     + s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
 Qed.
@@ -168,7 +168,7 @@ Proof.
         exploit Thread.step_future; eauto. s. i. des. auto.
       }
       { exploit Thread.internal_step_future; eauto. s. i. des. auto. }
-      i. des. exploit PROMISE; eauto. i. des.
+      i. des. exploit PROMISES; eauto. i. des.
       eexists _, _, _. splits; [|eauto].
       etrans; eauto.
       etrans; [econs 2; eauto|].

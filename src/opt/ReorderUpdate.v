@@ -19,7 +19,7 @@ Require Import Simulation.
 Require Import Compatibility.
 Require Import MemInv.
 Require Import Progress.
-Require Import ReorderBase.
+Require Import ReorderStep.
 
 Require Import Syntax.
 Require Import Semantics.
@@ -129,7 +129,7 @@ Proof.
         { symmetry. eauto. }
         { apply RegFile.eq_except_singleton. }
       * s. econs 1; eauto.
-        i. rewrite ORDW1 in H. inv H.
+        i. destruct ow1; inv ORDW1; inv H.
     + s. eauto.
     + s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
       apply RegFun.add_add. ii. subst. apply REGS.
@@ -144,7 +144,7 @@ Proof.
     { eapply Local.read_step_future; eauto. }
     i. des.
     exploit reorder_read_write; try apply x0; try apply STEP1; eauto.
-    { i. rewrite ORDR1 in H0. inv H0. }
+    { i. destruct or1; inv ORDR1; inv H0. }
     i. des.
     eexists _, _, _, _, _, _. splits.
     + econs 2; [|econs 1]. econs 2. econs 3; eauto. econs.
@@ -157,7 +157,7 @@ Proof.
     + econs 2. econs 4; eauto.
       * econs. econs. eauto.
       * s. econs 1; eauto.
-        i. rewrite ORDW1 in H. inv H.
+        i. destruct ow1; inv ORDW1; inv H.
     + s. eauto.
     + s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
   - (* update *)
@@ -183,7 +183,7 @@ Proof.
     }
     i. des.
     exploit reorder_read_write; try apply STEP3; try apply STEP4; eauto.
-    { i. rewrite ORDR1 in H0. inv H0. }
+    { i. destruct or1; inv ORDR1; inv H0. }
     { eapply Local.read_step_future; eauto. }
     i. des.
     eexists _, _, _, _, _, _. splits.
@@ -199,7 +199,7 @@ Proof.
         { right. apply RegSet.singleton_spec in LHS. subst. eauto. }
         { left. eauto. }
       * econs 1; eauto.
-        i. rewrite ORDW1 in H. inv H.
+        i. destruct ow1; inv ORDW1; inv H.
     + eauto.
     + left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
       apply RegFun.add_add. ii. subst. eapply REGS.
@@ -236,7 +236,7 @@ Proof.
         exploit Thread.step_future; eauto. s. i. des. auto.
       }
       { exploit Thread.internal_step_future; eauto. s. i. des. auto. }
-      i. des. exploit PROMISE; eauto. i. des.
+      i. des. exploit PROMISES; eauto. i. des.
       eexists _, _, _. splits; [|eauto].
       etrans; eauto.
       etrans; [econs 2; eauto|].

@@ -1,0 +1,91 @@
+    Definition join (cell1 rhs:t): t :=
+      DOMap.map2
+        (fun l r =>
+           match l, r with
+           | Some (from1, _), Some (from2, _) => Some (Time.join from1 from2, Message.elt)
+           | Some _, None => l
+           | None, _ => r
+           end)
+        cell1 rhs.
+
+    Lemma join_wf
+          cell1 rhs
+          (CELL1: wf cell1)
+          (RHS: wf rhs):
+      wf (join cell1 rhs).
+    Proof.
+    Admitted.
+
+    Lemma join_comm cell1 rhs:
+      join cell1 rhs = join rhs cell1.
+    Proof.
+    Admitted.
+
+    Lemma join_assoc a b c:
+      join a (join b c) = join (join a b) c.
+    Proof.
+    Admitted.
+
+    Lemma join_disjoint
+          a b c
+          (WFA: wf a)
+          (WFB: wf b)
+          (WFC: wf c)
+          (BC: disjoint b c):
+      disjoint a (join b c) <-> disjoint a b /\ disjoint a c.
+    Proof.
+    Admitted.
+
+
+
+
+
+
+  Definition join (lhs rhs:t): t := mk (Raw.join_wf lhs.(WF) rhs.(WF)).
+
+  Lemma join_comm lhs rhs:
+    join lhs rhs = join rhs lhs.
+  Proof. apply ext. apply Raw.join_comm. Qed.
+
+  Lemma join_assoc a b c:
+    join a (join b c) = join (join a b) c.
+  Proof. apply ext. apply Raw.join_assoc. Qed.
+
+  Lemma join_disjoint
+        a b c
+        (BC: disjoint b c):
+    disjoint a (join b c) <-> disjoint a b /\ disjoint a c.
+  Proof. apply Raw.join_disjoint; try apply WF; auto. Qed.
+
+
+
+
+
+
+  Definition join (lhs rhs:t): t := fun loc => Cell.join (lhs loc) (rhs loc).
+
+  Lemma join_comm lhs rhs:
+    join lhs rhs = join rhs lhs.
+  Proof. extensionality i. apply Cell.join_comm. Qed.
+
+  Lemma join_assoc a b c:
+    join a (join b c) = join (join a b) c.
+  Proof. extensionality i. apply Cell.join_assoc. Qed.
+
+  Lemma join_disjoint
+        a b c
+        (BC: disjoint b c):
+    disjoint a (join b c) <-> disjoint a b /\ disjoint a c.
+  Proof.
+    econs; i; des; splits; econs; i.
+    - inv H. specialize (DISJOINT loc). apply Cell.join_disjoint in DISJOINT.
+      + des. auto.
+      + apply BC.
+    - inv H. specialize (DISJOINT loc). apply Cell.join_disjoint in DISJOINT.
+      + des. auto.
+      + apply BC.
+    - inv H. inv H0. apply Cell.join_disjoint.
+      + apply BC.
+      + splits; auto.
+  Qed.
+
