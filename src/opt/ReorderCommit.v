@@ -48,7 +48,7 @@ Proof.
   { apply x0. }
   { inv COMMIT1. apply WF_RELEASED. }
   i.
-  splits; eauto. eapply CommitFacts.read_mon2; eauto; try apply COMMIT2.
+  splits; eauto. eapply CommitFacts.read_mon2; eauto; try reflexivity; try apply COMMIT2.
   inv COMMIT1. inv COMMIT2. inv MONOTONE. inv MONOTONE0.
   econs; committac; try by etrans; eauto.
   - rewrite RA; auto.
@@ -88,7 +88,7 @@ Proof.
   { apply x0. }
   { inv COMMIT1. apply WF_RELEASED. }
   i.
-  splits; eauto. eapply CommitFacts.read_mon2; eauto; try apply COMMIT2.
+  splits; eauto. eapply CommitFacts.read_mon2; eauto; try reflexivity; try apply COMMIT2.
   inv COMMIT1. inv COMMIT2. inv MONOTONE. inv MONOTONE0.
   econs; committac; try by etrans; eauto.
   - rewrite RA; auto.
@@ -119,7 +119,7 @@ Proof.
   { apply x0. }
   { inv COMMIT1. apply WF_RELEASED. }
   i.
-  splits; eauto. eapply CommitFacts.read_mon2; eauto; try apply COMMIT2.
+  splits; eauto. eapply CommitFacts.read_mon2; eauto; try reflexivity; try apply COMMIT2.
   inv COMMIT1. inv COMMIT2. inv MONOTONE. inv MONOTONE0.
   econs; committac; try by etrans; eauto.
   - rewrite RA; auto.
@@ -146,7 +146,7 @@ Proof.
   { apply x0. }
   { inv COMMIT1. apply WF_RELEASED. }
   i.
-  splits; eauto. eapply CommitFacts.read_mon2; eauto; try apply COMMIT2.
+  splits; eauto. eapply CommitFacts.read_mon2; eauto; try reflexivity; try apply COMMIT2.
   inv COMMIT1. inv COMMIT2. inv MONOTONE. inv MONOTONE0.
   econs; committac; try by etrans; eauto.
   - rewrite RA; auto.
@@ -187,7 +187,7 @@ Proof.
   { apply x0. }
   { inv COMMIT1. apply WF_RELEASED. }
   i.
-  splits; eauto. eapply CommitFacts.write_mon2; eauto; try apply COMMIT2.
+  splits; eauto. eapply CommitFacts.write_mon2; eauto; try reflexivity; try apply COMMIT2.
   inv COMMIT1. inv COMMIT2. inv MONOTONE. inv MONOTONE0.
   econs; committac; try by etrans; eauto.
   - rewrite RW3. apply WF1.
@@ -234,7 +234,7 @@ Proof.
   { apply x0. }
   { inv COMMIT1. apply WF_RELEASED. }
   i.
-  splits; eauto. eapply CommitFacts.write_mon2; eauto; try apply COMMIT2.
+  splits; eauto. eapply CommitFacts.write_mon2; eauto; try reflexivity; try apply COMMIT2.
   inv COMMIT1. inv COMMIT2. inv MONOTONE. inv MONOTONE0.
   econs; committac; try by etrans; eauto.
   - rewrite RW3. apply WF1.
@@ -276,7 +276,11 @@ Proof.
   exploit CommitFacts.read_fence_min_spec.
   { apply x0. }
   i.
-  splits; eauto. eapply CommitFacts.read_fence_mon2; eauto; try apply COMMIT2.
+  splits; eauto. eapply CommitFacts.read_fence_mon2;
+                   try match goal with
+                       | [|- is_true (Ordering.le _ _)] => reflexivity
+                       end;
+                   eauto; try apply COMMIT2.
   inv COMMIT1. inv COMMIT2. inv MONOTONE. inv MONOTONE0.
   econs; committac; try by etrans; eauto.
   - rewrite RA; auto.
@@ -311,7 +315,11 @@ Proof.
   exploit CommitFacts.write_fence_min_spec.
   { apply x0. }
   i.
-  splits; eauto. eapply CommitFacts.write_fence_mon2; eauto; try apply COMMIT2.
+  splits; eauto. eapply CommitFacts.write_fence_mon2;
+                   try match goal with
+                       | [|- is_true (Ordering.le _ _)] => reflexivity
+                       end;
+                   eauto; try apply COMMIT2.
   inv COMMIT1. inv COMMIT2. inv MONOTONE. inv MONOTONE0.
   econs; committac; try by etrans; eauto.
   - econs; s; committac.
@@ -327,4 +335,36 @@ Proof.
   - unfold LocFun.add, LocFun.find.
     committac; try by destruct ord1; inv ORD1; inv H.
     condtac; committac. etrans; eauto.
+Qed.
+
+Lemma read_fence_write_fence
+      ord1
+      ord2
+      commit0 commit1 commit2
+      (COMMIT1: Commit.read_fence commit0 ord1 commit1)
+      (COMMIT2: Commit.write_fence commit1 ord2 commit2)
+      (WF0: Commit.wf commit0):
+  <<COMMIT1': Commit.write_fence commit0 ord2 (CommitFacts.write_fence_min ord2 commit0)>> /\
+  <<COMMIT2': Commit.read_fence (CommitFacts.write_fence_min ord2 commit0) ord1 commit2>>.
+Proof.
+  exploit CommitFacts.write_fence_min_spec; eauto. i.
+  exploit CommitFacts.read_fence_min_spec; try apply x0; eauto. i.
+  splits; eauto. eapply CommitFacts.read_fence_mon2;
+                   try match goal with
+                       | [|- is_true (Ordering.le _ _)] => reflexivity
+                       end;
+                   eauto; try apply COMMIT2.
+  inv COMMIT1. inv COMMIT2. inv MONOTONE. inv MONOTONE0.
+  econs; committac; try by etrans; eauto.
+  - rewrite RA; auto.
+  - econs; s.
+    + etrans; [apply CURRENT|]. apply RLX. auto.
+    + etrans; [apply CURRENT|apply CURRENT0].
+    + etrans; [apply CURRENT|apply CURRENT0].
+  - unfold LocFun.find. committac.
+    + econs; s.
+      * etrans; [apply CURRENT|]. apply RA0; auto.
+      * etrans; [apply CURRENT|]. apply RA0; auto.
+      * etrans; [apply CURRENT|]. apply RA0; auto.
+    + etrans; eauto.
 Qed.

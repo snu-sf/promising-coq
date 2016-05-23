@@ -164,7 +164,8 @@ Module Commit <: JoinableType.
       (MONOTONE: le commit1 commit2)
       (RLX: Ordering.le Ordering.relaxed ord -> TimeMap.le commit1.(current).(Capability.rw) commit2.(current).(Capability.ur))
       (RA: Ordering.le Ordering.acqrel ord ->
-           forall loc, Capability.le commit1.(Commit.current) (commit2.(Commit.released) loc))
+           forall loc, TimeMap.le commit1.(current).(Capability.rw) (commit2.(released) loc).(Capability.ur) /\
+                  Capability.le commit1.(Commit.current) (commit2.(Commit.released) loc))
       (WF: Commit.wf commit2)
   .
 End Commit.
@@ -261,64 +262,80 @@ Module CommitFacts.
     i. inv PR. econs; auto.
     - etrans; [apply LE|]. auto.
     - etrans; [apply LE|]. auto.
-    - etrans; [apply LE|]. auto.
+    - i. splits.
+      + etrans; [apply LE|]. apply RA. auto.
+      + etrans; [apply LE|]. apply RA. auto.
   Qed.
 
   Lemma read_mon2
-        loc ts released ord
+        loc ts released
+        ord2 ord3
         commit1 commit2 commit3
-        (READ: Commit.read commit1 loc ts released ord commit2)
+        (READ: Commit.read commit1 loc ts released ord2 commit2)
+        (ORD: Ordering.le ord3 ord2)
         (LE: Commit.le commit2 commit3)
         (WF: Commit.wf commit3):
-    Commit.read commit1 loc ts released ord commit3.
+    Commit.read commit1 loc ts released ord3 commit3.
   Proof.
     inv READ. econs; eauto.
     - etrans; [|apply LE]. auto.
     - etrans; [|apply LE]. auto.
+    - i. apply RW1. etrans; eauto.
     - etrans; [|apply LE]. auto.
-    - etrans; [|apply LE]. auto.
+    - etrans; [|apply LE].
+      apply RA. etrans; eauto.
   Qed.
 
   Lemma write_mon2
-        loc ts released ord
+        loc ts released
+        ord2 ord3
         commit1 commit2 commit3
-        (WRITE: Commit.write commit1 loc ts released ord commit2)
+        (WRITE: Commit.write commit1 loc ts released ord2 commit2)
+        (ORD: Ordering.le ord3 ord2)
         (LE: Commit.le commit2 commit3)
         (WF: Commit.wf commit3):
-    Commit.write commit1 loc ts released ord commit3.
+    Commit.write commit1 loc ts released ord3 commit3.
   Proof.
     inv WRITE. econs; auto.
     - etrans; [|apply LE]. auto.
     - etrans; [|apply LE]. auto.
     - etrans; [|apply LE]. auto.
+    - i. apply RA. etrans; eauto.
   Qed.
 
   Lemma read_fence_mon2
-        ord
+        ord2 ord3
         commit1 commit2 commit3
-        (FENCE: Commit.read_fence commit1 ord commit2)
+        (FENCE: Commit.read_fence commit1 ord2 commit2)
+        (ORD: Ordering.le ord3 ord2)
         (LE: Commit.le commit2 commit3)
         (WF: Commit.wf commit3):
-    Commit.read_fence commit1 ord commit3.
+    Commit.read_fence commit1 ord3 commit3.
   Proof.
     inv FENCE. econs; auto.
     - etrans; [|apply LE]. auto.
-    - etrans; [|apply LE]. auto.
+    - etrans; [|apply LE].
+      apply RA. etrans; eauto.
   Qed.
 
   Lemma write_fence_mon2
-        ord
+        ord2 ord3
         commit1 commit2 commit3
-        (FENCE: Commit.write_fence commit1 ord commit2)
+        (FENCE: Commit.write_fence commit1 ord2 commit2)
+        (ORD: Ordering.le ord3 ord2)
         (LE: Commit.le commit2 commit3)
         (WF: Commit.wf commit3):
-    Commit.write_fence commit1 ord commit3.
+    Commit.write_fence commit1 ord3 commit3.
   Proof.
     inv FENCE. econs; auto.
     - etrans; [|apply LE]. auto.
-    - etrans; [|apply LE]. auto.
-    - i. specialize (RA H loc).
-      etrans; [|apply LE]. auto.
+    - etrans; [|apply LE].
+      apply RLX. etrans; eauto.
+    - i. exploit RA.
+      { etrans; eauto. }
+      i. des. splits.
+      + etrans; [|apply LE]. eauto.
+      + etrans; [|apply LE]. eauto.
   Qed.
 
   Definition read_min
@@ -454,7 +471,9 @@ Module CommitFacts.
               (fun loc =>
                  Capability.join_if
                    (Ordering.le Ordering.acqrel ord)
-                   commit.(Commit.current)
+                   (Capability.mk commit.(Commit.current).(Capability.rw)
+                                  commit.(Commit.current).(Capability.rw)
+                                  commit.(Commit.current).(Capability.sc))
                    (commit.(Commit.released) loc))
               commit.(Commit.acquirable).
 
@@ -470,11 +489,16 @@ Module CommitFacts.
         unfold Capability.join_if. condtac; tac. reflexivity.
     - unfold Capability.join_if. condtac; tac.
       apply TimeMap.join_l.
-    - unfold Capability.join_if. condtac; tac.
+    - unfold Capability.join_if. condtac; tac. splits.
+      + apply TimeMap.join_l.
+      + etrans; [|apply Capability.join_l].
+        econs; try reflexivity.
+        apply WF1.
     - econs; tac; try apply WF1.
       + apply Capability.join_if_wf; try apply WF1.
         econs; s; try apply WF1. reflexivity.
-      + apply Capability.join_if_wf; apply WF1.
+      + apply Capability.join_if_wf; try apply WF1.
+        econs; try apply WF1. reflexivity.
   Qed.        
 
   Lemma write_fence_min_min
@@ -485,7 +509,11 @@ Module CommitFacts.
     inv COMMIT2. unfold write_fence_min. econs; tac; try apply MONOTONE.
     - econs; tac; try apply MONOTONE. eauto.
     - unfold LocFun.find.
-      unfold Capability.join_if. condtac; tac; try apply MONOTONE. eauto.
+      unfold Capability.join_if. condtac; tac; try apply MONOTONE.
+      econs; s.
+      + apply RA. auto.
+      + apply RA. auto.
+      + apply RA. auto.
   Qed.
 End CommitFacts.
 
