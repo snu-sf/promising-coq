@@ -61,6 +61,29 @@ Module Interval <: UsualOrderedType.
       + right. intro X. inv X. ss. timetac.
   Defined.
 
+  Inductive le (lhs rhs:t): Prop :=
+  | le_intro
+      (FROM: Time.le rhs.(fst) lhs.(fst))
+      (TO: Time.le lhs.(snd) rhs.(snd))
+  .
+
+  Lemma le_mem lhs rhs x
+        (LE: le lhs rhs)
+        (LHS: mem lhs x):
+    mem rhs x.
+  Proof.
+    inv LE. inv LHS. econs.
+    - eapply TimeFacts.le_lt_lt; eauto.
+    - etrans; eauto.
+  Qed.
+
+  Lemma mem_ub
+        lb ub (LT: Time.lt lb ub):
+    mem (lb, ub) ub.
+  Proof.
+    econs; s; auto. reflexivity.
+  Qed.
+
   Definition disjoint (lhs rhs:t): Prop :=
     forall x
       (LHS: mem lhs x)
@@ -72,10 +95,11 @@ Module Interval <: UsualOrderedType.
     ii. eapply H; eauto.
   Qed.
 
-  Lemma mem_ub
-        lb ub (LT: Time.lt lb ub):
-    mem (lb, ub) ub.
+  Lemma disjoint_imm a b c:
+    disjoint (a, b) (b, c).
   Proof.
-    econs; s; auto. reflexivity.
+    ii. inv LHS. inv RHS. ss.
+    eapply DenseOrder.lt_strorder.
+    eapply TimeFacts.le_lt_lt; [apply TO|apply FROM0].
   Qed.
 End Interval.

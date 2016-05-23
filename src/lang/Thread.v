@@ -244,10 +244,9 @@ Module Local.
     disjoint lc2 lc.
   Proof.
     inv DISJOINT1. inv STEP. inv FULFILL.
-    econs. s. econs. i. eapply PROMISES; eauto.
-    apply Promises.unset_inv in LHS. des.
-    admit.
-  Admitted.
+    econs. s. econs. i. eapply PROMISES; try apply RHS; eauto.
+    apply Promises.unset_inv in LHS. des. auto.
+  Qed.
 
   Lemma write_step_disjoint
         lc1 mem1 lc2 loc from to val released ord mem2 lc

@@ -69,7 +69,8 @@ End MemEvent.
  * syscalls may change the memory.
  *)
 (* NOTE: Syscall's results are not predictable.
- * Hence we disallow syscalls in the consistency check.
+ * Hence we disallow syscalls in the hypothetical execution of the
+ * consistency check.
  *)
 Module Event.
   Structure t := mk {

@@ -167,33 +167,6 @@ Module Commit <: JoinableType.
            forall loc, Capability.le commit1.(Commit.current) (commit2.(Commit.released) loc))
       (WF: Commit.wf commit2)
   .
-
-  (* TODO: may be needed *)
-  (* Inductive le_on (loc:Loc.t) (lhs rhs:t): Prop := *)
-  (* | le_on_intro *)
-  (*     (READS: Time.le (lhs.(reads) loc) (rhs.(reads) loc)) *)
-  (*     (WRITES: Time.le (lhs.(writes) loc) (rhs.(writes) loc)) *)
-  (* . *)
-
-  (* Lemma le_on_readable *)
-  (*       loc lhs rhs *)
-  (*       (LE: le_on loc lhs rhs): *)
-  (*   readable rhs loc <2= readable lhs loc. *)
-  (* Proof. *)
-  (*   i. inv LE. inv PR. econs. *)
-  (*   - etrans; eauto. *)
-  (*   - etrans; eauto. *)
-  (* Qed. *)
-
-  (* Lemma le_on_writable *)
-  (*       loc lhs rhs *)
-  (*       (LE: le_on loc lhs rhs): *)
-  (*   writable rhs loc <1= writable lhs loc. *)
-  (* Proof. *)
-  (*   i. inv LE. inv PR. econs. *)
-  (*   - eapply TimeFacts.le_lt_lt; eauto. *)
-  (*   - eapply TimeFacts.le_lt_lt; eauto. *)
-  (* Qed. *)
 End Commit.
 
 Module CommitFacts.

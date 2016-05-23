@@ -76,7 +76,7 @@ Module Promises.
     unfold join. ii.
     unfold mem in *. rewrite DOSet.Facts.union_b in *.
     apply Bool.orb_true_iff in H. des; eauto.
-  Qed.  
+  Qed.
 
   Definition set (loc:Loc.t) (ts:Time.t) (promises:t) :=
     LocFun.add loc (DOSet.add ts (promises loc)) promises.
@@ -610,18 +610,21 @@ Module Cell.
                  | [H: Some _ = Some _ |- _] => inv H
                   end);
           (try by eapply DISJOINT; eauto).
-        + admit.
+        + apply Interval.disjoint_imm.
         + ii. eapply (DISJOINT to3 to2); eauto.
-          admit.
-        + symmetry.
-          admit.
+          eapply Interval.le_mem; try apply LHS.
+          econs; s. reflexivity. apply Time.le_lteq. auto.
+        + symmetry. apply Interval.disjoint_imm.
         + ii. eapply (DISJOINT to0 to2); eauto.
-          admit.
+          eapply Interval.le_mem; try apply RHS.
+          econs; s. reflexivity. apply Time.le_lteq. auto.
         + ii. eapply (DISJOINT to3 to0); eauto.
-          admit.
+          eapply Interval.le_mem; try apply LHS.
+          econs; s. apply Time.le_lteq. auto. reflexivity.
         + ii. eapply (DISJOINT to0 to3); eauto.
-          admit.
-    Admitted.
+          eapply Interval.le_mem; try apply RHS.
+          econs; s. apply Time.le_lteq. auto. reflexivity.
+    Qed.
   End Raw.
 
   Structure t := mk {
@@ -832,6 +835,19 @@ Module Memory.
 
   (* Lemmas on add & split *)
 
+  Lemma add_disjoint
+        mem1 loc from1 to1 msg1 mem2
+        (ADD: add mem1 loc from1 to1 msg1 mem2):
+    get loc to1 mem1 = None.
+  Proof.
+    inv ADD. inv ADD0. destruct r. ss. subst.
+    unfold get, Cell.get, Cell.Raw.get.
+    destruct (DOMap.find to1 (Cell.raw (mem1 loc))) as [[]|] eqn:X; auto.
+    exfalso. eapply DISJOINT; eauto.
+    - apply Interval.mem_ub. auto.
+    - apply Interval.mem_ub. eapply Cell.WF. eauto.
+  Qed.
+
   Lemma add_get1
         mem1 loc from1 to1 msg1 mem2
         l t m
@@ -839,21 +855,22 @@ Module Memory.
         (GET: get l t mem1 = Some m):
     get l t mem2 = Some m.
   Proof.
-  Admitted.
+    exploit add_disjoint; eauto. i.
+    unfold get, Cell.get, Cell.Raw.get in *. inv ADD. inv ADD0.
+    unfold LocFun.add, LocFun.find. condtac; auto. subst.
+    rewrite <- H0. rewrite DOMap.gsspec. condtac; auto. subst.
+    congruence.
+  Qed.
 
   Lemma add_get2
         mem1 loc from1 to1 msg1 mem2
         (ADD: add mem1 loc from1 to1 msg1 mem2):
     get loc to1 mem2 = Some msg1.
   Proof.
-  Admitted.
-
-  Lemma add_disjoint
-        mem1 loc from1 to1 msg1 mem2
-        (ADD: add mem1 loc from1 to1 msg1 mem2):
-    get loc to1 mem1 = None.
-  Proof.
-  Admitted.
+    unfold get, Cell.get, Cell.Raw.get in *. inv ADD. inv ADD0.
+    unfold LocFun.add, LocFun.find. condtac; [|congruence].
+    rewrite <- H0. rewrite DOMap.gss. auto.
+  Qed.
 
   Lemma add_get_inv
         mem1 loc from1 to1 msg1 mem2
@@ -862,30 +879,55 @@ Module Memory.
         (GET: get l t mem2 = Some m):
     (l = loc /\ t = to1 /\ m = msg1) \/ get l t mem1 = Some m.
   Proof.
-  Admitted.
-
-  Lemma split_get1
-        mem1 loc from1 to1 to2 msg1 mem2
-        l t m
-        (ADD: split mem1 loc from1 to1 to2 msg1 mem2)
-        (GET: get l t mem1 = Some m):
-    get l t mem2 = Some m.
-  Proof.
-  Admitted.
-
-  Lemma split_get2
-        mem1 loc from1 to1 to2 msg1 mem2
-        (ADD: split mem1 loc from1 to1 to2 msg1 mem2):
-    get loc to1 mem2 = Some msg1.
-  Proof.
-  Admitted.
+    unfold get, Cell.get, Cell.Raw.get in *. inv ADD. inv ADD0.
+    revert GET. unfold LocFun.add, LocFun.find. condtac; auto. subst.
+    rewrite <- H0. rewrite DOMap.gsspec. condtac; auto. subst.
+    s. i. inv GET. auto.
+  Qed.
 
   Lemma split_disjoint
         mem1 loc from1 to1 to2 msg1 mem2
         (SPLIT: split mem1 loc from1 to1 to2 msg1 mem2):
     get loc to1 mem1 = None.
   Proof.
-  Admitted.
+    inv SPLIT. inv SPLIT0. destruct r. ss. subst.
+    unfold get, Cell.get, Cell.Raw.get.
+    destruct (DOMap.find to1 (Cell.raw (mem1 loc))) as [[]|] eqn:X; auto.
+    destruct (mem1 loc).(Cell.WF).
+    exfalso. eapply DISJOINT; [apply GET2|apply X| | |].
+    - ii. subst. eapply Time.lt_strorder. eauto.
+    - econs; eauto. apply Time.le_lteq. auto.
+    - apply Interval.mem_ub. eapply VOLUME. eauto.
+  Qed.
+
+  Lemma split_get1
+        mem1 loc from1 to1 to2 msg1 mem2
+        l t m
+        (SPLIT: split mem1 loc from1 to1 to2 msg1 mem2)
+        (GET: get l t mem1 = Some m):
+    get l t mem2 = Some m.
+  Proof.
+    unfold get, Cell.get, Cell.Raw.get in *. inv SPLIT. inv SPLIT0.
+    unfold LocFun.add, LocFun.find. condtac; auto. subst.
+    rewrite <- H0. rewrite ? DOMap.gsspec. repeat condtac; subst; ss.
+    - destruct (DOMap.find to1 (Cell.raw (mem1 loc))) as [[]|] eqn:X; inv GET.
+      destruct (mem1 loc).(Cell.WF).
+      exfalso. eapply DISJOINT; [apply GET2|apply X| | |].
+      + ii. subst. eapply Time.lt_strorder. eauto.
+      + econs; eauto. apply Time.le_lteq. auto.
+      + apply Interval.mem_ub. eapply VOLUME. eauto.
+    - rewrite GET2 in *. inv GET. auto.
+  Qed.
+
+  Lemma split_get2
+        mem1 loc from1 to1 to2 msg1 mem2
+        (SPLIT: split mem1 loc from1 to1 to2 msg1 mem2):
+    get loc to1 mem2 = Some msg1.
+  Proof.
+    unfold get, Cell.get, Cell.Raw.get in *. inv SPLIT. inv SPLIT0.
+    unfold LocFun.add, LocFun.find. condtac; [|congruence].
+    rewrite <- H0. rewrite DOMap.gss. auto.
+  Qed.
 
   Lemma split_get_inv
         mem1 loc from1 to1 to2 msg1 mem2
@@ -894,7 +936,12 @@ Module Memory.
         (GET: get l t mem2 = Some m):
     (l = loc /\ t = to1 /\ m = msg1) \/ get l t mem1 = Some m.
   Proof.
-  Admitted.
+    unfold get, Cell.get, Cell.Raw.get in *. inv SPLIT. inv SPLIT0.
+    revert GET. unfold LocFun.add, LocFun.find. condtac; auto. subst.
+    rewrite <- H0. rewrite ? DOMap.gsspec. repeat condtac; subst; ss; auto.
+    - i. inv GET. auto.
+    - i. inv GET. rewrite GET2. auto.
+  Qed.
 
   Lemma future_get
         loc ts msg mem1 mem2
