@@ -175,7 +175,7 @@ Proof.
       eapply Local.future_read_step; eauto.
   - i. eexists _, _, _. splits; eauto.
     inv PR. inv READ. inv LOCAL. ss.
-    apply MemInv.sem_bot_inv in PROMISES0. rewrite PROMISES0. auto.
+    apply MemInv.sem_bot_inv in PROMISES. rewrite PROMISES. auto.
   - ii. exploit sim_load_step; eauto. i. des.
     + eexists _, _, _, _, _, _. splits; eauto.
       left. eapply paco7_mon; eauto. ss.

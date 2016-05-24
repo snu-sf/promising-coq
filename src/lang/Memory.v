@@ -1069,6 +1069,18 @@ Module Memory.
 
   (* Lemmas on promise & fulfill *)
 
+  Lemma promise_get1
+        promises1 mem1 loc from to msg promises2 mem2
+        l t m
+        (PROMISE: promise promises1 mem1 loc from to msg promises2 mem2)
+        (GET: get l t mem1 = Some m):
+    get l t mem2 = Some m.
+  Proof.
+    inv PROMISE.
+    - eapply add_get1; eauto.
+    - eapply split_get1; eauto.
+  Qed.
+
   Lemma promise_future
         promises1 mem1 loc from to msg promises2 mem2
         (CLOSED_PROMISES1: closed_promises promises1 mem1)

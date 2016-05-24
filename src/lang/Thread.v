@@ -71,7 +71,6 @@ Module Local.
   | step_read
       commit2
       (GET: Memory.get loc ts mem1 = Some (Message.mk val released))
-      (PROMISES: ~ Promises.mem loc ts lc1.(promises))
       (COMMIT: Commit.read lc1.(commit) loc ts released ord commit2)
       (COMMIT_WF: Commit.wf commit2)
       (COMMIT_CLOSED: Commit.closed commit2 mem1):

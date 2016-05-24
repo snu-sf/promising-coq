@@ -102,7 +102,7 @@ Proof.
   - econs; eauto.
     + apply COMMIT1'.
     + admit.
-  - refine (Local.step_read _ _ _ _ _ _); eauto.
+  - refine (Local.step_read _ _ _ _ _); eauto.
 Admitted.
 
 Lemma reorder_read_promise
@@ -119,7 +119,7 @@ Lemma reorder_read_promise
     <<STEP2: Local.read_step lc1' mem2 loc1 ts1 val1 released1 ord1 lc2>>.
 Proof.
   inv STEP1. inv STEP2. ss.
-  exploit ReorderMemory.get_promise_inv; try apply WF0; eauto. i. des.
+  exploit Memory.promise_get1; try apply WF0; eauto. i.
   exploit Memory.promise_future; try apply WF0; eauto. i. des.
   exploit Commit.future_closed; try apply WF0; eauto. i.
   eexists. splits.
@@ -151,9 +151,7 @@ Proof.
   - econs; eauto.
     + apply COMMIT1'.
     + admit.
-  - refine (Local.step_read _ _ _ _ _ _); eauto.
-    s. inv FULFILL. rewrite Promises.unset_o.
-    condtac; auto.
+  - econs; eauto.
 Admitted.
 
 Lemma reorder_read_write
@@ -211,7 +209,7 @@ Proof.
   - econs; eauto.
     + apply COMMIT1'0.
     + admit.
-  - refine (Local.step_read _ _ _ _ _ _); eauto.
+  - refine (Local.step_read _ _ _ _ _); eauto.
 Admitted.
 
 Lemma reorder_fulfill_read
@@ -236,10 +234,6 @@ Proof.
   i. des.
   eexists. splits.
   - econs; eauto.
-    + contradict PROMISES.
-      inv FULFILL. rewrite Promises.unset_o.
-      condtac; auto.
-      destruct (Loc.eq_dec loc2 loc1); [congruence|]. auto.
     + apply COMMIT1'.
     + admit.
   - econs; eauto.

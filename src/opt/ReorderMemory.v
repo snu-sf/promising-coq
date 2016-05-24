@@ -25,61 +25,6 @@ Require Import Semantics.
 Set Implicit Arguments.
 
 
-Lemma get_promise_iff
-      promises0 mem0 loc from to msg promises1 mem1
-      (CLOSED: Memory.closed_promises promises0 mem0)
-      (PROMISE: Memory.promise promises0 mem0 loc from to msg promises1 mem1):
-  forall l t m,
-    (Memory.get l t mem0 = Some m /\ ~ Promises.mem l t promises0) <->
-    (Memory.get l t mem1 = Some m /\ ~ Promises.mem l t promises1).
-Proof.
-  inv PROMISE.
-  - i. econs; i; des.
-    + splits.
-      * eapply Memory.add_get1; eauto.
-      * contradict H0. apply Promises.set_inv in H0. des; auto.
-        subst. admit.
-    + splits.
-      * admit.
-      * contradict H0. admit.
-  - i. econs; i; des.
-    + splits.
-      * eapply Memory.split_get1; eauto.
-      * contradict H0. apply Promises.set_inv in H0. des; auto.
-        subst. admit.
-    + splits.
-      * admit.
-      * contradict H0. admit.
-Admitted.
-
-Lemma get_promise
-      promises0 mem0 loc from to msg promises1 mem1
-      l t m
-      (CLOSED: Memory.closed_promises promises0 mem0)
-      (GET1: Memory.get l t mem1 = Some m)
-      (GET2: ~ Promises.mem l t promises1)
-      (PROMISE: Memory.promise promises0 mem0 loc from to msg promises1 mem1):
-  Memory.get l t mem0 = Some m /\
-  ~ Promises.mem l t promises0.
-Proof.
-  exploit get_promise_iff; eauto. intros [X1 X2].
-  apply X2. auto.
-Qed.
-
-Lemma get_promise_inv
-      promises0 mem0 loc from to msg promises1 mem1
-      l t m
-      (LE: Memory.closed_promises promises0 mem0)
-      (GET1: Memory.get l t mem0 = Some m)
-      (GET2: ~ Promises.mem l t promises0)
-      (PROMISE: Memory.promise promises0 mem0 loc from to msg promises1 mem1):
-  Memory.get l t mem1 = Some m /\
-  ~ Promises.mem l t promises1.
-Proof.
-  exploit get_promise_iff; eauto. intros [X1 X2].
-  apply X1. auto.
-Qed.
-
 Lemma fulfill_promise
       promises1 loc1 to1 msg1
       promises2 loc2 from2 to2 msg2

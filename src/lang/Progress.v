@@ -87,13 +87,12 @@ Lemma progress_read_step
     Local.read_step lc1 mem1 loc ts val released ord lc2.
 Proof.
   inv MAX. destruct msg.
-  exploit (@CommitFacts.read_min_spec loc ts released); try apply WF1.
+  exploit (@CommitFacts.read_min_spec loc ts released); try apply WF1; i.
   { admit. }
   { admit. }
   { inv WF1. exploit MEMORY; eauto. i. des. auto. }
-  i. des. eexists _, _, _. econs; try apply READ; eauto.
-  - rewrite PROMISE1, Promises.bot_spec. auto.
-  - admit. (* commit.closed *)
+  eexists _, _, _. econs; try apply x0; eauto.
+  admit. (* commit.closed *)
 Admitted.
 
 Lemma progress_fulfill_step

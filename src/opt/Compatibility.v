@@ -121,8 +121,6 @@ Proof.
   exploit Memory.splits_get; try apply MEMORY1; eauto. i.
   eexists. splits.
   - econs; eauto.
-    + exploit MemInv.sem_bot_inv; eauto. i.
-      rewrite x1. auto.
     + eapply CommitFacts.read_mon1; eauto.
     + eapply Commit.future_closed; eauto.
       apply Memory.splits_future. apply MEMORY1.
