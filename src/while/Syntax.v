@@ -130,7 +130,7 @@ Module SyntaxNotations.
   Notation "'%r' var" := (Reg.of_string var) (at level 41).
   Notation "'%l' var" := (Loc.of_string var) (at level 41).
 
-  Notation "'na'" := (Ordering.nonatomic) (at level 41).
+  Notation "'uno'" := (Ordering.unordered) (at level 41).
   Notation "'rlx'" := (Ordering.relaxed) (at level 41).
   Notation "'ar'" := (Ordering.acqrel) (at level 41).
   Notation "'sc'" := (Ordering.seqcst) (at level 41).

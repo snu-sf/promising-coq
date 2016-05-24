@@ -24,7 +24,7 @@ Module Const := Nat.
 Module Ordering.
   (* TODO: support the SC atomics (#40) *)
   Inductive t :=
-  | nonatomic
+  | unordered
   | relaxed
   | acqrel
   | seqcst
@@ -32,8 +32,8 @@ Module Ordering.
 
   Definition le (lhs rhs:t): bool :=
     match lhs, rhs with
-    | nonatomic, _ => true
-    | _, nonatomic => false
+    | unordered, _ => true
+    | _, unordered => false
 
     | relaxed, _ => true
     | _, relaxed => false
