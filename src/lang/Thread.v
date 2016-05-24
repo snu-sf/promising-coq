@@ -293,6 +293,7 @@ Module Thread.
         promise_step e1 (mk e1.(state) lc2 mem2)
     .
 
+    (* TODO: step_update releasedr, releasedw *)
     Inductive internal_step (e1:t): forall (e2:t), Prop :=
     | step_silent
         st2 lc2

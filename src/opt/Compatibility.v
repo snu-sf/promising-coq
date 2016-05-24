@@ -38,6 +38,14 @@ Lemma sim_local_future
     <<FUTURE: Memory.future mem1_tgt mem2_tgt>> /\
     <<WF2_TGT: Local.wf lc_tgt mem2_tgt>>.
 Proof.
+  revert inv lc_src lc_tgt mem1_tgt INV1 MEM1 WF1_SRC WF1_TGT WF2_SRC.
+  induction FUTURE_SRC; i.
+  { eexists _. splits; eauto. reflexivity. }
+  inv H.
+  - (* add *)
+    admit.
+  - (* split *)
+    admit.
 Admitted.
 
 Lemma sim_local_promise

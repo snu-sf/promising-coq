@@ -37,26 +37,28 @@ Lemma read_read
   <<COMMIT2': Commit.read (CommitFacts.read_min loc2 ts2 released2 ord2 commit0) loc1 ts1 released1 ord1 commit2>>.
 Proof.
   exploit CommitFacts.read_min_spec.
-  { etrans. inv COMMIT1. apply MONOTONE. apply COMMIT2. }
-  { etrans. inv COMMIT1. apply MONOTONE. apply COMMIT2. eauto. }
+  { etrans. inv COMMIT1. apply MON. apply COMMIT2. }
+  { etrans. inv COMMIT1. apply MON. apply COMMIT2. eauto. }
   { auto. }
-  { inv COMMIT2. apply WF_RELEASED. }
+  { inv COMMIT2. apply WF_REL. }
   i.
   exploit CommitFacts.read_min_spec.
   { admit. }
   { admit. }
   { apply x0. }
-  { inv COMMIT1. apply WF_RELEASED. }
+  { inv COMMIT1. apply WF_REL. }
   i.
   splits; eauto. eapply CommitFacts.read_mon2; eauto; try reflexivity; try apply COMMIT2.
-  inv COMMIT1. inv COMMIT2. inv MONOTONE. inv MONOTONE0.
+  inv COMMIT1. inv COMMIT2. inv MON. inv MON0.
   econs; committac; try by etrans; eauto.
   - rewrite RA; auto.
   - etrans; eauto. apply WF1.
-  - etrans; eauto. apply CURRENT0.
-  - etrans; eauto. etrans.
-    + apply CURRENT0.
-    + apply WF1.
+  - etrans; eauto. apply CUR0.
+  - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
+  - etrans; eauto. apply WF1.
+  - etrans; eauto. etrans; [apply WF1|]. apply WF1.
+  - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
+  - etrans; eauto. etrans; [apply CUR0|]. etrans; [apply WF1|]. apply WF1.
 Admitted.
 
 Lemma read_write
@@ -72,11 +74,11 @@ Lemma read_write
   <<COMMIT2': Commit.read (CommitFacts.write_min loc2 ts2 released2 commit0) loc1 ts1 released1 ord1 commit2>>.
 Proof.
   exploit CommitFacts.write_min_spec.
-  { inv COMMIT2. apply RELEASED. }
-  { etrans. inv COMMIT1. apply MONOTONE. apply COMMIT2. }
-  { etrans. inv COMMIT1. apply MONOTONE. apply COMMIT2. }
+  { inv COMMIT2. apply REL. }
+  { etrans. inv COMMIT1. apply MON. apply COMMIT2. }
+  { etrans. inv COMMIT1. apply MON. apply COMMIT2. }
   { i. splits.
-    - etrans. inv COMMIT1. apply MONOTONE. apply COMMIT2. eauto.
+    - etrans. inv COMMIT1. apply MON. apply COMMIT2. eauto.
     - apply COMMIT2. auto.
   }
   { auto. }
@@ -86,20 +88,25 @@ Proof.
   { admit. }
   { admit. }
   { apply x0. }
-  { inv COMMIT1. apply WF_RELEASED. }
+  { inv COMMIT1. apply WF_REL. }
   i.
   splits; eauto. eapply CommitFacts.read_mon2; eauto; try reflexivity; try apply COMMIT2.
-  inv COMMIT1. inv COMMIT2. inv MONOTONE. inv MONOTONE0.
+  inv COMMIT1. inv COMMIT2. inv MON. inv MON0.
   econs; committac; try by etrans; eauto.
-  - rewrite RA; auto.
-  - etrans; eauto. apply WF1.
-  - etrans; eauto. etrans; apply WF1.
-  - etrans; eauto. apply CURRENT0.
-  - etrans; eauto. etrans.
-    + apply CURRENT0.
-    + apply WF1.
   - unfold LocFun.add, LocFun.find. condtac; committac.
     etrans; eauto.
+  - rewrite RA; auto.
+  - etrans; eauto. apply WF1.
+  - etrans; eauto. apply WF1.
+  - etrans; eauto. inv WF1. etrans; apply CUR1.
+  - etrans; eauto. apply CUR0.
+  - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
+  - etrans; eauto. etrans; apply WF1.
+  - etrans; eauto. apply WF1.
+  - etrans; eauto. etrans; apply WF1.
+  - etrans; eauto. etrans; try apply WF1. etrans; apply WF1.
+  - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
+  - etrans; eauto. etrans; [apply CUR0|]. etrans; apply WF1.
 Admitted.
 
 Lemma read_read_fence
@@ -117,16 +124,17 @@ Proof.
   { admit. }
   { admit. }
   { apply x0. }
-  { inv COMMIT1. apply WF_RELEASED. }
+  { inv COMMIT1. apply WF_REL. }
   i.
   splits; eauto. eapply CommitFacts.read_mon2; eauto; try reflexivity; try apply COMMIT2.
-  inv COMMIT1. inv COMMIT2. inv MONOTONE. inv MONOTONE0.
+  inv COMMIT1. inv COMMIT2. inv MON. inv MON0.
   econs; committac; try by etrans; eauto.
   - rewrite RA; auto.
-  - etrans; eauto. apply CURRENT0.
-  - etrans; eauto. etrans; eauto.
-    + apply CURRENT0.
-    + apply WF1.
+  - condtac; etrans; eauto.
+  - etrans; eauto. apply CUR0.
+  - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
+  - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
+  - etrans; eauto. etrans; [apply CUR0|]. etrans; [apply WF1|]. apply WF1.
 Admitted.
 
 Lemma read_write_fence
@@ -144,20 +152,19 @@ Proof.
   { admit. }
   { admit. }
   { apply x0. }
-  { inv COMMIT1. apply WF_RELEASED. }
+  { inv COMMIT1. apply WF_REL. }
   i.
   splits; eauto. eapply CommitFacts.read_mon2; eauto; try reflexivity; try apply COMMIT2.
-  inv COMMIT1. inv COMMIT2. inv MONOTONE. inv MONOTONE0.
+  inv COMMIT1. inv COMMIT2. inv MON. inv MON0.
   econs; committac; try by etrans; eauto.
+  - unfold LocFun.find. condtac; committac.
+    + etrans; eauto.
+    + etrans; eauto.
   - rewrite RA; auto.
-  - econs; s.
-    + etrans; eauto. apply CURRENT.
-    + etrans; [apply CURRENT|]. apply CURRENT0.
-    + etrans; [apply CURRENT|]. apply CURRENT0.
-  - etrans; eauto. apply CURRENT0.
-  - etrans; eauto. etrans.
-    + apply CURRENT0.
-    + apply WF1.
+  - etrans; eauto. apply CUR0.
+  - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
+  - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
+  - etrans; eauto. etrans; [apply CUR0|]. etrans; [apply WF1|]. apply WF1.
 Admitted.
 
 Lemma write_read
@@ -174,10 +181,10 @@ Lemma write_read
   <<COMMIT2': Commit.write (CommitFacts.read_min loc2 ts2 released2 ord2 commit0) loc1 ts1 released1 ord1 commit2>>.
 Proof.
   exploit CommitFacts.read_min_spec.
-  { inv COMMIT1. etrans. apply MONOTONE. apply COMMIT2. }
-  { inv COMMIT1. etrans. apply MONOTONE. apply COMMIT2. eauto. }
+  { inv COMMIT1. etrans. apply MON. apply COMMIT2. }
+  { inv COMMIT1. etrans. apply MON. apply COMMIT2. eauto. }
   { apply WF0. }
-  { inv COMMIT2. apply WF_RELEASED. }
+  { inv COMMIT2. apply WF_REL. }
   i.
   exploit CommitFacts.write_min_spec.
   { admit. }
@@ -185,22 +192,25 @@ Proof.
   { admit. }
   { admit. }
   { apply x0. }
-  { inv COMMIT1. apply WF_RELEASED. }
+  { inv COMMIT1. apply WF_REL. }
   i.
   splits; eauto. eapply CommitFacts.write_mon2; eauto; try reflexivity; try apply COMMIT2.
-  inv COMMIT1. inv COMMIT2. inv MONOTONE. inv MONOTONE0.
+  inv COMMIT1. inv COMMIT2. inv MON. inv MON0.
   econs; committac; try by etrans; eauto.
-  - rewrite RW3. apply WF1.
-  - etrans; eauto. apply CURRENT0.
-  - etrans; eauto. etrans.
-    + apply CURRENT0.
-    + apply WF1.
-  - etrans; eauto. etrans.
-    + apply CURRENT0.
-    + etrans; apply WF1.
   - unfold LocFun.add, LocFun.find. condtac; committac.
     + etrans; eauto.
     + etrans; eauto.
+  - etrans; eauto. etrans; [apply REL3|]. apply WF1.
+  - etrans; eauto. apply WF1.
+  - etrans; eauto. apply CUR0.
+  - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
+  - etrans; eauto. etrans; [apply CUR0|]. inv WF1. etrans; apply CUR1.
+  - etrans; eauto. etrans; [apply REL3|]. etrans; apply WF1.
+  - etrans; eauto. apply WF1.
+  - etrans; eauto. etrans; apply WF1.
+  - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
+  - etrans; eauto. etrans; [apply CUR0|]. etrans; apply WF1.
+  - etrans; eauto. etrans; [apply CUR0|]. etrans; [apply WF1|]. etrans; apply WF1.
 Admitted.
 
 Lemma write_write
@@ -216,11 +226,11 @@ Lemma write_write
   <<COMMIT2': Commit.write (CommitFacts.write_min loc2 ts2 released2 commit0) loc1 ts1 released1 ord1 commit2>>.
 Proof.
   exploit CommitFacts.write_min_spec.
-  { inv COMMIT2. apply RELEASED. }
-  { etrans. inv COMMIT1. apply MONOTONE. apply COMMIT2. }
-  { etrans. inv COMMIT1. apply MONOTONE. apply COMMIT2. }
+  { inv COMMIT2. apply REL. }
+  { etrans. inv COMMIT1. apply MON. apply COMMIT2. }
+  { etrans. inv COMMIT1. apply MON. apply COMMIT2. }
   { i. splits.
-    - etrans. inv COMMIT1. apply MONOTONE. apply COMMIT2. eauto.
+    - etrans. inv COMMIT1. apply MON. apply COMMIT2. eauto.
     - apply COMMIT2. auto.
   }
   { auto. }
@@ -232,23 +242,29 @@ Proof.
   { admit. }
   { admit. }
   { apply x0. }
-  { inv COMMIT1. apply WF_RELEASED. }
+  { inv COMMIT1. apply WF_REL. }
   i.
   splits; eauto. eapply CommitFacts.write_mon2; eauto; try reflexivity; try apply COMMIT2.
-  inv COMMIT1. inv COMMIT2. inv MONOTONE. inv MONOTONE0.
+  inv COMMIT1. inv COMMIT2. inv MON. inv MON0.
   econs; committac; try by etrans; eauto.
-  - rewrite RW3. apply WF1.
-  - etrans; eauto. etrans; apply WF1.
-  - etrans; eauto. apply CURRENT0.
-  - etrans; eauto. etrans.
-    + apply CURRENT0.
-    + apply WF1.
-  - etrans; eauto. etrans.
-    + apply CURRENT0.
-    + etrans; apply WF1.
   - unfold LocFun.add, LocFun.find. repeat condtac; committac.
     + etrans; eauto.
     + etrans; eauto.
+  - etrans; eauto. etrans; [apply REL6|]. apply WF1.
+  - etrans; eauto. apply WF1.
+  - etrans; eauto. apply WF1.
+  - etrans; eauto. inv WF1. etrans; [apply CUR1|]. apply CUR1.
+  - etrans; eauto. apply CUR0.
+  - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
+  - etrans; eauto. etrans; [apply CUR0|]. inv WF1. etrans; [apply CUR1|]. apply CUR1.
+  - etrans; eauto. etrans; eauto. etrans; [apply WF1|]. apply WF1.
+  - etrans; eauto. etrans; [apply WF1|]. apply WF1.
+  - etrans; eauto. apply WF1.
+  - etrans; eauto. etrans; [apply WF1|]. apply WF1.
+  - etrans; eauto. etrans; [apply WF1|]. etrans; [apply WF1|]. apply WF1.
+  - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
+  - etrans; eauto. etrans; [apply CUR0|]. etrans; [apply WF1|]. apply WF1.
+  - etrans; eauto. etrans; [apply CUR0|]. etrans; [apply WF1|]. etrans; [apply WF1|]. apply WF1.
 Admitted.
 
 Lemma read_fence_write
@@ -263,11 +279,11 @@ Lemma read_fence_write
   <<COMMIT2': Commit.read_fence (CommitFacts.write_min loc2 ts2 released2 commit0) ord1 commit2>>.
 Proof.
   exploit CommitFacts.write_min_spec.
-  { inv COMMIT2. apply RELEASED. }
-  { etrans. inv COMMIT1. apply MONOTONE. apply COMMIT2. }
-  { etrans. inv COMMIT1. apply MONOTONE. apply COMMIT2. }
+  { inv COMMIT2. apply REL. }
+  { etrans. inv COMMIT1. apply MON. apply COMMIT2. }
+  { etrans. inv COMMIT1. apply MON. apply COMMIT2. }
   { i. splits.
-    - etrans. inv COMMIT1. apply MONOTONE. apply COMMIT2. eauto.
+    - etrans. inv COMMIT1. apply MON. apply COMMIT2. eauto.
     - apply COMMIT2. auto.
   }
   { auto. }
@@ -281,13 +297,21 @@ Proof.
                        | [|- is_true (Ordering.le _ _)] => reflexivity
                        end;
                    eauto; try apply COMMIT2.
-  inv COMMIT1. inv COMMIT2. inv MONOTONE. inv MONOTONE0.
+  inv COMMIT1. inv COMMIT2. inv MON. inv MON0.
   econs; committac; try by etrans; eauto.
-  - rewrite RA; auto.
+  - unfold LocFun.add, LocFun.find. condtac; committac. etrans; eauto.
+  - condtac; committac; try by etrans; eauto.
+    + etrans; eauto. apply WF1.
+    + rewrite RA; auto.
+    + etrans; eauto. apply WF1.
+    + etrans; eauto. inv WF1. etrans; [apply CUR1|]. apply CUR1.
+    + etrans; eauto. apply WF1.
+    + etrans; eauto. apply WF1.
+    + etrans; eauto. inv WF1. etrans; [apply CUR1|]. apply CUR1.
+  - etrans; eauto. etrans; [apply WF1|]. apply WF1.
   - etrans; eauto. apply WF1.
-  - etrans; eauto. etrans; apply WF1.
-  - unfold LocFun.add, LocFun.find. condtac; committac.
-    etrans; eauto.
+  - etrans; eauto. etrans; [apply WF1|]. apply WF1.
+  - etrans; eauto. etrans; [apply WF1|]. etrans; [apply WF1|]. apply WF1.
 Qed.
 
 Lemma write_fence_write
@@ -302,11 +326,11 @@ Lemma write_fence_write
   <<COMMIT2': Commit.write_fence (CommitFacts.write_min loc2 ts2 released2 commit0) ord1 commit2>>.
 Proof.
   exploit CommitFacts.write_min_spec.
-  { inv COMMIT2. apply RELEASED. }
-  { etrans. inv COMMIT1. apply MONOTONE. apply COMMIT2. }
-  { etrans. inv COMMIT1. apply MONOTONE. apply COMMIT2. }
+  { inv COMMIT2. apply REL. }
+  { etrans. inv COMMIT1. apply MON. apply COMMIT2. }
+  { etrans. inv COMMIT1. apply MON. apply COMMIT2. }
   { i. splits.
-    - etrans. inv COMMIT1. apply MONOTONE. apply COMMIT2. eauto.
+    - etrans. inv COMMIT1. apply MON. apply COMMIT2. eauto.
     - apply COMMIT2. auto.
   }
   { auto. }
@@ -320,21 +344,19 @@ Proof.
                        | [|- is_true (Ordering.le _ _)] => reflexivity
                        end;
                    eauto; try apply COMMIT2.
-  inv COMMIT1. inv COMMIT2. inv MONOTONE. inv MONOTONE0.
+  inv COMMIT1. inv COMMIT2. inv MON. inv MON0.
   econs; committac; try by etrans; eauto.
-  - econs; s; committac.
-    + rewrite RLX; auto. apply CURRENT0.
-    + etrans; eauto. etrans.
-      * apply CURRENT0.
-      * apply WF1.
-    + etrans; eauto. apply WF1.
-    + etrans; eauto. apply CURRENT. apply CURRENT0.
-    + etrans; eauto. etrans; apply WF1.
-  - rewrite RW2. apply WF1.
-  - rewrite RW2. etrans; apply WF1.
   - unfold LocFun.add, LocFun.find.
-    committac; try by destruct ord1; inv ORD1; inv H.
-    condtac; committac. etrans; eauto.
+    repeat condtac; committac;
+      try by destruct ord1; inv ORD1; inv COND.
+    etrans; [apply REL0|]. eauto.
+  - etrans; eauto. apply WF1.
+  - etrans; eauto. apply WF1.
+  - etrans; eauto. inv WF1. etrans; [apply CUR1|]. apply CUR1.
+  - etrans; eauto. etrans; [apply WF1|]. apply WF1.
+  - etrans; eauto. apply WF1.
+  - etrans; eauto. etrans; [apply WF1|]. apply WF1.
+  - etrans; eauto. etrans; [apply WF1|]. etrans; [apply WF1|]. apply WF1.
 Qed.
 
 Lemma read_fence_write_fence
@@ -354,17 +376,12 @@ Proof.
                        | [|- is_true (Ordering.le _ _)] => reflexivity
                        end;
                    eauto; try apply COMMIT2.
-  inv COMMIT1. inv COMMIT2. inv MONOTONE. inv MONOTONE0.
+  inv COMMIT1. inv COMMIT2. inv MON. inv MON0.
   econs; committac; try by etrans; eauto.
-  - rewrite RA; auto.
-  - econs; s.
-    + etrans; [apply CURRENT|]. apply RLX. auto.
-    + etrans; [apply CURRENT|apply CURRENT0].
-    + etrans; [apply CURRENT|apply CURRENT0].
-  - unfold LocFun.find. committac.
-    + econs; s.
-      * etrans; [apply CURRENT|]. apply RA0; auto.
-      * etrans; [apply CURRENT|]. apply RA0; auto.
-      * etrans; [apply CURRENT|]. apply RA0; auto.
+  - unfold LocFun.find. condtac; committac.
+    + etrans; eauto.
+    + etrans; eauto.
+  - condtac; committac.
+    + rewrite RA; auto.
     + etrans; eauto.
 Qed.

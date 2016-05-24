@@ -125,6 +125,7 @@ Proof.
   eexists. splits.
   - econs; try apply WF0; eauto. reflexivity.
   - econs; eauto. s. eapply CommitFacts.read_mon2; eauto.
+    reflexivity.
 Qed.
 
 Lemma reorder_read_fulfill
@@ -264,6 +265,7 @@ Proof.
   eexists. splits.
   - econs; try apply WF0; eauto. reflexivity.
   - econs; eauto. s. eapply CommitFacts.write_mon2; eauto.
+    reflexivity.
 Qed.
 
 Lemma reorder_fulfill_fulfill
@@ -342,6 +344,7 @@ Proof.
   - econs; try apply WF0; eauto. reflexivity.
   - econs; eauto.
     + eapply CommitFacts.write_fence_mon2; eauto.
+      reflexivity.
     + i. destruct ordw1; inv ORDW1; inv H.
 Qed.
 

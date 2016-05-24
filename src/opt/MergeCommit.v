@@ -40,16 +40,16 @@ Proof.
   { inv COMMIT. apply UR1. }
   { i. apply COMMIT. etrans. apply H. apply ORD1. }
   { auto. }
-  { inv COMMIT. apply WF_RELEASED. }
+  { inv COMMIT. apply WF_REL. }
   i.
   exploit CommitFacts.read_min_spec.
   { admit. }
   { admit. }
   { apply x0. }
-  { inv COMMIT. apply WF_RELEASED. }
+  { inv COMMIT. apply WF_REL. }
   i.
   splits; eauto. eapply CommitFacts.read_mon2; eauto; try apply COMMIT.
-  inv COMMIT. inv MONOTONE.
+  inv COMMIT. inv MON.
   econs; committac; try by etrans; eauto.
   - apply RA. etrans; eauto.
   - etrans; eauto. apply WF.
@@ -66,33 +66,41 @@ Lemma write_read
   <<COMMIT2': Commit.read (CommitFacts.write_min loc ts released commit0) loc ts released ord2 commit2>>.
 Proof.
   exploit CommitFacts.write_min_spec.
-  { inv COMMIT. apply RELEASED. }
+  { inv COMMIT. apply REL. }
   { inv COMMIT. apply RW1. }
   { apply COMMIT. }
   { i. apply COMMIT. eauto. }
   { auto. }
-  { inv COMMIT. apply WF_RELEASED. }
+  { inv COMMIT. apply WF_REL. }
   i.
   exploit CommitFacts.read_min_spec.
   { admit. }
   { admit. }
   { apply x0. }
-  { inv COMMIT. apply WF_RELEASED. }
+  { inv COMMIT. apply WF_REL. }
   i.
   splits; eauto. eapply CommitFacts.read_mon2;
                    try match goal with
                        | [|- is_true (Ordering.le _ _)] => reflexivity
                        end;
                    eauto; try apply COMMIT.
-  inv COMMIT. inv MONOTONE.
+  inv COMMIT. inv MON.
   econs; committac; try by etrans; eauto.
-  - admit. (* cannot prove in the current rule: m.rel should be constrained *)
+  - unfold LocFun.add, LocFun.find. condtac; committac.
+    etrans; eauto. reflexivity.
   - etrans; eauto. apply WF.
+  - etrans; eauto. apply WF.
+  - etrans; eauto. apply WF.
+  - etrans; eauto. inv WF. etrans; apply CUR0.
+  - etrans; eauto. apply WF.
+  - etrans; eauto. inv WF. etrans; apply CUR0.
+  - etrans; eauto. etrans; apply WF.
   - etrans; eauto. etrans; apply WF.
   - etrans; eauto. apply WF.
   - etrans; eauto. etrans; apply WF.
-  - unfold LocFun.add, LocFun.find. condtac; committac. eauto.
-  - admit. (* cannot prove in the current rule: m.rel should be constrained *)
+  - etrans; eauto. etrans; [apply WF|]. etrans; apply WF.
+  - etrans; eauto. etrans; apply WF.
+  - etrans; eauto. etrans; [apply WF|]. etrans; apply WF.
 Admitted.
 
 Lemma write_write
@@ -125,10 +133,11 @@ Proof.
   splits; eauto.
   eapply CommitFacts.read_fence_mon2;
     try apply x1; try reflexivity; try apply COMMIT; eauto.
-  inv COMMIT. inv MONOTONE.
+  inv COMMIT. inv MON.
   econs; committac; try by etrans; eauto.
-  - apply RA. etrans; eauto.
-  - apply RA. etrans; eauto.
+  repeat condtac; committac.
+  + apply RA. etrans; eauto.
+  + apply RA. etrans; eauto.
 Qed.
 
 Lemma write_fence_write_fence
@@ -146,26 +155,10 @@ Proof.
   splits; eauto.
   eapply CommitFacts.write_fence_mon2;
     try apply x1; try reflexivity; try apply COMMIT; eauto.
-  inv COMMIT. inv MONOTONE.
+  inv COMMIT. inv MON.
   econs; committac; try by etrans; eauto.
-  - econs; s.
-    + unfold Capability.join_if. condtac; committac.
-      * apply TimeMap.join_spec; apply RLX; etrans; eauto.
-      * apply RLX. etrans; eauto.
-    + unfold Capability.join_if. condtac; committac.
-      * apply TimeMap.join_spec; apply CURRENT.
-      * apply CURRENT.
-    + unfold Capability.join_if. condtac; committac.
-      * apply TimeMap.join_spec; apply CURRENT.
-      * apply CURRENT.
-  - econs; s.
-    + apply RLX. etrans; eauto.
-    + apply CURRENT.
-    + apply CURRENT.
-  - unfold LocFun.find. committac.
-    + unfold Capability.join_if. condtac; committac.
-      * econs; apply TimeMap.join_spec; apply RA; etrans; eauto.
-      * econs; apply RA; etrans; eauto.
-    + econs; apply RA; etrans; eauto.
-    + apply RELEASED.
+  unfold LocFun.find. repeat condtac; committac.
+  - rewrite RA. reflexivity. etrans; eauto.
+  - rewrite RA. reflexivity. etrans; eauto.
+  - etrans; eauto. reflexivity.
 Qed.

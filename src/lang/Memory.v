@@ -744,9 +744,7 @@ Module Memory.
   Definition init: t := fun _ => Cell.init.
 
   Definition closed_timemap (times:TimeMap.t) (mem:t): Prop :=
-    forall loc, exists ts msg,
-        <<TS: Time.le (times loc) ts>> /\
-        <<MSG: get loc ts mem = Some msg>>.
+    forall loc, exists msg, get loc (times loc) mem = Some msg.
 
   Inductive closed_capability (capability:Capability.t) (mem:t): Prop :=
   | closed_capability_intro
@@ -1004,7 +1002,7 @@ Module Memory.
     closed_timemap times mem2.
   Proof.
     ii. exploit CLOSED; eauto. i. des.
-    eexists _, _. splits; eauto. eapply future_get; eauto.
+    eexists _. splits; eauto. eapply future_get; eauto.
   Qed.
 
   Lemma future_closed_capability
@@ -1039,8 +1037,8 @@ Module Memory.
     destruct (Loc.eq_dec loc0 loc).
     - destruct (Time.join_cases (s loc) ts) as [X|X]; rewrite X; eauto.
       + exploit CLOSED. i. des.
-        eexists _, _. splits; eauto. subst. eauto.
-      + eexists _, _. splits; eauto. reflexivity. subst loc. eauto.
+        eexists _. splits; eauto. subst. eauto.
+      + eexists _. splits; eauto. subst loc. eauto.
     - apply CLOSED.
   Qed.
 
