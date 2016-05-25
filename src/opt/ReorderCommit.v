@@ -51,7 +51,6 @@ Proof.
   splits; eauto. eapply CommitFacts.read_mon2; eauto; try reflexivity; try apply COMMIT2.
   inv COMMIT1. inv COMMIT2. inv MON. inv MON0.
   econs; committac; try by etrans; eauto.
-  - rewrite RA; auto.
   - etrans; eauto. apply WF1.
   - etrans; eauto. apply CUR0.
   - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
@@ -75,7 +74,7 @@ Lemma read_write
 Proof.
   exploit CommitFacts.write_min_spec.
   { inv COMMIT2. apply REL. }
-  { etrans. inv COMMIT1. apply MON. apply COMMIT2. }
+  { eapply TimeFacts.le_lt_lt. inv COMMIT1. apply MON. apply COMMIT2. }
   { etrans. inv COMMIT1. apply MON. apply COMMIT2. }
   { i. splits.
     - etrans. inv COMMIT1. apply MON. apply COMMIT2. eauto.
@@ -95,7 +94,6 @@ Proof.
   econs; committac; try by etrans; eauto.
   - unfold LocFun.add, LocFun.find. condtac; committac.
     etrans; eauto.
-  - rewrite RA; auto.
   - etrans; eauto. apply WF1.
   - etrans; eauto. apply WF1.
   - etrans; eauto. inv WF1. etrans; apply CUR1.
@@ -129,7 +127,6 @@ Proof.
   splits; eauto. eapply CommitFacts.read_mon2; eauto; try reflexivity; try apply COMMIT2.
   inv COMMIT1. inv COMMIT2. inv MON. inv MON0.
   econs; committac; try by etrans; eauto.
-  - rewrite RA; auto.
   - condtac; etrans; eauto.
   - etrans; eauto. apply CUR0.
   - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
@@ -160,7 +157,6 @@ Proof.
   - unfold LocFun.find. condtac; committac.
     + etrans; eauto.
     + etrans; eauto.
-  - rewrite RA; auto.
   - etrans; eauto. apply CUR0.
   - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
   - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
@@ -227,7 +223,7 @@ Lemma write_write
 Proof.
   exploit CommitFacts.write_min_spec.
   { inv COMMIT2. apply REL. }
-  { etrans. inv COMMIT1. apply MON. apply COMMIT2. }
+  { eapply TimeFacts.le_lt_lt. inv COMMIT1. apply MON. apply COMMIT2. }
   { etrans. inv COMMIT1. apply MON. apply COMMIT2. }
   { i. splits.
     - etrans. inv COMMIT1. apply MON. apply COMMIT2. eauto.
@@ -280,7 +276,7 @@ Lemma read_fence_write
 Proof.
   exploit CommitFacts.write_min_spec.
   { inv COMMIT2. apply REL. }
-  { etrans. inv COMMIT1. apply MON. apply COMMIT2. }
+  { eapply TimeFacts.le_lt_lt. inv COMMIT1. apply MON. apply COMMIT2. }
   { etrans. inv COMMIT1. apply MON. apply COMMIT2. }
   { i. splits.
     - etrans. inv COMMIT1. apply MON. apply COMMIT2. eauto.
@@ -327,7 +323,7 @@ Lemma write_fence_write
 Proof.
   exploit CommitFacts.write_min_spec.
   { inv COMMIT2. apply REL. }
-  { etrans. inv COMMIT1. apply MON. apply COMMIT2. }
+  { eapply TimeFacts.le_lt_lt. inv COMMIT1. apply MON. apply COMMIT2. }
   { etrans. inv COMMIT1. apply MON. apply COMMIT2. }
   { i. splits.
     - etrans. inv COMMIT1. apply MON. apply COMMIT2. eauto.

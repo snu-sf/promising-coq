@@ -56,6 +56,10 @@ Proof.
   - etrans; eauto. apply WF.
 Admitted.
 
+(* NOTE: the `ORD2` condition is stronger than what can be proved.  In
+   addition to the current criteria, [ord1 = ord2 = SC] is also
+   sufficient to prove the memory access merge.
+ *)
 Lemma write_read
       loc ts released ord1 ord2
       commit0 commit2
@@ -105,14 +109,16 @@ Admitted.
 
 Lemma write_write
       loc ord
-      ord1
+      ts1 ord1
       ts2 released2 ord2
       commit0 commit2
       (ORD1: Ordering.le ord1 ord)
       (ORD2: Ordering.le ord2 ord)
+      (RW1: Time.lt (commit0.(Commit.cur).(Capability.rw) loc) ts1)
+      (TS: Time.lt ts1 ts2)
       (COMMIT: Commit.write commit0 loc ts2 released2 ord commit2)
       (WF0: Commit.wf commit0):
-  exists ts1 released1,
+  exists released1,
     <<COMMIT1': Commit.write commit0 loc ts1 released1 ord1 (CommitFacts.write_min loc ts1 released1 commit0)>> /\
     <<COMMIT2': Commit.write (CommitFacts.write_min loc ts1 released1 commit0) loc ts2 released2 ord2 commit2>>.
 Proof.

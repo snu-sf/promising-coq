@@ -121,7 +121,8 @@ Module Commit <: JoinableType.
             (commit2:t): Prop :=
   | read_intro
       (MON: le commit1 commit2)
-      (ACQ: Capability.le released commit2.(acq))
+      (ACQ: Ordering.le Ordering.relaxed ord ->
+            Capability.le released commit2.(acq))
       (UR1: Time.le (commit1.(cur).(Capability.ur) loc) ts)
       (RW1: Ordering.le Ordering.relaxed ord ->
             Time.le (commit1.(cur).(Capability.rw) loc) ts)
@@ -138,7 +139,7 @@ Module Commit <: JoinableType.
   | write_intro
       (MON: le commit1 commit2)
       (REL: Time.le (released.(Capability.rw) loc) ts)
-      (RW1: Time.le (commit1.(cur).(Capability.rw) loc) ts)
+      (RW1: Time.lt (commit1.(cur).(Capability.rw) loc) ts)
       (RW2: Time.le ts (commit2.(cur).(Capability.ur) loc))
       (REL1: Capability.le (commit1.(Commit.rel) loc) released)
       (REL2: Capability.le released (commit2.(Commit.rel) loc))
@@ -237,7 +238,7 @@ Module CommitFacts.
   Proof.
     i. inv PR. econs; auto.
     - etrans; [apply LE|]. auto.
-    - etrans; [apply LE|]. auto.
+    - eapply TimeFacts.le_lt_lt; [apply LE|]. eauto.
     - etrans; [apply LE|]. auto.
     - i. specialize (RA H). des. splits; auto.
       etrans; [apply LE|]. auto.
@@ -275,7 +276,9 @@ Module CommitFacts.
   Proof.
     inv READ. econs; eauto.
     - etrans; [|apply LE]. auto.
-    - etrans; [|apply LE]. auto.
+    - i. rewrite ACQ; auto.
+      + apply LE.
+      + etrans; eauto.
     - i. apply RW1. etrans; eauto.
     - etrans; [|apply LE]. auto.
     - etrans; [|apply LE].
@@ -335,7 +338,8 @@ Module CommitFacts.
                   (Ordering.le Ordering.acqrel ord)
                   released
                   (Capability.incr_rw loc ts commit.(Commit.cur)))
-               (Capability.join
+               (Capability.join_if
+                  (Ordering.le Ordering.relaxed ord)
                   released
                   (Capability.incr_rw loc ts commit.(Commit.acq)))).
 
@@ -349,27 +353,30 @@ Module CommitFacts.
   Proof.
     unfold read_min. econs; tac.
     - econs; tac; try reflexivity.
-      unfold Capability.join_if. condtac; tac.
-      + rewrite <- Capability.join_r. tac.
-      + rewrite <- Capability.join_r. tac.
+      + unfold Capability.join_if. condtac; tac.
+        rewrite <- Capability.join_r. tac.
+      + unfold Capability.join_if. condtac; tac.
+        rewrite <- Capability.join_r. tac.
+    - unfold Capability.join_if. condtac; tac.
     - unfold Capability.join_if. condtac; tac.
       + etrans; [|apply TimeMap.join_r].
         apply TimeMap.incr_ts.
       + apply TimeMap.incr_ts.
-    - unfold Capability.join_if. condtac; tac.
+    - rewrite H. s. apply Capability.join_l.
     - econs; s.
       + apply WF1.
       + apply Capability.join_if_wf; auto.
         apply Capability.incr_rw_wf; auto.
         apply WF1.
-      + apply Capability.join_wf; auto.
+      + apply Capability.join_if_wf; auto.
         apply Capability.incr_rw_wf; auto.
         apply WF1.
       + i. unfold Capability.join_if. condtac; tac.
         * etrans; [apply WF1|].
           rewrite <- Capability.join_r. tac.
         * etrans; [apply WF1|]. tac.
-      + unfold Capability.join_if. condtac; tac.
+      + unfold Capability.join_if.
+        repeat condtac; (try by destruct ord; inv COND0; inv COND); tac.
         * etrans; [apply WF1|].
           rewrite <- Capability.join_r. tac.
         * etrans; [|apply Time.join_r].
@@ -382,6 +389,10 @@ Module CommitFacts.
           apply TimeMap.incr_ts.
         * etrans; [|apply Time.join_r].
           apply TimeMap.incr_ts.
+        * etrans; [apply WF1|].
+          apply Capability.incr_rw_le.
+        * apply TimeMap.incr_ts.
+        * apply TimeMap.incr_ts.
   Qed.
 
   Lemma read_min_min
@@ -407,7 +418,7 @@ Module CommitFacts.
   Lemma write_min_spec
         loc ts released ord commit
         (RELEASED: Time.le (released.(Capability.rw) loc) ts)
-        (RW1: Time.le (commit.(Commit.cur).(Capability.rw) loc) ts)
+        (RW1: Time.lt (commit.(Commit.cur).(Capability.rw) loc) ts)
         (REL1: Capability.le (commit.(Commit.rel) loc) released)
         (RA: Ordering.le Ordering.acqrel ord ->
              Capability.le commit.(Commit.cur) released /\
