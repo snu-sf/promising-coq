@@ -57,7 +57,7 @@ Inductive sim_store: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (mem
     rs lc1_src lc1_tgt lc2_src
     mem_k_src mem_k_tgt
     (REORDER: reorder_store l1 v1 o1 i2)
-    (FULFILL: Local.fulfill_step lc1_src mem_k_src l1 f1 t1 (RegFile.eval_value rs v1) released1 o1 lc2_src)
+    (FULFILL: Local.fulfill_step lc1_src mem_k_src l1 f1 t1 (RegFile.eval_value rs v1) released1 released1 o1 lc2_src)
     (LOCAL: sim_local lc2_src lc1_tgt):
     sim_store
       (State.mk rs [Stmt.instr i2; Stmt.instr (Instr.store l1 v1 o1)]) lc1_src mem_k_src

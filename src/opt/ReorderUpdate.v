@@ -66,8 +66,7 @@ Inductive sim_update: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (me
     (REORDER: reorder_update r1 l1 rmw1 or1 ow1 i2)
     (RMW: RegFile.eval_rmw rs rmw1 vr1 = (vret1, vw1))
     (READ: Local.read_step lc1_src mem_k_src l1 from1 vr1 releasedr1 or1 lc2_src)
-    (FULFILL: Local.fulfill_step lc2_src mem_k_src l1 from1 to1 vw1 releasedw1 ow1 lc3_src)
-    (RELEASED: Capability.le releasedr1 releasedw1)
+    (FULFILL: Local.fulfill_step lc2_src mem_k_src l1 from1 to1 vw1 releasedw1 (Capability.join releasedr1 releasedw1) ow1 lc3_src)
     (LOCAL: sim_local lc3_src lc1_tgt):
     sim_update
       (State.mk rs [Stmt.instr i2; Stmt.instr (Instr.update r1 l1 rmw1 or1 ow1)]) lc1_src mem_k_src
@@ -131,7 +130,7 @@ Proof.
       * s. econs 1; eauto.
         i. destruct ow1; inv ORDW1; inv H.
     + s. eauto.
-    + s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
+    + s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss; eauto.
       apply RegFun.add_add. ii. subst. apply REGS.
       apply RegSet.Facts.singleton_iff. auto.
   - (* store *)

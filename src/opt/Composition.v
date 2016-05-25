@@ -327,7 +327,7 @@ Proof.
       exploit compose_step1; eauto. i. des.
       eexists _, _, _, _. splits; eauto.
       right. apply CIH; auto.
-      eapply sim_future; eauto; repeat (etrans; eauto). 
+      eapply sim_future; eauto; repeat (etrans; eauto).
     + exploit Configuration.step_consistent; eauto. s. i. des.
       exploit Configuration.step_disjoint; try symmetry; eauto. s. i. des.
       punfold SIM2. exploit SIM2; eauto. i. des.

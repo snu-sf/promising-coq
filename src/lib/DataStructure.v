@@ -190,7 +190,7 @@ Module UsualSet (S: UsualOrderedType).
     - splits; ii; eapply H; eauto.
       + apply add_spec. auto.
       + apply add_spec. auto.
-    - ii. apply add_spec in LHS. des; subst; auto. 
+    - ii. apply add_spec in LHS. des; subst; auto.
       eapply H0; eauto.
   Qed.
 

@@ -131,14 +131,14 @@ Lemma sim_local_fulfill
       lc1_src mem1_src
       lc1_tgt mem1_tgt
       lc2_tgt
-      loc from to val released ord
-      (STEP_TGT: Local.fulfill_step lc1_tgt mem1_tgt loc from to val released ord lc2_tgt)
+      loc from to val releasedc releasedm ord
+      (STEP_TGT: Local.fulfill_step lc1_tgt mem1_tgt loc from to val releasedc releasedm ord lc2_tgt)
       (LOCAL1: sim_local lc1_src lc1_tgt)
       (MEMORY1: sim_memory mem1_src mem1_tgt)
       (WF1_SRC: Local.wf lc1_src mem1_src)
       (WF1_TGT: Local.wf lc1_tgt mem1_tgt):
   exists lc2_src,
-    <<STEP_SRC: Local.fulfill_step lc1_src mem1_src loc from to val released ord lc2_src>> /\
+    <<STEP_SRC: Local.fulfill_step lc1_src mem1_src loc from to val releasedc releasedm ord lc2_src>> /\
     <<LOCAL2: sim_local lc2_src lc2_tgt>>.
 Proof.
   inv LOCAL1. inv STEP_TGT.
@@ -159,14 +159,14 @@ Lemma sim_local_write
       lc1_src mem1_src
       lc1_tgt mem1_tgt
       lc2_tgt mem2_tgt
-      loc from to val released ord
-      (STEP_TGT: Local.write_step lc1_tgt mem1_tgt loc from to val released ord lc2_tgt mem2_tgt)
+      loc from to val releasedc releasedm ord
+      (STEP_TGT: Local.write_step lc1_tgt mem1_tgt loc from to val releasedc releasedm ord lc2_tgt mem2_tgt)
       (LOCAL1: sim_local lc1_src lc1_tgt)
       (MEMORY1: sim_memory mem1_src mem1_tgt)
       (WF1_SRC: Local.wf lc1_src mem1_src)
       (WF1_TGT: Local.wf lc1_tgt mem1_tgt):
   exists lc2_src mem2_src,
-    <<STEP_SRC: Local.write_step lc1_src mem1_src loc from to val released ord lc2_src mem2_src>> /\
+    <<STEP_SRC: Local.write_step lc1_src mem1_src loc from to val releasedc releasedm ord lc2_src mem2_src>> /\
     <<LOCAL2: sim_local lc2_src lc2_tgt>> /\
     <<MEMORY2: sim_memory mem2_src mem2_tgt>>.
 Proof.

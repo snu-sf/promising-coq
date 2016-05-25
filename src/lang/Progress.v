@@ -97,15 +97,15 @@ Admitted.
 
 Lemma progress_fulfill_step
       lc1 mem1
-      loc from to val released ord
+      loc from to val releasedc releasedm ord
       (LT: Time.lt from to)
       (WF1: Local.wf lc1 mem1)
-      (GET1: Memory.get loc to mem1 = Some (Message.mk val released))
+      (GET1: Memory.get loc to mem1 = Some (Message.mk val releasedm))
       (PROMISE1: lc1.(Local.promises) = Promises.set loc to Promises.bot):
   exists lc2,
-    Local.fulfill_step lc1 mem1 loc from to val released ord lc2.
+    Local.fulfill_step lc1 mem1 loc from to val releasedc releasedm ord lc2.
 Proof.
-  exploit (@CommitFacts.write_min_spec loc to released);
+  exploit (@CommitFacts.write_min_spec loc to releasedc);
     try apply WF1; eauto.
   { admit. (* writable *) }
   { admit. (* writable *) }
@@ -123,13 +123,13 @@ Admitted.
 
 Lemma progress_write_step
       lc1 mem1
-      loc from to val released ord
+      loc from to val releasedc releasedm ord
       (MAX: max_timestamp loc from mem1)
       (LT: Time.lt from to)
       (WF1: Local.wf lc1 mem1)
       (PROMISE1: lc1.(Local.promises) = Promises.bot):
   exists lc2 mem2,
-    Local.write_step lc1 mem1 loc from to val released ord lc2 mem2.
+    Local.write_step lc1 mem1 loc from to val releasedc releasedm ord lc2 mem2.
 Proof.
   destruct lc1. ss. subst.
   exploit progress_promise_step; eauto. s. i. des.

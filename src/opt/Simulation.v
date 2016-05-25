@@ -350,7 +350,7 @@ Lemma sim_thread_sim
     (IdentMap.singleton tid (existT _ _ st1_tgt, lc1_tgt)) mem_k_tgt.
 Proof.
   revert st1_src lc1_src mem_k_src st1_tgt lc1_tgt mem_k_tgt SIM. pcofix CIH. i. pfold. ii.
-  apply singleton_consistent in CONSISTENT_SRC. 
+  apply singleton_consistent in CONSISTENT_SRC.
   apply singleton_consistent in CONSISTENT_TGT.
   des. splits.
   - i. apply (singleton_is_terminal tid) in TERMINAL_TGT. des.
