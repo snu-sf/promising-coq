@@ -30,22 +30,14 @@ Lemma sim_local_future
       (INV1: MemInv.sem inv lc_src.(Local.promises) lc_tgt.(Local.promises))
       (MEM1: sim_memory mem1_src mem1_tgt)
       (FUTURE_SRC: Memory.future mem1_src mem2_src)
+      (INTACT_SRC: Memory.intact lc_src.(Local.promises) mem1_src mem2_src)
       (WF1_SRC: Local.wf lc_src mem1_src)
-      (WF1_TGT: Local.wf lc_tgt mem1_tgt)
-      (WF2_SRC: Local.wf lc_src mem2_src):
+      (WF1_TGT: Local.wf lc_tgt mem1_tgt):
   exists mem2_tgt,
     <<MEM2: sim_memory mem2_src mem2_tgt>> /\
-    <<FUTURE: Memory.future mem1_tgt mem2_tgt>> /\
-    <<WF2_TGT: Local.wf lc_tgt mem2_tgt>>.
+    <<FUTURE_TGT: Memory.future mem1_tgt mem2_tgt>> /\
+    <<INTACT_TGT: Memory.intact lc_tgt.(Local.promises) mem1_tgt mem2_tgt>>.
 Proof.
-  revert inv lc_src lc_tgt mem1_tgt INV1 MEM1 WF1_SRC WF1_TGT WF2_SRC.
-  induction FUTURE_SRC; i.
-  { eexists _. splits; eauto. reflexivity. }
-  inv H.
-  - (* add *)
-    admit.
-  - (* split *)
-    admit.
 Admitted.
 
 Lemma sim_local_promise
@@ -118,7 +110,7 @@ Lemma sim_local_read
     <<LOCAL2: sim_local lc2_src lc2_tgt>>.
 Proof.
   inv LOCAL1. inv STEP_TGT.
-  exploit Memory.splits_get; try apply MEMORY1; eauto. i.
+  exploit Memory.splits_get; try apply MEMORY1; eauto. i. des.
   eexists. splits.
   - econs; eauto.
     + eapply CommitFacts.read_mon1; eauto.
@@ -392,7 +384,7 @@ Lemma rtc_internal_step_seq
       (Thread.mk lang (State.mk rs2 (stmts2 ++ stmts)) lc2 mem2).
 Proof.
   exploit (sim_rtc (sim_seq stmts)); eauto.
-  - i. inv SIM1. destruct a2. destruct state. destruct thread.
+  - i. inv SIM1. destruct a2. destruct state. destruct local.
     generalize (step_seq stmts RA). i.
     eexists. splits; eauto. econs; eauto.
   - econs; ss.
@@ -496,10 +488,7 @@ Proof.
     { inv TERMINAL_TGT. ss. eexists _, _, _. splits; eauto; ss. }
     { eexists. splits; try reflexivity; eauto.
       - etrans; eauto. apply Memory.splits_future. apply MEMORY.
-      - inv WF_SRC0. inv WF_TGT. ss. econs; ss.
-        eapply Commit.future_closed; eauto.
-        etrans; eauto.
-        apply Memory.splits_future. apply MEMORY.
+      - etrans; eauto. admit. (* src/tgt promises relation *)
     }
     { subst. eexists _, _, _. splits; eauto. }
     inv STEP_TGT; try by inv STEP; inv STATE.
@@ -516,10 +505,7 @@ Proof.
     { inv TERMINAL_TGT. }
     { ss. eexists. splits; try reflexivity; eauto.
       - etrans; eauto. apply Memory.splits_future. apply MEMORY.
-      - inv WF_SRC0. inv WF_TGT. ss. econs; ss.
-        eapply Commit.future_closed; eauto.
-        etrans; eauto.
-        apply Memory.splits_future. apply MEMORY.
+      - etrans; eauto. admit. (* src/tgt promises relation *)
     }
     { ss. subst. eexists _, _, _. splits; eauto. }
     inv STEP_TGT; ss.
@@ -636,10 +622,7 @@ Proof.
     { inv TERMINAL_TGT. }
     { ss. eexists. splits; try reflexivity; eauto.
       - etrans; eauto. apply Memory.splits_future. apply MEMORY.
-      - inv WF_SRC0. inv WF_TGT. ss.
-        econs; ss. eapply Commit.future_closed; eauto.
-        etrans; eauto.
-        apply Memory.splits_future. apply MEMORY.
+      - etrans; eauto. admit. (* src/tgt promises relation *)
     }
     { ss. subst. eexists _, _. splits; eauto. }
     inv STEP_TGT; ss.
@@ -678,10 +661,7 @@ Proof.
     { inv TERMINAL_TGT. }
     { ss. eexists. splits; try reflexivity; eauto.
       - etrans; eauto. apply Memory.splits_future. apply MEMORY.
-      - inv WF_SRC0. inv WF_TGT. ss.
-        econs; ss. eapply Commit.future_closed; eauto.
-        etrans; eauto.
-        apply Memory.splits_future. apply MEMORY.
+      - etrans; eauto. admit. (* src/tgt promises relation *)
     }
     { ss. subst. eexists _, _. splits; eauto. }
     inv STEP_TGT; ss.
@@ -712,7 +692,7 @@ Proof.
         - ii. apply rclo7_base; auto.
       }
     + inv STEP. inv STATE.
-Qed.
+Admitted.
 
 Definition sim_stmts := @_sim_stmts (@sim_thread lang lang).
 

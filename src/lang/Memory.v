@@ -485,8 +485,8 @@ Module Cell.
             Interval.disjoint (from1, to1) (from2, to2))
     .
 
-    Definition get (ts:Time.t) (cell:t): option Message.t :=
-      option_map snd (DOMap.find ts cell).
+    Definition get (ts:Time.t) (cell:t): option (Time.t * Message.t) :=
+      DOMap.find ts cell.
 
     Inductive le (lhs rhs:t): Prop :=
     | le_intro
@@ -641,7 +641,7 @@ Module Cell.
     f_equal. apply proof_irrelevance.
   Qed.
 
-  Definition get (ts:Time.t) (cell:t): option Message.t := Raw.get ts cell.
+  Definition get (ts:Time.t) (cell:t): option (Time.t * Message.t) := Raw.get ts cell.
 
   Definition le (lhs rhs:t): Prop := Raw.le lhs rhs.
 
@@ -703,7 +703,7 @@ End Cell.
 Module Memory.
   Definition t := Loc.t -> Cell.t.
 
-  Definition get (loc:Loc.t) (ts:Time.t) (mem:t): option Message.t :=
+  Definition get (loc:Loc.t) (ts:Time.t) (mem:t): option (Time.t * Message.t) :=
     Cell.get ts (mem loc).
 
   Definition le (lhs rhs:t): Prop :=
@@ -744,7 +744,7 @@ Module Memory.
   Definition init: t := fun _ => Cell.init.
 
   Definition closed_timemap (times:TimeMap.t) (mem:t): Prop :=
-    forall loc, exists msg, get loc (times loc) mem = Some msg.
+    forall loc, exists from msg, get loc (times loc) mem = Some (from, msg).
 
   Inductive closed_capability (capability:Capability.t) (mem:t): Prop :=
   | closed_capability_intro
@@ -754,13 +754,23 @@ Module Memory.
   .
 
   Definition closed (mem:t): Prop :=
-    forall loc ts msg (MSG: get loc ts mem = Some msg),
+    forall loc from to msg (MSG: get loc to mem = Some (from, msg)),
       <<WF: Capability.wf msg.(Message.released)>> /\
       <<CLOSED: closed_capability msg.(Message.released) mem>>.
 
   Definition closed_promises (promises:Promises.t) (mem:t): Prop :=
-    forall loc ts (PROMISES: Promises.mem loc ts promises),
-    exists msg, get loc ts mem = Some msg.
+    forall loc to (PROMISES: Promises.mem loc to promises),
+    exists from msg, get loc to mem = Some (from, msg).
+
+  Definition intact (promises:Promises.t) (mem1 mem2:t): Prop :=
+    forall loc from to msg
+      (PROMISES: Promises.mem loc to promises)
+      (GET: get loc to mem1 = Some (from, msg)),
+      get loc to mem2 = Some (from, msg).
+
+  Global Program Instance intact_PreOrder promises: PreOrder (intact promises).
+  Next Obligation. ii. eauto. Qed.
+  Next Obligation. ii. eauto. Qed.
 
   Inductive add (mem1:t) (loc:Loc.t) (from1 to1:Time.t) (msg1:Message.t): forall (mem2:t), Prop :=
   | add_intro
@@ -822,12 +832,12 @@ Module Memory.
 
   Inductive fulfill
             (promises1:Promises.t) (mem1:t)
-            (loc:Loc.t) (to:Time.t) (msg:Message.t):
+            (loc:Loc.t) (from to:Time.t) (msg:Message.t):
     forall (promises2:Promises.t), Prop :=
   | fulfill_intro
-      (GET: get loc to mem1 = Some msg)
+      (GET: DOMap.find to (mem1 loc).(Cell.raw) = Some (from, msg))
       (OWN: Promises.mem loc to promises1):
-      fulfill promises1 mem1 loc to msg (Promises.unset loc to promises1)
+      fulfill promises1 mem1 loc from to msg (Promises.unset loc to promises1)
   .
 
 
@@ -863,7 +873,7 @@ Module Memory.
   Lemma add_get2
         mem1 loc from1 to1 msg1 mem2
         (ADD: add mem1 loc from1 to1 msg1 mem2):
-    get loc to1 mem2 = Some msg1.
+    get loc to1 mem2 = Some (from1, msg1).
   Proof.
     unfold get, Cell.get, Cell.Raw.get in *. inv ADD. inv ADD0.
     unfold LocFun.add, LocFun.find. condtac; [|congruence].
@@ -875,7 +885,7 @@ Module Memory.
         l t m
         (ADD: add mem1 loc from1 to1 msg1 mem2)
         (GET: get l t mem2 = Some m):
-    (l = loc /\ t = to1 /\ m = msg1) \/ get l t mem1 = Some m.
+    (l = loc /\ t = to1 /\ m = (from1, msg1)) \/ get l t mem1 = Some m.
   Proof.
     unfold get, Cell.get, Cell.Raw.get in *. inv ADD. inv ADD0.
     revert GET. unfold LocFun.add, LocFun.find. condtac; auto. subst.
@@ -900,10 +910,11 @@ Module Memory.
 
   Lemma split_get1
         mem1 loc from1 to1 to2 msg1 mem2
-        l t m
+        l t f m
         (SPLIT: split mem1 loc from1 to1 to2 msg1 mem2)
-        (GET: get l t mem1 = Some m):
-    get l t mem2 = Some m.
+        (GET: get l t mem1 = Some (f, m)):
+    (l = loc /\ f = from1 /\ t = to2 /\ get l t mem2 = Some (to1, m)) \/
+    get l t mem2 = Some (f, m).
   Proof.
     unfold get, Cell.get, Cell.Raw.get in *. inv SPLIT. inv SPLIT0.
     unfold LocFun.add, LocFun.find. condtac; auto. subst.
@@ -914,13 +925,24 @@ Module Memory.
       + ii. subst. eapply Time.lt_strorder. eauto.
       + econs; eauto. apply Time.le_lteq. auto.
       + apply Interval.mem_ub. eapply VOLUME. eauto.
-    - rewrite GET2 in *. inv GET. auto.
+    - rewrite GET2 in *. inv GET. eauto.
+    - rewrite GET. eauto.
+  Qed.
+
+  Lemma split_get1'
+        mem1 loc from1 to1 to2 msg1 mem2
+        l t f m
+        (SPLIT: split mem1 loc from1 to1 to2 msg1 mem2)
+        (GET: get l t mem1 = Some (f, m)):
+    exists f', get l t mem2 = Some (f', m).
+  Proof.
+    exploit split_get1; eauto. i. des; eauto.
   Qed.
 
   Lemma split_get2
         mem1 loc from1 to1 to2 msg1 mem2
         (SPLIT: split mem1 loc from1 to1 to2 msg1 mem2):
-    get loc to1 mem2 = Some msg1.
+    get loc to1 mem2 = Some (from1, msg1).
   Proof.
     unfold get, Cell.get, Cell.Raw.get in *. inv SPLIT. inv SPLIT0.
     unfold LocFun.add, LocFun.find. condtac; [|congruence].
@@ -929,37 +951,52 @@ Module Memory.
 
   Lemma split_get_inv
         mem1 loc from1 to1 to2 msg1 mem2
-        l t m
+        l t f m
         (SPLIT: split mem1 loc from1 to1 to2 msg1 mem2)
-        (GET: get l t mem2 = Some m):
-    (l = loc /\ t = to1 /\ m = msg1) \/ get l t mem1 = Some m.
+        (GET: get l t mem2 = Some (f, m)):
+    (l = loc /\ t = to1 /\ f = from1 /\ m = msg1) \/
+    (l = loc /\ t = to2 /\ f = to1 /\ get l t mem1 = Some (from1, m)) \/
+    get l t mem1 = Some (f, m).
   Proof.
     unfold get, Cell.get, Cell.Raw.get in *. inv SPLIT. inv SPLIT0.
     revert GET. unfold LocFun.add, LocFun.find. condtac; auto. subst.
     rewrite <- H0. rewrite ? DOMap.gsspec. repeat condtac; subst; ss; auto.
     - i. inv GET. auto.
-    - i. inv GET. rewrite GET2. auto.
+    - i. inv GET. rewrite GET2. right. left. auto.
+  Qed.
+
+  Lemma split_get_inv'
+        mem1 loc from1 to1 to2 msg1 mem2
+        l t f m
+        (SPLIT: split mem1 loc from1 to1 to2 msg1 mem2)
+        (GET: get l t mem2 = Some (f, m)):
+    (l = loc /\ t = to1 /\ f = from1 /\ m = msg1) \/ exists f', get l t mem1 = Some (f', m).
+  Proof.
+    exploit split_get_inv; eauto. i. des; eauto.
   Qed.
 
   Lemma future_get
-        loc ts msg mem1 mem2
+        loc from to msg mem1 mem2
         (LE: future mem1 mem2)
-        (GET: get loc ts mem1 = Some msg):
-    get loc ts mem2 = Some msg.
+        (GET: get loc to mem1 = Some (from, msg)):
+    exists from', get loc to mem2 = Some (from', msg).
   Proof.
-    induction LE; auto. apply IHLE. inv H.
-    - eapply add_get1; eauto.
-    - eapply split_get1; eauto.
+    revert from GET. induction LE; eauto.
+    i. inv H.
+    - exploit add_get1; eauto.
+    - exploit split_get1'; eauto. i. des.
+      eapply IHLE; eauto.
   Qed.
 
   Lemma splits_get
-        loc ts msg mem1 mem2
+        loc from to msg mem1 mem2
         (LE: splits mem1 mem2)
-        (GET: get loc ts mem1 = Some msg):
-    get loc ts mem2 = Some msg.
+        (GET: get loc to mem1 = Some (from, msg)):
+    exists from', get loc to mem2 = Some (from', msg).
   Proof.
-    induction LE; auto. apply IHLE.
-    inv H. eapply split_get1; eauto.
+    revert from GET. induction LE; eauto.
+    i. inv H. exploit split_get1'; eauto. i. des.
+    eapply IHLE; eauto.
   Qed.
 
 
@@ -1002,7 +1039,8 @@ Module Memory.
     closed_timemap times mem2.
   Proof.
     ii. exploit CLOSED; eauto. i. des.
-    eexists _. splits; eauto. eapply future_get; eauto.
+    exploit future_get; eauto. i. des.
+    eexists _, _. splits; eauto.
   Qed.
 
   Lemma future_closed_capability
@@ -1024,29 +1062,26 @@ Module Memory.
     closed_promises promises mem2.
   Proof.
     ii. exploit CLOSED; eauto. i. des.
-    eexists. eapply future_get; eauto.
+    exploit future_get; eauto. i. des. eauto.
   Qed.
 
   Lemma incr_closed_timemap
-        loc s ts msg mem
+        loc s from to msg mem
         (CLOSED: closed_timemap s mem)
-        (GET: get loc ts mem = Some msg):
-    closed_timemap (TimeMap.incr loc ts s) mem.
+        (GET: get loc to mem = Some (from, msg)):
+    closed_timemap (TimeMap.incr loc to s) mem.
   Proof.
     unfold TimeMap.incr, LocFun.add, LocFun.find. ii.
     destruct (Loc.eq_dec loc0 loc).
-    - destruct (Time.join_cases (s loc) ts) as [X|X]; rewrite X; eauto.
-      + exploit CLOSED. i. des.
-        eexists _. splits; eauto. subst. eauto.
-      + eexists _. splits; eauto. subst loc. eauto.
+    - subst. destruct (Time.join_cases (s loc) to) as [X|X]; rewrite X; eauto.
     - apply CLOSED.
   Qed.
 
   Lemma incr_ur_closed_capability
-        loc ts s msg mem
+        loc from to s msg mem
         (CLOSED: closed_capability s mem)
-        (GET: get loc ts mem = Some msg):
-    closed_capability (Capability.incr_ur loc ts s) mem.
+        (GET: get loc to mem = Some (from, msg)):
+    closed_capability (Capability.incr_ur loc to s) mem.
   Proof.
     inv CLOSED. econs; s.
     - eapply incr_closed_timemap; eauto.
@@ -1055,10 +1090,10 @@ Module Memory.
   Qed.
 
   Lemma incr_rw_closed_capability
-        loc ts s msg mem
+        loc from to s msg mem
         (CLOSED: closed_capability s mem)
-        (GET: get loc ts mem = Some msg):
-    closed_capability (Capability.incr_rw loc ts s) mem.
+        (GET: get loc to mem = Some (from, msg)):
+    closed_capability (Capability.incr_rw loc to s) mem.
   Proof.
     inv CLOSED. econs; s.
     - auto.
@@ -1071,14 +1106,14 @@ Module Memory.
 
   Lemma promise_get1
         promises1 mem1 loc from to msg promises2 mem2
-        l t m
+        l t f m
         (PROMISE: promise promises1 mem1 loc from to msg promises2 mem2)
-        (GET: get l t mem1 = Some m):
-    get l t mem2 = Some m.
+        (GET: get l t mem1 = Some (f, m)):
+    exists f', get l t mem2 = Some (f', m).
   Proof.
     inv PROMISE.
-    - eapply add_get1; eauto.
-    - eapply split_get1; eauto.
+    - exploit add_get1; eauto.
+    - eapply split_get1'; eauto.
   Qed.
 
   Lemma promise_future
@@ -1093,21 +1128,21 @@ Module Memory.
     inv PROMISE.
     - splits.
       + ii. apply Promises.set_inv in PROMISES. des.
-        * subst. eexists. eapply add_get2. eauto.
+        * subst. erewrite add_get2; eauto. 
         * exploit CLOSED_PROMISES1; eauto. i. des.
-          eexists. eapply add_get1; eauto.
+          erewrite add_get1; eauto.
       + ii. eapply add_get_inv in MSG; eauto. des.
-        * subst. inv ADD. eauto.
+        * inv MSG1. inv ADD. eauto.
         * exploit CLOSED1; eauto. i. des. splits; auto.
           eapply future_closed_capability; eauto.
           econs 2; eauto. econs 1. eauto.
       + econs 2; eauto. econs 1. eauto.
     - splits.
       + ii. apply Promises.set_inv in PROMISES. des.
-        * subst. eexists. eapply split_get2. eauto.
+        * subst. erewrite split_get2; eauto.
         * exploit CLOSED_PROMISES1; eauto. i. des.
-          eexists. eapply split_get1; eauto.
-      + ii. eapply split_get_inv in MSG; eauto. des.
+          exploit split_get1'; eauto. i. des. eauto.
+      + ii. eapply split_get_inv' in MSG; eauto. des.
         * subst. inv SPLIT. eauto.
         * exploit CLOSED1; eauto. i. des. splits; auto.
           eapply future_closed_capability; eauto.
@@ -1122,24 +1157,34 @@ Module Memory.
         (PROMISE: promise promises1 mem1 loc from to msg promises2 mem2)
         (CLOSED_PROMISES: closed_promises ctx mem1)
         (DISJOINT: Promises.disjoint promises1 ctx):
-    Promises.disjoint promises2 ctx.
+    <<DISJOINT: Promises.disjoint promises2 ctx>> /\
+    <<CLOSED_PROMISES: closed_promises ctx mem2>> /\
+    <<INTACT: intact ctx mem1 mem2>>.
   Proof.
+    exploit promise_future; try apply PROMISE; eauto. i. des.
     inv PROMISE.
-    - econs. i. apply Promises.set_inv in LHS. des.
-      + subst. exploit CLOSED_PROMISES; eauto. i. des.
-        exploit add_disjoint; eauto. congruence.
-      + eapply DISJOINT; eauto.
-    - econs. i. apply Promises.set_inv in LHS. des.
-      + subst. exploit CLOSED_PROMISES; eauto. i. des.
-        exploit split_disjoint; eauto. congruence.
-      + eapply DISJOINT; eauto.
+    - splits.
+      + econs. i. apply Promises.set_inv in LHS. des.
+        * subst. exploit CLOSED_PROMISES; eauto. i. des.
+          exploit add_disjoint; eauto. congruence.
+        * eapply DISJOINT; eauto.
+      + eapply future_closed_promises; eauto.
+      + ii. eapply add_get1; eauto.
+    - splits.
+      + econs. i. apply Promises.set_inv in LHS. des.
+        * subst. exploit CLOSED_PROMISES; eauto. i. des.
+          exploit split_disjoint; eauto. congruence.
+        * eapply DISJOINT; eauto.
+      + eapply future_closed_promises; eauto.
+      + ii. exploit split_get1; eauto. i. des; eauto.
+        subst. exfalso. eapply DISJOINT; eauto.
   Qed.
 
   Lemma fulfill_future
-        promises1 mem1 loc to msg promises2
+        promises1 mem1 loc from to msg promises2
         (CLOSED_PROMISES1: closed_promises promises1 mem1)
         (WF1: closed mem1)
-        (FULFILL: fulfill promises1 mem1 loc to msg promises2):
+        (FULFILL: fulfill promises1 mem1 loc from to msg promises2):
     closed_promises promises2 mem1.
   Proof.
     inv FULFILL. ii. apply Promises.unset_inv in PROMISES. des.
@@ -1147,10 +1192,10 @@ Module Memory.
   Qed.
 
   Lemma fulfill_disjoint
-        promises1 mem1 loc to msg promises2 ctx
+        promises1 mem1 loc from to msg promises2 ctx
         (CLOSED_PROMISES1: closed_promises promises1 mem1)
         (WF1: closed mem1)
-        (FULFILL: fulfill promises1 mem1 loc to msg promises2)
+        (FULFILL: fulfill promises1 mem1 loc from to msg promises2)
         (CLOSED_PROMISES: closed_promises ctx mem1)
         (DISJOINT: Promises.disjoint promises1 ctx):
     Promises.disjoint promises2 ctx.
@@ -1160,11 +1205,48 @@ Module Memory.
   Qed.
 
   Lemma fulfill_mon
-        promises1 mem1 mem1' loc to msg promises2
-        (FULFILL: fulfill promises1 mem1 loc to msg promises2)
-        (FUTURE: future mem1 mem1'):
-    fulfill promises1 mem1' loc to msg promises2.
+        promises1 mem1 mem1' loc from to msg promises2
+        (FULFILL: fulfill promises1 mem1 loc from to msg promises2)
+        (FUTURE: future mem1 mem1')
+        (INTACT: intact promises1 mem1 mem1'):
+    fulfill promises1 mem1' loc from to msg promises2.
   Proof.
-    inv FULFILL. econs; eauto. eapply future_get; eauto.
+    inv FULFILL. econs; eauto.
+  Qed.
+
+  Lemma add_closed
+        mem1 loc from1 to1 msg1 mem2
+        (CLOSED: closed mem1)
+        (ADD: add mem1 loc from1 to1 msg1 mem2):
+    closed mem2.
+  Proof.
+    ii. exploit add_get_inv; eauto. i. des.
+    - inv x2. inv ADD. splits; eauto.
+    - exploit CLOSED; eauto. i. des. splits; eauto.
+      eapply future_closed_capability; eauto. econs 2; [|econs 1]. econs 1. eauto.
+  Qed.
+
+  Lemma split_closed
+        mem1 loc from1 to1 to2 msg1 mem2
+        (CLOSED: closed mem1)
+        (SPLIT: split mem1 loc from1 to1 to2 msg1 mem2):
+    closed mem2.
+  Proof.
+    ii. exploit split_get_inv'; eauto. i. des.
+    - subst. inv SPLIT. splits; eauto.
+    - exploit CLOSED; eauto. i. des. splits; eauto.
+      eapply future_closed_capability; eauto. econs 2; [|econs 1]. econs 2. eauto.
+  Qed.
+
+  Lemma future_closed
+        mem1 mem2
+        (CLOSED: closed mem1)
+        (FUTURE: future mem1 mem2):
+    closed mem2.
+  Proof.
+    revert CLOSED. induction FUTURE; eauto.
+    i. apply IHFUTURE. inv H.
+    - eapply add_closed; eauto.
+    - eapply split_closed; eauto.
   Qed.
 End Memory.

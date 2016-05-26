@@ -32,12 +32,12 @@ Next Obligation. ii. inv H. inv H0. econs. etrans; eauto. Qed.
 
 Lemma sim_memory_get
       mem_src mem_tgt
-      loc ts msg
+      loc from to msg
       (SIM: sim_memory mem_src mem_tgt)
-      (TGT: Memory.get loc ts mem_tgt = Some msg):
-  Memory.get loc ts mem_src = Some msg.
+      (TGT: Memory.get loc to mem_tgt = Some (from, msg)):
+  exists from', Memory.get loc to mem_src = Some (from', msg).
 Proof.
-  inv SIM. eapply Memory.splits_get; eauto.
+  eapply Memory.splits_get; eauto. apply SIM.
 Qed.
 
 Module MemInv.
@@ -71,8 +71,8 @@ Module MemInv.
         inv
         promises1_src
         promises1_tgt mem1_tgt promises2_tgt
-        loc to msg
-        (FULFILL_TGT: Memory.fulfill promises1_tgt mem1_tgt loc to msg promises2_tgt)
+        loc from to msg
+        (FULFILL_TGT: Memory.fulfill promises1_tgt mem1_tgt loc from to msg promises2_tgt)
         (INV1: sem inv promises1_src promises1_tgt):
     <<DISJOINT: ~ Promises.mem loc to inv>> /\
     <<INV2: sem (Promises.set loc to inv) promises1_src promises2_tgt>>.
@@ -89,11 +89,11 @@ Module MemInv.
         inv1 inv2
         promises1_src mem1_src
         promises1_tgt
-        loc to msg
-        (FULFILL_INV: Memory.fulfill inv1 mem1_src loc to msg inv2)
+        loc from to msg
+        (FULFILL_INV: Memory.fulfill inv1 mem1_src loc from to msg inv2)
         (INV1: sem inv1 promises1_src promises1_tgt):
     exists promises2_src,
-      <<FULFILL_SRC: Memory.fulfill promises1_src mem1_src loc to msg promises2_src>> /\
+      <<FULFILL_SRC: Memory.fulfill promises1_src mem1_src loc from to msg promises2_src>> /\
       <<INV2: sem inv2 promises2_src promises1_tgt>>.
   Proof.
     inv INV1. eexists. splits.
@@ -105,17 +105,17 @@ Module MemInv.
 
   Lemma fulfill
         inv
-        loc to msg
+        loc from to msg
         promises1_src mem1_src
         promises1_tgt mem1_tgt promises2_tgt
-        (FULFILL_TGT: Memory.fulfill promises1_tgt mem1_tgt loc to msg promises2_tgt)
+        (FULFILL_TGT: Memory.fulfill promises1_tgt mem1_tgt loc from to msg promises2_tgt)
         (INV1: sem inv promises1_src promises1_tgt)
         (SIM1: sim_memory mem1_src mem1_tgt)
         (WF1_PROMISES_SRC: Memory.closed_promises promises1_src mem1_src)
         (WF1_PROMISES_TGT: Memory.closed_promises promises1_tgt mem1_tgt)
         (WF1_SRC: Memory.closed mem1_src):
     exists promises2_src,
-      <<FULFILL_SRC: Memory.fulfill promises1_src mem1_src loc to msg promises2_src>> /\
+      <<FULFILL_SRC: Memory.fulfill promises1_src mem1_src loc from to msg promises2_src>> /\
       <<INV2: sem inv promises2_src promises2_tgt>> /\
       <<WF1_PROMISES_SRC: Memory.closed_promises promises2_src mem1_src>>.
   Proof.
@@ -131,6 +131,7 @@ Module MemInv.
     i. des.
     exploit Memory.fulfill_mon; eauto; i.
     { apply Memory.splits_future. apply SIM1. }
+    { admit. }
     eexists. splits; eauto.
     - admit.
     - eapply Memory.fulfill_future; eauto.

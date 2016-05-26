@@ -31,11 +31,11 @@ Proof.
 Admitted.
 
 
-Inductive max_timestamp (loc:Loc.t) (ts:Time.t) (mem:Memory.t): Prop :=
+Inductive max_timestamp (loc:Loc.t) (to:Time.t) (mem:Memory.t): Prop :=
 | max_timestamp_intro
-    msg
-    (MSG: Memory.get loc ts mem = Some msg)
-    (MAX: forall ts' (LT: Time.lt ts ts'), Memory.get loc ts' mem = None)
+    from msg
+    (MSG: Memory.get loc to mem = Some (from, msg))
+    (MAX: forall to' (LT: Time.lt to to'), Memory.get loc to' mem = None)
 .
 
 Lemma exists_max_timestamp
@@ -100,7 +100,7 @@ Lemma progress_fulfill_step
       loc from to val releasedc releasedm ord
       (LT: Time.lt from to)
       (WF1: Local.wf lc1 mem1)
-      (GET1: Memory.get loc to mem1 = Some (Message.mk val releasedm))
+      (GET1: Memory.get loc to mem1 = Some (from, Message.mk val releasedm))
       (PROMISE1: lc1.(Local.promises) = Promises.set loc to Promises.bot):
   exists lc2,
     Local.fulfill_step lc1 mem1 loc from to val releasedc releasedm ord lc2.
