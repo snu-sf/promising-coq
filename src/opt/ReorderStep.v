@@ -123,9 +123,9 @@ Proof.
   exploit Memory.promise_future; try apply WF0; eauto. i. des.
   exploit Commit.future_closed; try apply WF0; eauto. i.
   eexists. splits.
-  - econs; try apply WF0; eauto. reflexivity.
+  - econs; try apply WF0; eauto. refl.
   - econs; eauto. s. eapply CommitFacts.read_mon2; eauto.
-    reflexivity.
+    refl.
 Qed.
 
 Lemma reorder_read_fulfill
@@ -257,9 +257,9 @@ Proof.
   exploit Memory.promise_future; try apply x0; try apply WF0; eauto. i. des.
   exploit Commit.future_closed; try apply WF0; eauto. i.
   eexists. splits.
-  - econs; try apply WF0; eauto. reflexivity.
+  - econs; try apply WF0; eauto. refl.
   - econs; eauto. s. eapply CommitFacts.write_mon2; eauto.
-    reflexivity.
+    refl.
 Qed.
 
 Lemma reorder_fulfill_fulfill
@@ -335,10 +335,10 @@ Proof.
   exploit Memory.promise_future; try apply WF0; eauto. i. des.
   exploit Commit.future_closed; try apply WF0; eauto. i.
   eexists. splits.
-  - econs; try apply WF0; eauto. reflexivity.
+  - econs; try apply WF0; eauto. refl.
   - econs; eauto.
     + eapply CommitFacts.write_fence_mon2; eauto.
-      reflexivity.
+      refl.
     + i. destruct ordw1; inv ORDW1; inv H.
 Qed.
 

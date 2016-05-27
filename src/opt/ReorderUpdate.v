@@ -98,7 +98,7 @@ Proof.
       eapply Local.read_step_future; eauto.
     }
     i. des.
-    exploit sim_local_fulfill; try apply x1; try reflexivity; eauto.
+    exploit sim_local_fulfill; try apply x1; try refl; eauto.
     { eapply Local.read_step_future; eauto. }
     { eapply Local.read_step_future; eauto. }
     i. des.
@@ -230,7 +230,7 @@ Proof.
     { econs 2. eauto. }
     i. des.
     + exploit internal_step_promise; eauto. i.
-      punfold SIM. exploit SIM; eauto; try reflexivity.
+      punfold SIM. exploit SIM; eauto; try refl.
       { exploit Thread.rtc_step_future; eauto. s. i. des.
         exploit Thread.step_future; eauto. s. i. des. auto.
       }

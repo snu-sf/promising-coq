@@ -14,142 +14,6 @@ Require Import Time.
 Set Implicit Arguments.
 
 
-Module Promises.
-  Definition t := Loc.t -> DOSet.t.
-
-  Definition mem loc ts (promises:t) := DOSet.mem ts (promises loc).
-
-  Lemma ext lhs rhs
-        (EXT: forall loc ts, mem loc ts lhs = mem loc ts rhs):
-    lhs = rhs.
-  Proof.
-    extensionality loc.
-    apply DOSet.eq_leibniz. ii.
-    specialize (EXT loc a). unfold mem in *. econs; i.
-    - apply DOSet.mem_spec. erewrite <- EXT.
-      apply DOSet.mem_spec. auto.
-    - apply DOSet.mem_spec. erewrite EXT.
-      apply DOSet.mem_spec. auto.
-  Qed.
-
-  Definition bot: t := fun _ => DOSet.empty.
-
-  Lemma bot_spec loc ts: mem loc ts bot = false.
-  Proof.
-    unfold mem, bot. apply DOSet.Facts.empty_b.
-  Qed.
-
-  Definition le (lhs rhs:t): Prop :=
-    forall loc ts, mem loc ts lhs -> mem loc ts rhs.
-
-  Definition join (lhs rhs:t): t :=
-    fun loc => DOSet.union (lhs loc) (rhs loc).
-
-  Lemma join_comm lhs rhs: join lhs rhs = join rhs lhs.
-  Proof.
-    unfold join. extensionality loc.
-    apply DOSet.eq_leibniz. ii.
-    rewrite ? DOSet.union_spec. econs; i; des; auto.
-  Qed.
-
-  Lemma join_assoc a b c: join (join a b) c = join a (join b c).
-  Proof.
-    unfold join. extensionality loc.
-    apply DOSet.eq_leibniz. ii.
-    rewrite ? DOSet.union_spec. econs; i; des; auto.
-  Qed.
-
-  Lemma join_l lhs rhs: le lhs (join lhs rhs).
-  Proof.
-    unfold join. ii. unfold mem in *.
-    rewrite DOSet.Facts.union_b, H. auto.
-  Qed.
-
-  Lemma join_r lhs rhs: le rhs (join lhs rhs).
-  Proof. rewrite join_comm. apply join_l. Qed.
-
-  Lemma join_spec lhs rhs o
-        (LHS: le lhs o)
-        (RHS: le rhs o):
-    le (join lhs rhs) o.
-  Proof.
-    unfold join. ii.
-    unfold mem in *. rewrite DOSet.Facts.union_b in *.
-    apply Bool.orb_true_iff in H. des; eauto.
-  Qed.
-
-  Definition set (loc:Loc.t) (ts:Time.t) (promises:t) :=
-    LocFun.add loc (DOSet.add ts (promises loc)) promises.
-
-  Lemma set_o loc1 ts1 loc2 ts2 promises:
-    mem loc1 ts1 (set loc2 ts2 promises) =
-    if andb (if Loc.eq_dec loc1 loc2 then true else false) (if Time.eq_dec ts1 ts2 then true else false)
-    then true
-    else mem loc1 ts1 promises.
-  Proof.
-    unfold mem, set, LocFun.add, LocFun.find.
-    destruct (Loc.eq_dec loc1 loc2); subst; ss.
-    destruct (Time.eq_dec ts1 ts2); subst; ss.
-    - rewrite DOSet.Facts.add_b.
-      unfold DOSet.Facts.eqb. destruct (Time.eq_dec ts2 ts2); auto.
-    - rewrite DOSet.Facts.add_b.
-      unfold DOSet.Facts.eqb. destruct (Time.eq_dec ts2 ts1); ss.
-      congruence.
-  Qed.
-
-  Lemma set_inv loc1 ts1 loc2 ts2 promises
-        (MEM: mem loc1 ts1 (set loc2 ts2 promises)):
-    (loc1 = loc2 /\ ts1 = ts2) \/ mem loc1 ts1 promises.
-  Proof.
-    rewrite set_o in MEM.
-    destruct (Loc.eq_dec loc1 loc2); ss; auto.
-    destruct (Time.eq_dec ts1 ts2); ss; auto.
-  Qed.
-
-  Definition unset (loc:Loc.t) (ts:Time.t) (promises:t) :=
-    LocFun.add loc (DOSet.remove ts (promises loc)) promises.
-
-  Lemma unset_o loc1 ts1 loc2 ts2 promises:
-    mem loc1 ts1 (unset loc2 ts2 promises) =
-    if andb (if Loc.eq_dec loc1 loc2 then true else false) (if Time.eq_dec ts1 ts2 then true else false)
-    then false
-    else mem loc1 ts1 promises.
-  Proof.
-    unfold mem, unset, LocFun.add, LocFun.find.
-    destruct (Loc.eq_dec loc1 loc2); subst; ss.
-    destruct (Time.eq_dec ts1 ts2); subst; ss.
-    - rewrite DOSet.Facts.remove_b.
-      unfold DOSet.Facts.eqb. destruct (Time.eq_dec ts2 ts2); [|congruence].
-      apply Bool.andb_false_iff. auto.
-    - rewrite DOSet.Facts.remove_b.
-      unfold DOSet.Facts.eqb. destruct (Time.eq_dec ts2 ts1); ss; [congruence|].
-      apply Bool.andb_true_r.
-  Qed.
-
-  Lemma unset_inv loc1 ts1 loc2 ts2 promises
-        (MEM: mem loc1 ts1 (unset loc2 ts2 promises)):
-    ~ (loc1 = loc2 /\ ts1 = ts2) /\ mem loc1 ts1 promises.
-  Proof.
-    rewrite unset_o in MEM.
-    destruct (Loc.eq_dec loc1 loc2), (Time.eq_dec ts1 ts2); ss; splits; auto.
-    - contradict n. des. auto.
-    - contradict n. des. auto.
-    - contradict n. des. auto.
-  Qed.
-
-  Inductive disjoint (lhs rhs:t): Prop :=
-  | disjoint_intro
-      (DISJOINT: forall loc ts
-                   (LHS: mem loc ts lhs)
-                   (RHS: mem loc ts rhs),
-          False).
-
-  Global Program Instance disjoint_Symmetric: Symmetric disjoint.
-  Next Obligation.
-    econs. ii. eapply H; eauto.
-  Qed.
-End Promises.
-
 Module TimeMap <: JoinableType.
   Definition t := Loc.t -> Time.t.
   Definition elt: t := fun _ => Time.elt.
@@ -160,7 +24,7 @@ Module TimeMap <: JoinableType.
     forall loc, Time.le (lhs loc) (rhs loc).
 
   Global Program Instance le_PreOrder: PreOrder le.
-  Next Obligation. ii. reflexivity. Qed.
+  Next Obligation. ii. refl. Qed.
   Next Obligation. ii. etrans; eauto. Qed.
 
   Definition get (loc:Loc.t) (c:t) := c loc.
@@ -209,14 +73,14 @@ Module TimeMap <: JoinableType.
     unfold incr, LocFun.add, LocFun.find. ii.
     destruct (Loc.eq_dec loc0 loc).
     - subst. apply Time.join_l.
-    - reflexivity.
+    - refl.
   Qed.
 
   Lemma incr_ts loc ts c:
     Time.le ts (get loc (incr loc ts c)).
   Proof.
     unfold get, incr, LocFun.add, LocFun.find.
-    destruct (Loc.eq_dec loc loc); [|congruence].
+    destruct (Loc.eq_dec loc loc); [|congr].
     apply Time.join_r.
   Qed.
 
@@ -259,7 +123,7 @@ Module Capability <: JoinableType.
 
   Global Program Instance le_PreOrder: PreOrder le.
   Next Obligation.
-    ii. econs; reflexivity.
+    ii. econs; refl.
   Qed.
   Next Obligation.
     ii. inv H. inv H0. econs; etrans; eauto.
@@ -420,7 +284,7 @@ Module Capability <: JoinableType.
     le s (incr_rw loc ts s).
   Proof.
     econs; ss.
-    - reflexivity.
+    - refl.
     - apply TimeMap.incr_le.
     - apply TimeMap.incr_le.
   Qed.
@@ -485,34 +349,6 @@ Module Cell.
             Interval.disjoint (from1, to1) (from2, to2))
     .
 
-    Inductive le (lhs rhs:t): Prop :=
-    | le_intro
-        (LE: forall from to msg
-               (GET: DOMap.find to lhs = Some (from, msg)),
-            DOMap.find to rhs = Some (from, msg))
-    .
-
-    Global Program Instance le_PreOrder: PreOrder le.
-    Next Obligation.
-      econs. i. auto.
-    Qed.
-    Next Obligation.
-      econs. i. apply H0. apply H. auto.
-    Qed.
-
-    Inductive disjoint (lhs rhs:t): Prop :=
-    | disjoint_intro
-        (DISJOINT: forall to1 to2 from1 from2 msg1 msg2
-                     (GET1: DOMap.find to1 lhs = Some (from1, msg1))
-                     (GET2: DOMap.find to2 rhs = Some (from2, msg2)),
-            Interval.disjoint (from1, to1) (from2, to2))
-    .
-
-    Global Program Instance disjoint_Symmetric: Symmetric disjoint.
-    Next Obligation.
-      inv H. econs. i. symmetry. eapply DISJOINT; eauto.
-    Qed.
-
     Definition bot: t := DOMap.empty _.
 
     Lemma bot_wf: wf bot.
@@ -521,12 +357,6 @@ Module Cell.
       - rewrite DOMap.gempty in GET. inv GET.
       - rewrite DOMap.gempty in GET1. inv GET1.
     Qed.
-
-    Lemma bot_le cell: le bot cell.
-    Proof. econs. i. rewrite DOMap.gempty in GET. inv GET. Qed.
-
-    Lemma bot_disjoint cell: disjoint bot cell.
-    Proof. econs. i. rewrite DOMap.gempty in GET1. inv GET1. Qed.
 
     Definition singleton (from to:Time.t) (msg:Message.t): t :=
       DOMap.singleton to (from, msg).
@@ -541,7 +371,7 @@ Module Cell.
         auto.
       - apply DOMap.singleton_find_inv in GET1. des. inv GET0.
         apply DOMap.singleton_find_inv in GET2. des. inv GET0.
-        congruence.
+        congr.
     Qed.
 
     Inductive add (cell1:t) (from to:Time.t) (msg:Message.t): forall (rhs:t), Prop :=
@@ -567,7 +397,7 @@ Module Cell.
       - rewrite DOMap.Facts.add_o in *.
         destruct (DOMap.Facts.eq_dec to to1),
                  (DOMap.Facts.eq_dec to to2); repeat subst.
-        + congruence.
+        + congr.
         + inv GET1. eapply DISJOINT; eauto.
         + inv GET2. symmetry. eapply DISJOINT; eauto.
         + eapply DISJOINT0; eauto.
@@ -602,7 +432,7 @@ Module Cell.
                  (DOMap.Facts.eq_dec to2 to0),
                  (DOMap.Facts.eq_dec to2 to3);
           (repeat subst);
-          (try congruence);
+          (try congr);
           (repeat match goal with
                  | [H: Some _ = Some _ |- _] => inv H
                   end);
@@ -610,17 +440,38 @@ Module Cell.
         + apply Interval.disjoint_imm.
         + ii. eapply (DISJOINT to3 to2); eauto.
           eapply Interval.le_mem; try apply LHS.
-          econs; s. reflexivity. apply Time.le_lteq. auto.
+          econs; s. refl. apply Time.le_lteq. auto.
         + symmetry. apply Interval.disjoint_imm.
         + ii. eapply (DISJOINT to0 to2); eauto.
           eapply Interval.le_mem; try apply RHS.
-          econs; s. reflexivity. apply Time.le_lteq. auto.
+          econs; s. refl. apply Time.le_lteq. auto.
         + ii. eapply (DISJOINT to3 to0); eauto.
           eapply Interval.le_mem; try apply LHS.
-          econs; s. apply Time.le_lteq. auto. reflexivity.
+          econs; s. apply Time.le_lteq. auto. refl.
         + ii. eapply (DISJOINT to0 to3); eauto.
           eapply Interval.le_mem; try apply RHS.
-          econs; s. apply Time.le_lteq. auto. reflexivity.
+          econs; s. apply Time.le_lteq. auto. refl.
+    Qed.
+
+    Inductive remove (cell1:t) (from to:Time.t) (msg:Message.t): forall (rhs:t), Prop :=
+    | remove_intro
+        (GET: DOMap.find to cell1 = Some (from, msg)):
+        remove cell1 from to msg (DOMap.remove to cell1)
+    .
+
+    Lemma remove_wf
+          cell1 from to msg rhs
+          (REMOVE: remove cell1 from to msg rhs)
+          (CELL1: wf cell1):
+      wf rhs.
+    Proof.
+      inv REMOVE. inv CELL1. econs; i.
+      - rewrite DOMap.Facts.remove_o in *.
+        destruct (DOMap.Facts.eq_dec to to0); eauto. congr.
+      - rewrite DOMap.Facts.remove_o in *.
+        destruct (DOMap.Facts.eq_dec to to1); try by inv GET1.
+        destruct (DOMap.Facts.eq_dec to to2); try by inv GET2.
+        eapply DISJOINT; eauto.
     Qed.
   End Raw.
 
@@ -640,21 +491,26 @@ Module Cell.
 
   Definition get (ts:Time.t) (cell:t): option (Time.t * Message.t) := DOMap.find ts cell.(raw).
 
-  Definition le (lhs rhs:t): Prop := Raw.le lhs rhs.
+  Definition le (lhs rhs:t): Prop :=
+    forall to from msg
+      (LHS: get to lhs = Some (from, msg)),
+      get to rhs = Some (from, msg).
 
   Global Program Instance le_PreOrder: PreOrder le.
-  Next Obligation.
-    unfold le. ii. reflexivity.
-  Qed.
-  Next Obligation.
-    unfold le. ii. etrans; eauto.
-  Qed.
+  Next Obligation. ii. auto. Qed.
+  Next Obligation. ii. eapply H0; eauto. Qed.
 
-  Definition disjoint (lhs rhs:t): Prop := Raw.disjoint lhs rhs.
+  Inductive disjoint (lhs rhs:t): Prop :=
+  | disjoint_intro
+      (DISJOINT: forall to1 to2 from1 from2 msg1 msg2
+                   (GET1: get to1 lhs = Some (from1, msg1))
+                   (GET2: get to2 rhs = Some (from2, msg2)),
+          Interval.disjoint (from1, to1) (from2, to2))
+  .
 
   Global Program Instance disjoint_Symmetric: Symmetric disjoint.
   Next Obligation.
-    unfold disjoint in *. symmetry. auto.
+    inv H. econs. i. symmetry. eapply DISJOINT; eauto.
   Qed.
 
   Lemma disjoint_get
@@ -675,11 +531,14 @@ Module Cell.
 
   Definition bot: t := mk Raw.bot_wf.
 
+  Lemma bot_get ts: get ts bot = None.
+  Proof. unfold get, bot, Raw.bot. s. apply DOMap.gempty. Qed.
+
   Lemma bot_le cell: le bot cell.
-  Proof. apply Raw.bot_le. Qed.
+  Proof. ii. rewrite bot_get in LHS. congr. Qed.
 
   Lemma bot_disjoint cell: disjoint bot cell.
-  Proof. apply Raw.bot_disjoint. Qed.
+  Proof. econs. ii. rewrite bot_get in GET1. congr. Qed.
 
   Definition singleton
              (from to:Time.t) (msg:Message.t)
@@ -695,6 +554,9 @@ Module Cell.
 
   Definition split (cell1:t) (from1 to1 to2:Time.t) (msg1:Message.t) (cell2:t): Prop :=
     Raw.split cell1 from1 to1 to2 msg1 cell2.
+
+  Definition remove (cell1:t) (from1 to1:Time.t) (msg1:Message.t) (cell2:t): Prop :=
+    Raw.remove cell1 from1 to1 msg1 cell2.
 End Cell.
 
 Module Memory.
@@ -704,15 +566,13 @@ Module Memory.
     Cell.get ts (mem loc).
 
   Definition le (lhs rhs:t): Prop :=
-    forall loc, Cell.le (lhs loc) (rhs loc).
+    forall loc to from msg
+      (LHS: get loc to lhs = Some (from, msg)),
+      get loc to rhs = Some (from, msg).
 
   Global Program Instance le_PreOrder: PreOrder le.
-  Next Obligation.
-    ii. reflexivity.
-  Qed.
-  Next Obligation.
-    ii. etrans; eauto.
-  Qed.
+  Next Obligation. ii. auto. Qed.
+  Next Obligation. ii. eapply H0; eauto. Qed.
 
   Inductive disjoint (lhs rhs:t): Prop :=
   | disjoint_intro
@@ -726,8 +586,11 @@ Module Memory.
 
   Definition bot: t := fun _ => Cell.bot.
 
+  Lemma bot_get loc ts: get loc ts bot = None.
+  Proof. unfold get. apply Cell.bot_get. Qed.
+
   Lemma bot_le mem: le bot mem.
-  Proof. ii. apply Cell.bot_le. Qed.
+  Proof. ii. rewrite bot_get in LHS. congr. Qed.
 
   Lemma bot_disjoint mem: disjoint bot mem.
   Proof. econs. i. apply Cell.bot_disjoint. Qed.
@@ -755,25 +618,11 @@ Module Memory.
       <<WF: Capability.wf msg.(Message.released)>> /\
       <<CLOSED: closed_capability msg.(Message.released) mem>>.
 
-  Definition closed_promises (promises:Promises.t) (mem:t): Prop :=
-    forall loc to (PROMISES: Promises.mem loc to promises),
-    exists from msg, get loc to mem = Some (from, msg).
-
-  Definition intact (promises:Promises.t) (mem1 mem2:t): Prop :=
-    forall loc to (PROMISES: Promises.mem loc to promises),
-      get loc to mem1 = get loc to mem2.
-
-  Global Program Instance intact_Equivalence promises: Equivalence (intact promises).
-  Next Obligation. ii. eauto. Qed.
-  Next Obligation. ii. symmetry. eauto. Qed.
-  Next Obligation. ii. etrans. apply H; auto. eauto. Qed.
-
   Inductive add (mem1:t) (loc:Loc.t) (from1 to1:Time.t) (msg1:Message.t): forall (mem2:t), Prop :=
   | add_intro
       r
       (ADD: Cell.add (mem1 loc) from1 to1 msg1 r)
-      (WF: Capability.wf msg1.(Message.released))
-      (CLOSED: closed_capability msg1.(Message.released) (LocFun.add loc r mem1)):
+      (WF: Capability.wf msg1.(Message.released)):
       add mem1 loc from1 to1 msg1 (LocFun.add loc r mem1)
   .
 
@@ -781,9 +630,15 @@ Module Memory.
   | split_intro
       r
       (SPLIT: Cell.split (mem1 loc) from1 to1 to2 msg1 r)
-      (WF: Capability.wf msg1.(Message.released))
-      (CLOSED: closed_capability msg1.(Message.released) (LocFun.add loc r mem1)):
+      (WF: Capability.wf msg1.(Message.released)):
       split mem1 loc from1 to1 to2 msg1 (LocFun.add loc r mem1)
+  .
+
+  Inductive remove (mem1:t) (loc:Loc.t) (from1 to1:Time.t) (msg1:Message.t): forall (mem2:t), Prop :=
+  | remove_intro
+      r
+      (REMOVE: Cell.remove (mem1 loc) from1 to1 msg1 r):
+      remove mem1 loc from1 to1 msg1 (LocFun.add loc r mem1)
   .
 
   Inductive future_imm (mem1 mem2:t): Prop :=
@@ -799,6 +654,7 @@ Module Memory.
   | splits_imm_intro
       loc from1 to1 to2 msg1
       (SPLIT: split mem1 loc from1 to1 to2 msg1 mem2)
+      (CLOSED: closed mem2)
   .
 
   Definition future := rtc future_imm.
@@ -808,36 +664,36 @@ Module Memory.
   Proof.
     i. induction PR.
     - econs 1.
-    - econs 2; eauto. inv H. econs 2. eauto.
+    - econs 2; eauto. inv H. econs 2; eauto.
   Qed.
 
   Inductive promise
-            (promises1:Promises.t) (mem1:t)
-            (loc:Loc.t) (from1 to1:Time.t) (msg1:Message.t):
-    forall (promises2:Promises.t) (mem2:t), Prop :=
+            (promises1 mem1:t)
+            (loc:Loc.t) (from1 to1:Time.t) (msg1:Message.t)
+            (promises2 mem2:t): Prop :=
   | promise_add
-      mem2
-      (ADD: add mem1 loc from1 to1 msg1 mem2):
-      promise promises1 mem1 loc from1 to1 msg1 (Promises.set loc to1 promises1) mem2
+      (PROMISES: add promises1 loc from1 to1 msg1 promises2)
+      (MEM: add mem1 loc from1 to1 msg1 mem2)
+      (CLOSED: closed_capability msg1.(Message.released) mem2):
+      promise promises1 mem1 loc from1 to1 msg1 promises2 mem2
   | promise_split
-      to2 mem2
-      (SPLIT: split mem1 loc from1 to1 to2 msg1 mem2)
-      (OWN: Promises.mem loc to2 promises1):
-      promise promises1 mem1 loc from1 to1 msg1 (Promises.set loc to1 promises1) mem2
+      to2
+      (PROMISES: split promises1 loc from1 to1 to2 msg1 promises2)
+      (MEM: split mem1 loc from1 to1 to2 msg1 mem2)
+      (CLOSED: closed_capability msg1.(Message.released) mem2):
+      promise promises1 mem1 loc from1 to1 msg1 promises2 mem2
   .
 
   Inductive fulfill
-            (promises1:Promises.t) (mem1:t)
-            (loc:Loc.t) (from to:Time.t) (msg:Message.t):
-    forall (promises2:Promises.t), Prop :=
+            (promises1:t)
+            (loc:Loc.t) (from to:Time.t) (msg:Message.t)
+            (promises2:t): Prop :=
   | fulfill_intro
-      (GET: get loc to mem1 = Some (from, msg))
-      (OWN: Promises.mem loc to promises1):
-      fulfill promises1 mem1 loc from to msg (Promises.unset loc to promises1)
+      (REMOVE: remove promises1 loc from to msg promises2)
   .
 
 
-  (* Lemmas on add & split *)
+  (* Lemmas on add, split & remove *)
 
   Lemma add_disjoint
         mem1 loc from1 to1 msg1 mem2
@@ -854,16 +710,16 @@ Module Memory.
 
   Lemma add_get1
         mem1 loc from1 to1 msg1 mem2
-        l t m
+        l t f m
         (ADD: add mem1 loc from1 to1 msg1 mem2)
-        (GET: get l t mem1 = Some m):
-    get l t mem2 = Some m.
+        (GET: get l t mem1 = Some (f, m)):
+    get l t mem2 = Some (f, m).
   Proof.
     exploit add_disjoint; eauto. i.
     unfold get, Cell.get in *. inv ADD. inv ADD0.
     unfold LocFun.add, LocFun.find. condtac; auto. subst.
     rewrite <- H0. rewrite DOMap.gsspec. condtac; auto. subst.
-    congruence.
+    congr.
   Qed.
 
   Lemma add_get2
@@ -872,21 +728,25 @@ Module Memory.
     get loc to1 mem2 = Some (from1, msg1).
   Proof.
     unfold get, Cell.get in *. inv ADD. inv ADD0.
-    unfold LocFun.add, LocFun.find. condtac; [|congruence].
+    unfold LocFun.add, LocFun.find. condtac; [|congr].
     rewrite <- H0. rewrite DOMap.gss. auto.
   Qed.
 
   Lemma add_get_inv
         mem1 loc from1 to1 msg1 mem2
-        l t m
+        l t f m
         (ADD: add mem1 loc from1 to1 msg1 mem2)
-        (GET: get l t mem2 = Some m):
-    (l = loc /\ t = to1 /\ m = (from1, msg1)) \/ get l t mem1 = Some m.
+        (GET: get l t mem2 = Some (f, m)):
+    (l = loc /\ t = to1 /\ f = from1 /\ m = msg1) \/
+    (~ (l = loc /\ t = to1) /\
+     get l t mem1 = Some (f, m)).
   Proof.
     unfold get, Cell.get in *. inv ADD. inv ADD0.
-    revert GET. unfold LocFun.add, LocFun.find. condtac; auto. subst.
-    rewrite <- H0. rewrite DOMap.gsspec. condtac; auto. subst.
-    s. i. inv GET. auto.
+    revert GET. unfold LocFun.add, LocFun.find. condtac; auto.
+    - subst. rewrite <- H0. rewrite DOMap.gsspec. condtac; auto.
+      + subst. s. i. inv GET. auto.
+      + right. splits; auto. ii. des. congr.
+    - right. splits; auto. ii. des. congr.
   Qed.
 
   Lemma split_disjoint
@@ -910,7 +770,8 @@ Module Memory.
         (SPLIT: split mem1 loc from1 to1 to2 msg1 mem2)
         (GET: get l t mem1 = Some (f, m)):
     (l = loc /\ f = from1 /\ t = to2 /\ get l t mem2 = Some (to1, m)) \/
-    get l t mem2 = Some (f, m).
+    (~ (l = loc /\ t = to2) /\
+     get l t mem2 = Some (f, m)).
   Proof.
     unfold get, Cell.get in *. inv SPLIT. inv SPLIT0.
     unfold LocFun.add, LocFun.find. condtac; auto. subst.
@@ -922,7 +783,8 @@ Module Memory.
       + econs; eauto. apply Time.le_lteq. auto.
       + apply Interval.mem_ub. eapply VOLUME. eauto.
     - rewrite GET2 in *. inv GET. eauto.
-    - rewrite GET. eauto.
+    - rewrite GET. right. splits; eauto. ii. des. congr.
+    - rewrite GET. right. splits; eauto. ii. des. congr.
   Qed.
 
   Lemma split_get1'
@@ -941,7 +803,7 @@ Module Memory.
     get loc to1 mem2 = Some (from1, msg1).
   Proof.
     unfold get, Cell.get in *. inv SPLIT. inv SPLIT0.
-    unfold LocFun.add, LocFun.find. condtac; [|congruence].
+    unfold LocFun.add, LocFun.find. condtac; [|congr].
     rewrite <- H0. rewrite DOMap.gss. auto.
   Qed.
 
@@ -952,13 +814,21 @@ Module Memory.
         (GET: get l t mem2 = Some (f, m)):
     (l = loc /\ t = to1 /\ f = from1 /\ m = msg1) \/
     (l = loc /\ t = to2 /\ f = to1 /\ get l t mem1 = Some (from1, m)) \/
-    get l t mem1 = Some (f, m).
+    (~ (l = loc /\ t = to1) /\
+     ~ (l = loc /\ t = to2) /\
+     get l t mem1 = Some (f, m)).
   Proof.
     unfold get, Cell.get in *. inv SPLIT. inv SPLIT0.
     revert GET. unfold LocFun.add, LocFun.find. condtac; auto. subst.
     rewrite <- H0. rewrite ? DOMap.gsspec. repeat condtac; subst; ss; auto.
     - i. inv GET. auto.
     - i. inv GET. rewrite GET2. right. left. auto.
+    - right. right. splits; auto.
+      + ii. des. congr.
+      + ii. des. congr.
+    - right. right. splits; auto.
+      + ii. des. congr.
+      + ii. des. congr.
   Qed.
 
   Lemma split_get_inv'
@@ -969,6 +839,53 @@ Module Memory.
     (l = loc /\ t = to1 /\ f = from1 /\ m = msg1) \/ exists f', get l t mem1 = Some (f', m).
   Proof.
     exploit split_get_inv; eauto. i. des; eauto.
+  Qed.
+
+  Lemma remove_disjoint
+        mem1 loc from1 to1 msg1 mem2
+        (REMOVE: remove mem1 loc from1 to1 msg1 mem2):
+    get loc to1 mem1 = Some (from1, msg1).
+  Proof.
+    inv REMOVE. inv REMOVE0. destruct r. ss.
+  Qed.
+
+  Lemma remove_get1
+        mem1 loc from1 to1 msg1 mem2
+        l t f m
+        (REMOVE: remove mem1 loc from1 to1 msg1 mem2)
+        (GET: get l t mem1 = Some (f, m)):
+    (l = loc /\ t = to1 /\ f = from1 /\ m = msg1) \/ get l t mem2 = Some (f, m).
+  Proof.
+    exploit remove_disjoint; eauto. i.
+    unfold get, Cell.get in *. inv REMOVE. inv REMOVE0.
+    unfold LocFun.add, LocFun.find. condtac; auto. subst.
+    rewrite <- H0. rewrite DOMap.grspec. condtac; auto. subst.
+    rewrite x0 in GET. inv GET. left. auto.
+  Qed.
+
+  Lemma remove_get2
+        mem1 loc from1 to1 msg1 mem2
+        (REMOVE: remove mem1 loc from1 to1 msg1 mem2):
+    get loc to1 mem2 = None.
+  Proof.
+    unfold get, Cell.get in *. inv REMOVE. inv REMOVE0.
+    unfold LocFun.add, LocFun.find. condtac; [|congr].
+    rewrite <- H0. rewrite DOMap.grs. auto.
+  Qed.
+
+  Lemma remove_get_inv
+        mem1 loc from1 to1 msg1 mem2
+        l t f m
+        (REMOVE: remove mem1 loc from1 to1 msg1 mem2)
+        (GET: get l t mem2 = Some (f, m)):
+    ~ (l = loc /\ t = to1) /\
+    get l t mem1 = Some (f, m).
+  Proof.
+    unfold get, Cell.get in *. inv REMOVE. inv REMOVE0.
+    revert GET. unfold LocFun.add, LocFun.find. condtac.
+    - subst. rewrite <- H0, DOMap.grspec. condtac; [congr|].
+      i. splits; auto. ii. des. congr.
+    - i. splits; auto. ii. des. congr.
   Qed.
 
   Lemma future_get
@@ -1051,16 +968,6 @@ Module Memory.
     - eapply future_closed_timemap; eauto.
   Qed.
 
-  Lemma future_closed_promises
-        promises mem1 mem2
-        (CLOSED: closed_promises promises mem1)
-        (FUTURE: future mem1 mem2):
-    closed_promises promises mem2.
-  Proof.
-    ii. exploit CLOSED; eauto. i. des.
-    exploit future_get; eauto. i. des. eauto.
-  Qed.
-
   Lemma incr_closed_timemap
         loc s from to msg mem
         (CLOSED: closed_timemap s mem)
@@ -1114,143 +1021,99 @@ Module Memory.
 
   Lemma promise_future
         promises1 mem1 loc from to msg promises2 mem2
-        (CLOSED_PROMISES1: closed_promises promises1 mem1)
+        (LE_PROMISES1: le promises1 mem1)
         (CLOSED1: closed mem1)
         (PROMISE: promise promises1 mem1 loc from to msg promises2 mem2):
-    <<CLOSED_PROMISES2: closed_promises promises2 mem2>> /\
+    <<LE_PROMISES2: le promises2 mem2>> /\
     <<CLOSED2: closed mem2>> /\
     <<FUTURE: future mem1 mem2>>.
   Proof.
     inv PROMISE.
-    - splits.
-      + ii. apply Promises.set_inv in PROMISES. des.
-        * subst. erewrite add_get2; eauto.
-        * exploit CLOSED_PROMISES1; eauto. i. des.
-          erewrite add_get1; eauto.
+    - splits; eauto.
+      + ii. eapply add_get_inv in LHS; eauto. des.
+        * subst. eapply add_get2. eauto.
+        * eapply add_get1; eauto.
       + ii. eapply add_get_inv in MSG; eauto. des.
-        * inv MSG1. inv ADD. eauto.
+        * inv MSG1. inv MEM. eauto.
         * exploit CLOSED1; eauto. i. des. splits; auto.
           eapply future_closed_capability; eauto.
           econs 2; eauto. econs 1. eauto.
-      + econs 2; eauto. econs 1. eauto.
-    - splits.
-      + ii. apply Promises.set_inv in PROMISES. des.
-        * subst. erewrite split_get2; eauto.
-        * exploit CLOSED_PROMISES1; eauto. i. des.
-          exploit split_get1'; eauto. i. des. eauto.
+      + econs 2; eauto. econs 1; eauto.
+    - splits; eauto.
+      + ii. eapply split_get_inv in LHS; eauto. des.
+        * subst. eapply split_get2. eauto.
+        * subst. exploit split_get1; try apply MEM; eauto. i. des; auto.
+          contradict x0. auto.
+        * exploit split_get1; try apply MEM; eauto. i. des; auto.
+          subst. contradict LHS0. auto.
       + ii. eapply split_get_inv' in MSG; eauto. des.
-        * subst. inv SPLIT. eauto.
+        * subst. inv MEM. eauto.
         * exploit CLOSED1; eauto. i. des. splits; auto.
           eapply future_closed_capability; eauto.
           econs 2; eauto. econs 2. eauto.
-      + econs 2; eauto. econs 2. eauto.
+      + econs 2; eauto. econs 2; eauto.
   Qed.
 
   Lemma promise_disjoint
         promises1 mem1 loc from to msg promises2 mem2 ctx
-        (CLOSED_PROMISES1: closed_promises promises1 mem1)
+        (LE_PROMISES1: le promises1 mem1)
         (WF1: closed mem1)
         (PROMISE: promise promises1 mem1 loc from to msg promises2 mem2)
-        (CLOSED_PROMISES: closed_promises ctx mem1)
-        (DISJOINT: Promises.disjoint promises1 ctx):
-    <<DISJOINT: Promises.disjoint promises2 ctx>> /\
-    <<CLOSED_PROMISES: closed_promises ctx mem2>> /\
-    <<INTACT: intact ctx mem1 mem2>>.
+        (LE_PROMISES: le ctx mem1)
+        (DISJOINT: Memory.disjoint promises1 ctx):
+    <<DISJOINT: Memory.disjoint promises2 ctx>> /\
+    <<LE_PROMISES: le ctx mem2>>.
   Proof.
     exploit promise_future; try apply PROMISE; eauto. i. des.
     inv PROMISE.
     - splits.
-      + econs. i. apply Promises.set_inv in LHS. des.
-        * subst. exploit CLOSED_PROMISES; eauto. i. des.
-          exploit add_disjoint; eauto. congruence.
+      + econs. i. econs. i.
+        eapply add_get_inv in GET1; eauto. des.
+        * subst. exploit LE_PROMISES; eauto. i.
+          exploit add_get1; eauto. i.
+          exploit add_get2; eauto. i.
+          eapply Cell.WF; eauto.
+          ii. subst. exploit add_disjoint; eauto. congr.
         * eapply DISJOINT; eauto.
-      + eapply future_closed_promises; eauto.
-      + ii. exploit CLOSED_PROMISES; eauto. i. des.
-        exploit add_get1; eauto. i. congruence.
+      + ii. eapply add_get1; eauto.
     - splits.
-      + econs. i. apply Promises.set_inv in LHS. des.
-        * subst. exploit CLOSED_PROMISES; eauto. i. des.
-          exploit split_disjoint; eauto. congruence.
+      + econs. i. econs. i.
+        eapply split_get_inv in GET1; eauto. des.
+        * subst. inv PROMISES. inv SPLIT.
+          eapply Interval.le_disjoint.
+          { eapply DISJOINT; eauto. }
+          { econs; s; try refl. apply Time.le_lteq. auto. }
+        * subst. inv PROMISES. inv SPLIT.
+          eapply Interval.le_disjoint.
+          { eapply DISJOINT; eauto. }
+          { econs; s; try refl. apply Time.le_lteq. auto. }
         * eapply DISJOINT; eauto.
-      + eapply future_closed_promises; eauto.
-      + ii. exploit CLOSED_PROMISES; eauto. i. des.
-        exploit split_get1; eauto. i. des; [|congruence].
-        subst. exfalso. eapply DISJOINT; eauto.
-  Qed.
+      + ii. exploit split_get1; eauto. i. des; auto. subst.
+        inv PROMISES. inv SPLIT.
+        exfalso. eapply Cell.disjoint_get; [apply DISJOINT| |]; eauto.
+  Qed.            
 
   Lemma fulfill_future
         promises1 mem1 loc from to msg promises2
-        (CLOSED_PROMISES1: closed_promises promises1 mem1)
+        (LE_PROMISES1: le promises1 mem1)
         (WF1: closed mem1)
-        (FULFILL: fulfill promises1 mem1 loc from to msg promises2):
-    closed_promises promises2 mem1.
+        (FULFILL: fulfill promises1 loc from to msg promises2):
+    <<LE_PROMISES2: le promises2 mem1>>.
   Proof.
-    inv FULFILL. ii. apply Promises.unset_inv in PROMISES. des.
-    apply CLOSED_PROMISES1. auto.
+    inv FULFILL. ii. eapply remove_get_inv in LHS; eauto. des. auto.
   Qed.
 
   Lemma fulfill_disjoint
         promises1 mem1 loc from to msg promises2 ctx
-        (CLOSED_PROMISES1: closed_promises promises1 mem1)
+        (LE_PROMISES1: le promises1 mem1)
         (WF1: closed mem1)
-        (FULFILL: fulfill promises1 mem1 loc from to msg promises2)
-        (CLOSED_PROMISES: closed_promises ctx mem1)
-        (DISJOINT: Promises.disjoint promises1 ctx):
-    Promises.disjoint promises2 ctx.
+        (FULFILL: fulfill promises1 loc from to msg promises2)
+        (LE_PROMISES: le ctx mem1)
+        (DISJOINT: disjoint promises1 ctx):
+    <<DISJOINT: disjoint promises2 ctx>>.
   Proof.
-    inv FULFILL. econs. i. apply Promises.unset_inv in LHS. des.
+    inv FULFILL. econs. i. econs. i.
+    eapply remove_get_inv in GET1; eauto. des.
     eapply DISJOINT; eauto.
   Qed.
-
-  Lemma fulfill_mon
-        promises1 mem1 mem1' loc from to msg promises2
-        (FULFILL: fulfill promises1 mem1 loc from to msg promises2)
-        (FUTURE: future mem1 mem1')
-        (INTACT: intact promises1 mem1 mem1'):
-    fulfill promises1 mem1' loc from to msg promises2.
-  Proof.
-    inv FULFILL. econs; eauto. rewrite <- INTACT; auto.
-  Qed.
-
-  Lemma add_closed
-        mem1 loc from1 to1 msg1 mem2
-        (CLOSED: closed mem1)
-        (ADD: add mem1 loc from1 to1 msg1 mem2):
-    closed mem2.
-  Proof.
-    ii. exploit add_get_inv; eauto. i. des.
-    - inv x2. inv ADD. splits; eauto.
-    - exploit CLOSED; eauto. i. des. splits; eauto.
-      eapply future_closed_capability; eauto. econs 2; [|econs 1]. econs 1. eauto.
-  Qed.
-
-  Lemma split_closed
-        mem1 loc from1 to1 to2 msg1 mem2
-        (CLOSED: closed mem1)
-        (SPLIT: split mem1 loc from1 to1 to2 msg1 mem2):
-    closed mem2.
-  Proof.
-    ii. exploit split_get_inv'; eauto. i. des.
-    - subst. inv SPLIT. splits; eauto.
-    - exploit CLOSED; eauto. i. des. splits; eauto.
-      eapply future_closed_capability; eauto. econs 2; [|econs 1]. econs 2. eauto.
-  Qed.
-
-  Lemma future_closed
-        mem1 mem2
-        (CLOSED: closed mem1)
-        (FUTURE: future mem1 mem2):
-    closed mem2.
-  Proof.
-    revert CLOSED. induction FUTURE; eauto.
-    i. apply IHFUTURE. inv H.
-    - eapply add_closed; eauto.
-    - eapply split_closed; eauto.
-  Qed.
-
-  Lemma intact_mon
-        promises1 promises2
-        (LE: Promises.le promises2 promises1):
-    intact promises1 <2= intact promises2.
-  Proof. ii. eapply PR. eauto. Qed.
 End Memory.

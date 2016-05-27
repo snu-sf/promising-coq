@@ -48,7 +48,7 @@ Proof.
   { apply x0. }
   { inv COMMIT1. apply WF_REL. }
   i.
-  splits; eauto. eapply CommitFacts.read_mon2; eauto; try reflexivity; try apply COMMIT2.
+  splits; eauto. eapply CommitFacts.read_mon2; eauto; try refl; try apply COMMIT2.
   inv COMMIT1. inv COMMIT2. inv MON. inv MON0.
   econs; committac; try by etrans; eauto.
   - etrans; eauto. apply WF1.
@@ -89,7 +89,7 @@ Proof.
   { apply x0. }
   { inv COMMIT1. apply WF_REL. }
   i.
-  splits; eauto. eapply CommitFacts.read_mon2; eauto; try reflexivity; try apply COMMIT2.
+  splits; eauto. eapply CommitFacts.read_mon2; eauto; try refl; try apply COMMIT2.
   inv COMMIT1. inv COMMIT2. inv MON. inv MON0.
   econs; committac; try by etrans; eauto.
   - unfold LocFun.add, LocFun.find. condtac; committac.
@@ -124,7 +124,7 @@ Proof.
   { apply x0. }
   { inv COMMIT1. apply WF_REL. }
   i.
-  splits; eauto. eapply CommitFacts.read_mon2; eauto; try reflexivity; try apply COMMIT2.
+  splits; eauto. eapply CommitFacts.read_mon2; eauto; try refl; try apply COMMIT2.
   inv COMMIT1. inv COMMIT2. inv MON. inv MON0.
   econs; committac; try by etrans; eauto.
   - condtac; etrans; eauto.
@@ -151,7 +151,7 @@ Proof.
   { apply x0. }
   { inv COMMIT1. apply WF_REL. }
   i.
-  splits; eauto. eapply CommitFacts.read_mon2; eauto; try reflexivity; try apply COMMIT2.
+  splits; eauto. eapply CommitFacts.read_mon2; eauto; try refl; try apply COMMIT2.
   inv COMMIT1. inv COMMIT2. inv MON. inv MON0.
   econs; committac; try by etrans; eauto.
   - unfold LocFun.find. condtac; committac.
@@ -190,7 +190,7 @@ Proof.
   { apply x0. }
   { inv COMMIT1. apply WF_REL. }
   i.
-  splits; eauto. eapply CommitFacts.write_mon2; eauto; try reflexivity; try apply COMMIT2.
+  splits; eauto. eapply CommitFacts.write_mon2; eauto; try refl; try apply COMMIT2.
   inv COMMIT1. inv COMMIT2. inv MON. inv MON0.
   econs; committac; try by etrans; eauto.
   - unfold LocFun.add, LocFun.find. condtac; committac.
@@ -240,7 +240,7 @@ Proof.
   { apply x0. }
   { inv COMMIT1. apply WF_REL. }
   i.
-  splits; eauto. eapply CommitFacts.write_mon2; eauto; try reflexivity; try apply COMMIT2.
+  splits; eauto. eapply CommitFacts.write_mon2; eauto; try refl; try apply COMMIT2.
   inv COMMIT1. inv COMMIT2. inv MON. inv MON0.
   econs; committac; try by etrans; eauto.
   - unfold LocFun.add, LocFun.find. repeat condtac; committac.
@@ -290,7 +290,7 @@ Proof.
   i.
   splits; eauto. eapply CommitFacts.read_fence_mon2;
                    try match goal with
-                       | [|- is_true (Ordering.le _ _)] => reflexivity
+                       | [|- is_true (Ordering.le _ _)] => refl
                        end;
                    eauto; try apply COMMIT2.
   inv COMMIT1. inv COMMIT2. inv MON. inv MON0.
@@ -337,7 +337,7 @@ Proof.
   i.
   splits; eauto. eapply CommitFacts.write_fence_mon2;
                    try match goal with
-                       | [|- is_true (Ordering.le _ _)] => reflexivity
+                       | [|- is_true (Ordering.le _ _)] => refl
                        end;
                    eauto; try apply COMMIT2.
   inv COMMIT1. inv COMMIT2. inv MON. inv MON0.
@@ -369,7 +369,7 @@ Proof.
   exploit CommitFacts.read_fence_min_spec; try apply x0; eauto. i.
   splits; eauto. eapply CommitFacts.read_fence_mon2;
                    try match goal with
-                       | [|- is_true (Ordering.le _ _)] => reflexivity
+                       | [|- is_true (Ordering.le _ _)] => refl
                        end;
                    eauto; try apply COMMIT2.
   inv COMMIT1. inv COMMIT2. inv MON. inv MON0.

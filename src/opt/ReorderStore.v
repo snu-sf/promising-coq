@@ -163,7 +163,7 @@ Proof.
     { econs 2. eauto. }
     i. des.
     + exploit internal_step_promise; eauto. i.
-      punfold SIM. exploit SIM; eauto; try reflexivity.
+      punfold SIM. exploit SIM; eauto; try refl.
       { exploit Thread.rtc_step_future; eauto. s. i. des.
         exploit Thread.step_future; eauto. s. i. des. auto.
       }

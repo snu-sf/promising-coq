@@ -21,8 +21,8 @@ Lemma internal_step_promise
       lang
       st1 lc1 mem1 st2 lc2 mem2
       (STEP: Thread.internal_step (Thread.mk lang st1 lc1 mem1) (Thread.mk lang st2 lc2 mem2))
-      (PROMISES: lc1.(Local.promises) = Promises.bot):
-  lc2.(Local.promises) = Promises.bot.
+      (PROMISES: lc1.(Local.promises) = Memory.bot):
+  lc2.(Local.promises) = Memory.bot.
 Proof.
   inv STEP; try inv LOCAL; ss.
   - admit.
@@ -63,8 +63,8 @@ Lemma progress_promise_step
 Proof.
   destruct lc1. s.
   eexists _, _. econs.
-  - s. econs 1. admit.
-  - reflexivity.
+  - s. admit.
+  - refl.
   - apply WF1.
   - apply WF1.
 Admitted.
@@ -74,14 +74,14 @@ Lemma progress_silent_step
       (WF1: Local.wf lc1 mem1):
   Local.silent_step lc1 mem1 lc1.
 Proof.
-  destruct lc1. econs; try apply WF1. reflexivity.
+  destruct lc1. econs; try apply WF1. refl.
 Qed.
 
 Lemma progress_read_step
       lc1 mem1
       loc ord ts
       (WF1: Local.wf lc1 mem1)
-      (PROMISE1: lc1.(Local.promises) = Promises.bot)
+      (PROMISES1: lc1.(Local.promises) = Memory.bot)
       (MAX: max_timestamp loc ts mem1):
   exists val released lc2,
     Local.read_step lc1 mem1 loc ts val released ord lc2.
@@ -101,7 +101,7 @@ Lemma progress_fulfill_step
       (LT: Time.lt from to)
       (WF1: Local.wf lc1 mem1)
       (GET1: Memory.get loc to mem1 = Some (from, Message.mk val releasedm))
-      (PROMISE1: lc1.(Local.promises) = Promises.set loc to Promises.bot):
+      (PROMISES1: lc1.(Local.promises) = Memory.singleton loc (Message.mk val releasedm) LT):
   exists lc2,
     Local.fulfill_step lc1 mem1 loc from to val releasedc releasedm ord lc2.
 Proof.
@@ -114,11 +114,9 @@ Proof.
   { admit. (* closed_capability m.released *) }
   i. des.
   eexists (Local.mk _ _). econs; eauto.
-  - econs; eauto.
-    rewrite PROMISE1. rewrite Promises.set_o.
-    destruct (Loc.eq_dec loc loc); [|congruence].
-    destruct (Time.eq_dec to to); [|congruence].
-    auto.
+  - rewrite PROMISES1. admit.
+  - admit.
+  - admit.
 Admitted.
 
 Lemma progress_write_step
@@ -127,15 +125,15 @@ Lemma progress_write_step
       (MAX: max_timestamp loc from mem1)
       (LT: Time.lt from to)
       (WF1: Local.wf lc1 mem1)
-      (PROMISE1: lc1.(Local.promises) = Promises.bot):
+      (PROMISES1: lc1.(Local.promises) = Memory.bot):
   exists lc2 mem2,
     Local.write_step lc1 mem1 loc from to val releasedc releasedm ord lc2 mem2.
 Proof.
   destruct lc1. ss. subst.
   exploit progress_promise_step; eauto. s. i. des.
-  assert (promises2 = Promises.set loc to Promises.bot); subst.
-  { inv x0. ss. inv PROMISE; eauto. }
-  exploit (@progress_fulfill_step (Local.mk commit (Promises.set loc to Promises.bot))); s; eauto.
+  assert (promises2 = Memory.singleton loc (Message.mk val releasedm) LT); subst.
+  { inv x0. ss. admit. }
+  exploit (@progress_fulfill_step (Local.mk commit (Memory.singleton loc (Message.mk val releasedm) LT))); s; eauto.
   { eapply Local.promise_step_future; eauto. }
   { inv x0. ss. inv PROMISE.
     - eapply Memory.add_get2. eauto.
@@ -149,7 +147,7 @@ Lemma progress_fence_step
       lc1 mem1
       ordr ordw
       (WF1: Local.wf lc1 mem1)
-      (PROMISE1: lc1.(Local.promises) = Promises.bot):
+      (PROMISES1: lc1.(Local.promises) = Memory.bot):
   exists lc2,
     Local.fence_step lc1 mem1 ordr ordw lc2.
 Proof.

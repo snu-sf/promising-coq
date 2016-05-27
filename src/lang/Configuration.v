@@ -136,7 +136,7 @@ Module Configuration.
     splits; [|by etrans; eauto].
     econs.
     - i. simplify.
-      + congruence.
+      + congr.
       + exploit THREADS; try apply TH1; eauto. i. des.
         exploit Thread.rtc_step_disjoint; eauto. i. des.
         exploit Thread.step_disjoint; eauto. s. i. des.
@@ -151,7 +151,6 @@ Module Configuration.
       exploit Thread.rtc_step_disjoint; eauto. i. des.
       exploit Thread.step_disjoint; eauto. s. i. des.
       splits; ss. ii. apply CONSISTENT1; auto.
-      + repeat (etrans; eauto).
       + repeat (etrans; eauto).
     - s. apply WF0.
   Qed.
@@ -196,7 +195,6 @@ Module Configuration.
         splits; ss. inv CONSISTENT. exploit THREADS; eauto. i. des.
         ii. eapply CONSISTENT; eauto.
         * repeat (etrans; eauto).
-        * repeat (etrans; eauto).
       + apply WF0.
   Qed.
 
@@ -208,7 +206,7 @@ Module Configuration.
     <<FUTURE: Memory.future c1.(memory) c2.(memory)>>.
   Proof.
     revert CONSISTENT1. induction STEPS; i.
-    - splits; auto. reflexivity.
+    - splits; auto. refl.
     - exploit step_consistent; eauto. i. des.
       exploit IHSTEPS; eauto. i. des.
       splits; eauto. etrans; eauto.

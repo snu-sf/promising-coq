@@ -634,7 +634,15 @@ Module UsualPositiveMap <: S with Module E:=PositiveOrderedTypeBits.
     destruct (E.eq_dec i j) as [ ->|]; [ apply gss | apply gso; auto ].
   Qed.
 
-   (* Not derivable from the Map interface *)
+  Theorem grspec:
+    forall (A:Type)(i j: key) (m: t A),
+    find i (remove j m) = if E.eq_dec i j then None else find i m.
+  Proof.
+    intros.
+    destruct (E.eq_dec i j) as [ ->|]; [ apply grs | apply gro; auto ].
+  Qed.
+
+  (* Not derivable from the Map interface *)
   Theorem gsident:
     forall (A:Type)(i: key) (m: t A) (v: A),
     find i m = Some v -> add i v m = m.

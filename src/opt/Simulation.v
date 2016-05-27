@@ -27,23 +27,23 @@ Section SimulationLocal.
   Inductive sim_local (lc_src lc_tgt:Local.t): Prop :=
   | sim_local_intro
       (COMMIT: Commit.le lc_src.(Local.commit) lc_tgt.(Local.commit))
-      (PROMISES: MemInv.sem Promises.bot lc_src.(Local.promises) lc_tgt.(Local.promises))
+      (PROMISES: MemInv.sem MemInv.bot lc_src.(Local.promises) lc_tgt.(Local.promises))
   .
 
-  Global Program Instance sim_local_Preorder: PreOrder sim_local.
-  Next Obligation.
-    ii. econs.
-    - reflexivity.
-    - apply MemInv.sem_bot.
-  Qed.
-  Next Obligation.
-    ii. inv H. inv H0. econs.
-    - etrans; eauto.
-    - apply MemInv.sem_bot_inv in PROMISES.
-      apply MemInv.sem_bot_inv in PROMISES0.
-      rewrite PROMISES, PROMISES0.
-      apply MemInv.sem_bot.
-  Qed.
+  (* Global Program Instance sim_local_Preorder: PreOrder sim_local. *)
+  (* Next Obligation. *)
+  (*   ii. econs. *)
+  (*   - refl. *)
+  (*   - apply MemInv.sem_bot. *)
+  (* Qed. *)
+  (* Next Obligation. *)
+  (*   ii. inv H. inv H0. econs. *)
+  (*   - etrans; eauto. *)
+  (*   - etrans; eauto. apply MemInv.sem_bot_inv in PROMISES. *)
+  (*     apply MemInv.sem_bot_inv in PROMISES0. *)
+  (*     rewrite PROMISES, PROMISES0. *)
+  (*     apply MemInv.sem_bot. *)
+  (* Qed. *)
 
   Definition SIM_THREAD :=
     forall (sim_terminal: SIM_TERMINAL)
@@ -80,8 +80,8 @@ Section SimulationLocal.
       (MEMORY: sim_memory mem1_src mem1_tgt)
       (FUTURE_SRC: Memory.future mem_k_src mem1_src)
       (FUTURE_TGT: Memory.future mem_k_tgt mem1_tgt)
-      (INTACT_SRC: Memory.intact lc1_src.(Local.promises) mem_k_src mem1_src)
-      (INTACT_TGT: Memory.intact lc1_tgt.(Local.promises) mem_k_tgt mem1_tgt),
+      (WF_SRC: Local.wf lc1_src mem1_src)
+      (WF_TGT: Local.wf lc1_tgt mem1_tgt),
       <<TERMINAL:
         forall (TERMINAL_TGT: lang_tgt.(Language.is_terminal) st1_tgt),
         exists st2_src lc2_src mem2_src,
@@ -95,18 +95,18 @@ Section SimulationLocal.
       <<FUTURE:
         forall mem2_src
           (FUTURE_SRC: Memory.future mem1_src mem2_src)
-          (INTACT_SRC: Memory.intact lc1_src.(Local.promises) mem1_src mem2_src),
+          (WF_SRC: Local.wf lc1_src mem2_src),
         exists mem2_tgt,
           <<MEMORY: sim_memory mem2_src mem2_tgt>> /\
           <<FUTURE_TGT: Memory.future mem1_tgt mem2_tgt>> /\
-          <<INTACT_TGT: Memory.intact lc1_tgt.(Local.promises) mem1_tgt mem2_tgt>>>> /\
+          <<WF_TGT: Local.wf lc1_tgt mem2_tgt>>>> /\
       <<PROMISES:
-        forall (PROMISES_TGT: lc1_tgt.(Local.promises) = Promises.bot),
+        forall (PROMISES_TGT: lc1_tgt.(Local.promises) = Memory.bot),
         exists st2_src lc2_src mem2_src,
           <<STEPS: rtc (Thread.step None)
                        (Thread.mk _ st1_src lc1_src mem1_src)
                        (Thread.mk _ st2_src lc2_src mem2_src)>> /\
-          <<PROMISES_SRC: lc2_src.(Local.promises) = Promises.bot>>>> /\
+          <<PROMISES_SRC: lc2_src.(Local.promises) = Memory.bot>>>> /\
       <<STEP: _sim_thread_step (sim_thread sim_terminal)
                                st1_src lc1_src mem1_src
                                st1_tgt lc1_tgt mem1_tgt>>.
@@ -154,9 +154,7 @@ Section Simulation.
       (CONSISTENT_SRC: Configuration.consistent (Configuration.mk ths1_src mem1_src))
       (CONSISTENT_TGT: Configuration.consistent (Configuration.mk ths1_tgt mem1_tgt))
       (FUTURE_SRC: Memory.future mem_k_src mem1_src)
-      (FUTURE_TGT: Memory.future mem_k_tgt mem1_tgt)
-      (INTACT_SRC: forall i th lc, IdentMap.find i ths1_src = Some (th, lc) -> Memory.intact lc.(Local.promises) mem_k_src mem1_src)
-      (INTACT_TGT: forall i th lc, IdentMap.find i ths1_tgt = Some (th, lc) -> Memory.intact lc.(Local.promises) mem_k_tgt mem1_tgt),
+      (FUTURE_TGT: Memory.future mem_k_tgt mem1_tgt),
       <<TERMINAL:
         forall (TERMINAL_TGT: Threads.is_terminal ths1_tgt),
         exists ths2_src mem2_src,
@@ -194,14 +192,12 @@ Lemma sim_thread_future
       (SIM: @sim_thread lang_src lang_tgt sim_terminal st_src lc_src mem_k1_src st_tgt lc_tgt mem_k1_tgt)
       (FUTURE_SRC: Memory.future mem_k1_src mem_k2_src)
       (FUTURE_TGT: Memory.future mem_k1_tgt mem_k2_tgt)
-      (INTACT_SRC: Memory.intact lc_src.(Local.promises) mem_k1_src mem_k2_src)
-      (INTACT_TGT: Memory.intact lc_tgt.(Local.promises) mem_k1_tgt mem_k2_tgt):
+      (WF_SRC: Local.wf lc_src mem_k2_src)
+      (WF_TGT: Local.wf lc_tgt mem_k2_tgt):
   sim_thread sim_terminal st_src lc_src mem_k2_src st_tgt lc_tgt mem_k2_tgt.
 Proof.
   pfold. ii.
   punfold SIM. exploit SIM; eauto.
-  - etrans; eauto.
-  - etrans; eauto.
   - etrans; eauto.
   - etrans; eauto.
 Qed.
@@ -212,15 +208,11 @@ Lemma sim_future
       ths_tgt mem_k1_tgt mem_k2_tgt
       (SIM: sim ths_src mem_k1_src ths_tgt mem_k1_tgt)
       (FUTURE_SRC: Memory.future mem_k1_src mem_k2_src)
-      (FUTURE_TGT: Memory.future mem_k1_tgt mem_k2_tgt)
-      (INTACT_SRC: forall i th lc, IdentMap.find i ths_src = Some (th, lc) -> Memory.intact lc.(Local.promises) mem_k1_src mem_k2_src)
-      (INTACT_TGT: forall i th lc, IdentMap.find i ths_tgt = Some (th, lc) -> Memory.intact lc.(Local.promises) mem_k1_tgt mem_k2_tgt):
+      (FUTURE_TGT: Memory.future mem_k1_tgt mem_k2_tgt):
   sim ths_src mem_k2_src ths_tgt mem_k2_tgt.
 Proof.
   pfold. ii.
   punfold SIM. exploit SIM; eauto.
-  - etrans; eauto.
-  - etrans; eauto.
   - etrans; eauto.
   - etrans; eauto.
 Qed.
@@ -238,7 +230,7 @@ Proof.
     + ii.
       apply IdentMap.singleton_find_inv in TH1.
       apply IdentMap.singleton_find_inv in TH2.
-      des. Configuration.simplify. congruence.
+      des. Configuration.simplify. congr.
     + ii. apply IdentMap.singleton_find_inv in TH. des.
       Configuration.simplify.
     + apply WF.
@@ -283,7 +275,7 @@ Lemma sim_step
     <<SIM: sim_thread sim_terminal st3_src lc3_src mem3_src st3_tgt lc3_tgt mem3_tgt>>.
 Proof.
   exploit Thread.step_future; eauto. s. i. des.
-  punfold SIM. exploit SIM; eauto; try reflexivity. i. des.
+  punfold SIM. exploit SIM; eauto; try refl. i. des.
   exploit STEP0; eauto. i. des; [|done].
   exploit Thread.rtc_step_future; eauto. s. i. des.
   exploit Thread.step_future; eauto. s. i. des.
@@ -333,15 +325,13 @@ Lemma sim_thread_consistent
   Thread.consistent lang_src st_src lc_src mem_src.
 Proof.
   generalize SIM. intro X.
-  punfold X. exploit X; eauto; try reflexivity. i. des.
+  punfold X. exploit X; eauto; try refl. i. des.
   ii. exploit FUTURE; eauto. i. des.
-  exploit CONSISTENT; eauto; try reflexivity. i. des.
+  exploit CONSISTENT; eauto; try refl. i. des.
   exploit sim_rtc_step; try apply MEMORY0; eauto.
-  { eapply Local.future_wf; try apply INTACT; eauto. }
-  { eapply Local.future_wf; try apply INTACT_TGT; eauto. }
   { s. eapply sim_thread_future; eauto. }
   i. des. destruct e2. ss.
-  punfold SIM0. exploit SIM0; eauto; try reflexivity. i. des.
+  punfold SIM0. exploit SIM0; eauto; try refl. i. des.
   exploit PROMISES1; eauto. i. des.
   eexists (Thread.mk _ _ _ _). splits; [|eauto].
   etrans; eauto.
@@ -366,10 +356,7 @@ Proof.
   apply singleton_consistent in CONSISTENT_TGT.
   des. splits.
   - i. apply (singleton_is_terminal tid) in TERMINAL_TGT. des.
-    punfold SIM0. exploit SIM0; eauto.
-    { eapply INTACT_SRC. apply IdentMap.singleton_find. }
-    { eapply INTACT_TGT. apply IdentMap.singleton_find. }
-    i. des.
+    punfold SIM0. exploit SIM0; eauto. i. des.
     exploit TERMINAL; eauto. i. des.
     eexists _, _. splits; [|eauto|].
     + generalize (rtc_tail STEPS). intro X. des.
@@ -377,23 +364,20 @@ Proof.
         econs; ss; eauto.
         { eapply IdentMap.singleton_find. }
         { ii. eexists. splits; eauto. ss.
-          inv LOCAL. apply MemInv.sem_bot_inv in PROMISES0. etrans; eauto.
-          apply THREAD.
+          eapply MemInv.sem_bot_inv.
+          inv THREAD. rewrite <- PROMISES0. apply LOCAL.
         }
       * inv X. s. erewrite IdentMap.singleton_add. econs.
     + ii. ss. rewrite IdentMap.singleton_add in *.
       apply IdentMap.singleton_find_inv in FIND. des. subst.
       splits; Configuration.simplify. econs; eauto.
-      inv LOCAL. apply MemInv.sem_bot_inv in PROMISES0. etrans; eauto.
-      apply THREAD.
+      eapply MemInv.sem_bot_inv.
+      inv THREAD. rewrite <- PROMISES0. apply LOCAL.
   - i. inv STEP_TGT. ss.
     apply IdentMap.singleton_find_inv in TID. des.
     Configuration.simplify.
     exploit sim_rtc_step; eauto.
-    { eapply sim_thread_future; eauto.
-      - eapply INTACT_SRC. apply IdentMap.singleton_find.
-      - eapply INTACT_TGT. apply IdentMap.singleton_find.
-    }
+    { eapply sim_thread_future; eauto. }
     i. des. destruct e2. ss.
     exploit sim_step; try apply MEMORY; eauto. i. des.
     eexists _, _, _, _. splits; eauto.

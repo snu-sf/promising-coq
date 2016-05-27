@@ -68,7 +68,7 @@ Proof.
   i. des.
   eexists _, _. splits; s; eauto.
   - econs; try apply PROMISES_SRC.
-    + reflexivity.
+    + refl.
     + apply WF1_SRC.
     + eapply Commit.future_closed; [|eauto]. apply WF1_SRC.
   - econs; s; eauto. etrans; eauto.
@@ -97,7 +97,7 @@ Proof.
     + auto.
     + eapply Commit.future_closed; eauto.
       apply Memory.splits_future. apply MEM1.
-  - econs; eauto. s. reflexivity.
+  - econs; eauto. s. refl.
 Qed.
 
 Lemma sim_local_read
@@ -123,7 +123,7 @@ Proof.
     + eapply CommitFacts.read_mon1; eauto.
     + eapply Commit.future_closed; eauto.
       apply Memory.splits_future. apply MEM1.
-  - econs; eauto. s. reflexivity.
+  - econs; eauto. s. refl.
 Qed.
 
 Lemma sim_local_fulfill
@@ -153,7 +153,7 @@ Proof.
     + eapply CommitFacts.write_mon1; eauto.
     + eapply Commit.future_closed; eauto.
       apply Memory.splits_future. apply MEM1.
-  - econs; eauto. s. reflexivity.
+  - econs; eauto. s. refl.
   - inv FULFILL. ss.
     eapply Memory.intact_mon; eauto.
     ii. apply Promises.unset_inv in H. des. auto.
@@ -209,12 +209,12 @@ Proof.
   eexists. splits; eauto.
   - econs.
     + eapply CommitFacts.read_fence_mon1; eauto.
-    + eapply CommitFacts.write_fence_mon1; eauto. reflexivity.
+    + eapply CommitFacts.write_fence_mon1; eauto. refl.
     + apply MemInv.sem_bot_inv in PROMISES. rewrite PROMISES. auto.
     + auto.
     + eapply Commit.future_closed; eauto.
       apply Memory.splits_future. apply MEM1.
-  - econs; eauto. s. reflexivity.
+  - econs; eauto. s. refl.
 Qed.
 
 Definition SIM_REGS := forall (rs_src rs_tgt:RegFile.t), Prop.
@@ -518,7 +518,7 @@ Proof.
     destruct lc_src, lc_tgt. ss. subst.
     splits; s; ii.
     { inv TERMINAL_TGT. ss. eexists _, _, _. splits; eauto; ss. }
-    { eexists. splits; try reflexivity; eauto.
+    { eexists. splits; try refl; eauto.
       - etrans; eauto. apply Memory.splits_future. apply MEMORY.
       - do 3 (etrans; eauto). symmetry. auto.
     }
@@ -543,7 +543,7 @@ Proof.
     destruct lc_src, lc_tgt. ss. subst.
     splits; s; ii.
     { inv TERMINAL_TGT. }
-    { ss. eexists. splits; try reflexivity; eauto.
+    { ss. eexists. splits; try refl; eauto.
       - etrans; eauto. apply Memory.splits_future. apply MEMORY.
       - etrans; eauto. admit. (* src/tgt promises relation *)
     }
@@ -734,7 +734,7 @@ Proof.
     destruct lc_src, lc_tgt. ss. subst.
     splits; s; ii.
     { inv TERMINAL_TGT. }
-    { ss. eexists. splits; try reflexivity; eauto.
+    { ss. eexists. splits; try refl; eauto.
       - etrans; eauto. apply Memory.splits_future. apply MEMORY.
       - etrans; eauto. admit. (* src/tgt promises relation *)
     }
@@ -773,7 +773,7 @@ Proof.
     destruct lc_src, lc_tgt. ss. subst.
     splits; s; ii.
     { inv TERMINAL_TGT. }
-    { ss. eexists. splits; try reflexivity; eauto.
+    { ss. eexists. splits; try refl; eauto.
       - etrans; eauto. apply Memory.splits_future. apply MEMORY.
       - etrans; eauto. admit. (* src/tgt promises relation *)
     }

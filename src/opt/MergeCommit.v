@@ -85,13 +85,13 @@ Proof.
   i.
   splits; eauto. eapply CommitFacts.read_mon2;
                    try match goal with
-                       | [|- is_true (Ordering.le _ _)] => reflexivity
+                       | [|- is_true (Ordering.le _ _)] => refl
                        end;
                    eauto; try apply COMMIT.
   inv COMMIT. inv MON.
   econs; committac; try by etrans; eauto.
   - unfold LocFun.add, LocFun.find. condtac; committac.
-    etrans; eauto. reflexivity.
+    etrans; eauto. refl.
   - etrans; eauto. apply WF.
   - etrans; eauto. apply WF.
   - etrans; eauto. apply WF.
@@ -138,7 +138,7 @@ Proof.
   exploit CommitFacts.read_fence_min_spec; try apply x0; eauto. i.
   splits; eauto.
   eapply CommitFacts.read_fence_mon2;
-    try apply x1; try reflexivity; try apply COMMIT; eauto.
+    try apply x1; try refl; try apply COMMIT; eauto.
   inv COMMIT. inv MON.
   econs; committac; try by etrans; eauto.
   repeat condtac; committac.
@@ -160,11 +160,11 @@ Proof.
   exploit CommitFacts.write_fence_min_spec; try apply x0; eauto. i.
   splits; eauto.
   eapply CommitFacts.write_fence_mon2;
-    try apply x1; try reflexivity; try apply COMMIT; eauto.
+    try apply x1; try refl; try apply COMMIT; eauto.
   inv COMMIT. inv MON.
   econs; committac; try by etrans; eauto.
   unfold LocFun.find. repeat condtac; committac.
-  - rewrite RA. reflexivity. etrans; eauto.
-  - rewrite RA. reflexivity. etrans; eauto.
-  - etrans; eauto. reflexivity.
+  - rewrite RA. refl. etrans; eauto.
+  - rewrite RA. refl. etrans; eauto.
+  - etrans; eauto. refl.
 Qed.

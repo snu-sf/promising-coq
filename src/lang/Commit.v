@@ -62,7 +62,7 @@ Module Commit <: JoinableType.
 
   Global Program Instance le_PreOrder: PreOrder le.
   Next Obligation.
-    ii. econs; reflexivity.
+    ii. econs; refl.
   Qed.
   Next Obligation.
     ii. inv H. inv H0. econs; etrans; eauto.
@@ -352,7 +352,7 @@ Module CommitFacts.
     Commit.read commit loc ts released ord (read_min loc ts released ord commit).
   Proof.
     unfold read_min. econs; tac.
-    - econs; tac; try reflexivity.
+    - econs; tac; try refl.
       + unfold Capability.join_if. condtac; tac.
         rewrite <- Capability.join_r. tac.
       + unfold Capability.join_if. condtac; tac.
@@ -429,13 +429,13 @@ Module CommitFacts.
   Proof.
     econs; tac.
     - econs; tac.
-      + unfold LocFun.add, LocFun.find. condtac; tac. reflexivity.
+      + unfold LocFun.add, LocFun.find. condtac; tac. refl.
       + rewrite <- Capability.join_r. tac.
       + rewrite <- Capability.join_r. tac.
     - etrans; [|apply TimeMap.join_r].
       apply TimeMap.incr_ts.
     - unfold LocFun.add, LocFun.find.
-      condtac; [|congruence]. reflexivity.
+      condtac; [|congr]. refl.
     - econs; try apply WF1; tac.
       + unfold LocFun.add, LocFun.find. condtac; auto. apply WF1.
       + apply Capability.join_wf; auto.
@@ -489,13 +489,13 @@ Module CommitFacts.
     Commit.read_fence commit ord (read_fence_min ord commit).
   Proof.
     unfold read_fence_min. econs; tac; try apply WF1.
-    - econs; tac; try reflexivity. apply WF1.
-    - reflexivity.
+    - econs; tac; try refl. apply WF1.
+    - refl.
     - econs; s; try apply WF1.
       + condtac; try apply WF1.
       + i. condtac; try apply WF1.
         etrans; apply WF1.
-      + condtac; try apply WF1. reflexivity.
+      + condtac; try apply WF1. refl.
   Qed.
 
   Lemma read_fence_min_min
@@ -522,13 +522,13 @@ Module CommitFacts.
         (WF1: Commit.wf commit):
     Commit.write_fence commit ord (write_fence_min ord commit).
   Proof.
-    econs; tac; try reflexivity.
-    - econs; tac; try reflexivity.
-      condtac; try reflexivity.
+    econs; tac; try refl.
+    - econs; tac; try refl.
+      condtac; try refl.
       apply WF1.
     - econs; tac; try apply WF1.
       + condtac; apply WF1.
-      + condtac; try apply WF1. reflexivity.
+      + condtac; try apply WF1. refl.
   Qed.
 
   Lemma write_fence_min_min

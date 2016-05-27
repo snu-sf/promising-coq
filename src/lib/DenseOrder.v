@@ -324,7 +324,7 @@ Module DenseOrderFacts.
   Proof.
     generalize (DenseOrder.compare_spec lhs rhs).
     destruct (DenseOrder.compare lhs rhs).
-    - left. inv H. reflexivity.
+    - left. inv H. refl.
     - left. inv H. apply DenseOrder.le_lteq. auto.
     - right. inv H. auto.
   Defined.

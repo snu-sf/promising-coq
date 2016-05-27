@@ -81,7 +81,7 @@ Module Interval <: UsualOrderedType.
         lb ub (LT: Time.lt lb ub):
     mem (lb, ub) ub.
   Proof.
-    econs; s; auto. reflexivity.
+    econs; s; auto. refl.
   Qed.
 
   Definition disjoint (lhs rhs:t): Prop :=
@@ -101,5 +101,14 @@ Module Interval <: UsualOrderedType.
     ii. inv LHS. inv RHS. ss.
     eapply DenseOrder.lt_strorder.
     eapply TimeFacts.le_lt_lt; [apply TO|apply FROM0].
+  Qed.
+
+  Lemma le_disjoint
+        a b c
+        (DISJOINT: disjoint b c)
+        (LE: le a b):
+    disjoint a c.
+  Proof.
+    ii. eapply DISJOINT; eauto. eapply le_mem; eauto.
   Qed.
 End Interval.

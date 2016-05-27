@@ -76,4 +76,6 @@ Ltac condtac :=
     destruct c eqn:COND
   end.
 
+Ltac refl := reflexivity.
 Ltac etrans := etransitivity.
+Ltac congr := congruence.
