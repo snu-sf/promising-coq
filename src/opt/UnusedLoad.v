@@ -25,9 +25,23 @@ Require Import Semantics.
 
 Set Implicit Arguments.
 
-(* NOTE: it is also possible to eliminate unused relaxed load, but the
-   proof requires additional invariant on the commits.  Currently we
-   do not pursue that direction.
+(* NOTE: Elimination of a unused relaxed load is unsound under the
+ * semantics with liveness.  Consider the following example:
+
+    while (!y_unordered) {
+        r = x_rlx;
+        fence(acquire);
+    }
+
+    ||
+
+    y =rlx 1;
+    x =rel 1;
+
+ * Under the semantics with liveness, the loop *should* break, as once
+ * `x_rlx` will read `x =rel 1` and the acquire fence guarantees that
+ * `y_unordered` will read 1.  However, the elimination of `x_rlx`
+ * will allow the loop to run forever.
  *)
 Lemma unused_load_sim_stmts
       r loc ord

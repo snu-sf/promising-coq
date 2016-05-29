@@ -109,36 +109,31 @@ Module MemInv.
 
   Lemma set_o loc1 ts1 loc2 ts2 promises:
     mem loc1 ts1 (set loc2 ts2 promises) =
-    if andb (if Loc.eq_dec loc1 loc2 then true else false) (if Time.eq_dec ts1 ts2 then true else false)
-    then true
+    if Loc.eq_dec loc1 loc2
+    then if Time.eq_dec ts1 ts2
+         then true
+         else mem loc1 ts1 promises
     else mem loc1 ts1 promises.
   Proof.
     unfold mem, set, LocFun.add, LocFun.find.
-    destruct (Loc.eq_dec loc1 loc2); subst; ss.
-    destruct (Time.eq_dec ts1 ts2); subst; ss.
+    repeat condtac; subst; ss.
     - rewrite DOSet.Facts.add_b.
-      unfold DOSet.Facts.eqb. destruct (Time.eq_dec ts2 ts2); auto.
+      unfold DOSet.Facts.eqb. rewrite Time.eq_dec_eq. auto.
     - rewrite DOSet.Facts.add_b.
-      unfold DOSet.Facts.eqb. destruct (Time.eq_dec ts2 ts1); ss.
-      congr.
+      unfold DOSet.Facts.eqb. rewrite Time.eq_dec_neq; auto.
   Qed.
 
   Lemma set_eq loc ts promises:
     mem loc ts (set loc ts promises) = true.
   Proof.
-    rewrite set_o.
-    destruct (Loc.eq_dec loc loc); [|congr].
-    destruct (Time.eq_dec ts ts); [|congr].
-    auto.
+    rewrite set_o, Loc.eq_dec_eq, Time.eq_dec_eq. auto.
   Qed.
 
   Lemma set_inv loc1 ts1 loc2 ts2 promises
         (MEM: mem loc1 ts1 (set loc2 ts2 promises)):
     (loc1 = loc2 /\ ts1 = ts2) \/ mem loc1 ts1 promises.
   Proof.
-    rewrite set_o in MEM.
-    destruct (Loc.eq_dec loc1 loc2); ss; auto.
-    destruct (Time.eq_dec ts1 ts2); ss; auto.
+    revert MEM. rewrite set_o. repeat condtac; ss; auto.
   Qed.
 
   Definition unset (loc:Loc.t) (ts:Time.t) (promises:t) :=
@@ -146,39 +141,34 @@ Module MemInv.
 
   Lemma unset_o loc1 ts1 loc2 ts2 promises:
     mem loc1 ts1 (unset loc2 ts2 promises) =
-    if andb (if Loc.eq_dec loc1 loc2 then true else false) (if Time.eq_dec ts1 ts2 then true else false)
-    then false
+    if Loc.eq_dec loc1 loc2
+    then if Time.eq_dec ts1 ts2
+         then false
+         else mem loc1 ts1 promises
     else mem loc1 ts1 promises.
   Proof.
-    unfold mem, unset, LocFun.add, LocFun.find.
-    destruct (Loc.eq_dec loc1 loc2); subst; ss.
-    destruct (Time.eq_dec ts1 ts2); subst; ss.
+    unfold mem, unset, LocFun.add, LocFun.find. repeat condtac; subst; ss.
     - rewrite DOSet.Facts.remove_b.
-      unfold DOSet.Facts.eqb. destruct (Time.eq_dec ts2 ts2); [|congr].
+      unfold DOSet.Facts.eqb. rewrite Time.eq_dec_eq.
       apply Bool.andb_false_iff. auto.
     - rewrite DOSet.Facts.remove_b.
-      unfold DOSet.Facts.eqb. destruct (Time.eq_dec ts2 ts1); ss; [congr|].
+      unfold DOSet.Facts.eqb. rewrite Time.eq_dec_neq; auto.
       apply Bool.andb_true_r.
   Qed.
 
   Lemma unset_eq loc ts promises:
     mem loc ts (unset loc ts promises) = false.
   Proof.
-    rewrite unset_o.
-    destruct (Loc.eq_dec loc loc); [|congr].
-    destruct (Time.eq_dec ts ts); [|congr].
-    auto.
+    rewrite unset_o. rewrite Loc.eq_dec_eq, Time.eq_dec_eq. auto.
   Qed.
 
   Lemma unset_inv loc1 ts1 loc2 ts2 promises
         (MEM: mem loc1 ts1 (unset loc2 ts2 promises)):
     ~ (loc1 = loc2 /\ ts1 = ts2) /\ mem loc1 ts1 promises.
   Proof.
-    rewrite unset_o in MEM.
-    destruct (Loc.eq_dec loc1 loc2), (Time.eq_dec ts1 ts2); ss; splits; auto.
-    - contradict n. des. auto.
-    - contradict n. des. auto.
-    - contradict n. des. auto.
+    revert MEM. rewrite unset_o. repeat condtac; ss; splits; auto.
+    - ii. des. subst. congr.
+    - ii. des. subst. congr.
   Qed.
 
   Lemma unset_set loc to inv
@@ -186,9 +176,7 @@ Module MemInv.
     unset loc to (set loc to inv) = inv.
   Proof.
     apply ext. i.
-    rewrite unset_o, set_o.
-    destruct (Loc.eq_dec loc0 loc), (Time.eq_dec ts to); ss; splits; auto.
-    subst. auto.
+    rewrite unset_o, set_o. repeat condtac; ss. subst. auto.
   Qed.
 
   Inductive disjoint (lhs rhs:t): Prop :=
@@ -276,8 +264,11 @@ Module MemInv.
     i. des.
     eexists. splits; eauto.
     rewrite unset_set in INV2; auto.
-    admit.
-  Admitted.
+    destruct (mem loc to inv) eqn:X; auto.
+    inv INV1. specialize (GET _ _ X). des.
+    exploit Memory.fulfill_get2; try apply FULFILL_TGT.
+    rewrite GET0. congr.
+  Qed.
 
   Lemma future
         inv

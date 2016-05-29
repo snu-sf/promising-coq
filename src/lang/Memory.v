@@ -60,8 +60,7 @@ Module TimeMap <: JoinableType.
         (LE: le c1 c2):
     le (incr loc ts c1) (incr loc ts c2).
   Proof.
-    ii. unfold incr, LocFun.add, LocFun.find.
-    destruct (Loc.eq_dec loc0 loc); auto.
+    ii. unfold incr, LocFun.add, LocFun.find. condtac; ss.
     apply Time.join_spec.
     - etrans; [apply LE|]. apply Time.join_l.
     - apply Time.join_r.
@@ -70,8 +69,7 @@ Module TimeMap <: JoinableType.
   Lemma incr_le loc ts c:
     le c (incr loc ts c).
   Proof.
-    unfold incr, LocFun.add, LocFun.find. ii.
-    destruct (Loc.eq_dec loc0 loc).
+    unfold incr, LocFun.add, LocFun.find. ii. condtac; ss.
     - subst. apply Time.join_l.
     - refl.
   Qed.
@@ -80,8 +78,7 @@ Module TimeMap <: JoinableType.
     Time.le ts (get loc (incr loc ts c)).
   Proof.
     unfold get, incr, LocFun.add, LocFun.find.
-    destruct (Loc.eq_dec loc loc); [|congr].
-    apply Time.join_r.
+    rewrite Loc.eq_dec_eq. apply Time.join_r.
   Qed.
 
   Lemma incr_spec loc ts c1 c2
@@ -89,9 +86,8 @@ Module TimeMap <: JoinableType.
         (TS: Time.le ts (get loc c2)):
     TimeMap.le (incr loc ts c1) c2.
   Proof.
-    ii. unfold get, incr, LocFun.add, LocFun.find.
-    destruct (Loc.eq_dec loc0 loc); auto. subst.
-    apply Time.join_spec; auto.
+    ii. unfold get, incr, LocFun.add, LocFun.find. condtac; ss.
+    subst. apply Time.join_spec; auto.
   Qed.
 End TimeMap.
 
@@ -391,12 +387,11 @@ Module Cell.
     Proof.
       inv ADD. inv CELL1. econs; i.
       - rewrite DOMap.Facts.add_o in *.
-        destruct (DOMap.Facts.eq_dec to to0).
+        revert GET. condtac; i.
         + inv GET. auto.
         + eapply VOLUME. eauto.
       - rewrite DOMap.Facts.add_o in *.
-        destruct (DOMap.Facts.eq_dec to to1),
-                 (DOMap.Facts.eq_dec to to2); repeat subst.
+        revert GET1 GET2. repeat condtac; i; repeat subst.
         + congr.
         + inv GET1. eapply DISJOINT; eauto.
         + inv GET2. symmetry. eapply DISJOINT; eauto.
@@ -421,18 +416,10 @@ Module Cell.
     Proof.
       inv SPLIT. inv CELL1. econs; i.
       - rewrite ? DOMap.Facts.add_o in *.
-        destruct (DOMap.Facts.eq_dec to1 to).
-        { inv GET. auto. }
-        destruct (DOMap.Facts.eq_dec to2 to).
-        { inv GET. auto. }
+        revert GET. repeat condtac; i; try by inv GET.
         eapply VOLUME. eauto.
       - rewrite ? DOMap.Facts.add_o in *.
-        destruct (DOMap.Facts.eq_dec to1 to0),
-                 (DOMap.Facts.eq_dec to1 to3),
-                 (DOMap.Facts.eq_dec to2 to0),
-                 (DOMap.Facts.eq_dec to2 to3);
-          (repeat subst);
-          (try congr);
+        revert GET1 GET0. repeat condtac; i; repeat subst; try congr;
           (repeat match goal with
                  | [H: Some _ = Some _ |- _] => inv H
                   end);
@@ -442,12 +429,12 @@ Module Cell.
           eapply Interval.le_mem; try apply LHS.
           econs; s. refl. apply Time.le_lteq. auto.
         + symmetry. apply Interval.disjoint_imm.
-        + ii. eapply (DISJOINT to0 to2); eauto.
-          eapply Interval.le_mem; try apply RHS.
-          econs; s. refl. apply Time.le_lteq. auto.
         + ii. eapply (DISJOINT to3 to0); eauto.
           eapply Interval.le_mem; try apply LHS.
           econs; s. apply Time.le_lteq. auto. refl.
+        + ii. eapply (DISJOINT to0 to2); eauto.
+          eapply Interval.le_mem; try apply RHS.
+          econs; s. refl. apply Time.le_lteq. auto.
         + ii. eapply (DISJOINT to0 to3); eauto.
           eapply Interval.le_mem; try apply RHS.
           econs; s. apply Time.le_lteq. auto. refl.
@@ -466,11 +453,10 @@ Module Cell.
       wf rhs.
     Proof.
       inv REMOVE. inv CELL1. econs; i.
-      - rewrite DOMap.Facts.remove_o in *.
-        destruct (DOMap.Facts.eq_dec to to0); eauto. congr.
-      - rewrite DOMap.Facts.remove_o in *.
-        destruct (DOMap.Facts.eq_dec to to1); try by inv GET1.
-        destruct (DOMap.Facts.eq_dec to to2); try by inv GET2.
+      - revert GET0. rewrite DOMap.Facts.remove_o.
+        condtac; eauto. congr.
+      - revert GET1 GET2. rewrite ? DOMap.Facts.remove_o.
+        repeat condtac; i; try congr.
         eapply DISJOINT; eauto.
     Qed.
   End Raw.
@@ -616,6 +602,7 @@ Module Memory.
   Definition closed (mem:t): Prop :=
     forall loc from to msg (MSG: get loc to mem = Some (from, msg)),
       <<WF: Capability.wf msg.(Message.released)>> /\
+      <<TS: Time.le (msg.(Message.released).(Capability.rw) loc) to>> /\
       <<CLOSED: closed_capability msg.(Message.released) mem>>.
 
   Inductive add (mem1:t) (loc:Loc.t) (from1 to1:Time.t) (msg1:Message.t): forall (mem2:t), Prop :=
@@ -674,13 +661,15 @@ Module Memory.
   | promise_add
       (PROMISES: add promises1 loc from1 to1 msg1 promises2)
       (MEM: add mem1 loc from1 to1 msg1 mem2)
-      (CLOSED: closed_capability msg1.(Message.released) mem2):
+      (CLOSED: closed_capability msg1.(Message.released) mem2)
+      (TS: Time.le (Capability.rw (Message.released msg1) loc) to1):
       promise promises1 mem1 loc from1 to1 msg1 promises2 mem2
   | promise_split
       to2
       (PROMISES: split promises1 loc from1 to1 to2 msg1 promises2)
       (MEM: split mem1 loc from1 to1 to2 msg1 mem2)
-      (CLOSED: closed_capability msg1.(Message.released) mem2):
+      (CLOSED: closed_capability msg1.(Message.released) mem2)
+      (TS: Time.le (Capability.rw (Message.released msg1) loc) to1):
       promise promises1 mem1 loc from1 to1 msg1 promises2 mem2
   .
 
@@ -974,8 +963,7 @@ Module Memory.
         (GET: get loc to mem = Some (from, msg)):
     closed_timemap (TimeMap.incr loc to s) mem.
   Proof.
-    unfold TimeMap.incr, LocFun.add, LocFun.find. ii.
-    destruct (Loc.eq_dec loc0 loc).
+    unfold TimeMap.incr, LocFun.add, LocFun.find. ii. condtac.
     - subst. destruct (Time.join_cases (s loc) to) as [X|X]; rewrite X; eauto.
     - apply CLOSED.
   Qed.
@@ -1017,6 +1005,14 @@ Module Memory.
     inv PROMISE.
     - exploit add_get1; eauto.
     - eapply split_get1'; eauto.
+  Qed.
+
+  Lemma fulfill_get2
+        promises1 loc from to msg promises2
+        (PROMISE: fulfill promises1 loc from to msg promises2):
+    get loc to promises1 = Some (from, msg).
+  Proof.
+    eapply remove_disjoint. apply PROMISE.
   Qed.
 
   Lemma promise_future

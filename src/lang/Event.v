@@ -65,7 +65,8 @@ Module MemEvent.
 End MemEvent.
 
 
-(* TODO: In reality, on the contrary to what is currently defined,
+(* TODO: syscalls
+ * In reality, on the contrary to what is currently defined,
  * syscalls may change the memory.
  *)
 (* NOTE: Syscall's results are not predictable.

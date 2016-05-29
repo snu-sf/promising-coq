@@ -168,13 +168,13 @@ Proof.
     rewrite ? IdentMap.Facts.add_o.
     rewrite ? Threads.compose_spec.
     rewrite ? IdentMap.Facts.add_o.
-    destruct (IdentMap.Facts.eq_dec tid y); auto.
+    condtac; auto.
   - right. exists (IdentMap.add tid (existT _ lang st3, lc3) ths2). splits; [|econs; eauto].
     apply IdentMap.eq_leibniz. ii.
     rewrite ? IdentMap.Facts.add_o.
     rewrite ? Threads.compose_spec.
     rewrite ? IdentMap.Facts.add_o.
-    destruct (IdentMap.Facts.eq_dec tid y); auto.
+    condtac; auto.
     subst. unfold Threads.compose_option. rewrite TH1. auto.
 Qed.
 
@@ -206,7 +206,7 @@ Proof.
     rewrite ? IdentMap.Facts.add_o.
     rewrite ? Threads.compose_spec.
     rewrite ? IdentMap.Facts.add_o.
-    destruct (IdentMap.Facts.eq_dec tid y); auto.
+    condtac; auto.
 Qed.
 
 Lemma compose_step2

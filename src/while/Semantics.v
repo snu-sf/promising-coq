@@ -1,4 +1,6 @@
 Require Import RelationClasses.
+
+Require Import Basic.
 Require Import Axioms.
 Require Import List.
 Require Import Event.
@@ -125,8 +127,7 @@ Module RegFile.
   Lemma eq_except_singleton r v rs:
     eq_except (RegSet.singleton r) (RegFun.add r v rs) rs.
   Proof.
-    ii. unfold RegFun.add, RegFun.find.
-    destruct (Reg.eq_dec reg r); auto. subst.
+    ii. unfold RegFun.add, RegFun.find. condtac; auto. subst.
     contradict REG. apply RegSet.Facts.singleton_iff. auto.
   Qed.
 
@@ -205,25 +206,20 @@ Module RegFile.
     - eexists. splits; eauto. econs.
     - eexists. splits; [econs|].
       ii. generalize (RS reg). i.
-      unfold RegFun.add, RegFun.find.
-      destruct (Reg.eq_dec reg lhs); auto.
-      subst. eapply eq_except_expr; eauto.
+      unfold RegFun.add, RegFun.find. condtac; auto. subst.
+      eapply eq_except_expr; eauto.
       ii. eapply REGS; eauto.
       apply RegSet.add_spec. auto.
     - eexists. splits; [econs|].
       ii. specialize (RS reg).
-      unfold RegFun.add, RegFun.find.
-      destruct (Reg.eq_dec reg lhs); auto.
+      unfold RegFun.add, RegFun.find. condtac; auto.
     - erewrite <- eq_except_value; eauto.
       eexists. splits; [econs|].
-      ii. specialize (RS reg).
-      unfold RegFun.add, RegFun.find.
-      destruct (Reg.eq_dec reg lhs); auto.
+      ii. eauto.
     - erewrite <- eq_except_rmw in RMW; eauto.
       + eexists. splits.
         * econs. eauto.
-        * ii. unfold RegFun.add.
-          destruct (RegSet.Facts.eq_dec reg lhs); auto.
+        * ii. unfold RegFun.add. condtac; auto.
           eapply RS; eauto.
       + ii. eapply REGS; eauto.
         apply RegSet.add_spec. auto.
@@ -231,8 +227,7 @@ Module RegFile.
     - erewrite <- eq_except_value_list; eauto.
       + eexists. splits; [econs|].
         ii. specialize (RS reg).
-        unfold RegFun.add, RegFun.find.
-        destruct (Reg.eq_dec reg lhs); auto.
+        unfold RegFun.add, RegFun.find. condtac; auto.
       + ii. eapply REGS; eauto.
         apply RegSet.add_spec. auto.
   Qed.

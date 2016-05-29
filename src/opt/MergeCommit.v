@@ -32,7 +32,8 @@ Lemma read_read
       (ORD1: Ordering.le ord1 ord)
       (ORD2: Ordering.le ord2 ord)
       (COMMIT: Commit.read commit0 loc ts released ord commit2)
-      (WF0: Commit.wf commit0):
+      (WF0: Commit.wf commit0)
+      (TS: Time.le (released.(Capability.rw) loc) ts):
   <<COMMIT1': Commit.read commit0 loc ts released ord1 (CommitFacts.read_min loc ts released ord1 commit0)>> /\
   <<COMMIT2': Commit.read (CommitFacts.read_min loc ts released ord1 commit0) loc ts released ord2 commit2>>.
 Proof.
@@ -42,9 +43,16 @@ Proof.
   { auto. }
   { inv COMMIT. apply WF_REL. }
   i.
-  exploit CommitFacts.read_min_spec.
-  { admit. }
-  { admit. }
+  exploit (@CommitFacts.read_min_spec loc ts released ord (CommitFacts.read_min loc ts released ord1 commit0)); s.
+  { unfold Capability.join_if. condtac; committac; try apply COMMIT.
+    etrans; eauto. apply COMMIT.
+  }
+  { i. unfold Capability.join_if. condtac; committac.
+    - unfold TimeMap.incr. unfold LocFun.add. rewrite Reg.eq_dec_eq.
+      apply Time.join_spec; try refl. apply COMMIT. auto.
+    - unfold TimeMap.incr. unfold LocFun.add. rewrite Reg.eq_dec_eq.
+      apply Time.join_spec; try refl. apply COMMIT. auto.
+  }
   { apply x0. }
   { inv COMMIT. apply WF_REL. }
   i.
@@ -54,7 +62,12 @@ Proof.
   - apply RA. etrans; eauto.
   - etrans; eauto. apply WF.
   - etrans; eauto. apply WF.
-Admitted.
+  - apply ACQ. etrans; eauto.
+  - etrans; eauto. apply WF.
+  - etrans; eauto. etrans; apply WF.
+  - etrans; eauto. apply WF.
+  - etrans; eauto. etrans; apply WF.
+Qed.
 
 (* NOTE: the `ORD2` condition is stronger than what can be proved.  In
    addition to the current criteria, [ord1 = ord2 = SC] is also
@@ -65,7 +78,8 @@ Lemma write_read
       commit0 commit2
       (ORD2: Ordering.le ord2 Ordering.acqrel)
       (COMMIT: Commit.write commit0 loc ts released ord1 commit2)
-      (WF0: Commit.wf commit0):
+      (WF0: Commit.wf commit0)
+      (TS: Time.le (released.(Capability.rw) loc) ts):
   <<COMMIT1': Commit.write commit0 loc ts released ord1 (CommitFacts.write_min loc ts released commit0)>> /\
   <<COMMIT2': Commit.read (CommitFacts.write_min loc ts released commit0) loc ts released ord2 commit2>>.
 Proof.
@@ -77,11 +91,19 @@ Proof.
   { auto. }
   { inv COMMIT. apply WF_REL. }
   i.
-  exploit CommitFacts.read_min_spec.
-  { admit. }
-  { admit. }
+  exploit (@CommitFacts.read_min_spec loc ts released ord2 (CommitFacts.write_min loc ts released commit0)); s.
+  { committac.
+    - etrans; eauto. apply COMMIT.
+    - unfold TimeMap.incr. unfold LocFun.add. rewrite Reg.eq_dec_eq.
+      apply Time.join_spec; try refl. etrans.
+      + inv WF0. apply CUR.
+      + apply Time.le_lteq. left. apply COMMIT.
+  }
+  { i. committac. unfold TimeMap.incr. unfold LocFun.add. rewrite Reg.eq_dec_eq.
+    apply Time.join_spec; try refl. apply Time.le_lteq. left. apply COMMIT.
+  }
   { apply x0. }
-  { inv COMMIT. apply WF_REL. }
+  { apply COMMIT. }
   i.
   splits; eauto. eapply CommitFacts.read_mon2;
                    try match goal with
@@ -105,7 +127,7 @@ Proof.
   - etrans; eauto. etrans; [apply WF|]. etrans; apply WF.
   - etrans; eauto. etrans; apply WF.
   - etrans; eauto. etrans; [apply WF|]. etrans; apply WF.
-Admitted.
+Qed.
 
 Lemma write_write
       loc ord

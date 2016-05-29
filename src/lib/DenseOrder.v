@@ -281,6 +281,19 @@ Module DenseOrder <: DenseOrderType.
   Proof.
     unfold meet. destruct (le_lt_dec lhs rhs); auto.
   Qed.
+
+  Lemma eq_dec_eq A i (a1 a2:A):
+    (if eq_dec i i then a1 else a2) = a1.
+  Proof.
+    destruct (eq_dec i i); [|congruence]. auto.
+  Qed.
+
+  Lemma eq_dec_neq A i1 i2 (a1 a2:A)
+        (NEQ: i1 <> i2):
+    (if eq_dec i1 i2 then a1 else a2) = a2.
+  Proof.
+    destruct (eq_dec i1 i2); [congruence|]. auto.
+  Qed.
 End DenseOrder.
 
 Global Program Instance DenseOrder_le_PreOrder: PreOrder DenseOrder.le.
