@@ -298,10 +298,7 @@ Proof.
   apply compose_consistent in CONSISTENT_SRC; auto.
   apply compose_consistent in CONSISTENT_TGT; auto.
   des. splits; i.
-  - punfold SIM1. exploit SIM1; eauto.
-    { i. eapply INTACT_SRC. rewrite Threads.compose_spec, H. ss. }
-    { i. eapply INTACT_TGT. rewrite Threads.compose_spec, H. ss. }
-    i. des.
+  - punfold SIM1. exploit SIM1; eauto. i. des.
     apply compose_is_terminal in TERMINAL_TGT; auto. des.
     exploit TERMINAL; eauto. i. des.
     exploit Configuration.rtc_step_consistent; eauto. s. i. des.
@@ -309,8 +306,6 @@ Proof.
     exploit compose_rtc_step1; eauto. s. i. des.
     punfold SIM2. exploit SIM2; eauto.
     { etrans; eauto. }
-    { admit. }
-    { admit. }
     i. des.
     exploit TERMINAL0; eauto. i. des.
     exploit Configuration.rtc_step_consistent; eauto. s. i. des.
@@ -322,10 +317,7 @@ Proof.
   - i. apply compose_step in STEP_TGT; auto. des; subst.
     + exploit Configuration.step_consistent; eauto. s. i. des.
       exploit Configuration.step_disjoint; eauto. s. i. des.
-      punfold SIM1. exploit SIM1; eauto.
-      { i. eapply INTACT_SRC. rewrite Threads.compose_spec, H. ss. }
-      { i. eapply INTACT_TGT. rewrite Threads.compose_spec, H. ss. }
-      i. des.
+      punfold SIM1. exploit SIM1; eauto. i. des.
       exploit STEP0; eauto. i. des; [|done].
       exploit Configuration.rtc_step_consistent; eauto. s. i. des.
       exploit Configuration.rtc_step_disjoint; eauto. s. i. des.
@@ -338,14 +330,9 @@ Proof.
       eapply sim_future; eauto.
       * repeat (etrans; eauto).
       * repeat (etrans; eauto).
-      * admit.
-      * admit.
     + exploit Configuration.step_consistent; eauto. s. i. des.
       exploit Configuration.step_disjoint; try symmetry; eauto. s. i. des.
-      punfold SIM2. exploit SIM2; eauto.
-      { i. eapply INTACT_SRC. rewrite compose_comm, Threads.compose_spec, H; ss. }
-      { i. eapply INTACT_TGT. rewrite compose_comm, Threads.compose_spec, H; ss. }
-      i. des.
+      punfold SIM2. exploit SIM2; eauto. i. des.
       exploit STEP0; eauto. i. des; [|done].
       exploit Configuration.rtc_step_consistent; eauto. s. i. des.
       exploit Configuration.rtc_step_disjoint; try symmetry; eauto. s. i. des.
@@ -359,6 +346,4 @@ Proof.
       eapply sim_future; eauto.
       * repeat (etrans; eauto).
       * repeat (etrans; eauto).
-      * admit.
-      * admit.
-Admitted.
+Qed.

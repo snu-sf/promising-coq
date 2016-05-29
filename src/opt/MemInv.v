@@ -222,14 +222,12 @@ Module MemInv.
         (PROMISES_TGT: Memory.promise promises1_tgt mem1_tgt loc from to msg promises2_tgt mem2_tgt)
         (INV1: sem inv promises1_src promises1_tgt)
         (SIM1: sim_memory mem1_src mem1_tgt)
-        (LE_SRC1: Memory.le promises1_src mem1_src)
-        (LE_TGT1: Memory.le promises1_tgt mem1_tgt)
-        (CLOSED_SRC1: Memory.closed mem1_src)
-        (CLOSED_TGT1: Memory.closed mem1_tgt):
+        (LE1_SRC: Memory.le promises1_src mem1_src)
+        (LE1_TGT: Memory.le promises1_tgt mem1_tgt):
     exists promises2_src mem2_src,
       <<PROMISES_SRC: Memory.promise promises1_src mem1_src loc from to msg promises2_src mem2_src>> /\
       <<INV2: sem inv promises2_src promises2_tgt>> /\
-      <<LE_SRC1: Memory.le promises2_src mem2_src>> /\
+      <<LE2_SRC: Memory.le promises2_src mem2_src>> /\
       <<SIM2: sim_memory mem2_src mem2_tgt>>.
   Proof.
   Admitted.
@@ -266,10 +264,8 @@ Module MemInv.
         (FULFILL_TGT: Memory.fulfill promises1_tgt loc from to msg promises2_tgt)
         (INV1: sem inv promises1_src promises1_tgt)
         (SIM1: sim_memory mem1_src mem1_tgt)
-        (LE_SRC1: Memory.le promises1_src mem1_src)
-        (LE_TGT1: Memory.le promises1_tgt mem1_tgt)
-        (CLOSED_SRC1: Memory.closed mem1_src)
-        (CLOSED_TGT1: Memory.closed mem1_tgt):
+        (LE1_SRC: Memory.le promises1_src mem1_src)
+        (LE1_TGT: Memory.le promises1_tgt mem1_tgt):
     exists promises2_src,
       <<FULFILL_SRC: Memory.fulfill promises1_src loc from to msg promises2_src>> /\
       <<INV2: sem inv promises2_src promises2_tgt>>.
@@ -290,11 +286,11 @@ Module MemInv.
         (FUTURE_SRC: Memory.future mem1_src mem2_src)
         (INV1: sem inv promises_src promises_tgt)
         (SIM1: sim_memory mem1_src mem1_tgt)
-        (LE_SRC1: Memory.le promises_src mem1_src)
-        (LE_TGT1: Memory.le promises_tgt mem1_tgt)
-        (LE_SRC2: Memory.le promises_src mem2_src):
+        (LE1_SRC: Memory.le promises_src mem1_src)
+        (LE1_TGT: Memory.le promises_tgt mem1_tgt)
+        (LE2_SRC: Memory.le promises_src mem2_src):
       <<FUTURE_TGT: Memory.future mem1_tgt mem2_src>> /\
-      <<WF2_PROMISES_TGT: Memory.le promises_tgt mem2_src>>.
+      <<LE2_TGT: Memory.le promises_tgt mem2_src>>.
   Proof.
     splits.
     - etrans; eauto. apply Memory.splits_future. apply SIM1.
@@ -311,17 +307,17 @@ Module MemInv.
   Qed.
 
   Lemma sem_bot_inv
-        promises
-        (SEM: sem bot promises Memory.bot):
-    promises = Memory.bot.
+        promises_src promises_tgt
+        (SEM: sem bot promises_src promises_tgt):
+    promises_src = promises_tgt.
   Proof.
-    extensionality loc. apply Cell.ext. s.
+    extensionality loc. apply Cell.ext.
     apply DOMap.eq_leibniz. ii.
-    unfold Cell.Raw.bot. rewrite DOMap.gempty.
-    destruct (DOMap.find y (Cell.raw (promises loc))) eqn:X; auto.
-    inv SEM.  exploit MEM.
-    - unfold Memory.get, Cell.get. rewrite X. congr.
-    - apply Memory.bot_get.
-    - i. rewrite bot_spec in x. congr.
+    destruct (DOMap.find y (Cell.raw (promises_tgt loc))) as [[]|] eqn:X.
+    - inv SEM. exploit LE; eauto.
+    - destruct (DOMap.find y (Cell.raw (promises_src loc))) eqn:Y; auto.
+      inv SEM. exploit MEM; eauto.
+      + unfold Memory.get, Cell.get. rewrite Y. congr.
+      + i. rewrite bot_spec in x. congr.
   Qed.
 End MemInv.

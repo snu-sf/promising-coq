@@ -98,10 +98,6 @@ Proof.
       eapply Local.read_step_future; eauto.
     }
     i. des.
-    exploit sim_local_fulfill; try apply x1; try refl; eauto.
-    { eapply Local.read_step_future; eauto. }
-    { eapply Local.read_step_future; eauto. }
-    i. des.
     exploit reorder_fulfill_promise; try apply x1; try apply STEP_SRC; eauto.
     { eapply Local.read_step_future; eauto. }
     i. des.

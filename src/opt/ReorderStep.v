@@ -32,7 +32,7 @@ Set Implicit Arguments.
 Lemma progress_step
       rs1 i1 s1 lc1 mem1
       (WF1: Local.wf lc1 mem1)
-      (PROMISES1: lc1.(Local.promises) = Promises.bot):
+      (PROMISES1: lc1.(Local.promises) = Memory.bot):
   (exists lc2, <<STEP: Thread.internal_step (Thread.mk lang (State.mk rs1 (i1::s1)) lc1 mem1) lc2>>) \/
   (exists e lc2, <<STEP: Thread.external_step e (Thread.mk lang (State.mk rs1 (i1::s1)) lc1 mem1) lc2>>).
 Proof.
@@ -119,7 +119,7 @@ Lemma reorder_read_promise
     <<STEP2: Local.read_step lc1' mem2 loc1 ts1 val1 released1 ord1 lc2>>.
 Proof.
   inv STEP1. inv STEP2. ss.
-  exploit Memory.promise_get1; try apply WF0; eauto. i.
+  exploit Memory.promise_get1; try apply PROMISE; eauto. i. des.
   exploit Memory.promise_future; try apply WF0; eauto. i. des.
   exploit Commit.future_closed; try apply WF0; eauto. i.
   eexists. splits.
