@@ -63,7 +63,7 @@ Proof.
     + hexploit progress_fence_step; eauto. i. des.
       left. eexists. econs 5; s; eauto.
       econs. econs.
-    + hexploit progress_silent_step; eauto. i.
+    + hexploit progress_fence_step; eauto. i. des.
       right. eexists _, _. econs; s; eauto.
       econs. econs.
   - left. eexists. econs 1; ss.

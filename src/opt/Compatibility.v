@@ -571,7 +571,7 @@ Proof.
         { apply rclo7_step. apply ctx_nil; auto. }
     + (* external *)
       inv STEP. inv STATE. ss.
-      exploit sim_local_silent; eauto. i. des.
+      exploit sim_local_fence; eauto. i. des.
       exploit RegFile.eq_except_instr; eauto. i. des.
       eexists _, _, _, _, _, _. splits; eauto.
       { econs 3. econs; eauto. econs. eauto. }

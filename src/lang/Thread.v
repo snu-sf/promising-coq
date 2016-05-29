@@ -328,7 +328,7 @@ Module Thread.
     | step_syscall
         st2 lc2
         (STATE: lang.(Language.step) (Some (ThreadEvent.syscall e)) e1.(state) st2)
-        (LOCAL: Local.silent_step e1.(local) e1.(memory) lc2):
+        (LOCAL: Local.fence_step e1.(local) e1.(memory) Ordering.seqcst Ordering.seqcst lc2):
         external_step e e1 (mk st2 lc2 e1.(memory))
     .
 
@@ -385,7 +385,7 @@ Module Thread.
       <<WF2: Local.wf e2.(local) e2.(memory)>> /\
       <<FUTURE: Memory.future e1.(memory) e2.(memory)>>.
     Proof.
-      inv STEP. exploit Local.silent_step_future; eauto. i.
+      inv STEP. exploit Local.fence_step_future; eauto. i.
       splits; ss. refl.
     Qed.
 
@@ -459,8 +459,8 @@ Module Thread.
       <<DISJOINT2: Local.disjoint e2.(local) lc>> /\
       <<WF: Local.wf lc e2.(memory)>>.
     Proof.
-      inv STEP. exploit Local.silent_step_future; eauto. i.
-      exploit Local.silent_step_disjoint; eauto.
+      inv STEP. exploit Local.fence_step_future; eauto. i.
+      exploit Local.fence_step_disjoint; eauto.
     Qed.
 
     Lemma step_disjoint e e1 e2 lc
