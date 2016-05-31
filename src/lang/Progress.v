@@ -17,10 +17,10 @@ Require Import Thread.
 Set Implicit Arguments.
 
 
-Lemma internal_step_promise
+Lemma program_step_promise
       lang
-      st1 lc1 mem1 st2 lc2 mem2
-      (STEP: Thread.internal_step (Thread.mk lang st1 lc1 mem1) (Thread.mk lang st2 lc2 mem2))
+      e st1 lc1 mem1 st2 lc2 mem2
+      (STEP: Thread.program_step e (Thread.mk lang st1 lc1 mem1) (Thread.mk lang st2 lc2 mem2))
       (PROMISES: lc1.(Local.promises) = Memory.bot):
   lc2.(Local.promises) = Memory.bot.
 Proof.

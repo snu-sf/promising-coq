@@ -276,14 +276,16 @@ Proof.
   - eexists. rewrite app_comm_cons, app_assoc. splits; eauto. econs 3.
 Qed.
 
-Lemma internal_step_seq
-      stmts
+Lemma program_step_seq
+      stmts e
       rs1 stmts1 lc1 mem1
       rs2 stmts2 lc2 mem2
-      (STEP: Thread.internal_step
+      (STEP: Thread.program_step
+               e
                (Thread.mk lang (State.mk rs1 stmts1) lc1 mem1)
                (Thread.mk lang (State.mk rs2 stmts2) lc2 mem2)):
-  Thread.internal_step
+  Thread.program_step
+    e
     (Thread.mk lang (State.mk rs1 (stmts1 ++ stmts)) lc1 mem1)
     (Thread.mk lang (State.mk rs2 (stmts2 ++ stmts)) lc2 mem2).
 Proof.
@@ -293,6 +295,7 @@ Proof.
   - econs 3; s; eauto. apply lang_step_seq. auto.
   - econs 4; s; eauto. apply lang_step_seq. auto.
   - econs 5; s; eauto. apply lang_step_seq. auto.
+  - econs 6; s; eauto. apply lang_step_seq. auto.
 Qed.
 
 Lemma step_seq
@@ -308,8 +311,7 @@ Lemma step_seq
 Proof.
   inv STEP; ss.
   - econs 1. inv STEP0. econs; ss. eauto.
-  - econs 2. apply internal_step_seq. auto.
-  - econs 3. inv STEP0. econs; ss. apply lang_step_seq. auto.
+  - econs 2. apply program_step_seq. auto.
 Qed.
 
 Lemma thread_step_deseq
@@ -346,10 +348,9 @@ Proof.
     + apply lang_step_deseq in STATE. des. subst.
       eexists. splits; eauto.
       econs 2. econs 5; s; eauto.
-  - inv STEP0. ss.
-    apply lang_step_deseq in STATE. des. subst.
-    eexists. splits; eauto.
-    econs 3. econs; s; eauto.
+    + apply lang_step_deseq in STATE. des. subst.
+      eexists. splits; eauto.
+      econs 2. econs 6; s; eauto.
 Qed.
 
 Lemma sim_rtc
@@ -569,13 +570,13 @@ Proof.
         eexists _, _, _, _, _, _. splits; eauto.
         { econs 2. econs 5; eauto. econs. eauto. }
         { apply rclo7_step. apply ctx_nil; auto. }
-    + (* external *)
-      inv STEP. inv STATE. ss.
-      exploit sim_local_fence; eauto. i. des.
-      exploit RegFile.eq_except_instr; eauto. i. des.
-      eexists _, _, _, _, _, _. splits; eauto.
-      { econs 3. econs; eauto. econs. eauto. }
-      { apply rclo7_step. apply ctx_nil; auto. }
+      * (* syscall *)
+        inv STATE.
+        exploit sim_local_fence; eauto. i. des.
+        exploit RegFile.eq_except_instr; eauto. i. des.
+        eexists _, _, _, _, _, _. splits; eauto.
+        { econs 2. econs 6; eauto. econs. eauto. }
+        { apply rclo7_step. apply ctx_nil; auto. }
   - (* seq *)
     ii. ss.
     exploit GF; eauto. s. i. des.
@@ -669,7 +670,6 @@ Proof.
         - apply rclo7_incl. apply LE. apply SIM1; ss.
         - apply rclo7_incl. apply LE. apply SIM2; ss.
       }
-    + inv STEP. inv STATE.
   - (* dowhile *)
     ii.
     inversion LOCAL. exploit MemInv.sem_bot_inv; eauto. i.
@@ -711,7 +711,6 @@ Proof.
           eapply _sim_stmts_mon; try apply LE; eauto.
         - ii. apply rclo7_base; auto.
       }
-    + inv STEP. inv STATE.
 Qed.
 
 Definition sim_stmts := @_sim_stmts (@sim_thread lang lang).

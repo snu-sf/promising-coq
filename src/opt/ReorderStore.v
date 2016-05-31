@@ -157,17 +157,17 @@ Proof.
       eapply Local.future_fulfill_step; eauto.
       eapply Local.future_fulfill_step; eauto.
   - inversion PR. subst. i.
-    exploit (progress_step rs i2 nil); eauto.
-    i. des; [|by inv STEP; inv STATE; inv INSTR; inv REORDER].
+    exploit (progress_program_step rs i2 nil); eauto. i. des.
+    destruct e; [by inv STEP; inv STATE; inv INSTR; inv REORDER|].
     destruct lc2. exploit sim_store_step; eauto.
     { econs 2. eauto. }
     i. des.
-    + exploit internal_step_promise; eauto. i.
+    + exploit program_step_promise; eauto. i.
       punfold SIM. exploit SIM; eauto; try refl.
       { exploit Thread.rtc_step_future; eauto. s. i. des.
         exploit Thread.step_future; eauto. s. i. des. auto.
       }
-      { exploit Thread.internal_step_future; eauto. s. i. des. auto. }
+      { exploit Thread.program_step_future; eauto. s. i. des. auto. }
       i. des. exploit PROMISES; eauto. i. des.
       eexists _, _, _. splits; [|eauto].
       etrans; eauto.
