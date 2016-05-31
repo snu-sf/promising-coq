@@ -277,15 +277,15 @@ Proof.
 Qed.
 
 Lemma program_step_seq
-      stmts e
+      stmts e readinfo
       rs1 stmts1 lc1 mem1
       rs2 stmts2 lc2 mem2
       (STEP: Thread.program_step
-               e
+               e readinfo
                (Thread.mk lang (State.mk rs1 stmts1) lc1 mem1)
                (Thread.mk lang (State.mk rs2 stmts2) lc2 mem2)):
   Thread.program_step
-    e
+    e readinfo
     (Thread.mk lang (State.mk rs1 (stmts1 ++ stmts)) lc1 mem1)
     (Thread.mk lang (State.mk rs2 (stmts2 ++ stmts)) lc2 mem2).
 Proof.
@@ -311,7 +311,7 @@ Lemma step_seq
 Proof.
   inv STEP; ss.
   - econs 1. inv STEP0. econs; ss. eauto.
-  - econs 2. apply program_step_seq. auto.
+  - econs 2. apply program_step_seq. eauto.
 Qed.
 
 Lemma thread_step_deseq

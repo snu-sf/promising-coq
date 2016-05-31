@@ -79,6 +79,13 @@ Module Threads.
   Lemma compose_spec ths1 ths2 tid:
     IdentMap.find tid (compose ths1 ths2) = compose_option (IdentMap.find tid ths1) (IdentMap.find tid ths2).
   Proof. apply IdentMap.Facts.map2_1bis; auto. Qed.
+
+  Inductive is_promised (loc:Loc.t) (to:Time.t) (threads:t): Prop :=
+  | is_promised_intro
+      tid lang st lc from msg
+      (TID: IdentMap.find tid threads = Some (existT _ lang st, lc))
+      (PROMISES: Memory.get loc to lc.(Local.promises) = Some (from, msg))
+  .
 End Threads.
 
 

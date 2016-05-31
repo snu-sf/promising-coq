@@ -293,25 +293,25 @@ Module Thread.
         promise_step e1 (mk e1.(state) lc2 mem2)
     .
 
-    Inductive program_step: forall (e:option Event.t) (e1 e2:t), Prop :=
+    Inductive program_step: forall (e:option Event.t) (readinfo: option (Loc.t * Time.t)) (e1 e2:t), Prop :=
     | step_silent
         st1 lc1 mem1
         st2 lc2
         (STATE: lang.(Language.step) None st1 st2)
         (LOCAL: Local.silent_step lc1 mem1 lc2):
-        program_step None (mk st1 lc1 mem1) (mk st2 lc2 mem1)
+        program_step None None (mk st1 lc1 mem1) (mk st2 lc2 mem1)
     | step_read
         st1 lc1 mem1
         st2 loc ts val released ord lc2
         (STATE: lang.(Language.step) (Some (ThreadEvent.mem (MemEvent.read loc val ord))) st1 st2)
         (LOCAL: Local.read_step lc1 mem1 loc ts val released ord lc2):
-        program_step None (mk st1 lc1 mem1) (mk st2 lc2 mem1)
+        program_step None (Some (loc, ts)) (mk st1 lc1 mem1) (mk st2 lc2 mem1)
     | step_write
         st1 lc1 mem1
         st2 loc from to val released ord lc2 mem2
         (STATE: lang.(Language.step) (Some (ThreadEvent.mem (MemEvent.write loc val ord))) st1 st2)
         (LOCAL: Local.write_step lc1 mem1 loc from to val released released ord lc2 mem2):
-        program_step None (mk st1 lc1 mem1) (mk st2 lc2 mem2)
+        program_step None None (mk st1 lc1 mem1) (mk st2 lc2 mem2)
     | step_update
         st1 lc1 mem1
         st3 loc ordr ordw
@@ -320,29 +320,29 @@ Module Thread.
         (STATE: lang.(Language.step) (Some (ThreadEvent.mem (MemEvent.update loc valr valw ordr ordw))) st1 st3)
         (LOCAL1: Local.read_step lc1 mem1 loc tsr valr releasedr ordr lc2)
         (LOCAL2: Local.write_step lc2 mem1 loc tsr tsw valw releasedw (Capability.join releasedr releasedw) ordw lc3 mem3):
-        program_step None (mk st1 lc1 mem1) (mk st3 lc3 mem3)
+        program_step None (Some (loc, tsr)) (mk st1 lc1 mem1) (mk st3 lc3 mem3)
     | step_fence
         st1 lc1 mem1
         st2 ordr ordw lc2
         (STATE: lang.(Language.step) (Some (ThreadEvent.mem (MemEvent.fence ordr ordw))) st1 st2)
         (LOCAL: Local.fence_step lc1 mem1 ordr ordw lc2):
-        program_step None (mk st1 lc1 mem1) (mk st2 lc2 mem1)
+        program_step None None (mk st1 lc1 mem1) (mk st2 lc2 mem1)
     | step_syscall
         st1 lc1 mem1
         st2 e lc2
         (STATE: lang.(Language.step) (Some (ThreadEvent.syscall e)) st1 st2)
         (LOCAL: Local.fence_step lc1 mem1 Ordering.seqcst Ordering.seqcst lc2):
-        program_step (Some e) (mk st1 lc1 mem1) (mk st2 lc2 mem1)
+        program_step (Some e) None (mk st1 lc1 mem1) (mk st2 lc2 mem1)
     .
 
-    Inductive step: forall (e:option Event.t) (e1:t) (e2:t), Prop :=
+    Inductive step: forall (e:option Event.t) (e1 e2:t), Prop :=
     | step_promise
         e1 e2
         (STEP: promise_step e1 e2):
         step None e1 e2
     | step_program
-        e e1 e2
-        (STEP: program_step e e1 e2):
+        e readinfo e1 e2
+        (STEP: program_step e readinfo e1 e2):
         step e e1 e2
     .
 
@@ -363,8 +363,8 @@ Module Thread.
       inv STEP; s. exploit Local.promise_step_future; eauto.
     Qed.
 
-    Lemma program_step_future e e1 e2
-          (STEP: program_step e e1 e2)
+    Lemma program_step_future e readinfo e1 e2
+          (STEP: program_step e readinfo e1 e2)
           (WF1: Local.wf e1.(local) e1.(memory)):
       <<WF2: Local.wf e2.(local) e2.(memory)>> /\
       <<FUTURE: Memory.future e1.(memory) e2.(memory)>>.
@@ -417,8 +417,8 @@ Module Thread.
       exploit Local.promise_step_disjoint; eauto.
     Qed.
 
-    Lemma program_step_disjoint e e1 e2 lc
-        (STEP: program_step e e1 e2)
+    Lemma program_step_disjoint e readinfo e1 e2 lc
+        (STEP: program_step e readinfo e1 e2)
         (WF1: Local.wf e1.(local) e1.(memory))
         (DISJOINT1: Local.disjoint e1.(local) lc)
         (WF: Local.wf lc e1.(memory)):

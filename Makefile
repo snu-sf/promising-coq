@@ -19,6 +19,7 @@ Makefile.coq: Makefile $(COQTHEORIES)
    echo "-R src/lang $(COQMODULE)"; \
    echo "-R src/while $(COQMODULE)"; \
    echo "-R src/opt $(COQMODULE)"; \
+   echo "-R src/drf $(COQMODULE)"; \
    \
    echo $(COQTHEORIES)) > _CoqProject
 	coq_makefile -f _CoqProject -o Makefile.coq

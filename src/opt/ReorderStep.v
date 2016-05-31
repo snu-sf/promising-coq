@@ -33,23 +33,23 @@ Lemma progress_program_step
       rs1 i1 s1 lc1 mem1
       (WF1: Local.wf lc1 mem1)
       (PROMISES1: lc1.(Local.promises) = Memory.bot):
-  exists e lc2, <<STEP: Thread.program_step e (Thread.mk lang (State.mk rs1 (i1::s1)) lc1 mem1) lc2>>.
+  exists e readinfo lc2, <<STEP: Thread.program_step e readinfo (Thread.mk lang (State.mk rs1 (i1::s1)) lc1 mem1) lc2>>.
 Proof.
   destruct i1.
   - destruct i.
     + hexploit progress_silent_step; eauto. i.
-      eexists _, _. splits. econs 1; s; eauto.
+      eexists _, _, _. splits. econs 1; s; eauto.
       econs. econs.
     + hexploit progress_silent_step; eauto. i.
-      eexists _, _. econs 1; s; eauto.
+      eexists _, _, _. econs 1; s; eauto.
       econs. econs.
     + hexploit exists_max_timestamp; try apply WF1; eauto. i. des.
       hexploit progress_read_step; eauto. i. des.
-      eexists _, _. econs 2; s; eauto.
+      eexists _, _, _. econs 2; s; eauto.
       econs. econs.
     + hexploit exists_max_timestamp; try apply WF1; eauto. i. des.
       hexploit progress_write_step; try apply Time.incr_spec; eauto. i. des.
-      eexists _, _. econs 3; s; eauto.
+      eexists _, _, _. econs 3; s; eauto.
       econs. econs.
     + hexploit exists_max_timestamp; try apply WF1; eauto. i. des.
       hexploit progress_read_step; eauto. i. des.
@@ -57,18 +57,18 @@ Proof.
       hexploit progress_write_step; try apply Time.incr_spec; eauto.
       { inv H0. auto. }
       i. des.
-      eexists _, _. econs 4; s; eauto.
+      eexists _, _, _. econs 4; s; eauto.
       * econs. econs. apply surjective_pairing.
     + hexploit progress_fence_step; eauto. i. des.
-      eexists _, _. econs 5; s; eauto.
+      eexists _, _, _. econs 5; s; eauto.
       econs. econs.
     + hexploit progress_fence_step; eauto. i. des.
-      eexists _, _. econs 6; s; eauto.
+      eexists _, _, _. econs 6; s; eauto.
       econs. econs.
-  - eexists _, _. econs 1; ss.
+  - eexists _, _, _. econs 1; ss.
     + econs.
     + apply progress_silent_step. auto.
-  - eexists _, _. econs 1; ss.
+  - eexists _, _, _. econs 1; ss.
     + econs.
     + apply progress_silent_step. auto.
 Grab Existential Variables.
