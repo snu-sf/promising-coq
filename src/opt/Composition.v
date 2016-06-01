@@ -138,22 +138,22 @@ End Compose.
 
 Lemma compose_step
       ths1 ths2
-      e mem ths' mem'
+      e tid mem ths' mem'
       (DISJOINT: Threads.disjoint ths1 ths2)
       (STEP: Configuration.step
-               e
+               e tid
                (Configuration.mk (Threads.compose ths1 ths2) mem)
                (Configuration.mk ths' mem')):
   (exists ths1',
       <<NEXT: ths' = Threads.compose ths1' ths2>> /\
       <<STEP: Configuration.step
-                e
+                e tid
                 (Configuration.mk ths1 mem)
                 (Configuration.mk ths1' mem')>>) \/
   (exists ths2',
       <<NEXT: ths' = Threads.compose ths1 ths2'>> /\
       <<STEP: Configuration.step
-                e
+                e tid
                 (Configuration.mk ths2 mem)
                 (Configuration.mk ths2' mem')>>).
 Proof.
@@ -180,16 +180,16 @@ Qed.
 
 Lemma compose_step1
       ths1 ths2
-      e mem ths1' mem'
+      e tid mem ths1' mem'
       (STEP: Configuration.step
-               e
+               e tid
                (Configuration.mk ths1 mem)
                (Configuration.mk ths1' mem'))
       (DISJOINT: Threads.disjoint ths1 ths2)
       (CONSISTENT1: Configuration.consistent (Configuration.mk ths1 mem))
       (CONSISTENT2: Configuration.consistent (Configuration.mk ths2 mem)):
   <<STEP: Configuration.step
-            e
+            e tid
             (Configuration.mk (Threads.compose ths1 ths2) mem)
             (Configuration.mk (Threads.compose ths1' ths2) mem')>> /\
   <<DISJOINT': Threads.disjoint ths1' ths2>> /\
@@ -211,16 +211,16 @@ Qed.
 
 Lemma compose_step2
       ths1 ths2
-      e mem ths2' mem'
+      e tid mem ths2' mem'
       (STEP: Configuration.step
-               e
+               e tid
                (Configuration.mk ths2 mem)
                (Configuration.mk ths2' mem'))
       (DISJOINT: Threads.disjoint ths1 ths2)
       (CONSISTENT1: Configuration.consistent (Configuration.mk ths1 mem))
       (CONSISTENT2: Configuration.consistent (Configuration.mk ths2 mem)):
   <<STEP: Configuration.step
-            e
+            e tid
             (Configuration.mk (Threads.compose ths1 ths2) mem)
             (Configuration.mk (Threads.compose ths1 ths2') mem')>> /\
   <<DISJOINT': Threads.disjoint ths1 ths2'>> /\
@@ -238,44 +238,44 @@ Qed.
 
 Lemma compose_rtc_step1
       c1 c2 ths
-      (STEPS: rtc (Configuration.step None) c1 c2)
+      (STEPS: rtc Configuration.tau_step c1 c2)
       (DISJOINT: Threads.disjoint c1.(Configuration.threads) ths)
       (CONSISTENT1: Configuration.consistent c1)
       (CONSISTENT: Configuration.consistent (Configuration.mk ths c1.(Configuration.memory))):
-  <<STEPS: rtc (Configuration.step None)
+  <<STEPS: rtc Configuration.tau_step
                (Configuration.mk (Threads.compose c1.(Configuration.threads) ths) c1.(Configuration.memory))
                (Configuration.mk (Threads.compose c2.(Configuration.threads) ths) c2.(Configuration.memory))>> /\
   <<DISJOINT': Threads.disjoint c2.(Configuration.threads) ths>> /\
   <<CONSISTENT': Configuration.consistent (Configuration.mk ths c2.(Configuration.memory))>>.
 Proof.
-  revert CONSISTENT1 CONSISTENT. induction STEPS; auto. i.
+  revert CONSISTENT1 CONSISTENT. induction STEPS; auto. i. inv H.
   exploit Configuration.step_consistent; eauto. i. des.
   exploit Configuration.step_disjoint; eauto. i. des.
   destruct x, y. exploit compose_step1; eauto. s. i. des.
   exploit IHSTEPS; eauto. s. i. des.
   splits; eauto.
-  econs; eauto.
+  econs; eauto. econs. eauto.
 Qed.
 
 Lemma compose_rtc_step2
       c1 c2 ths
-      (STEPS: rtc (Configuration.step None) c1 c2)
+      (STEPS: rtc Configuration.tau_step c1 c2)
       (DISJOINT: Threads.disjoint ths c1.(Configuration.threads))
       (CONSISTENT1: Configuration.consistent c1)
       (CONSISTENT: Configuration.consistent (Configuration.mk ths c1.(Configuration.memory))):
-  <<STEPS: rtc (Configuration.step None)
+  <<STEPS: rtc Configuration.tau_step
                (Configuration.mk (Threads.compose ths c1.(Configuration.threads)) c1.(Configuration.memory))
                (Configuration.mk (Threads.compose ths c2.(Configuration.threads)) c2.(Configuration.memory))>> /\
   <<DISJOINT': Threads.disjoint ths c2.(Configuration.threads)>> /\
   <<CONSISTENT': Configuration.consistent (Configuration.mk ths c2.(Configuration.memory))>>.
 Proof.
-  revert CONSISTENT1 CONSISTENT. induction STEPS; auto. i.
+  revert CONSISTENT1 CONSISTENT. induction STEPS; auto. i. inv H.
   exploit Configuration.step_consistent; eauto. i. des.
   exploit Configuration.step_disjoint; try symmetry; eauto. i. des.
   destruct x, y. exploit compose_step2; eauto. s. i. des.
   exploit IHSTEPS; try symmetry; eauto. s. i. des.
   splits; eauto.
-  econs; eauto.
+  econs; eauto. econs. eauto.
 Qed.
 
 
@@ -325,7 +325,7 @@ Proof.
       exploit Configuration.step_consistent; eauto. s. i. des.
       exploit Configuration.step_disjoint; eauto. s. i. des.
       exploit compose_step1; eauto. i. des.
-      eexists _, _, _, _. splits; eauto.
+      eexists _, _, _, _, _. splits; eauto.
       right. apply CIH; auto.
       eapply sim_future; eauto.
       * repeat (etrans; eauto).
@@ -340,7 +340,7 @@ Proof.
       exploit Configuration.step_consistent; eauto. s. i. des.
       exploit Configuration.step_disjoint; eauto. s. i. des.
       exploit compose_step2; eauto. i. des.
-      eexists _, _, _, _. splits; eauto.
+      eexists _, _, _, _, _. splits; eauto.
       right. apply CIH; auto.
       { symmetry. auto. }
       eapply sim_future; eauto.

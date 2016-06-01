@@ -103,7 +103,7 @@ Proof.
     i. des.
     exploit reorder_read_promise; try apply x0; try apply STEP1; eauto. i. des.
     i. des.
-    eexists _, _, _, _, _, _. splits; eauto.
+    eexists _, _, _, _, _, _, _. splits; eauto.
     + econs. econs 1; eauto.
     + right. econs; try apply STEP3; try apply STEP_SRC0; eauto.
   - (* load *)
@@ -117,8 +117,8 @@ Proof.
     i. des.
     exploit reorder_read_read; try apply x0; try apply STEP1; eauto. i. des.
     apply RegSet.disjoint_add in REGS. des.
-    eexists _, _, _, _, _, _. splits.
-    + econs 2; [|econs 1]. econs 2. econs 2; eauto. econs. econs.
+    eexists _, _, _, _, _, _, _. splits.
+    + econs 2; [|econs 1]. econs. econs 2. econs 2; eauto. econs. econs.
     + econs 2. econs 4; eauto.
       * econs. econs. erewrite RegFile.eq_except_rmw; eauto.
         { symmetry. eauto. }
@@ -141,8 +141,8 @@ Proof.
     exploit reorder_read_write; try apply x0; try apply STEP1; eauto.
     { i. destruct or1; inv ORDR1; inv H0. }
     i. des.
-    eexists _, _, _, _, _, _. splits.
-    + econs 2; [|econs 1]. econs 2. econs 3; eauto. econs.
+    eexists _, _, _, _, _, _, _. splits.
+    + econs 2; [|econs 1]. econs. econs 2. econs 3; eauto. econs.
       erewrite <- RegFile.eq_except_value; eauto.
       * econs.
       * symmetry.
@@ -181,8 +181,8 @@ Proof.
     { i. destruct or1; inv ORDR1; inv H0. }
     { eapply Local.read_step_future; eauto. }
     i. des.
-    eexists _, _, _, _, _, _. splits.
-    + econs 2; [|econs 1]. econs 2. econs 4; eauto. econs. econs.
+    eexists _, _, _, _, _, _, _. splits.
+    + econs 2; [|econs 1]. econs. econs 2. econs 4; eauto. econs. econs.
       erewrite <- RegFile.eq_except_rmw; eauto; try apply RegFile.eq_except_singleton.
       ii. eapply REGS; apply RegSet.add_spec.
       * left. eauto.
@@ -233,12 +233,11 @@ Proof.
       { exploit Thread.program_step_future; eauto. s. i. des. auto. }
       i. des. exploit PROMISES; eauto. i. des.
       eexists _, _, _. splits; [|eauto].
-      etrans; eauto.
-      etrans; [econs 2; eauto|].
-      etrans; eauto.
+      etrans; eauto. etrans; [|eauto].
+      econs 2; eauto. econs. eauto.
     + inv SIM. inv STEP; inv STATE.
   - ii. exploit sim_update_step; eauto. i. des.
-    + eexists _, _, _, _, _, _. splits; eauto.
+    + eexists _, _, _, _, _, _, _. splits; eauto.
       left. eapply paco7_mon; eauto. ss.
-    + eexists _, _, _, _, _, _. splits; eauto.
+    + eexists _, _, _, _, _, _, _. splits; eauto.
 Qed.

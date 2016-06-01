@@ -335,15 +335,21 @@ Module Thread.
         program_step (Some e) None (mk st1 lc1 mem1) (mk st2 lc2 mem1)
     .
 
-    Inductive step: forall (e:option Event.t) (e1 e2:t), Prop :=
+    Inductive step: forall (e:option Event.t) (readinfo:option (Loc.t * Time.t)) (e1 e2:t), Prop :=
     | step_promise
         e1 e2
         (STEP: promise_step e1 e2):
-        step None e1 e2
+        step None None e1 e2
     | step_program
         e readinfo e1 e2
         (STEP: program_step e readinfo e1 e2):
-        step e e1 e2
+        step e readinfo e1 e2
+    .
+
+    Inductive tau_step (e1 e2:t): Prop :=
+    | step_tau
+        readinfo
+        (STEP: step None readinfo e1 e2)
     .
 
     Definition consistent st1 lc1 mem: Prop :=
@@ -351,7 +357,7 @@ Module Thread.
         (FUTURE: Memory.future mem mem1)
         (WF: Local.wf lc1 mem1),
       exists e2,
-        <<STEPS: rtc (step None) (mk st1 lc1 mem1) e2>> /\
+        <<STEPS: rtc tau_step (mk st1 lc1 mem1) e2>> /\
         <<PROMISES: e2.(local).(Local.promises) = Memory.bot>>.
 
     Lemma promise_step_future e1 e2
@@ -379,8 +385,8 @@ Module Thread.
       - exploit Local.fence_step_future; eauto. i. splits; ss. refl.
     Qed.
 
-    Lemma step_future e e1 e2
-          (STEP: step e e1 e2)
+    Lemma step_future e readinfo e1 e2
+          (STEP: step e readinfo e1 e2)
           (WF1: Local.wf e1.(local) e1.(memory)):
       <<WF2: Local.wf e2.(local) e2.(memory)>> /\
       <<FUTURE: Memory.future e1.(memory) e2.(memory)>>.
@@ -391,14 +397,14 @@ Module Thread.
     Qed.
 
     Lemma rtc_step_future e1 e2
-          (STEP: rtc (step None) e1 e2)
+          (STEP: rtc tau_step e1 e2)
           (WF1: Local.wf e1.(local) e1.(memory)):
       <<WF2: Local.wf e2.(local) e2.(memory)>> /\
       <<FUTURE: Memory.future e1.(memory) e2.(memory)>>.
     Proof.
       revert WF1. induction STEP.
       - i. splits; ss. refl.
-      - i.
+      - i. inv H.
         exploit step_future; eauto. i. des.
         exploit IHSTEP; eauto. i. des.
         splits; ss. etrans; eauto.
@@ -442,8 +448,8 @@ Module Thread.
         exploit Local.fence_step_disjoint; eauto.
     Qed.
 
-    Lemma step_disjoint e e1 e2 lc
-        (STEP: step e e1 e2)
+    Lemma step_disjoint e readinfo e1 e2 lc
+        (STEP: step e readinfo e1 e2)
         (WF1: Local.wf e1.(local) e1.(memory))
         (DISJOINT1: Local.disjoint e1.(local) lc)
         (WF: Local.wf lc e1.(memory)):
@@ -456,14 +462,14 @@ Module Thread.
     Qed.
 
     Lemma rtc_step_disjoint e1 e2 lc
-        (STEP: rtc (step None) e1 e2)
+        (STEP: rtc tau_step e1 e2)
         (WF1: Local.wf e1.(local) e1.(memory))
         (DISJOINT1: Local.disjoint e1.(local) lc)
         (WF: Local.wf lc e1.(memory)):
       <<DISJOINT2: Local.disjoint e2.(local) lc>> /\
       <<WF: Local.wf lc e2.(memory)>>.
     Proof.
-      revert WF1 DISJOINT1 WF. induction STEP; eauto. i.
+      revert WF1 DISJOINT1 WF. induction STEP; eauto. i. inv H.
       exploit step_future; eauto. i. des.
       exploit step_disjoint; eauto. i. des.
       exploit IHSTEP; eauto.

@@ -17,31 +17,25 @@ Require Import Configuration.
 Set Implicit Arguments.
 
 
-Inductive pi_thread_step lang: forall (e:option Event.t) (readinfo:option (Loc.t * Time.t)) (e1 e2:Thread.t lang), Prop :=
-| pi_step_promise
-    e1 e2
-    (STEP: Thread.promise_step e1 e2):
-    pi_thread_step None None e1 e2
-| pi_step_program
-    e readinfo e1 e2
-    (STEP: Thread.program_step e readinfo e1 e2):
-    pi_thread_step e readinfo e1 e2
-.
+Definition pi_readinfo (readinfo:option (Loc.t * Time.t)) (threads:Threads.t): Prop :=
+  forall loc ts
+    (READINFO: readinfo = Some (loc, ts))
+    (PROMISED: Threads.is_promised loc ts threads),
+    False.
 
-Inductive pi_step (tid:Ident.t) (e:option Event.t) (c1:Configuration.t): forall (c2:Configuration.t), Prop :=
+Inductive pi_step (tid:Ident.t) (c1:Configuration.t): forall (c2:Configuration.t), Prop :=
 | pi_step_intro
-    readinfo lang st1 lc1 e2 st3 lc3 memory3
+    e readinfo lang st1 lc1 st2 lc2 memory2
     (TID: IdentMap.find tid c1.(Configuration.threads) = Some (existT _ lang st1, lc1))
-    (STEPS: rtc (Thread.step None) (Thread.mk _ st1 lc1 c1.(Configuration.memory)) e2)
-    (STEP: pi_thread_step e readinfo e2 (Thread.mk _ st3 lc3 memory3))
-    (READINFO: forall loc ts (READINFO: readinfo = Some (loc, ts)), ~ Threads.is_promised loc ts c1.(Configuration.threads)):
-    pi_step tid e c1 (Configuration.mk (IdentMap.add tid (existT _ _ st3, lc3) c1.(Configuration.threads)) memory3)
+    (STEP: Thread.step e readinfo (Thread.mk _ st1 lc1 c1.(Configuration.memory)) (Thread.mk _ st2 lc2 memory2))
+    (READINFO: pi_readinfo readinfo c1.(Configuration.threads)):
+    pi_step tid c1 (Configuration.mk (IdentMap.add tid (existT _ _ st2, lc2) c1.(Configuration.threads)) memory2)
 .
 
 Inductive pi_step_except (tid_except:Ident.t) (c1 c2:Configuration.t): Prop :=
-| pi_step_neq_intro
-    tid e
-    (PI_STEP: pi_step tid e c1 c2)
+| pi_step_except_intro
+    tid
+    (PI_STEP: pi_step tid c1 c2)
     (TID: tid <> tid_except)
 .
 
@@ -50,5 +44,48 @@ Definition pi_consistent (c1:Configuration.t): Prop :=
     (TID: IdentMap.find tid c1.(Configuration.threads) <> None)
     (STEPS: rtc (pi_step_except tid) c1 c2),
   exists c3 lang st3 lc3,
-    <<STEPS: rtc (pi_step tid None) c2 c3>> /\
-    <<PROMISES: IdentMap.find tid c1.(Configuration.threads) = Some (existT _ lang st3, lc3)>>.
+    <<STEPS: rtc (pi_step tid) c2 c3>> /\
+    <<THREAD: IdentMap.find tid c3.(Configuration.threads) = Some (existT _ lang st3, lc3)>> /\
+    <<PROMISES: lc3.(Local.promises) = Memory.bot>>.
+
+Lemma pi_step_find
+      tid1 tid2 c1 c2
+      (STEP: pi_step tid1 c1 c2)
+      (TID: tid1 <> tid2):
+  IdentMap.find tid2 c2.(Configuration.threads) = IdentMap.find tid2 c1.(Configuration.threads).
+Proof.
+  inv STEP. s. rewrite IdentMap.Facts.add_neq_o; auto.
+Qed.
+
+Lemma rtc_pi_step_find
+      tid1 tid2 c1 c2
+      (STEP: rtc (pi_step tid1) c1 c2)
+      (TID: tid1 <> tid2):
+  IdentMap.find tid2 c2.(Configuration.threads) = IdentMap.find tid2 c1.(Configuration.threads).
+Proof.
+  induction STEP; auto. erewrite IHSTEP, pi_step_find; eauto.
+Qed.
+
+Lemma pi_consistent_step_pi_step
+      c1 c2
+      e tid
+      (PI_CONSISTENT: pi_consistent c1)
+      (STEP: Configuration.step e tid c1 c2):
+  rtc (pi_step tid) c1 c2.
+Proof.
+Admitted.
+
+Lemma pi_consistent_pi_step_pi_consistent
+      c1 c2
+      tid
+      (PI_CONSISTENT: pi_consistent c1)
+      (STEP: rtc (pi_step tid) c1 c2):
+  pi_consistent c2.
+Proof.
+  ii. destruct (Ident.eq_dec tid tid0).
+  - subst tid0.
+    admit.
+  - eapply PI_CONSISTENT.
+    + erewrite <- rtc_pi_step_find; eauto.
+    + etrans; [|eauto]. eapply rtc_implies; [|apply STEP]. econs; eauto.
+Admitted.

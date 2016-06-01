@@ -101,14 +101,20 @@ Module Configuration.
   Definition consistent (conf:t): Prop :=
     Threads.consistent conf.(threads) conf.(memory).
 
-  Inductive step (e:option Event.t) (c1:t): forall (c2:t), Prop :=
+  Inductive step (e:option Event.t) (tid:Ident.t) (c1:t): forall (c2:t), Prop :=
   | step_intro
-      tid lang st1 lc1 e2 st3 lc3 memory3
+      readinfo lang st1 lc1 e2 st3 lc3 memory3
       (TID: IdentMap.find tid c1.(threads) = Some (existT _ lang st1, lc1))
-      (STEPS: rtc (Thread.step None) (Thread.mk _ st1 lc1 c1.(memory)) e2)
-      (STEP: Thread.step e e2 (Thread.mk _ st3 lc3 memory3))
+      (STEPS: rtc (@Thread.tau_step _) (Thread.mk _ st1 lc1 c1.(memory)) e2)
+      (STEP: Thread.step e readinfo e2 (Thread.mk _ st3 lc3 memory3))
       (CONSISTENT: Thread.consistent lang st3 lc3 memory3):
-      step e c1 (mk (IdentMap.add tid (existT _ _ st3, lc3) c1.(threads)) memory3)
+      step e tid c1 (mk (IdentMap.add tid (existT _ _ st3, lc3) c1.(threads)) memory3)
+  .
+
+  Inductive tau_step (c1 c2:t): Prop :=
+  | tau_step_intro
+      tid
+      (STEP: step None tid c1 c2)
   .
 
   Ltac simplify :=
@@ -130,8 +136,8 @@ Module Configuration.
        ss; subst).
 
   Lemma step_consistent
-        e c1 c2
-        (STEP: step e c1 c2)
+        e tid c1 c2
+        (STEP: step e tid c1 c2)
         (CONSISTENT1: consistent c1):
     <<CONSISTENT2: consistent c2>> /\
     <<FUTURE: Memory.future c1.(memory) c2.(memory)>>.
@@ -163,8 +169,8 @@ Module Configuration.
   Qed.
 
   Lemma step_disjoint
-        e c1 c2 ths
-        (STEP: step e c1 c2)
+        e tid c1 c2 ths
+        (STEP: step e tid c1 c2)
         (DISJOINT: Threads.disjoint c1.(threads) ths)
         (CONSISTENT1: consistent c1)
         (CONSISTENT: consistent (mk ths c1.(memory))):
@@ -207,28 +213,29 @@ Module Configuration.
 
   Lemma rtc_step_consistent
         c1 c2
-        (STEPS: rtc (step None) c1 c2)
+        (STEPS: rtc tau_step c1 c2)
         (CONSISTENT1: consistent c1):
     <<CONSISTENT2: consistent c2>> /\
     <<FUTURE: Memory.future c1.(memory) c2.(memory)>>.
   Proof.
     revert CONSISTENT1. induction STEPS; i.
     - splits; auto. refl.
-    - exploit step_consistent; eauto. i. des.
+    - inv H.
+      exploit step_consistent; eauto. i. des.
       exploit IHSTEPS; eauto. i. des.
       splits; eauto. etrans; eauto.
   Qed.
 
   Lemma rtc_step_disjoint
         c1 c2 ths
-        (STEPS: rtc (step None) c1 c2)
+        (STEPS: rtc tau_step c1 c2)
         (DISJOINT: Threads.disjoint c1.(threads) ths)
         (CONSISTENT1: consistent c1)
         (CONSISTENT: consistent (mk ths c1.(memory))):
       <<DISJOINT: Threads.disjoint c2.(threads) ths>> /\
       <<CONSISTENT: consistent (mk ths c2.(memory))>>.
   Proof.
-    revert DISJOINT CONSISTENT1 CONSISTENT. induction STEPS; auto. i.
+    revert DISJOINT CONSISTENT1 CONSISTENT. induction STEPS; auto. i. inv H.
     exploit step_consistent; eauto. i. des.
     exploit step_disjoint; eauto. i. des.
     apply IHSTEPS; auto.

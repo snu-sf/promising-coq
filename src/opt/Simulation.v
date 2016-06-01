@@ -30,21 +30,6 @@ Section SimulationLocal.
       (PROMISES: MemInv.sem MemInv.bot lc_src.(Local.promises) lc_tgt.(Local.promises))
   .
 
-  (* Global Program Instance sim_local_Preorder: PreOrder sim_local. *)
-  (* Next Obligation. *)
-  (*   ii. econs. *)
-  (*   - refl. *)
-  (*   - apply MemInv.sem_bot. *)
-  (* Qed. *)
-  (* Next Obligation. *)
-  (*   ii. inv H. inv H0. econs. *)
-  (*   - etrans; eauto. *)
-  (*   - etrans; eauto. apply MemInv.sem_bot_inv in PROMISES. *)
-  (*     apply MemInv.sem_bot_inv in PROMISES0. *)
-  (*     rewrite PROMISES, PROMISES0. *)
-  (*     apply MemInv.sem_bot. *)
-  (* Qed. *)
-
   Definition SIM_THREAD :=
     forall (sim_terminal: SIM_TERMINAL)
       (st1_src:lang_src.(Language.state)) (lc1_src:Local.t) (mem_k_src:Memory.t)
@@ -56,15 +41,15 @@ Section SimulationLocal.
              st1_src lc1_src mem1_src
              st1_tgt lc1_tgt mem1_tgt
     :=
-    forall e st3_tgt lc3_tgt mem3_tgt
-      (STEP_TGT: Thread.step e
+    forall e readinfo_tgt st3_tgt lc3_tgt mem3_tgt
+      (STEP_TGT: Thread.step e readinfo_tgt
                              (Thread.mk _ st1_tgt lc1_tgt mem1_tgt)
                              (Thread.mk _ st3_tgt lc3_tgt mem3_tgt)),
-    exists st2_src lc2_src mem2_src st3_src lc3_src mem3_src,
-      <<STEPS: rtc (Thread.step None)
+    exists readinfo_src st2_src lc2_src mem2_src st3_src lc3_src mem3_src,
+      <<STEPS: rtc (@Thread.tau_step _)
                    (Thread.mk _ st1_src lc1_src mem1_src)
                    (Thread.mk _ st2_src lc2_src mem2_src)>> /\
-      <<STEP_SRC: Thread.step e
+      <<STEP_SRC: Thread.step e readinfo_src
                               (Thread.mk _ st2_src lc2_src mem2_src)
                               (Thread.mk _ st3_src lc3_src mem3_src)>> /\
       <<MEMORY2: sim_memory mem3_src mem3_tgt>> /\
@@ -85,7 +70,7 @@ Section SimulationLocal.
       <<TERMINAL:
         forall (TERMINAL_TGT: lang_tgt.(Language.is_terminal) st1_tgt),
         exists st2_src lc2_src mem2_src,
-          <<STEPS: rtc (Thread.step None)
+          <<STEPS: rtc (@Thread.tau_step _)
                        (Thread.mk _ st1_src lc1_src mem1_src)
                        (Thread.mk _ st2_src lc2_src mem2_src)>> /\
           <<MEMORY: sim_memory mem2_src mem1_tgt>> /\
@@ -103,7 +88,7 @@ Section SimulationLocal.
       <<PROMISES:
         forall (PROMISES_TGT: lc1_tgt.(Local.promises) = Memory.bot),
         exists st2_src lc2_src mem2_src,
-          <<STEPS: rtc (Thread.step None)
+          <<STEPS: rtc (@Thread.tau_step _)
                        (Thread.mk _ st1_src lc1_src mem1_src)
                        (Thread.mk _ st2_src lc2_src mem2_src)>> /\
           <<PROMISES_SRC: lc2_src.(Local.promises) = Memory.bot>>>> /\
@@ -116,7 +101,7 @@ Section SimulationLocal.
     ii. exploit IN; eauto. i. des.
     splits; eauto. ii.
     exploit STEP; eauto. i. des.
-    eexists _, _, _, _, _, _. splits; eauto.
+    eexists _, _, _, _, _, _, _. splits; eauto.
   Qed.
   Hint Resolve _sim_thread_mon: paco.
 
@@ -133,7 +118,7 @@ Section SimulationLocal.
     - i. exploit TERMINAL; eauto. i. des.
       eexists _, _, _. splits; eauto.
     - ii. exploit STEP; eauto. i. des; [|done].
-      eexists _, _, _, _, _, _. splits; eauto.
+      eexists _, _, _, _, _, _, _. splits; eauto.
   Qed.
 End SimulationLocal.
 Hint Resolve _sim_thread_mon: paco.
@@ -158,15 +143,15 @@ Section Simulation.
       <<TERMINAL:
         forall (TERMINAL_TGT: Threads.is_terminal ths1_tgt),
         exists ths2_src mem2_src,
-          <<STEPS: rtc (Configuration.step None) (Configuration.mk ths1_src mem1_src) (Configuration.mk ths2_src mem2_src)>> /\
+          <<STEPS: rtc Configuration.tau_step (Configuration.mk ths1_src mem1_src) (Configuration.mk ths2_src mem2_src)>> /\
           <<MEMORY: sim_memory mem2_src mem1_tgt>> /\
           <<TERMINAL_SRC: Threads.is_terminal ths2_src>>>> /\
       <<STEP:
-        forall e ths3_tgt mem3_tgt
-          (STEP_TGT: Configuration.step e (Configuration.mk ths1_tgt mem1_tgt) (Configuration.mk ths3_tgt mem3_tgt)),
-        exists ths2_src mem2_src ths3_src mem3_src,
-          <<STEPS: rtc (Configuration.step None) (Configuration.mk ths1_src mem1_src) (Configuration.mk ths2_src mem2_src)>> /\
-          <<STEP_SRC: Configuration.step e (Configuration.mk ths2_src mem2_src) (Configuration.mk ths3_src mem3_src)>> /\
+        forall e tid_tgt ths3_tgt mem3_tgt
+          (STEP_TGT: Configuration.step e tid_tgt (Configuration.mk ths1_tgt mem1_tgt) (Configuration.mk ths3_tgt mem3_tgt)),
+        exists tid_src ths2_src mem2_src ths3_src mem3_src,
+          <<STEPS: rtc Configuration.tau_step (Configuration.mk ths1_src mem1_src) (Configuration.mk ths2_src mem2_src)>> /\
+          <<STEP_SRC: Configuration.step e tid_src (Configuration.mk ths2_src mem2_src) (Configuration.mk ths3_src mem3_src)>> /\
           <<MEMORY2: sim_memory mem3_src mem3_tgt>> /\
           <<SIM: sim ths3_src mem3_src ths3_tgt mem3_tgt>>>>.
 
@@ -175,7 +160,7 @@ Section Simulation.
     ii. exploit IN; eauto. i. des.
     splits; eauto. i.
     exploit STEP; eauto. i. des.
-    eexists _, _, _, _. splits; eauto.
+    eexists _, _, _, _, _. splits; eauto.
   Qed.
   Hint Resolve _sim_mon: paco.
 
@@ -251,22 +236,22 @@ Qed.
 Lemma sim_step
       lang_src lang_tgt
       sim_terminal
-      e
+      e readinfo_tgt
       st1_src lc1_src mem1_src
       st1_tgt lc1_tgt mem1_tgt
       st3_tgt lc3_tgt mem3_tgt
-      (STEP: @Thread.step lang_tgt e
+      (STEP: @Thread.step lang_tgt e readinfo_tgt
                           (Thread.mk _ st1_tgt lc1_tgt mem1_tgt)
                           (Thread.mk _ st3_tgt lc3_tgt mem3_tgt))
       (MEMORY: sim_memory mem1_src mem1_tgt)
       (WF_SRC: Local.wf lc1_src mem1_src)
       (WF_TGT: Local.wf lc1_tgt mem1_tgt)
       (SIM: sim_thread sim_terminal st1_src lc1_src mem1_src st1_tgt lc1_tgt mem1_tgt):
-  exists st2_src lc2_src mem2_src st3_src lc3_src mem3_src,
-    <<STEPS: rtc (@Thread.step lang_src None)
+  exists readinfo_src st2_src lc2_src mem2_src st3_src lc3_src mem3_src,
+    <<STEPS: rtc (@Thread.tau_step lang_src)
                  (Thread.mk _ st1_src lc1_src mem1_src)
                  (Thread.mk _ st2_src lc2_src mem2_src)>> /\
-    <<STEP: Thread.step e
+    <<STEP: Thread.step e readinfo_src
                         (Thread.mk _ st2_src lc2_src mem2_src)
                         (Thread.mk _ st3_src lc3_src mem3_src)>> /\
     <<MEMORY: sim_memory mem3_src mem3_tgt>> /\
@@ -279,7 +264,7 @@ Proof.
   exploit STEP0; eauto. i. des; [|done].
   exploit Thread.rtc_step_future; eauto. s. i. des.
   exploit Thread.step_future; eauto. s. i. des.
-  eexists _, _, _, _, _, _. splits; eauto.
+  eexists _, _, _, _, _, _, _. splits; eauto.
 Qed.
 
 Lemma sim_rtc_step
@@ -287,13 +272,13 @@ Lemma sim_rtc_step
       sim_terminal
       st1_src lc1_src mem1_src
       e1_tgt e2_tgt
-      (STEPS: rtc (@Thread.step lang_tgt None) e1_tgt e2_tgt)
+      (STEPS: rtc (@Thread.tau_step lang_tgt) e1_tgt e2_tgt)
       (MEMORY: sim_memory mem1_src e1_tgt.(Thread.memory))
       (WF_SRC: Local.wf lc1_src mem1_src)
       (WF_TGT: Local.wf e1_tgt.(Thread.local) e1_tgt.(Thread.memory))
       (SIM: sim_thread sim_terminal st1_src lc1_src mem1_src e1_tgt.(Thread.state) e1_tgt.(Thread.local) e1_tgt.(Thread.memory)):
   exists st2_src lc2_src mem2_src,
-    <<STEPS: rtc (@Thread.step lang_src None)
+    <<STEPS: rtc (@Thread.tau_step lang_src)
                  (Thread.mk _ st1_src lc1_src mem1_src)
                  (Thread.mk _ st2_src lc2_src mem2_src)>> /\
     <<MEMORY: sim_memory mem2_src e2_tgt.(Thread.memory)>> /\
@@ -304,12 +289,12 @@ Proof.
   revert st1_src lc1_src mem1_src MEMORY WF_SRC WF_TGT SIM.
   induction STEPS; i.
   { eexists _, _, _. splits; eauto. }
-  destruct x, y. ss.
+  inv H. destruct x, y. ss.
   exploit sim_step; eauto. i. des.
   exploit IHSTEPS; eauto. i. des.
   destruct z. ss.
   eexists _, _, _. splits; try apply MEMORY1; eauto.
-  etrans; [eauto|]. econs 2; eauto.
+  etrans; [eauto|]. econs 2; eauto. econs. eauto.
 Qed.
 
 Lemma sim_thread_consistent
@@ -359,9 +344,9 @@ Proof.
     punfold SIM0. exploit SIM0; eauto. i. des.
     exploit TERMINAL; eauto. i. des.
     eexists _, _. splits; [|eauto|].
-    + generalize (rtc_tail STEPS). intro X. des.
+    + generalize (rtc_tail STEPS). intro X. des. inv X0.
       * destruct a2. econs 2; [|econs 1].
-        econs; ss; eauto.
+        econs. econs; ss; eauto.
         { eapply IdentMap.singleton_find. }
         { ii. eexists. splits; eauto. ss.
           eapply MemInv.sem_bot_inv.
@@ -380,7 +365,7 @@ Proof.
     { eapply sim_thread_future; eauto. }
     i. des. destruct e2. ss.
     exploit sim_step; try apply MEMORY; eauto. i. des.
-    eexists _, _, _, _. splits; eauto.
+    eexists _, _, _, _, _. splits; eauto.
     + econs; s.
       * apply IdentMap.singleton_find.
       * etrans; eauto.

@@ -7,6 +7,7 @@ Require Import FMapFacts.
 Require Import MSetList.
 
 Require Import sflib.
+Require Import paco.
 
 Require Import DataStructure.
 
@@ -75,6 +76,15 @@ Proof.
   - left. eexists. splits; [|eauto].
     econs; eauto.
   - left. eexists. splits; eauto.
+Qed.
+
+Lemma rtc_implies A (R1 R2: A -> A -> Prop)
+      (IMPL: R1 <2= R2):
+  rtc R1 <2= rtc R2.
+Proof.
+  i. induction PR; eauto.
+  etransitivity; [|eauto]. econs 2; [|econs 1].
+  apply IMPL. auto.
 Qed.
 
 Lemma fapp A (B:A->Type) (a:A) (P Q:forall (a:A), B a)
