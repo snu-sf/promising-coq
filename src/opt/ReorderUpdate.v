@@ -105,6 +105,7 @@ Proof.
     i. des.
     eexists _, _, _, _, _, _, _. splits; eauto.
     + econs. econs 1; eauto.
+    + eauto.
     + right. econs; try apply STEP3; try apply STEP_SRC0; eauto.
   - (* load *)
     exploit sim_local_read; eauto.
@@ -118,15 +119,18 @@ Proof.
     exploit reorder_read_read; try apply x0; try apply STEP1; eauto. i. des.
     apply RegSet.disjoint_add in REGS. des.
     eexists _, _, _, _, _, _, _. splits.
-    + econs 2; [|econs 1]. econs. econs 2. econs 2; eauto. econs. econs.
+    + econs 2; [|econs 1]. econs.
+      * econs 2. econs 2; eauto. econs. econs.
+      * eauto.
     + econs 2. econs 4; eauto.
       * econs. econs. erewrite RegFile.eq_except_rmw; eauto.
         { symmetry. eauto. }
         { apply RegFile.eq_except_singleton. }
       * s. econs 1; eauto.
         i. destruct ow1; inv ORDW1; inv H.
-    + s. eauto.
-    + s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss; eauto.
+    + eauto.
+    + eauto.
+    + left. eapply paco7_mon; [apply sim_stmts_nil|]; ss; eauto.
       apply RegFun.add_add. ii. subst. apply REGS.
       apply RegSet.Facts.singleton_iff. auto.
   - (* store *)
@@ -142,19 +146,23 @@ Proof.
     { i. destruct or1; inv ORDR1; inv H0. }
     i. des.
     eexists _, _, _, _, _, _, _. splits.
-    + econs 2; [|econs 1]. econs. econs 2. econs 3; eauto. econs.
-      erewrite <- RegFile.eq_except_value; eauto.
-      * econs.
-      * symmetry.
-        eapply RegFile.eq_except_mon; try apply RegFile.eq_except_singleton.
-        ii. apply RegSet.singleton_spec in H. subst.
-        apply RegSet.add_spec. auto.
+    + econs 2; [|econs 1]. econs.
+      * econs 2. econs 3; eauto. econs.
+        erewrite <- RegFile.eq_except_value; eauto.
+        { econs. }
+        { symmetry.
+          eapply RegFile.eq_except_mon; try apply RegFile.eq_except_singleton.
+          ii. apply RegSet.singleton_spec in H. subst.
+          apply RegSet.add_spec. auto.
+        }
+      * eauto.
     + econs 2. econs 4; eauto.
       * econs. econs. eauto.
       * s. econs 1; eauto.
         i. destruct ow1; inv ORDW1; inv H.
-    + s. eauto.
-    + s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
+    + eauto.
+    + eauto.
+    + left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
   - (* update *)
     exploit sim_local_read; eauto.
     { eapply Local.fulfill_step_future; eauto.
@@ -182,11 +190,13 @@ Proof.
     { eapply Local.read_step_future; eauto. }
     i. des.
     eexists _, _, _, _, _, _, _. splits.
-    + econs 2; [|econs 1]. econs. econs 2. econs 4; eauto. econs. econs.
-      erewrite <- RegFile.eq_except_rmw; eauto; try apply RegFile.eq_except_singleton.
-      ii. eapply REGS; apply RegSet.add_spec.
-      * left. eauto.
-      * right. apply RegSet.singleton_spec in LHS. subst. eauto.
+    + econs 2; [|econs 1]. econs.
+      * econs 2. econs 4; eauto. econs. econs.
+        erewrite <- RegFile.eq_except_rmw; eauto; try apply RegFile.eq_except_singleton.
+        ii. eapply REGS; apply RegSet.add_spec.
+        { left. eauto. }
+        { right. apply RegSet.singleton_spec in LHS. subst. eauto. }
+      * eauto.
     + econs 2. econs 4; try apply STEP7; try apply STEP_SRC0; eauto.
       * econs. econs.
         erewrite RegFile.eq_except_rmw; eauto; try apply RegFile.eq_except_singleton.
@@ -195,6 +205,7 @@ Proof.
         { left. eauto. }
       * econs 1; eauto.
         i. destruct ow1; inv ORDW1; inv H.
+    + eauto.
     + eauto.
     + left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
       apply RegFun.add_add. ii. subst. eapply REGS.
@@ -221,7 +232,6 @@ Proof.
       eapply Local.future_fulfill_step; eauto.
   - inversion PR. subst. i.
     exploit (progress_program_step (RegFun.add r1 vret1 rs) i2 nil); eauto. i. des.
-    destruct e; [by inv STEP; inv STATE; inv INSTR; inv REORDER|].
     destruct lc2. exploit sim_update_step; eauto.
     { econs 2. eauto. }
     i. des.
@@ -234,7 +244,8 @@ Proof.
       i. des. exploit PROMISES; eauto. i. des.
       eexists _, _, _. splits; [|eauto].
       etrans; eauto. etrans; [|eauto].
-      econs 2; eauto. econs. eauto.
+      econs 2; eauto. econs; eauto. etrans; eauto.
+      destruct e; by inv STEP; inv STATE; inv INSTR; inv REORDER.
     + inv SIM. inv STEP; inv STATE.
   - ii. exploit sim_update_step; eauto. i. des.
     + eexists _, _, _, _, _, _, _. splits; eauto.

@@ -6,9 +6,9 @@ Require Import paco.
 Require Import DataStructure.
 Require Import DenseOrder.
 Require Import Basic.
-Require Import Event.
 
 Set Implicit Arguments.
+
 
 Module Time := DenseOrder.
 Module TimeFacts := DenseOrderFacts.

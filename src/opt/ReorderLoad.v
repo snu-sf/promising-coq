@@ -97,6 +97,7 @@ Proof.
     exploit reorder_read_promise; try apply x0; try apply STEP_SRC; eauto. i. des.
     eexists _, _, _, _, _, _, _. splits; eauto.
     + econs. econs 1; eauto.
+    + eauto.
     + right. econs; eauto.
   - (* load *)
     exploit sim_local_read; eauto.
@@ -104,10 +105,13 @@ Proof.
     i. des.
     exploit reorder_read_read; try apply x0; try apply STEP_SRC; eauto. i. des.
     eexists _, _, _, _, _, _, _. splits.
-    + econs 2; [|econs 1]. econs. econs 2. econs 2; eauto. econs. econs.
+    + econs 2; [|econs 1]. econs.
+      * econs 2. econs 2; eauto. econs. econs.
+      * eauto.
     + econs 2. econs 2; eauto. econs. econs.
-    + s. eauto.
-    + s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
+    + eauto.
+    + eauto.
+    + left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
       apply RegFun.add_add. ii. subst. eapply REGS.
       * apply RegSet.singleton_spec. eauto.
       * apply RegSet.singleton_spec. eauto.
@@ -117,13 +121,16 @@ Proof.
     i. des.
     exploit reorder_read_write; try apply x0; try apply STEP_SRC; eauto. i. des.
     eexists _, _, _, _, _, _, _. splits.
-    + econs 2; [|econs 1]. econs. econs 2. econs 3; eauto. econs.
-      erewrite RegFile.eq_except_value; eauto.
-      * econs.
-      * apply RegFile.eq_except_singleton.
+    + econs 2; [|econs 1]. econs.
+      * econs 2. econs 3; eauto. econs.
+        erewrite RegFile.eq_except_value; eauto.
+        { econs. }
+        { apply RegFile.eq_except_singleton. }
+      * eauto.
     + econs 2. econs 2; eauto. econs. econs.
-    + s. eauto.
-    + s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
+    + eauto.
+    + eauto.
+    + left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
   - (* update *)
     exploit sim_local_read; eauto.
     { eapply Local.read_step_future; eauto. }
@@ -139,14 +146,17 @@ Proof.
     { eapply Local.read_step_future; eauto. }
     i. des.
     eexists _, _, _, _, _, _, _. splits.
-    + econs 2; [|econs 1]. econs. econs 2. econs 4; eauto. econs. econs.
-      erewrite <- RegFile.eq_except_rmw; eauto; try apply RegFile.eq_except_singleton.
-      ii. eapply REGS; eauto.
-      apply RegSet.singleton_spec in LHS. subst.
-      apply RegSet.add_spec. auto.
+    + econs 2; [|econs 1]. econs.
+      * econs 2. econs 4; eauto. econs. econs.
+        erewrite <- RegFile.eq_except_rmw; eauto; try apply RegFile.eq_except_singleton.
+        ii. eapply REGS; eauto.
+        apply RegSet.singleton_spec in LHS. subst.
+        apply RegSet.add_spec. auto.
+      * eauto.
     + econs 2. econs 2; eauto. econs. econs.
-    + s. eauto.
-    + s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
+    + eauto.
+    + eauto.
+    + left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
       apply RegFun.add_add. ii. subst. eapply REGS.
       * apply RegSet.singleton_spec. eauto.
       * apply RegSet.add_spec. eauto.
@@ -156,10 +166,13 @@ Proof.
     i. des.
     exploit reorder_read_fence; try apply x0; try apply STEP_SRC; eauto. i. des.
     eexists _, _, _, _, _, _, _. splits.
-    + econs 2; [|econs 1]. econs. econs 2. econs 5; eauto. econs. econs.
+    + econs 2; [|econs 1]. econs.
+      * econs 2. econs 5; eauto. econs. econs.
+      * eauto.
     + econs 2. econs 2; eauto. econs. econs.
-    + s. eauto.
-    + s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
+    + eauto.
+    + eauto.
+    + left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
 Qed.
 
 Lemma sim_load_sim_thread:

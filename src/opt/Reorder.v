@@ -66,13 +66,14 @@ Proof.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
     eexists _, _, _, _, _, _, _. splits; eauto.
-    econs 1. econs; eauto.
+    econs 1; eauto. econs; eauto. eauto.
   - (* load *)
     exploit sim_local_read; eauto. i. des.
     eexists _, _, _, _, _, _, _. splits; eauto.
     + econs 2. econs 1; ss.
       * econs. econs.
       * apply progress_silent_step. auto.
+    + auto.
     + left. eapply paco7_mon; [apply sim_load_sim_thread|]; ss.
       econs; eauto.
   - (* store *)
@@ -82,13 +83,18 @@ Proof.
       * econs 2. econs 1; ss.
         { econs. econs. }
         { apply progress_silent_step. auto. }
+      * auto.
       * left. eapply paco7_mon; [apply sim_store_sim_thread|]; ss.
         econs; eauto.
     + eexists _, _, _, _, _, _, _. splits.
-      * econs 2; [|econs 1]. econs. econs 2. econs 1; ss.
-        { econs. econs. }
-        { apply progress_silent_step. auto. }
+      * econs 2; [|econs 1]. econs.
+        { econs 2. econs 1; ss.
+          - econs. econs.
+          - apply progress_silent_step. auto.
+        }
+        { auto. }
       * econs. econs; eauto.
+      * eauto.
       * eauto.
       * left. eapply paco7_mon; [apply sim_store_sim_thread|]; ss.
         econs; eauto.
@@ -103,14 +109,19 @@ Proof.
       * econs 2. econs 1; ss.
         { econs. econs. }
         { apply progress_silent_step. auto. }
+      * auto.
       * left. eapply paco7_mon; [apply sim_update_sim_thread|]; ss.
         econs; eauto.
     + exploit reorder_read_promise; try apply STEP_SRC; try apply x0; eauto. i. des.
       eexists _, _, _, _, _, _, _. splits.
-      * econs 2; [|econs 1]. econs. econs 2. econs 1; ss.
-        { econs. econs. }
-        { apply progress_silent_step. auto. }
+      * econs 2; [|econs 1]. econs.
+        { econs 2. econs 1; ss.
+          - econs. econs.
+          - apply progress_silent_step. auto.
+        }
+        { auto. }
       * econs 1. econs; eauto.
+      * eauto.
       * eauto.
       * left. eapply paco7_mon; [apply sim_update_sim_thread|]; ss.
         econs; eauto.
@@ -120,6 +131,7 @@ Proof.
     + econs 2. econs 1; ss.
         { econs. econs. }
         { apply progress_silent_step. auto. }
+    + auto.
     + left. eapply paco7_mon; [apply sim_fence_sim_thread|]; ss.
       econs; eauto.
 Qed.

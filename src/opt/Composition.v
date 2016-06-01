@@ -325,7 +325,7 @@ Proof.
       exploit Configuration.step_consistent; eauto. s. i. des.
       exploit Configuration.step_disjoint; eauto. s. i. des.
       exploit compose_step1; eauto. i. des.
-      eexists _, _, _, _, _. splits; eauto.
+      eexists _, _, _, _, _, _. splits; eauto.
       right. apply CIH; auto.
       eapply sim_future; eauto.
       * repeat (etrans; eauto).
@@ -340,7 +340,7 @@ Proof.
       exploit Configuration.step_consistent; eauto. s. i. des.
       exploit Configuration.step_disjoint; eauto. s. i. des.
       exploit compose_step2; eauto. i. des.
-      eexists _, _, _, _, _. splits; eauto.
+      eexists _, _, _, _, _, _. splits; eauto.
       right. apply CIH; auto.
       { symmetry. auto. }
       eapply sim_future; eauto.

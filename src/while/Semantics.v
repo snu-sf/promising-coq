@@ -40,7 +40,7 @@ Module RegFile.
       else (0, val)
     end.
 
-  Inductive eval_instr: forall (rf1:t) (i:Instr.t) (e:option ThreadEvent.t) (rf2:t), Prop :=
+  Inductive eval_instr: forall (rf1:t) (i:Instr.t) (e:option ProgramEvent.t) (rf2:t), Prop :=
   | eval_skip
       rf:
       eval_instr
@@ -60,14 +60,14 @@ Module RegFile.
       eval_instr
         rf
         (Instr.load lhs rhs ord)
-        (Some (ThreadEvent.mem (MemEvent.read rhs val ord)))
+        (Some (ProgramEvent.read rhs val ord))
         (RegFun.add lhs val rf)
   | eval_store
       rf lhs rhs ord:
       eval_instr
         rf
         (Instr.store lhs rhs ord)
-        (Some (ThreadEvent.mem (MemEvent.write lhs (eval_value rf rhs) ord)))
+        (Some (ProgramEvent.write lhs (eval_value rf rhs) ord))
         rf
   | eval_update
       rf lhs loc rmw ordr ordw valr valret valw
@@ -75,21 +75,21 @@ Module RegFile.
       eval_instr
         rf
         (Instr.update lhs loc rmw ordr ordw)
-        (Some (ThreadEvent.mem (MemEvent.update loc valr valw ordr ordw)))
+        (Some (ProgramEvent.update loc valr valw ordr ordw))
         (RegFun.add lhs valret rf)
   | eval_fence
       rf ordr ordw:
       eval_instr
         rf
         (Instr.fence ordr ordw)
-        (Some (ThreadEvent.mem (MemEvent.fence ordr ordw)))
+        (Some (ProgramEvent.fence ordr ordw))
         rf
   | eval_syscall
       rf lhs rhses lhs_val:
       eval_instr
         rf
         (Instr.syscall lhs rhses)
-        (Some (ThreadEvent.syscall (Event.mk lhs_val (map (eval_value rf) rhses))))
+        (Some (ProgramEvent.syscall (Event.mk lhs_val (map (eval_value rf) rhses))))
         (RegFun.add lhs lhs_val rf)
   .
 
@@ -245,7 +245,7 @@ Module State.
   Definition is_terminal (s:t): Prop :=
     stmts s = nil.
 
-  Inductive step: forall (e:option ThreadEvent.t) (s1:t) (s1:t), Prop :=
+  Inductive step: forall (e:option ProgramEvent.t) (s1:t) (s1:t), Prop :=
   | step_instr
       rf1 i e rf2 stmts
       (INSTR: RegFile.eval_instr rf1 i e rf2):

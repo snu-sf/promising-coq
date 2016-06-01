@@ -101,14 +101,14 @@ Module Configuration.
   Definition consistent (conf:t): Prop :=
     Threads.consistent conf.(threads) conf.(memory).
 
-  Inductive step (e:option Event.t) (tid:Ident.t) (c1:t): forall (c2:t), Prop :=
+  Inductive step: forall (e:option Event.t) (tid:Ident.t) (c1 c2:t), Prop :=
   | step_intro
-      readinfo lang st1 lc1 e2 st3 lc3 memory3
+      e tid c1 lang st1 lc1 e2 st3 lc3 memory3
       (TID: IdentMap.find tid c1.(threads) = Some (existT _ lang st1, lc1))
       (STEPS: rtc (@Thread.tau_step _) (Thread.mk _ st1 lc1 c1.(memory)) e2)
-      (STEP: Thread.step e readinfo e2 (Thread.mk _ st3 lc3 memory3))
+      (STEP: Thread.step e e2 (Thread.mk _ st3 lc3 memory3))
       (CONSISTENT: Thread.consistent lang st3 lc3 memory3):
-      step e tid c1 (mk (IdentMap.add tid (existT _ _ st3, lc3) c1.(threads)) memory3)
+      step (ThreadEvent.get_event e) tid c1 (mk (IdentMap.add tid (existT _ _ st3, lc3) c1.(threads)) memory3)
   .
 
   Inductive tau_step (c1 c2:t): Prop :=

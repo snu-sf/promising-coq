@@ -96,13 +96,16 @@ Proof.
     i. des.
     exploit reorder_fulfill_read; try apply x0; try apply STEP_SRC; eauto. i. des.
     eexists _, _, _, _, _, _, _. splits.
-    + econs 2; [|econs 1]. econs. econs 2. econs 2; eauto. econs. econs.
+    + econs 2; [|econs 1]. econs.
+      * econs 2. econs 2; eauto. econs. econs.
+      * eauto.
     + econs 2. econs 3; eauto. econs.
       * econs.
       * s. econs 1. erewrite RegFile.eq_except_value; eauto.
         { symmetry. eauto. }
         { apply RegFile.eq_except_singleton. }
         { i. destruct o1; inv ORD1; inv H. }
+    + eauto.
     + eauto.
     + left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
   - (* store *)
@@ -112,13 +115,16 @@ Proof.
     exploit reorder_fulfill_write; try apply x0; try apply STEP_SRC; eauto.
     i. des.
     eexists _, _, _, _, _, _, _. splits.
-    + econs 2; [|econs 1]. econs. econs 2. econs 3; eauto. econs. econs.
+    + econs 2; [|econs 1]. econs.
+      * econs 2. econs 3; eauto. econs. econs.
+      * eauto.
     + econs 2. econs 3; eauto. econs.
       * econs.
       * s. econs 1; eauto.
         i. destruct o1; inv ORD1; inv H.
-    + s. eauto.
-    + s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
+    + eauto.
+    + eauto.
+    + left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
   - (* update *)
     exploit sim_local_read; eauto.
     { eapply Local.fulfill_step_future; eauto. }
@@ -134,15 +140,18 @@ Proof.
     { eapply Local.read_step_future; eauto. }
     i. des.
     eexists _, _, _, _, _, _, _. splits.
-    + econs 2; [|econs 1]. econs. econs 2. econs 4; eauto. econs. econs. eauto.
+    + econs 2; [|econs 1]. econs.
+      * econs 2. econs 4; eauto. econs. econs. eauto.
+      * eauto.
     + econs 2. econs 3; eauto.
       * econs. econs.
       * s. econs 1. erewrite RegFile.eq_except_value; eauto.
         { symmetry. eauto. }
         { apply RegFile.eq_except_singleton. }
         { i. destruct o1; inv ORD1; inv H. }
-    +  s. eauto.
-    + s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
+    + eauto.
+    + eauto.
+    + left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
 Qed.
 
 Lemma sim_store_sim_thread:
@@ -158,7 +167,6 @@ Proof.
       eapply Local.future_fulfill_step; eauto.
   - inversion PR. subst. i.
     exploit (progress_program_step rs i2 nil); eauto. i. des.
-    destruct e; [by inv STEP; inv STATE; inv INSTR; inv REORDER|].
     destruct lc2. exploit sim_store_step; eauto.
     { econs 2. eauto. }
     i. des.
@@ -171,7 +179,8 @@ Proof.
       i. des. exploit PROMISES; eauto. i. des.
       eexists _, _, _. splits; [|eauto].
       etrans; eauto. etrans; [|eauto].
-      econs 2; eauto. econs. eauto.
+      econs 2; eauto. econs; eauto. etrans; eauto.
+      destruct e; by inv STEP; inv STATE; inv INSTR; inv REORDER.
     + inv SIM. inv STEP; inv STATE.
   - ii. exploit sim_store_step; eauto. i. des.
     + eexists _, _, _, _, _, _, _. splits; eauto.

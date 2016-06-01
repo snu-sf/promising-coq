@@ -41,17 +41,18 @@ Section SimulationLocal.
              st1_src lc1_src mem1_src
              st1_tgt lc1_tgt mem1_tgt
     :=
-    forall e readinfo_tgt st3_tgt lc3_tgt mem3_tgt
-      (STEP_TGT: Thread.step e readinfo_tgt
+    forall e_tgt st3_tgt lc3_tgt mem3_tgt
+      (STEP_TGT: Thread.step e_tgt
                              (Thread.mk _ st1_tgt lc1_tgt mem1_tgt)
                              (Thread.mk _ st3_tgt lc3_tgt mem3_tgt)),
-    exists readinfo_src st2_src lc2_src mem2_src st3_src lc3_src mem3_src,
+    exists e_src st2_src lc2_src mem2_src st3_src lc3_src mem3_src,
       <<STEPS: rtc (@Thread.tau_step _)
                    (Thread.mk _ st1_src lc1_src mem1_src)
                    (Thread.mk _ st2_src lc2_src mem2_src)>> /\
-      <<STEP_SRC: Thread.step e readinfo_src
+      <<STEP_SRC: Thread.step e_src
                               (Thread.mk _ st2_src lc2_src mem2_src)
                               (Thread.mk _ st3_src lc3_src mem3_src)>> /\
+      <<EVENT: ThreadEvent.get_event e_src = ThreadEvent.get_event e_tgt>> /\
       <<MEMORY2: sim_memory mem3_src mem3_tgt>> /\
       <<SIM: sim_thread st3_src lc3_src mem3_src st3_tgt lc3_tgt mem3_tgt>>.
 
@@ -149,7 +150,7 @@ Section Simulation.
       <<STEP:
         forall e tid_tgt ths3_tgt mem3_tgt
           (STEP_TGT: Configuration.step e tid_tgt (Configuration.mk ths1_tgt mem1_tgt) (Configuration.mk ths3_tgt mem3_tgt)),
-        exists tid_src ths2_src mem2_src ths3_src mem3_src,
+        exists e tid_src ths2_src mem2_src ths3_src mem3_src,
           <<STEPS: rtc Configuration.tau_step (Configuration.mk ths1_src mem1_src) (Configuration.mk ths2_src mem2_src)>> /\
           <<STEP_SRC: Configuration.step e tid_src (Configuration.mk ths2_src mem2_src) (Configuration.mk ths3_src mem3_src)>> /\
           <<MEMORY2: sim_memory mem3_src mem3_tgt>> /\
@@ -160,7 +161,7 @@ Section Simulation.
     ii. exploit IN; eauto. i. des.
     splits; eauto. i.
     exploit STEP; eauto. i. des.
-    eexists _, _, _, _, _. splits; eauto.
+    eexists _, _, _, _, _, _. splits; eauto.
   Qed.
   Hint Resolve _sim_mon: paco.
 
@@ -236,24 +237,25 @@ Qed.
 Lemma sim_step
       lang_src lang_tgt
       sim_terminal
-      e readinfo_tgt
+      e_tgt
       st1_src lc1_src mem1_src
       st1_tgt lc1_tgt mem1_tgt
       st3_tgt lc3_tgt mem3_tgt
-      (STEP: @Thread.step lang_tgt e readinfo_tgt
+      (STEP: @Thread.step lang_tgt e_tgt
                           (Thread.mk _ st1_tgt lc1_tgt mem1_tgt)
                           (Thread.mk _ st3_tgt lc3_tgt mem3_tgt))
       (MEMORY: sim_memory mem1_src mem1_tgt)
       (WF_SRC: Local.wf lc1_src mem1_src)
       (WF_TGT: Local.wf lc1_tgt mem1_tgt)
       (SIM: sim_thread sim_terminal st1_src lc1_src mem1_src st1_tgt lc1_tgt mem1_tgt):
-  exists readinfo_src st2_src lc2_src mem2_src st3_src lc3_src mem3_src,
+  exists e_src st2_src lc2_src mem2_src st3_src lc3_src mem3_src,
     <<STEPS: rtc (@Thread.tau_step lang_src)
                  (Thread.mk _ st1_src lc1_src mem1_src)
                  (Thread.mk _ st2_src lc2_src mem2_src)>> /\
-    <<STEP: Thread.step e readinfo_src
+    <<STEP: Thread.step e_src
                         (Thread.mk _ st2_src lc2_src mem2_src)
                         (Thread.mk _ st3_src lc3_src mem3_src)>> /\
+    <<EVENT: ThreadEvent.get_event e_src = ThreadEvent.get_event e_tgt>> /\
     <<MEMORY: sim_memory mem3_src mem3_tgt>> /\
     <<WF_SRC: Local.wf lc3_src mem3_src>> /\
     <<WF_TGT: Local.wf lc3_tgt mem3_tgt>> /\
@@ -294,7 +296,7 @@ Proof.
   exploit IHSTEPS; eauto. i. des.
   destruct z. ss.
   eexists _, _, _. splits; try apply MEMORY1; eauto.
-  etrans; [eauto|]. econs 2; eauto. econs. eauto.
+  etrans; [eauto|]. econs 2; eauto. econs; eauto. etrans; eauto.
 Qed.
 
 Lemma sim_thread_consistent
@@ -346,7 +348,7 @@ Proof.
     eexists _, _. splits; [|eauto|].
     + generalize (rtc_tail STEPS). intro X. des. inv X0.
       * destruct a2. econs 2; [|econs 1].
-        econs. econs; ss; eauto.
+        econs. rewrite <- TAU. econs; ss; eauto.
         { eapply IdentMap.singleton_find. }
         { ii. eexists. splits; eauto. ss.
           eapply MemInv.sem_bot_inv.
@@ -365,7 +367,7 @@ Proof.
     { eapply sim_thread_future; eauto. }
     i. des. destruct e2. ss.
     exploit sim_step; try apply MEMORY; eauto. i. des.
-    eexists _, _, _, _, _. splits; eauto.
+    eexists _, _, _, _, _, _. splits; eauto.
     + econs; s.
       * apply IdentMap.singleton_find.
       * etrans; eauto.

@@ -17,18 +17,18 @@ Require Import Configuration.
 Set Implicit Arguments.
 
 
-Definition pi_readinfo (readinfo:option (Loc.t * Time.t)) (threads:Threads.t): Prop :=
-  forall loc ts
-    (READINFO: readinfo = Some (loc, ts))
-    (PROMISED: Threads.is_promised loc ts threads),
-    False.
+Definition pi_machine_event (e:ThreadEvent.t) (threads:Threads.t): Prop :=
+  match e with
+  | ThreadEvent.read loc ts val ord => ~ Threads.is_promised loc ts threads
+  | _ => True
+  end.
 
 Inductive pi_step (tid:Ident.t) (c1:Configuration.t): forall (c2:Configuration.t), Prop :=
 | pi_step_intro
-    e readinfo lang st1 lc1 st2 lc2 memory2
+    e lang st1 lc1 st2 lc2 memory2
     (TID: IdentMap.find tid c1.(Configuration.threads) = Some (existT _ lang st1, lc1))
-    (STEP: Thread.step e readinfo (Thread.mk _ st1 lc1 c1.(Configuration.memory)) (Thread.mk _ st2 lc2 memory2))
-    (READINFO: pi_readinfo readinfo c1.(Configuration.threads)):
+    (STEP: Thread.step e (Thread.mk _ st1 lc1 c1.(Configuration.memory)) (Thread.mk _ st2 lc2 memory2))
+    (READINFO: pi_machine_event e c1.(Configuration.threads)):
     pi_step tid c1 (Configuration.mk (IdentMap.add tid (existT _ _ st2, lc2) c1.(Configuration.threads)) memory2)
 .
 

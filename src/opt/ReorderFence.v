@@ -76,6 +76,7 @@ Proof.
     i. des.
     eexists _, _, _, _, _, _, _. splits; eauto.
     + econs. econs 1; eauto.
+    + eauto.
     + right. econs; eauto.
   - (* store *)
     exploit sim_local_write; eauto.
@@ -83,10 +84,13 @@ Proof.
     i. des.
     exploit reorder_fence_write; try apply x0; try apply STEP_SRC; eauto. i. des.
     eexists _, _, _, _, _, _, _. splits.
-    + econs 2; [|econs 1]. econs. econs 2. econs 3; eauto. econs. econs.
+    + econs 2; [|econs 1]. econs.
+      * econs 2. econs 3; eauto. econs. econs.
+      * eauto.
     + econs 2. econs 5; eauto. econs. econs.
-    + s. eauto.
-    + s. left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
+    + eauto.
+    + eauto.
+    + left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
 Qed.
 
 Lemma sim_fence_sim_thread:

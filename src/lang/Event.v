@@ -7,6 +7,7 @@ Require Import Omega.
 Require Import sflib.
 
 Require Import Basic.
+Require Import Time.
 
 Set Implicit Arguments.
 Import ListNotations.
@@ -55,23 +56,11 @@ Module Ordering.
 End Ordering.
 
 
-Module MemEvent.
-  Inductive t :=
-  | read (loc:Loc.t) (val:Const.t) (ord:Ordering.t)
-  | write (loc:Loc.t) (val:Const.t) (ord:Ordering.t)
-  | update (loc:Loc.t) (valr valw:Const.t) (ordr ordw:Ordering.t)
-  | fence (ordr ordw:Ordering.t)
-  .
-End MemEvent.
-
-
-(* TODO: syscalls
- * In reality, on the contrary to what is currently defined,
- * syscalls may change the memory.
+(* TODO (syscall): In fact, syscalls may change the memory, on the
+ * contrary to what is currently defined.
  *)
-(* NOTE: Syscall's results are not predictable.
- * Hence we disallow syscalls in the hypothetical execution of the
- * consistency check.
+(* NOTE (syscall): we disallow syscalls in the validation of the
+ * consistency check, as syscall's results are not predictable.
  *)
 Module Event.
   Structure t := mk {
@@ -81,9 +70,12 @@ Module Event.
 End Event.
 
 
-Module ThreadEvent.
+Module ProgramEvent.
   Inductive t :=
-  | mem (e:MemEvent.t)
+  | read (loc:Loc.t) (val:Const.t) (ord:Ordering.t)
+  | write (loc:Loc.t) (val:Const.t) (ord:Ordering.t)
+  | update (loc:Loc.t) (valr valw:Const.t) (ordr ordw:Ordering.t)
+  | fence (ordr ordw:Ordering.t)
   | syscall (e:Event.t)
   .
-End ThreadEvent.
+End ProgramEvent.
