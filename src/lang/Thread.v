@@ -33,6 +33,20 @@ Module ThreadEvent.
     | syscall e => Some e
     | _ => None
     end.
+
+  Definition is_reading (e:t): option (Loc.t * Ordering.t) :=
+    match e with
+    | read loc _ _ ord => Some (loc, ord)
+    | update loc _ _ _ _ ordr _ => Some (loc, ordr)
+    | _ => None
+    end.
+
+  Definition is_writing (e:t): option (Loc.t * Ordering.t) :=
+    match e with
+    | write loc _ _ ord => Some (loc, ord)
+    | update loc _ _ _ _ _ ordw => Some (loc, ordw)
+    | _ => None
+    end.
 End ThreadEvent.
 
 
