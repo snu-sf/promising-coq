@@ -24,8 +24,18 @@ Module Const := Nat.
 
 Module Ordering.
   (* TODO: support the nonatomics (#61).  Nonatomic accesses differ
-   * from unordered accesses in that nonatomic accesses may corrupt
-   * data in the presence of a race.
+     from unordered accesses in that nonatomic accesses may corrupt
+     data in the presence of a race.
+
+     NOTE: Even in Java, a data race may result in out-of-thin-air
+     integral values.  But even with data races, it is impossible to
+     forge an out-of-thin-air reference values.  See the link for more
+     details:
+     https://docs.oracle.com/javase/specs/jls/se7/html/jls-17.html#jls-17.7
+
+     Hence, our compilation scheme for Java plain accesses is as follows.
+     - Plain accesses to pointers are compiled to unordered accesses.
+     - Plain accesses to numbers are compiled to nonatomic accesses.
    *)
   (* TODO: support the SC atomics (#40). *)
   Inductive t :=
