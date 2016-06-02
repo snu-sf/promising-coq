@@ -99,9 +99,8 @@ Proof.
   i. des.
   eexists. splits.
   - econs; eauto.
-    + apply COMMIT1'.
-    + eapply CommitFacts.read_min_closed; eauto; apply WF0.
-  - refine (Local.step_read _ _ _ _ _); eauto.
+    eapply CommitFacts.read_min_closed; eauto; apply WF0.
+  - refine (Local.step_read _ _ _ _); eauto.
 Qed.
 
 Lemma reorder_read_promise
@@ -148,9 +147,8 @@ Proof.
   i. des.
   eexists. splits.
   - econs; eauto.
-    + apply COMMIT1'.
-    + eapply CommitFacts.write_min_closed; eauto; try by apply WF0.
-      apply WF0. eapply Memory.fulfill_get2. eauto.
+    eapply CommitFacts.write_min_closed; eauto; try by apply WF0.
+    apply WF0. eapply Memory.fulfill_get2. eauto.
   - econs; eauto.
 Qed.
 
@@ -207,11 +205,10 @@ Proof.
   i. des.
   eexists. splits.
   - econs; eauto.
-    + apply COMMIT1'0.
-    + apply CommitFacts.write_fence_min_closed; eauto.
-      apply CommitFacts.read_fence_min_closed; eauto.
-      apply WF0.
-  - refine (Local.step_read _ _ _ _ _); eauto.
+    apply CommitFacts.write_fence_min_closed; eauto.
+    apply CommitFacts.read_fence_min_closed; eauto.
+    apply WF0.
+  - refine (Local.step_read _ _ _ _); eauto.
 Qed.
 
 Lemma reorder_fulfill_read
@@ -236,8 +233,7 @@ Proof.
   i. des.
   eexists. splits.
   - econs; eauto.
-    + apply COMMIT1'.
-    + eapply CommitFacts.read_min_closed; eauto; apply WF0.
+    eapply CommitFacts.read_min_closed; eauto; apply WF0.
   - econs; eauto.
 Qed.
 
@@ -287,9 +283,8 @@ Proof.
   i. des.
   eexists. splits.
   - econs; eauto.
-    + apply COMMIT1'.
-    + eapply CommitFacts.write_min_closed; eauto; try by apply WF0.
-      apply WF0. eapply Memory.fulfill_get2. eauto.
+    eapply CommitFacts.write_min_closed; eauto; try by apply WF0.
+    apply WF0. eapply Memory.fulfill_get2. eauto.
   - econs; eauto.
 Qed.
 
@@ -370,9 +365,8 @@ Proof.
   i. des.
   eexists. splits.
   - econs; eauto.
-    + apply COMMIT1'0.
-    + eapply CommitFacts.write_min_closed; eauto; try by apply WF0.
-      apply WF0. eapply Memory.fulfill_get2. eauto.
+    eapply CommitFacts.write_min_closed; eauto; try by apply WF0.
+    apply WF0. eapply Memory.fulfill_get2. eauto.
   - econs; eauto. i. destruct ordw1; inv ORDW1; inv H.
 Qed.
 

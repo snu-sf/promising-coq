@@ -23,6 +23,10 @@ Module Const := Nat.
 
 
 Module Ordering.
+  (* TODO: support the Nonatomic atomics (#61).  Nonatomic accesses
+   * differ from unordered accesses in that nonatomic accesses may
+   * corrupt data in the presence of a race.
+   *)
   (* TODO: support the SC atomics (#40) *)
   Inductive t :=
   | unordered

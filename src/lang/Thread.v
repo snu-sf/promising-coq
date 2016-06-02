@@ -63,6 +63,7 @@ Module Local.
       (PROMISES: lc.(promises) = Memory.bot)
   .
 
+  (* TODO: is it "right" to have the closedness of the memory here? *)
   Inductive wf (lc:t) (mem:Memory.t): Prop :=
   | wf_intro
       (COMMIT_WF: Commit.wf lc.(commit))
@@ -106,7 +107,6 @@ Module Local.
       commit2
       (GET: Memory.get loc to mem1 = Some (from, Message.mk val released))
       (COMMIT: Commit.read lc1.(commit) loc to released ord commit2)
-      (COMMIT_WF: Commit.wf commit2)
       (COMMIT_CLOSED: Commit.closed commit2 mem1):
       read_step lc1 mem1 loc to val released ord (mk commit2 lc1.(promises))
   .
@@ -116,7 +116,6 @@ Module Local.
       commit2 promises2
       (FULFILL: Memory.fulfill lc1.(promises) loc from to (Message.mk val releasedm) promises2)
       (COMMIT: Commit.write lc1.(commit) loc to releasedc ord commit2)
-      (COMMIT_WF: Commit.wf commit2)
       (COMMIT_CLOSED: Commit.closed commit2 mem1)
       (RELEASED_CLOSED: Memory.closed_capability releasedc mem1):
       fulfill_step lc1 mem1 loc from to val releasedc releasedm ord (mk commit2 promises2)
@@ -142,7 +141,6 @@ Module Local.
       (READ: Commit.read_fence lc1.(commit) ordr commit2)
       (WRITE: Commit.write_fence commit2 ordw commit3)
       (RELEASE: Ordering.le Ordering.acqrel ordw -> lc1.(promises) = Memory.bot)
-      (COMMIT_WF: Commit.wf commit3)
       (COMMIT_CLOSED: Commit.closed commit3 mem1):
       fence_step lc1 mem1 ordr ordw (mk commit3 lc1.(promises))
   .
@@ -199,7 +197,7 @@ Module Local.
         (WF1: wf lc1 mem1):
     wf lc2 mem1.
   Proof.
-    inv WF1. inv STEP. ss.
+    inv WF1. inv STEP. econs; ss. apply COMMIT.
   Qed.
 
   Lemma fulfill_step_future lc1 mem1 loc from to val releasedc releasedm ord lc2
@@ -207,8 +205,9 @@ Module Local.
         (WF1: wf lc1 mem1):
     wf lc2 mem1.
   Proof.
-    inv WF1. inv STEP. econs; eauto. s.
-    eapply Memory.fulfill_future; eauto.
+    inv WF1. inv STEP. econs; ss.
+    - apply COMMIT.
+    - eapply Memory.fulfill_future; eauto.
   Qed.
 
   Lemma write_step_future lc1 mem1 loc from to val releasedc releasedm ord lc2 mem2
@@ -228,7 +227,7 @@ Module Local.
         (WF1: wf lc1 mem1):
     wf lc2 mem1.
   Proof.
-    inv WF1. inv STEP. ss.
+    inv WF1. inv STEP. econs; ss. apply WRITE.
   Qed.
 
   Lemma promise_step_disjoint
@@ -328,6 +327,15 @@ Module Thread.
         promise_step e1 loc from to val released (mk e1.(state) lc2 mem2)
     .
 
+    (* NOTE: Syscalls act like a write SC fence.  We did not let
+     * syscalls act like a read SC fence, since it is enough to
+     * disallow the weak behavior w/ SC & syscalls.
+     *
+     * If it is hard to explain, it is fine to let syscalls act like
+     * both read & write SC fences.
+     *
+     * https://github.com/jeehoonkang/memory-model-explorer/issues/65
+     *)
     Inductive program_step: forall (e:ThreadEvent.t) (e1 e2:t), Prop :=
     | step_silent
         st1 lc1 mem1
@@ -366,7 +374,7 @@ Module Thread.
         st1 lc1 mem1
         st2 e lc2
         (STATE: lang.(Language.step) (Some (ProgramEvent.syscall e)) st1 st2)
-        (LOCAL: Local.fence_step lc1 mem1 Ordering.seqcst Ordering.seqcst lc2):
+        (LOCAL: Local.fence_step lc1 mem1 Ordering.unordered Ordering.seqcst lc2):
         program_step (ThreadEvent.syscall e) (mk st1 lc1 mem1) (mk st2 lc2 mem1)
     .
 

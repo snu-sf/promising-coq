@@ -205,7 +205,6 @@ Proof.
     + eapply CommitFacts.read_fence_mon1; eauto.
     + eapply CommitFacts.write_fence_mon1; eauto. refl.
     + apply MemInv.sem_bot_inv in PROMISES. rewrite PROMISES. auto.
-    + auto.
     + eapply Commit.future_closed; eauto.
       apply Memory.splits_future. apply MEM1.
   - econs; eauto. s. refl.
