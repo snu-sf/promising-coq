@@ -229,7 +229,26 @@ Module MemInv.
         (INV: sem inv promises1_src promises1_tgt):
     sem (set loc to inv) promises1_src promises2_tgt.
   Proof.
-  Admitted.
+    inv FULFILL_TGT. econs.
+    - etrans; eauto; [|apply INV]. ii.
+      exploit Memory.remove_get_inv; eauto. i. des. auto.
+    - i. revert MEM. rewrite set_o. repeat condtac; subst.
+      + split.
+        * exploit Memory.remove_disjoint; eauto. i.
+          apply INV in x0. congr.
+        * eapply Memory.remove_get2. eauto.
+      + i. inv INV. exploit GET; eauto. i. des. splits; auto.
+        destruct (Memory.get loc ts promises2_tgt) as [[]|] eqn:X; auto.
+        exploit Memory.remove_get_inv; eauto. i. des. congr.
+      + i. inv INV. exploit GET; eauto. i. des. splits; auto.
+        destruct (Memory.get loc0 ts promises2_tgt) as [[]|] eqn:X; auto.
+        exploit Memory.remove_get_inv; eauto. i. des. congr.
+    - i. destruct (Memory.get loc0 ts promises1_tgt) as [[]|] eqn:X.
+      + exploit Memory.remove_get1; eauto. i. des; [|congr].
+        subst. apply set_eq.
+      + inv INV. exploit MEM; eauto. i.
+        rewrite set_o. repeat condtac; auto.
+  Qed.
 
   Lemma fulfill_src
         inv

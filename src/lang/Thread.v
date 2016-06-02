@@ -117,7 +117,8 @@ Module Local.
       (FULFILL: Memory.fulfill lc1.(promises) loc from to (Message.mk val releasedm) promises2)
       (COMMIT: Commit.write lc1.(commit) loc to releasedc ord commit2)
       (COMMIT_WF: Commit.wf commit2)
-      (COMMIT_CLOSED: Commit.closed commit2 mem1):
+      (COMMIT_CLOSED: Commit.closed commit2 mem1)
+      (RELEASED_CLOSED: Memory.closed_capability releasedc mem1):
       fulfill_step lc1 mem1 loc from to val releasedc releasedm ord (mk commit2 promises2)
   .
 
@@ -161,7 +162,8 @@ Module Local.
     fulfill_step lc1 mem1' loc from to val releasedc releasedm ord lc2.
   Proof.
     inv STEP. econs; eauto.
-    eapply Commit.future_closed; eauto.
+    - eapply Commit.future_closed; eauto.
+    - eapply Memory.future_closed_capability; eauto.
   Qed.
 
   Lemma future_fence_step lc1 mem1 mem1' ordr ordw lc2

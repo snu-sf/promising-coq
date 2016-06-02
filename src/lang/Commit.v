@@ -395,6 +395,25 @@ Module CommitFacts.
         * apply TimeMap.incr_ts.
   Qed.
 
+  Lemma read_min_closed
+        loc from to val released ord commit mem
+        (MEM: Memory.closed mem)
+        (COMMIT: Commit.closed commit mem)
+        (GET: Memory.get loc to mem = Some (from, Message.mk val released))
+        (READ: Commit.read commit loc to released ord (read_min loc to released ord commit)):
+    Commit.closed (read_min loc to released ord commit) mem.
+  Proof.
+    exploit MEM; eauto. i. des.
+    econs; s.
+    - apply COMMIT.
+    - unfold Capability.join_if. condtac; tac.
+      + apply COMMIT.
+      + apply COMMIT.
+    - unfold Capability.join_if. condtac; tac.
+      + apply COMMIT.
+      + apply COMMIT.
+  Qed.
+
   Lemma read_min_min
         loc ts released ord commit1 commit2
         (COMMIT2: Commit.read commit1 loc ts released ord commit2):
@@ -457,6 +476,22 @@ Module CommitFacts.
         apply TimeMap.incr_ts.
   Qed.
 
+  Lemma write_min_closed
+        loc from to val releasedc releasedm ord commit mem
+        (MEM: Memory.closed mem)
+        (COMMIT: Commit.closed commit mem)
+        (GET: Memory.get loc to mem = Some (from, Message.mk val releasedm))
+        (CLOSED: Memory.closed_capability releasedc mem)
+        (WRITE: Commit.write commit loc to releasedc ord (write_min loc to releasedc commit)):
+    Commit.closed (write_min loc to releasedc commit) mem.
+  Proof.
+    exploit MEM; eauto. i. des.
+    econs; s.
+    - i. unfold LocFun.add. condtac; auto. apply COMMIT.
+    - tac. apply COMMIT.
+    - tac. apply COMMIT.
+  Qed.
+
   Lemma write_min_min
         loc ts released ord commit1 commit2
         (COMMIT2: Commit.write commit1 loc ts released ord commit2):
@@ -498,6 +533,20 @@ Module CommitFacts.
       + condtac; try apply WF1. refl.
   Qed.
 
+  Lemma read_fence_min_closed
+        ord commit mem
+        (FENCE: Commit.read_fence commit ord (read_fence_min ord commit))
+        (COMMIT: Commit.closed commit mem):
+    Commit.closed (read_fence_min ord commit) mem.
+  Proof.
+    econs; s.
+    - apply COMMIT.
+    - condtac.
+      + apply COMMIT.
+      + apply COMMIT.
+    - apply COMMIT.
+  Qed.
+
   Lemma read_fence_min_min
         ord commit1 commit2
         (WF1: Commit.wf commit1)
@@ -529,6 +578,20 @@ Module CommitFacts.
     - econs; tac; try apply WF1.
       + condtac; apply WF1.
       + condtac; try apply WF1. refl.
+  Qed.
+
+  Lemma write_fence_min_closed
+        ord commit mem
+        (FENCE: Commit.write_fence commit ord (write_fence_min ord commit))
+        (COMMIT: Commit.closed commit mem):
+    Commit.closed (write_fence_min ord commit) mem.
+  Proof.
+    econs; s.
+    - i. condtac.
+      + apply COMMIT.
+      + apply COMMIT.
+    - apply COMMIT.
+    - apply COMMIT.
   Qed.
 
   Lemma write_fence_min_min

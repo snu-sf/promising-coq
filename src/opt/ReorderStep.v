@@ -100,9 +100,9 @@ Proof.
   eexists. splits.
   - econs; eauto.
     + apply COMMIT1'.
-    + admit.
+    + eapply CommitFacts.read_min_closed; eauto; apply WF0.
   - refine (Local.step_read _ _ _ _ _); eauto.
-Admitted.
+Qed.
 
 Lemma reorder_read_promise
       loc1 ts1 val1 released1 ord1
@@ -149,9 +149,10 @@ Proof.
   eexists. splits.
   - econs; eauto.
     + apply COMMIT1'.
-    + admit.
+    + eapply CommitFacts.write_min_closed; eauto; try by apply WF0.
+      apply WF0. eapply Memory.fulfill_get2. eauto.
   - econs; eauto.
-Admitted.
+Qed.
 
 Lemma reorder_read_write
       loc1 ts1 val1 released1 ord1
@@ -207,9 +208,11 @@ Proof.
   eexists. splits.
   - econs; eauto.
     + apply COMMIT1'0.
-    + admit.
+    + apply CommitFacts.write_fence_min_closed; eauto.
+      apply CommitFacts.read_fence_min_closed; eauto.
+      apply WF0.
   - refine (Local.step_read _ _ _ _ _); eauto.
-Admitted.
+Qed.
 
 Lemma reorder_fulfill_read
       loc1 from1 to1 val1 releasedc1 releasedm1 ord1
@@ -234,9 +237,9 @@ Proof.
   eexists. splits.
   - econs; eauto.
     + apply COMMIT1'.
-    + admit.
+    + eapply CommitFacts.read_min_closed; eauto; apply WF0.
   - econs; eauto.
-Admitted.
+Qed.
 
 Lemma reorder_fulfill_promise
       loc1 from1 to1 val1 releasedc1 releasedm1 ord1
@@ -257,8 +260,9 @@ Proof.
   exploit Commit.future_closed; try apply WF0; eauto. i.
   eexists. splits.
   - econs; try apply WF0; eauto. refl.
-  - econs; eauto. s. eapply CommitFacts.write_mon2; eauto.
-    refl.
+  - econs; eauto.
+    + s. eapply CommitFacts.write_mon2; eauto. refl.
+    + eapply Memory.future_closed_capability; eauto.
 Qed.
 
 Lemma reorder_fulfill_fulfill
@@ -284,9 +288,10 @@ Proof.
   eexists. splits.
   - econs; eauto.
     + apply COMMIT1'.
-    + admit.
+    + eapply CommitFacts.write_min_closed; eauto; try by apply WF0.
+      apply WF0. eapply Memory.fulfill_get2. eauto.
   - econs; eauto.
-Admitted.
+Qed.
 
 Lemma reorder_fulfill_write
       loc1 from1 to1 val1 releasedc1 releasedm1 ord1
@@ -366,9 +371,10 @@ Proof.
   eexists. splits.
   - econs; eauto.
     + apply COMMIT1'0.
-    + admit.
+    + eapply CommitFacts.write_min_closed; eauto; try by apply WF0.
+      apply WF0. eapply Memory.fulfill_get2. eauto.
   - econs; eauto. i. destruct ordw1; inv ORDW1; inv H.
-Admitted.
+Qed.
 
 Lemma reorder_fence_write
       ordr1 ordw1

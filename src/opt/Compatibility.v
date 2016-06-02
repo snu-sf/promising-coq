@@ -152,6 +152,8 @@ Proof.
     + eapply CommitFacts.write_mon1; eauto.
     + eapply Commit.future_closed; eauto.
       apply Memory.splits_future. apply MEM1.
+    + eapply Memory.future_closed_capability; eauto.
+      apply Memory.splits_future. apply MEM1.
   - econs; eauto. s. refl.
 Qed.
 
