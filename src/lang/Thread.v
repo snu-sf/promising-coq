@@ -34,17 +34,17 @@ Module ThreadEvent.
     | _ => None
     end.
 
-  Definition is_reading (e:t): option (Loc.t * Ordering.t) :=
+  Definition is_reading (e:t): option (Loc.t * Time.t * Ordering.t) :=
     match e with
-    | read loc _ _ ord => Some (loc, ord)
-    | update loc _ _ _ _ ordr _ => Some (loc, ordr)
+    | read loc ts _ ord => Some (loc, ts, ord)
+    | update loc tsr _ _ _ ordr _ => Some (loc, tsr, ordr)
     | _ => None
     end.
 
-  Definition is_writing (e:t): option (Loc.t * Ordering.t) :=
+  Definition is_writing (e:t): option (Loc.t * Time.t * Ordering.t) :=
     match e with
-    | write loc _ _ ord => Some (loc, ord)
-    | update loc _ _ _ _ _ ordw => Some (loc, ordw)
+    | write loc ts _ ord => Some (loc, ts, ord)
+    | update loc _ tsw _ _ _ ordw => Some (loc, tsw, ordw)
     | _ => None
     end.
 End ThreadEvent.
