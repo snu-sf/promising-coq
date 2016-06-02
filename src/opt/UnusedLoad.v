@@ -43,18 +43,62 @@ Set Implicit Arguments.
  * that `y_unordered` will read 1.  However, the elimination of
  * `x_rlx` will allow the loop to run forever.
  *)
+
+Lemma unused_read
+      lc0 mem0
+      loc ord
+      (ORD: Ordering.le ord Ordering.unordered)
+      (WF: Local.wf lc0 mem0):
+  exists ts val released,
+    Local.read_step lc0 mem0 loc ts val released ord lc0.
+Proof.
+  destruct lc0.
+  assert (exists from msg, Memory.get loc (Capability.ur (Commit.cur commit) loc) mem0 = Some (from, msg)) by apply WF.
+  i. des. destruct msg.
+  inversion WF. ss. exploit MEMORY; eauto. i. des.
+  exploit (CommitFacts.read_min_spec loc); eauto.
+  { refl. }
+  { i. instantiate (1 := ord) in H0. destruct ord; inv ORD; inv H0. }
+  s. i. eexists _, _, _. refine (Local.step_read _ _ _ _ ); eauto. s.
+  replace (CommitFacts.read_min
+             loc
+             (Capability.ur (Commit.cur commit) loc) released ord
+             commit)
+  with commit in x0; auto.
+  destruct commit. unfold CommitFacts.read_min. ss. f_equal.
+  - destruct (Ordering.le Ordering.acqrel ord) eqn:X; s.
+    { destruct ord; inv ORD; inv X. }
+    rewrite Capability.incr_rw_nop; auto; apply WF.
+  - destruct (Ordering.le Ordering.relaxed ord) eqn:X; s.
+    { destruct ord; inv ORD; inv X. }
+    rewrite Capability.incr_rw_nop; auto; try apply WF. etrans; apply WF.
+Qed.
+
 Lemma unused_load_sim_stmts
       r loc ord
       (ORD: Ordering.le ord Ordering.unordered):
   sim_stmts (RegFile.eq_except (RegSet.singleton r))
             [Stmt.instr (Instr.load r loc ord)]
-            []
+            [Stmt.instr Instr.skip]
             (RegFile.eq_except (RegSet.singleton r)).
 Proof.
-  ii. pfold. ii. splits.
-  - admit.
-  - admit.
-  - admit.
-  - ii. inv STEP_TGT; try by inv STEP; inv STATE.
-    admit.
-Admitted.
+  pcofix CIH. ii. subst. pfold. ii. splits.
+  { i. inv TERMINAL_TGT. }
+  { i. eapply sim_local_future; try apply MEMORY; eauto. apply LOCAL. }
+  { i. eexists _, _, _. splits; eauto.
+    inv LOCAL. apply MemInv.sem_bot_inv in PROMISES. rewrite PROMISES. auto.
+  }
+  ii. inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR); ss.
+  - (* promise *)
+    exploit sim_local_promise; eauto. i. des.
+    eexists _, _, _, _, _, _, _. splits; eauto.
+    econs 1; eauto. econs; eauto. eauto.
+  - (* silent *)
+    exploit unused_read; try apply WF_SRC; eauto. i. des.
+    eexists _, _, _, _, _, _, _. splits; eauto.
+    + econs 2. econs 2; eauto. econs. econs.
+    + auto.
+    + left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
+      * etrans; eauto. apply RegFile.eq_except_singleton.
+      * inv LOCAL. inv LOCAL0. econs; ss. etrans; eauto.
+Qed.

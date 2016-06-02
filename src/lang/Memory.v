@@ -89,6 +89,19 @@ Module TimeMap <: JoinableType.
     ii. unfold get, incr, LocFun.add, LocFun.find. condtac; ss.
     subst. apply Time.join_spec; auto.
   Qed.
+
+  Lemma incr_nop
+        loc ts tm
+        (TS: Time.le ts (tm loc)):
+    incr loc ts tm = tm.
+  Proof.
+    unfold incr. apply LocFun.extensionality. i.
+    rewrite LocFun.add_spec. condtac; auto. subst.
+    unfold LocFun.find. unfold Time.join. condtac; auto.
+    apply Time.le_lteq in TS. des; auto.
+    exploit TimeFacts.lt_le_lt; eauto. i.
+    apply Time.lt_strorder in x0. inv x0.
+  Qed.
 End TimeMap.
 
 Module Capability <: JoinableType.
@@ -318,6 +331,17 @@ Module Capability <: JoinableType.
     - etrans; eauto. apply incr_rw_le.
     - apply TimeMap.incr_ts.
     - apply TimeMap.incr_ts.
+  Qed.
+
+  Lemma incr_rw_nop
+        loc ts cur
+        (WF: Capability.wf cur)
+        (TS: Time.le ts (cur.(Capability.rw) loc)):
+    incr_rw loc ts cur = cur.
+  Proof.
+    destruct cur. unfold incr_rw. ss. f_equal.
+    - apply TimeMap.incr_nop. auto.
+    - apply TimeMap.incr_nop. etrans; eauto. apply WF.
   Qed.
 End Capability.
 
@@ -1087,7 +1111,7 @@ Module Memory.
       + ii. exploit split_get1; eauto. i. des; auto. subst.
         inv PROMISES. inv SPLIT.
         exfalso. eapply Cell.disjoint_get; [apply DISJOINT| |]; eauto.
-  Qed.            
+  Qed.
 
   Lemma fulfill_future
         promises1 mem1 loc from to msg promises2
