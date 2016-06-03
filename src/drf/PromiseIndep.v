@@ -154,6 +154,20 @@ Proof.
     i. des. eexists _, _, _, _, _, _, _. splits; [|eauto|eauto|eauto|eauto].
     etrans; [|eauto]. econs 2; [|econs 1]. eauto.
   }
+
+  (* STEP0 : Thread.step e *)
+  (*           {| *)
+  (*           Thread.state := st0; *)
+  (*           Thread.local := lc0; *)
+  (*           Thread.memory := Configuration.memory x |} *)
+  (*           {| *)
+  (*           Thread.state := st2; *)
+  (*           Thread.local := lc2; *)
+  (*           Thread.memory := memory2 |} *)
+
+  (* GET1 : Memory.get loc ts (Local.promises lc1) = Some (from, msg) *)
+  (* X : Memory.get loc ts (Local.promises lc2) = None *)
+
   (* NOTE: maybe it would be better to change Configuration.consistent: split wf & validation *)
   eexists _, _, _, _, _, _, _. splits; eauto.
   - admit. (* thread is executed *)

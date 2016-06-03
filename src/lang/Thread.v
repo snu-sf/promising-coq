@@ -69,7 +69,6 @@ Module Local.
       (COMMIT_WF: Commit.wf lc.(commit))
       (COMMIT_CLOSED: Commit.closed lc.(commit) mem)
       (PROMISES: Memory.le lc.(promises) mem)
-      (MEMORY: Memory.closed mem)
   .
 
   Inductive disjoint (lc1 lc2:t): Prop :=
@@ -175,8 +174,10 @@ Module Local.
 
   Lemma promise_step_future lc1 mem1 loc from to val released lc2 mem2
         (STEP: promise_step lc1 mem1 loc from to val released lc2 mem2)
-        (WF1: wf lc1 mem1):
+        (WF1: wf lc1 mem1)
+        (MEM1: Memory.closed mem1):
     <<WF2: wf lc2 mem2>> /\
+    <<MEM2: Memory.closed mem2>> /\
     <<FUTURE: Memory.future mem1 mem2>>.
   Proof.
     inv WF1. inv STEP.
@@ -186,7 +187,8 @@ Module Local.
 
   Lemma silent_step_future lc1 mem1 lc2
         (STEP: silent_step lc1 mem1 lc2)
-        (WF1: wf lc1 mem1):
+        (WF1: wf lc1 mem1)
+        (MEM1: Memory.closed mem1):
     wf lc2 mem1.
   Proof.
     inv WF1. inv STEP. ss.
@@ -194,7 +196,8 @@ Module Local.
 
   Lemma read_step_future lc1 mem1 loc ts val released ord lc2
         (STEP: read_step lc1 mem1 loc ts val released ord lc2)
-        (WF1: wf lc1 mem1):
+        (WF1: wf lc1 mem1)
+        (MEM1: Memory.closed mem1):
     wf lc2 mem1.
   Proof.
     inv WF1. inv STEP. econs; ss. apply COMMIT.
@@ -202,7 +205,8 @@ Module Local.
 
   Lemma fulfill_step_future lc1 mem1 loc from to val releasedc releasedm ord lc2
         (STEP: fulfill_step lc1 mem1 loc from to val releasedc releasedm ord lc2)
-        (WF1: wf lc1 mem1):
+        (WF1: wf lc1 mem1)
+        (MEM1: Memory.closed mem1):
     wf lc2 mem1.
   Proof.
     inv WF1. inv STEP. econs; ss.
@@ -212,8 +216,10 @@ Module Local.
 
   Lemma write_step_future lc1 mem1 loc from to val releasedc releasedm ord lc2 mem2
         (STEP: write_step lc1 mem1 loc from to val releasedc releasedm ord lc2 mem2)
-        (WF1: wf lc1 mem1):
+        (WF1: wf lc1 mem1)
+        (MEM1: Memory.closed mem1):
     <<WF2: wf lc2 mem2>> /\
+    <<MEM2: Memory.closed mem2>> /\
     <<FUTURE: Memory.future mem1 mem2>>.
   Proof.
     inv STEP.
@@ -224,7 +230,8 @@ Module Local.
 
   Lemma fence_step_future lc1 mem1 ordr ordw lc2
         (STEP: fence_step lc1 mem1 ordr ordw lc2)
-        (WF1: wf lc1 mem1):
+        (WF1: wf lc1 mem1)
+        (MEM1: Memory.closed mem1):
     wf lc2 mem1.
   Proof.
     inv WF1. inv STEP. econs; ss. apply WRITE.
@@ -234,6 +241,7 @@ Module Local.
         lc1 mem1 loc from to val released lc2 mem2 lc
         (STEP: promise_step lc1 mem1 loc from to val released lc2 mem2)
         (WF1: wf lc1 mem1)
+        (MEM1: Memory.closed mem1)
         (DISJOINT1: disjoint lc1 lc)
         (WF: wf lc mem1):
     <<DISJOINT2: disjoint lc2 lc>> /\
@@ -271,6 +279,7 @@ Module Local.
         lc1 mem1 lc2 loc from to val releasedc releasedm ord lc
         (STEP: fulfill_step lc1 mem1 loc from to val releasedc releasedm ord lc2)
         (WF1: wf lc1 mem1)
+        (MEM1: Memory.closed mem1)
         (DISJOINT1: disjoint lc1 lc)
         (WF: wf lc mem1):
     disjoint lc2 lc.
@@ -285,6 +294,7 @@ Module Local.
         lc1 mem1 lc2 loc from to val releasedc releasedm ord mem2 lc
         (STEP: write_step lc1 mem1 loc from to val releasedc releasedm ord lc2 mem2)
         (WF1: wf lc1 mem1)
+        (MEM1: Memory.closed mem1)
         (DISJOINT1: disjoint lc1 lc)
         (WF: wf lc mem1):
     <<DISJOINT2: disjoint lc2 lc>> /\
@@ -396,31 +406,38 @@ Module Thread.
         (TAU: ThreadEvent.get_event e = None)
     .
 
-    Definition consistent st1 lc1 mem: Prop :=
+    Definition consistent (e:t): Prop :=
       forall mem1
-        (FUTURE: Memory.future mem mem1)
-        (WF: Local.wf lc1 mem1),
+        (FUTURE: Memory.future e.(memory) mem1)
+        (WF: Local.wf e.(local) mem1)
+        (MEM: Memory.closed mem1),
       exists e2,
-        <<STEPS: rtc tau_step (mk st1 lc1 mem1) e2>> /\
+        <<STEPS: rtc tau_step (mk e.(state) e.(local) mem1) e2>> /\
         <<PROMISES: e2.(local).(Local.promises) = Memory.bot>>.
 
     Lemma promise_step_future
           loc from to val released e1 e2
           (STEP: promise_step e1 loc from to val released e2)
-          (WF1: Local.wf e1.(local) e1.(memory)):
+          (WF1: Local.wf e1.(local) e1.(memory))
+          (MEM1: Memory.closed e1.(memory)):
       <<WF2: Local.wf e2.(local) e2.(memory)>> /\
+      <<MEM2: Memory.closed e2.(memory)>> /\
       <<FUTURE: Memory.future e1.(memory) e2.(memory)>>.
     Proof.
-      inv STEP; s. exploit Local.promise_step_future; eauto.
+      inv WF1. inv STEP. s.
+      exploit Local.promise_step_future; eauto. i. des.
+      splits; eauto. econs; eauto.
     Qed.
 
     Lemma program_step_future e e1 e2
           (STEP: program_step e e1 e2)
-          (WF1: Local.wf e1.(local) e1.(memory)):
+          (WF1: Local.wf e1.(local) e1.(memory))
+          (MEM1: Memory.closed e1.(memory)):
       <<WF2: Local.wf e2.(local) e2.(memory)>> /\
+      <<MEM2: Memory.closed e2.(memory)>> /\
       <<FUTURE: Memory.future e1.(memory) e2.(memory)>>.
     Proof.
-      inv STEP; s.
+      inv STEP; ss.
       - exploit Local.silent_step_future; eauto. i. splits; ss. refl.
       - exploit Local.read_step_future; eauto. i. splits; ss. refl.
       - exploit Local.write_step_future; eauto.
@@ -432,8 +449,10 @@ Module Thread.
 
     Lemma step_future e e1 e2
           (STEP: step e e1 e2)
-          (WF1: Local.wf e1.(local) e1.(memory)):
+          (WF1: Local.wf e1.(local) e1.(memory))
+          (MEM1: Memory.closed e1.(memory)):
       <<WF2: Local.wf e2.(local) e2.(memory)>> /\
+      <<MEM2: Memory.closed e2.(memory)>> /\
       <<FUTURE: Memory.future e1.(memory) e2.(memory)>>.
     Proof.
       inv STEP.
@@ -443,8 +462,10 @@ Module Thread.
 
     Lemma rtc_step_future e1 e2
           (STEP: rtc tau_step e1 e2)
-          (WF1: Local.wf e1.(local) e1.(memory)):
+          (WF1: Local.wf e1.(local) e1.(memory))
+          (MEM1: Memory.closed e1.(memory)):
       <<WF2: Local.wf e2.(local) e2.(memory)>> /\
+      <<MEM2: Memory.closed e2.(memory)>> /\
       <<FUTURE: Memory.future e1.(memory) e2.(memory)>>.
     Proof.
       revert WF1. induction STEP.
@@ -459,6 +480,7 @@ Module Thread.
           loc from to val released e1 e2 lc
         (STEP: promise_step e1 loc from to val released e2)
         (WF1: Local.wf e1.(local) e1.(memory))
+        (MEM1: Memory.closed e1.(memory))
         (DISJOINT1: Local.disjoint e1.(local) lc)
         (WF: Local.wf lc e1.(memory)):
       <<DISJOINT2: Local.disjoint e2.(local) lc>> /\
@@ -472,6 +494,7 @@ Module Thread.
     Lemma program_step_disjoint e e1 e2 lc
         (STEP: program_step e e1 e2)
         (WF1: Local.wf e1.(local) e1.(memory))
+        (MEM1: Memory.closed e1.(memory))
         (DISJOINT1: Local.disjoint e1.(local) lc)
         (WF: Local.wf lc e1.(memory)):
       <<DISJOINT2: Local.disjoint e2.(local) lc>> /\
@@ -497,6 +520,7 @@ Module Thread.
     Lemma step_disjoint e e1 e2 lc
         (STEP: step e e1 e2)
         (WF1: Local.wf e1.(local) e1.(memory))
+        (MEM1: Memory.closed e1.(memory))
         (DISJOINT1: Local.disjoint e1.(local) lc)
         (WF: Local.wf lc e1.(memory)):
       <<DISJOINT2: Local.disjoint e2.(local) lc>> /\
@@ -510,6 +534,7 @@ Module Thread.
     Lemma rtc_step_disjoint e1 e2 lc
         (STEP: rtc tau_step e1 e2)
         (WF1: Local.wf e1.(local) e1.(memory))
+        (MEM1: Memory.closed e1.(memory))
         (DISJOINT1: Local.disjoint e1.(local) lc)
         (WF: Local.wf lc e1.(memory)):
       <<DISJOINT2: Local.disjoint e2.(local) lc>> /\

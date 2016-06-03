@@ -32,6 +32,7 @@ Set Implicit Arguments.
 Lemma progress_program_step
       rs1 i1 s1 lc1 mem1
       (WF1: Local.wf lc1 mem1)
+      (MEM1: Memory.closed mem1)
       (PROMISES1: lc1.(Local.promises) = Memory.bot):
   exists e lc2, <<STEP: Thread.program_step e (Thread.mk lang (State.mk rs1 (i1::s1)) lc1 mem1) lc2>>.
 Proof.
@@ -87,6 +88,7 @@ Lemma reorder_read_read
       (LOC: loc1 <> loc2)
       (ORD2: Ordering.le ord2 Ordering.relaxed)
       (WF0: Local.wf lc0 mem0)
+      (MEM0: Memory.closed mem0)
       (STEP1: Local.read_step lc0 mem0 loc1 ts1 val1 released1 ord1 lc1)
       (STEP2: Local.read_step lc1 mem0 loc2 ts2 val2 released2 ord2 lc2):
   exists lc1',
@@ -99,7 +101,7 @@ Proof.
   i. des.
   eexists. splits.
   - econs; eauto.
-    eapply CommitFacts.read_min_closed; eauto; apply WF0.
+    eapply CommitFacts.read_min_closed; eauto. apply WF0.
   - refine (Local.step_read _ _ _ _); eauto.
 Qed.
 
@@ -110,6 +112,7 @@ Lemma reorder_read_promise
       lc1
       lc2 mem2
       (WF0: Local.wf lc0 mem0)
+      (MEM0: Memory.closed mem0)
       (STEP1: Local.read_step lc0 mem0 loc1 ts1 val1 released1 ord1 lc1)
       (STEP2: Local.promise_step lc1 mem0 loc2 from2 to2 val2 released2 lc2 mem2):
   exists lc1',
@@ -135,6 +138,7 @@ Lemma reorder_read_fulfill
       (LOC: loc1 <> loc2)
       (ORD: Ordering.le Ordering.seqcst ord2 -> Ordering.le Ordering.seqcst ord1 -> False)
       (WF0: Local.wf lc0 mem0)
+      (MEM0: Memory.closed mem0)
       (STEP1: Local.read_step lc0 mem0 loc1 ts1 val1 released1 ord1 lc1)
       (STEP2: Local.fulfill_step lc1 mem0 loc2 from2 to2 val2 releasedc2 releasedm2 ord2 lc2):
   exists lc1',
@@ -161,6 +165,7 @@ Lemma reorder_read_write
       (LOC: loc1 <> loc2)
       (ORD: Ordering.le Ordering.seqcst ord2 -> Ordering.le Ordering.seqcst ord1 -> False)
       (WF0: Local.wf lc0 mem0)
+      (MEM0: Memory.closed mem0)
       (STEP1: Local.read_step lc0 mem0 loc1 ts1 val1 released1 ord1 lc1)
       (STEP2: Local.write_step lc1 mem0 loc2 from2 to2 val2 releasedc2 releasedm2 ord2 lc2 mem1):
   exists lc1',
@@ -172,9 +177,8 @@ Proof.
     eexists. splits; eauto. econs 1. eauto.
     inv STEP1. ss.
   - exploit reorder_read_promise; eauto. i. des.
-    exploit reorder_read_fulfill; try apply FULFILL; eauto.
-    { eapply Local.promise_step_future; eauto. }
-    i. des.
+    exploit Local.promise_step_future; eauto. i. des.
+    exploit reorder_read_fulfill; try apply FULFILL; eauto. i. des.
     eexists. splits; eauto. econs 2; eauto.
     inv STEP1. ss.
 Qed.
@@ -190,6 +194,7 @@ Lemma reorder_read_fence
       (ORDW2: Ordering.le ordw2 Ordering.acqrel)
       (RLX: Ordering.le Ordering.relaxed ordw2 -> Ordering.le ord1 Ordering.relaxed)
       (WF0: Local.wf lc0 mem0)
+      (MEM0: Memory.closed mem0)
       (STEP1: Local.read_step lc0 mem0 loc1 ts1 val1 released1 ord1 lc1)
       (STEP2: Local.fence_step lc1 mem0 ordr2 ordw2 lc2):
   exists lc1',
@@ -221,6 +226,7 @@ Lemma reorder_fulfill_read
       (ORD1: Ordering.le ord1 Ordering.relaxed)
       (ORD2: Ordering.le ord2 Ordering.relaxed)
       (WF0: Local.wf lc0 mem0)
+      (MEM0: Memory.closed mem0)
       (STEP1: Local.fulfill_step lc0 mem0 loc1 from1 to1 val1 releasedc1 releasedm1 ord1 lc1)
       (STEP2: Local.read_step lc1 mem0 loc2 ts2 val2 released2 ord2 lc2):
   exists lc1',
@@ -244,6 +250,7 @@ Lemma reorder_fulfill_promise
       lc1
       lc2 mem2
       (WF0: Local.wf lc0 mem0)
+      (MEM0: Memory.closed mem0)
       (STEP1: Local.fulfill_step lc0 mem0 loc1 from1 to1 val1 releasedc1 releasedm1 ord1 lc1)
       (STEP2: Local.promise_step lc1 mem0 loc2 from2 to2 val2 released2 lc2 mem2):
   exists lc1',
@@ -270,6 +277,7 @@ Lemma reorder_fulfill_fulfill
       (LOC: loc1 <> loc2)
       (ORD1: Ordering.le ord1 Ordering.relaxed)
       (WF0: Local.wf lc0 mem0)
+      (MEM0: Memory.closed mem0)
       (STEP1: Local.fulfill_step lc0 mem0 loc1 from1 to1 val1 releasedc1 releasedm1 ord1 lc1)
       (STEP2: Local.fulfill_step lc1 mem0 loc2 from2 to2 val2 releasedc2 releasedm2 ord2 lc2):
   exists lc1',
@@ -297,6 +305,7 @@ Lemma reorder_fulfill_write
       (LOC: loc1 <> loc2)
       (ORD1: Ordering.le ord1 Ordering.relaxed)
       (WF0: Local.wf lc0 mem0)
+      (MEM0: Memory.closed mem0)
       (STEP1: Local.fulfill_step lc0 mem0 loc1 from1 to1 val1 releasedc1 releasedm1 ord1 lc1)
       (STEP2: Local.write_step lc1 mem0 loc2 from2 to2 val2 releasedc2 releasedm2 ord2 lc2 mem2):
   exists lc1',
@@ -308,9 +317,8 @@ Proof.
     eexists. splits; eauto. econs 1. eauto.
     inv STEP1. erewrite ReorderMemory.cell_fulfill; eauto.
   - exploit reorder_fulfill_promise; eauto. i. des.
-    exploit reorder_fulfill_fulfill; try apply STEP2; eauto.
-    { eapply Local.promise_step_future; eauto. }
-    i. des.
+    exploit Local.promise_step_future; eauto. i. des.
+    exploit reorder_fulfill_fulfill; try apply STEP2; eauto. i. des.
     eexists. splits; eauto. econs 2; eauto.
     inv STEP1. erewrite ReorderMemory.cell_fulfill; eauto.
 Qed.
@@ -324,6 +332,7 @@ Lemma reorder_fence_promise
       (ORDR1: Ordering.le ordr1 Ordering.acqrel)
       (ORDW1: Ordering.le ordw1 Ordering.relaxed)
       (WF0: Local.wf lc0 mem0)
+      (MEM0: Memory.closed mem0)
       (STEP1: Local.fence_step lc0 mem0 ordr1 ordw1 lc1)
       (STEP2: Local.promise_step lc1 mem0 loc2 from2 to2 val2 released2 lc2 mem2):
   exists lc1',
@@ -350,6 +359,7 @@ Lemma reorder_fence_fulfill
       (ORDR1: Ordering.le ordr1 Ordering.acqrel)
       (ORDW1: Ordering.le ordw1 Ordering.relaxed)
       (WF0: Local.wf lc0 mem0)
+      (MEM0: Memory.closed mem0)
       (STEP1: Local.fence_step lc0 mem0 ordr1 ordw1 lc1)
       (STEP2: Local.fulfill_step lc1 mem0 loc2 from2 to2 val2 releasedc2 releasedm2 ord2 lc2):
   exists lc1',
@@ -379,6 +389,7 @@ Lemma reorder_fence_write
       (ORDR1: Ordering.le ordr1 Ordering.acqrel)
       (ORDW1: Ordering.le ordw1 Ordering.relaxed)
       (WF0: Local.wf lc0 mem0)
+      (MEM0: Memory.closed mem0)
       (STEP1: Local.fence_step lc0 mem0 ordr1 ordw1 lc1)
       (STEP2: Local.write_step lc1 mem0 loc2 from2 to2 val2 releasedc2 releasedm2 ord2 lc2 mem2):
   exists lc1',
@@ -390,9 +401,8 @@ Proof.
     eexists. splits; eauto. econs 1. eauto.
     inv STEP1. auto.
   - exploit reorder_fence_promise; eauto. i. des.
-    exploit reorder_fence_fulfill; try apply STEP2; eauto.
-    { eapply Local.promise_step_future; eauto. }
-    i. des.
+    exploit Local.promise_step_future; eauto. i. des.
+    exploit reorder_fence_fulfill; try apply STEP2; eauto. i. des.
     eexists. splits; eauto. econs 2; eauto.
     inv STEP1. auto.
 Qed.

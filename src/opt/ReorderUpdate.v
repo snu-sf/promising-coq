@@ -83,7 +83,9 @@ Lemma sim_update_step
     (FUTURE_SRC: Memory.future mem_k_src mem1_src)
     (FUTURE_TGT: Memory.future mem_k_tgt mem1_tgt)
     (WF_SRC: Local.wf lc1_src mem1_src)
-    (WF_TGT: Local.wf lc1_tgt mem1_tgt),
+    (WF_TGT: Local.wf lc1_tgt mem1_tgt)
+    (MEM_SRC: Memory.closed mem1_src)
+    (MEM_TGT: Memory.closed mem1_tgt),
     _sim_thread_step lang lang ((sim_thread (sim_terminal eq)) \6/ sim_update)
                      st1_src lc1_src mem1_src
                      st1_tgt lc1_tgt mem1_tgt.
@@ -221,13 +223,15 @@ Proof.
   - i. inv PR. eapply sim_local_future; try apply LOCAL; eauto.
     + exploit Local.read_step_future; try apply WF_SRC; i.
       { eapply Local.future_read_step; eauto. }
+      { eauto. }
       eapply Local.fulfill_step_future; eauto.
       eapply Local.future_fulfill_step; eauto.
     + exploit Local.read_step_future; try apply WF_SRC0; i.
       { eapply Local.future_read_step; eauto.
         eapply Local.future_read_step; eauto.
       }
-      eapply Local.fulfill_step_future; try apply x0.
+      { eauto. }
+      eapply Local.fulfill_step_future; try apply x0; eauto.
       eapply Local.future_fulfill_step; eauto.
       eapply Local.future_fulfill_step; eauto.
   - inversion PR. subst. i.
@@ -236,12 +240,11 @@ Proof.
     { econs 2. eauto. }
     i. des.
     + exploit program_step_promise; eauto. i.
-      punfold SIM. exploit SIM; eauto; try refl.
-      { exploit Thread.rtc_step_future; eauto. s. i. des.
-        exploit Thread.step_future; eauto. s. i. des. auto.
-      }
-      { exploit Thread.program_step_future; eauto. s. i. des. auto. }
-      i. des. exploit PROMISES; eauto. i. des.
+      exploit Thread.rtc_step_future; eauto. s. i. des.
+      exploit Thread.step_future; eauto. s. i. des.
+      exploit Thread.program_step_future; eauto. s. i. des.
+      punfold SIM. exploit SIM; eauto; try refl. i. des.
+      exploit PROMISES; eauto. i. des.
       eexists _, _, _. splits; [|eauto].
       etrans; eauto. etrans; [|eauto].
       econs 2; eauto. econs; eauto. etrans; eauto.

@@ -58,7 +58,9 @@ Lemma sim_fence_step
     (FUTURE_SRC: Memory.future mem_k_src mem1_src)
     (FUTURE_TGT: Memory.future mem_k_tgt mem1_tgt)
     (WF_SRC: Local.wf lc1_src mem1_src)
-    (WF_TGT: Local.wf lc1_tgt mem1_tgt),
+    (WF_TGT: Local.wf lc1_tgt mem1_tgt)
+    (MEM_SRC: Memory.closed mem1_src)
+    (MEM_TGT: Memory.closed mem1_tgt),
     _sim_thread_step lang lang ((sim_thread (sim_terminal eq)) \6/ sim_fence)
                      st1_src lc1_src mem1_src
                      st1_tgt lc1_tgt mem1_tgt.

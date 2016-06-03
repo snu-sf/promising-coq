@@ -48,17 +48,19 @@ Lemma unused_read
       lc0 mem0
       loc ord
       (ORD: Ordering.le ord Ordering.unordered)
-      (WF: Local.wf lc0 mem0):
+      (WF: Local.wf lc0 mem0)
+      (MEM: Memory.closed mem0):
   exists ts val released,
     Local.read_step lc0 mem0 loc ts val released ord lc0.
 Proof.
   destruct lc0.
   assert (exists from msg, Memory.get loc (Capability.ur (Commit.cur commit) loc) mem0 = Some (from, msg)) by apply WF.
   i. des. destruct msg.
-  inversion WF. ss. exploit MEMORY; eauto. i. des.
+  exploit MEM; eauto. i. des.
   exploit (CommitFacts.read_min_spec loc); eauto.
   { refl. }
   { i. instantiate (1 := ord) in H0. destruct ord; inv ORD; inv H0. }
+  { apply WF. }
   s. i. eexists _, _, _. refine (Local.step_read _ _ _ _ ); eauto. s.
   replace (CommitFacts.read_min
              loc
@@ -72,6 +74,7 @@ Proof.
   - destruct (Ordering.le Ordering.relaxed ord) eqn:X; s.
     { destruct ord; inv ORD; inv X. }
     rewrite Capability.incr_rw_nop; auto; try apply WF. etrans; apply WF.
+  - apply WF.
 Qed.
 
 Lemma unused_load_sim_stmts

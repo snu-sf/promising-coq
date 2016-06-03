@@ -32,11 +32,13 @@ Lemma sim_local_future
       (FUTURE_SRC: Memory.future mem1_src mem2_src)
       (WF1_SRC: Local.wf lc_src mem1_src)
       (WF1_TGT: Local.wf lc_tgt mem1_tgt)
-      (WF2_SRC: Local.wf lc_src mem2_src):
+      (WF2_SRC: Local.wf lc_src mem2_src)
+      (MEM2_SRC: Memory.closed mem2_src):
   exists mem2_tgt,
     <<MEM2: sim_memory mem2_src mem2_tgt>> /\
     <<FUTURE_TGT: Memory.future mem1_tgt mem2_tgt>> /\
-    <<WF2_TGT: Local.wf lc_tgt mem2_tgt>>.
+    <<WF2_TGT: Local.wf lc_tgt mem2_tgt>> /\
+    <<MEM2_TGT: Memory.closed mem2_tgt>>.
 Proof.
   eexists. splits.
   - reflexivity.
@@ -46,7 +48,7 @@ Proof.
     + eapply Commit.future_closed; try apply WF1_TGT; eauto.
       etrans; eauto. apply Memory.splits_future. apply MEM1.
     + etrans. apply INV1. apply WF2_SRC.
-    + apply WF2_SRC.
+  - auto.
 Qed.
 
 Lemma sim_local_promise
@@ -58,7 +60,8 @@ Lemma sim_local_promise
       (LOCAL1: sim_local lc1_src lc1_tgt)
       (MEM1: sim_memory mem1_src mem1_tgt)
       (WF1_SRC: Local.wf lc1_src mem1_src)
-      (WF1_TGT: Local.wf lc1_tgt mem1_tgt):
+      (WF1_TGT: Local.wf lc1_tgt mem1_tgt)
+      (MEM1_SRC: Memory.closed mem1_src):
   exists lc2_src mem2_src,
     <<STEP_SRC: Local.promise_step lc1_src mem1_src loc from to val released lc2_src mem2_src>> /\
     <<LOCAL2: sim_local lc2_src lc2_tgt>> /\
@@ -70,7 +73,6 @@ Proof.
   { apply WF1_TGT. }
   i. des.
   exploit Memory.promise_future; try apply PROMISES_SRC; eauto.
-  { apply WF1_SRC. }
   { apply WF1_SRC. }
   i. des.
   eexists _, _. splits; s; eauto.
@@ -166,7 +168,9 @@ Lemma sim_local_write
       (LOCAL1: sim_local lc1_src lc1_tgt)
       (MEM1: sim_memory mem1_src mem1_tgt)
       (WF1_SRC: Local.wf lc1_src mem1_src)
-      (WF1_TGT: Local.wf lc1_tgt mem1_tgt):
+      (WF1_TGT: Local.wf lc1_tgt mem1_tgt)
+      (MEM1_SRC: Memory.closed mem1_src)
+      (MEM1_TGT: Memory.closed mem1_tgt):
   exists lc2_src mem2_src,
     <<STEP_SRC: Local.write_step lc1_src mem1_src loc from to val releasedc releasedm ord lc2_src mem2_src>> /\
     <<LOCAL2: sim_local lc2_src lc2_tgt>> /\

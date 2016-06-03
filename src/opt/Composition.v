@@ -73,26 +73,26 @@ Section Compose.
     apply compose_forall.
   Qed.
 
-  Lemma compose_threads_consistent mem:
-    Threads.consistent (Threads.compose ths1 ths2) mem <->
-    <<CONSISTENT1: Threads.consistent ths1 mem>> /\
-    <<CONSISTENT2: Threads.consistent ths2 mem>>.
+  Lemma compose_threads_wf mem:
+    Threads.wf (Threads.compose ths1 ths2) mem <->
+    <<CONSISTENT1: Threads.wf ths1 mem>> /\
+    <<CONSISTENT2: Threads.wf ths2 mem>>.
   Proof.
     econs; intro X; des; splits; ii.
-    - inv X. econs; ss.
-      + i. eapply DISJOINT0; eauto.
+    - econs; ss.
+      + i. eapply X; eauto.
         * rewrite Threads.compose_spec.
           unfold Threads.compose_option.
           rewrite TH1. auto.
         * rewrite Threads.compose_spec.
           unfold Threads.compose_option.
           rewrite TH2. auto.
-      + i. eapply THREADS.
+      + i. eapply X.
         rewrite Threads.compose_spec.
         unfold Threads.compose_option.
         rewrite TH. auto.
-    - inv X. econs; ss.
-      + i. eapply DISJOINT0; eauto.
+    - econs; ss.
+      + i. eapply X; eauto.
         * rewrite compose_comm.
           rewrite Threads.compose_spec.
           unfold Threads.compose_option.
@@ -101,7 +101,7 @@ Section Compose.
           rewrite Threads.compose_spec.
           unfold Threads.compose_option.
           rewrite TH2. auto.
-      + i. eapply THREADS.
+      + i. eapply X.
         rewrite compose_comm.
         rewrite Threads.compose_spec.
         unfold Threads.compose_option.
@@ -123,6 +123,45 @@ Section Compose.
         destruct (IdentMap.find tid ths1) eqn:TH1.
         * inv TH. eapply THREADS. eauto.
         * eapply THREADS0. eauto.
+  Qed.
+
+  Lemma compose_threads_consistent mem:
+    Threads.consistent (Threads.compose ths1 ths2) mem <->
+    <<CONSISTENT1: Threads.consistent ths1 mem>> /\
+    <<CONSISTENT2: Threads.consistent ths2 mem>>.
+  Proof.
+    econs; intro X; des; splits; ii.
+    - eapply X; eauto.
+      rewrite Threads.compose_spec.
+      unfold Threads.compose_option.
+      rewrite TH. auto.
+    - eapply X; eauto.
+      rewrite compose_comm.
+      rewrite Threads.compose_spec.
+      unfold Threads.compose_option.
+      rewrite TH. auto.
+    - rewrite ? Threads.compose_spec in *.
+      destruct (IdentMap.find tid ths1) eqn:TH11,
+               (IdentMap.find tid ths2) eqn:TH12,
+               (IdentMap.find tid ths1) eqn:TH21,
+               (IdentMap.find tid ths2) eqn:TH22;
+        Configuration.simplify.
+      + exfalso. inv DISJOINT. eapply THREAD; eauto.
+      + eapply CONSISTENT1; eauto.
+      + eapply CONSISTENT2; eauto.
+  Qed.
+
+  Lemma compose_wf mem:
+    Configuration.wf (Configuration.mk (Threads.compose ths1 ths2) mem) <->
+    <<WF1: Configuration.wf (Configuration.mk ths1 mem)>> /\
+    <<WF2: Configuration.wf (Configuration.mk ths2 mem)>>.
+  Proof.
+    econs; intro X.
+    - inv X. splits; econs; ss.
+      + apply compose_threads_wf; auto.
+      + apply compose_threads_wf; auto.
+    - des. inv WF1. inv WF2. econs; ss.
+      apply compose_threads_wf. auto.
   Qed.
 
   Lemma compose_consistent mem:
@@ -186,6 +225,8 @@ Lemma compose_step1
                (Configuration.mk ths1 mem)
                (Configuration.mk ths1' mem'))
       (DISJOINT: Threads.disjoint ths1 ths2)
+      (WF1: Configuration.wf (Configuration.mk ths1 mem))
+      (WF2: Configuration.wf (Configuration.mk ths2 mem))
       (CONSISTENT1: Configuration.consistent (Configuration.mk ths1 mem))
       (CONSISTENT2: Configuration.consistent (Configuration.mk ths2 mem)):
   <<STEP: Configuration.step
@@ -193,6 +234,7 @@ Lemma compose_step1
             (Configuration.mk (Threads.compose ths1 ths2) mem)
             (Configuration.mk (Threads.compose ths1' ths2) mem')>> /\
   <<DISJOINT': Threads.disjoint ths1' ths2>> /\
+  <<WF2': Configuration.wf (Configuration.mk ths2 mem')>> /\
   <<CONSISTENT2': Configuration.consistent (Configuration.mk ths2 mem')>>.
 Proof.
   exploit Configuration.step_disjoint; eauto. s. i. des.
@@ -217,6 +259,8 @@ Lemma compose_step2
                (Configuration.mk ths2 mem)
                (Configuration.mk ths2' mem'))
       (DISJOINT: Threads.disjoint ths1 ths2)
+      (WF1: Configuration.wf (Configuration.mk ths1 mem))
+      (WF2: Configuration.wf (Configuration.mk ths2 mem))
       (CONSISTENT1: Configuration.consistent (Configuration.mk ths1 mem))
       (CONSISTENT2: Configuration.consistent (Configuration.mk ths2 mem)):
   <<STEP: Configuration.step
@@ -224,6 +268,7 @@ Lemma compose_step2
             (Configuration.mk (Threads.compose ths1 ths2) mem)
             (Configuration.mk (Threads.compose ths1 ths2') mem')>> /\
   <<DISJOINT': Threads.disjoint ths1 ths2'>> /\
+  <<WF1': Configuration.wf (Configuration.mk ths1 mem')>> /\
   <<CONSISTENT1': Configuration.consistent (Configuration.mk ths1 mem')>>.
 Proof.
   exploit Configuration.step_disjoint; try symmetry; eauto. s. i. des.
@@ -240,12 +285,15 @@ Lemma compose_rtc_step1
       c1 c2 ths
       (STEPS: rtc Configuration.tau_step c1 c2)
       (DISJOINT: Threads.disjoint c1.(Configuration.threads) ths)
+      (WF1: Configuration.wf c1)
+      (WF: Configuration.wf (Configuration.mk ths c1.(Configuration.memory)))
       (CONSISTENT1: Configuration.consistent c1)
       (CONSISTENT: Configuration.consistent (Configuration.mk ths c1.(Configuration.memory))):
   <<STEPS: rtc Configuration.tau_step
                (Configuration.mk (Threads.compose c1.(Configuration.threads) ths) c1.(Configuration.memory))
                (Configuration.mk (Threads.compose c2.(Configuration.threads) ths) c2.(Configuration.memory))>> /\
   <<DISJOINT': Threads.disjoint c2.(Configuration.threads) ths>> /\
+  <<WF': Configuration.wf (Configuration.mk ths c2.(Configuration.memory))>> /\
   <<CONSISTENT': Configuration.consistent (Configuration.mk ths c2.(Configuration.memory))>>.
 Proof.
   revert CONSISTENT1 CONSISTENT. induction STEPS; auto. i. inv H.
@@ -261,12 +309,15 @@ Lemma compose_rtc_step2
       c1 c2 ths
       (STEPS: rtc Configuration.tau_step c1 c2)
       (DISJOINT: Threads.disjoint ths c1.(Configuration.threads))
+      (WF1: Configuration.wf c1)
+      (WF: Configuration.wf (Configuration.mk ths c1.(Configuration.memory)))
       (CONSISTENT1: Configuration.consistent c1)
       (CONSISTENT: Configuration.consistent (Configuration.mk ths c1.(Configuration.memory))):
   <<STEPS: rtc Configuration.tau_step
                (Configuration.mk (Threads.compose ths c1.(Configuration.threads)) c1.(Configuration.memory))
                (Configuration.mk (Threads.compose ths c2.(Configuration.threads)) c2.(Configuration.memory))>> /\
   <<DISJOINT': Threads.disjoint ths c2.(Configuration.threads)>> /\
+  <<WF': Configuration.wf (Configuration.mk ths c2.(Configuration.memory))>> /\
   <<CONSISTENT': Configuration.consistent (Configuration.mk ths c2.(Configuration.memory))>>.
 Proof.
   revert CONSISTENT1 CONSISTENT. induction STEPS; auto. i. inv H.
@@ -295,6 +346,8 @@ Proof.
     DISJOINT_SRC DISJOINT_TGT
     SIM1 SIM2.
   pcofix CIH. i. pfold. ii.
+  apply compose_wf in WF_SRC; auto.
+  apply compose_wf in WF_TGT; auto.
   apply compose_consistent in CONSISTENT_SRC; auto.
   apply compose_consistent in CONSISTENT_TGT; auto.
   des. splits; i.

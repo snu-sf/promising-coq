@@ -36,6 +36,7 @@ Lemma merge_read_read
       (ORD1: Ordering.le ord1 ord)
       (ORD2: Ordering.le ord2 ord)
       (WF0: Local.wf lc0 mem0)
+      (MEM0: Memory.closed mem0)
       (STEP: Local.read_step lc0 mem0 loc ts val released ord lc2):
   exists lc1,
     <<STEP1: Local.read_step lc0 mem0 loc ts val released ord1 lc1>> /\
@@ -47,7 +48,7 @@ Proof.
   { apply ORD2. }
   { apply COMMIT. }
   { apply WF0. }
-  { inv WF0. exploit MEMORY; eauto. s. i. des. auto. }
+  { exploit MEM0; eauto. s. i. des. auto. }
   i. des.
   eexists. splits.
   - econs; eauto. eapply CommitFacts.read_min_closed; eauto; apply WF0.
@@ -59,6 +60,7 @@ Lemma merge_fulfill_read1
       lc0 lc2 mem0
       (ORD2: Ordering.le ord2 Ordering.acqrel)
       (WF0: Local.wf lc0 mem0)
+      (MEM0: Memory.closed mem0)
       (STEP: Local.fulfill_step lc0 mem0 loc from to val released released ord1 lc2):
   exists lc1,
     <<STEP1: Local.fulfill_step lc0 mem0 loc from to val released released ord1 lc1>> /\
@@ -69,8 +71,8 @@ Proof.
   { apply ORD2. }
   { apply COMMIT. }
   { apply WF0. }
-  { inv WF0. exploit MEMORY; eauto.
-    - apply PROMISES. eapply Memory.fulfill_get2. eauto.
+  { exploit MEM0; eauto.
+    - apply WF0. eapply Memory.fulfill_get2. eauto.
     - s. i. des. auto.
   }
   i. des.
@@ -86,6 +88,7 @@ Lemma merge_fulfill_read2
       lc0 lc2 mem0
       (ORD2: Ordering.le ord2 Ordering.relaxed)
       (WF0: Local.wf lc0 mem0)
+      (MEM0: Memory.closed mem0)
       (WF_RELEASED: Capability.wf releasedr)
       (RELEASED: Capability.le releasedr lc0.(Local.commit).(Commit.acq))
       (STEP: Local.fulfill_step lc0 mem0 loc from to val releasedw (Capability.join releasedr releasedw) ord1 lc2):
@@ -98,8 +101,8 @@ Proof.
   { etrans. apply ORD2. auto. }
   { apply COMMIT. }
   { apply WF0. }
-  { inv WF0. exploit MEMORY; eauto.
-    - apply PROMISES. eapply Memory.fulfill_get2. eauto.
+  { exploit MEM0; eauto.
+    - apply WF0. eapply Memory.fulfill_get2. eauto.
     - s. i. des. etrans; eauto. apply TimeMap.join_r.
   }
   i. des.
@@ -130,6 +133,7 @@ Lemma merge_fence_fence
       (ORDW1: Ordering.le ordw1 ordw)
       (ORDW2: Ordering.le ordw2 ordw)
       (WF0: Local.wf lc0 mem0)
+      (MEM0: Memory.closed mem0)
       (STEP: Local.fence_step lc0 mem0 ordr ordw lc2):
   exists lc1,
     <<STEP1: Local.fence_step lc0 mem0 ordr1 ordw1 lc1>> /\
