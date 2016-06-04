@@ -145,7 +145,7 @@ Module Configuration.
            end;
        ss; subst).
 
-  Lemma step_consistent
+  Lemma step_future
         e tid c1 c2
         (STEP: step e tid c1 c2)
         (WF1: wf c1)
@@ -234,7 +234,7 @@ Module Configuration.
       eapply CONSISTENT; eauto. s. etrans; eauto. etrans; eauto.
   Qed.
 
-  Lemma rtc_step_consistent
+  Lemma rtc_step_future
         c1 c2
         (STEPS: rtc tau_step c1 c2)
         (WF1: wf c1)
@@ -246,7 +246,7 @@ Module Configuration.
     revert CONSISTENT1. induction STEPS; i.
     - splits; auto. refl.
     - inv H.
-      exploit step_consistent; eauto. i. des.
+      exploit step_future; eauto. i. des.
       exploit IHSTEPS; eauto. i. des.
       splits; eauto. etrans; eauto.
   Qed.
@@ -264,7 +264,7 @@ Module Configuration.
       <<CONSISTENT: consistent (mk ths c2.(memory))>>.
   Proof.
     revert DISJOINT CONSISTENT1 CONSISTENT. induction STEPS; auto. i. inv H.
-    exploit step_consistent; eauto. i. des.
+    exploit step_future; eauto. i. des.
     exploit step_disjoint; eauto. i. des.
     apply IHSTEPS; auto.
   Qed.

@@ -26,6 +26,32 @@ Inductive small_step (e:ThreadEvent.t) (tid:Ident.t) (c1:Configuration.t): foral
     small_step e tid c1 (Configuration.mk (IdentMap.add tid (existT _ _ st2, lc2) c1.(Configuration.threads)) memory2)
 .
 
+Lemma small_step_future
+      e tid c1 c2
+      (WF1: Configuration.wf c1)
+      (STEP: small_step e tid c1 c2):
+  <<WF2: Configuration.wf c2>> /\
+  <<FUTURE: Memory.future c1.(Configuration.memory) c2.(Configuration.memory)>>.
+Proof.
+  inv WF1. inv WF. inv STEP.
+  exploit THREADS; ss; eauto. i.
+  exploit Thread.step_future; eauto. s. i. des.
+  splits; [|by eauto]. econs; ss. econs.
+  - i. Configuration.simplify.
+    + congr.
+    + exploit THREADS; try apply TH1; eauto. i. des.
+      exploit Thread.step_disjoint; eauto. s. i. des.
+      symmetry. auto.
+    + exploit THREADS; try apply TH2; eauto. i. des.
+      exploit Thread.step_disjoint; eauto. i. des.
+      auto.
+    + eapply DISJOINT; [|eauto|eauto]. auto.
+  - i. Configuration.simplify.
+    exploit THREADS; try apply TH; eauto. i.
+    exploit Thread.step_disjoint; eauto. s. i. des.
+    auto.
+Qed.
+
 Inductive tau_small_step (tid:Ident.t) (c1 c2:Configuration.t): Prop :=
 | tau_small_step_intro
     e
@@ -33,20 +59,83 @@ Inductive tau_small_step (tid:Ident.t) (c1 c2:Configuration.t): Prop :=
     (TAU: ThreadEvent.get_event e = None)
 .
 
+Lemma thread_step_small_step
+      lang e tid threads
+      st1 lc1 mem1
+      st2 lc2 mem2
+      (TID: IdentMap.find tid threads = Some (existT _ lang st1, lc1))
+      (STEP: Thread.step e (Thread.mk lang st1 lc1 mem1) (Thread.mk lang st2 lc2 mem2)):
+  small_step e tid
+             (Configuration.mk threads mem1)
+             (Configuration.mk (IdentMap.add tid (existT _ lang st2, lc2) threads) mem2).
+Proof.
+  econs; eauto.
+Qed.
+
+Lemma thread_step_small_step_aux
+      lang e tid threads
+      st1 lc1 mem1
+      st2 lc2 mem2
+      (STEP: Thread.step e (Thread.mk lang st1 lc1 mem1) (Thread.mk lang st2 lc2 mem2)):
+  small_step e tid
+             (Configuration.mk (IdentMap.add tid (existT _ lang st1, lc1) threads) mem1)
+             (Configuration.mk (IdentMap.add tid (existT _ lang st2, lc2) threads) mem2).
+Proof.
+  exploit thread_step_small_step; eauto.
+  { eapply IdentMap.Facts.add_eq_o. eauto. }
+  rewrite (IdentMap.add_add_eq tid (existT Language.state lang st2, lc2)). eauto.
+Qed.
+
+Lemma rtc_tau_thread_step_rtc_tau_small_step_aux
+      lang tid threads
+      th1 th2
+      (TID: IdentMap.find tid threads = Some (existT _ lang th1.(Thread.state), th1.(Thread.local)))
+      (STEP: (rtc (@Thread.tau_step lang)) th1 th2):
+  rtc (tau_small_step tid)
+      (Configuration.mk threads th1.(Thread.memory))
+      (Configuration.mk (IdentMap.add tid (existT _ lang th2.(Thread.state), th2.(Thread.local)) threads) th2.(Thread.memory)).
+Proof.
+  revert threads TID. induction STEP; i.
+  - apply rtc_refl. f_equal. apply IdentMap.eq_leibniz. ii.
+    rewrite IdentMap.Facts.add_o. condtac; auto. subst. auto.
+  - inv H. destruct x, y. ss. econs 2.
+    + econs; eauto. eapply thread_step_small_step; eauto.
+    + etrans; [eapply IHSTEP|].
+      * apply IdentMap.Facts.add_eq_o. auto.
+      * apply rtc_refl. f_equal. apply IdentMap.eq_leibniz. ii.
+        rewrite ? IdentMap.Facts.add_o. condtac; auto.
+Qed.
+
+Lemma rtc_tau_thread_step_rtc_tau_small_step
+      lang tid threads
+      st1 lc1 mem1
+      st2 lc2 mem2
+      (TID: IdentMap.find tid threads = Some (existT _ lang st1, lc1))
+      (STEP: (rtc (@Thread.tau_step lang)) (Thread.mk lang st1 lc1 mem1) (Thread.mk lang st2 lc2 mem2)):
+  rtc (tau_small_step tid)
+      (Configuration.mk threads mem1)
+      (Configuration.mk (IdentMap.add tid (existT _ lang st2, lc2) threads) mem2).
+Proof.
+  exploit rtc_tau_thread_step_rtc_tau_small_step_aux; eauto. auto.
+Qed.
+
 Lemma step_small_steps
       e tid c1 c3
       (STEP: Configuration.step e tid c1 c3)
+      (WF1: Configuration.wf c1)
       (CONSISTENT1: Configuration.consistent c1):
   exists te c2,
     <<STEPS: rtc (tau_small_step tid) c1 c2>> /\
     <<STEP: small_step te tid c2 c3>> /\
     <<EVENT: e = ThreadEvent.get_event te>> /\
+    <<WF3: Configuration.wf c3>> /\
     <<CONSISTENT3: Configuration.consistent c3>>.
 Proof.
-  exploit Configuration.step_consistent; eauto. i. des.
-  admit.
-Admitted.
-
+  exploit Configuration.step_future; eauto. i. des.
+  inv STEP. destruct c1, e2. ss. eexists _, _. splits; [| |eauto|eauto|eauto].
+  - eapply rtc_tau_thread_step_rtc_tau_small_step; eauto.
+  - eapply thread_step_small_step_aux. eauto.
+Qed.
 
 Definition pi_machine_event (e:ThreadEvent.t) (threads:Threads.t): Prop :=
   match ThreadEvent.is_reading e with
@@ -178,6 +267,7 @@ Admitted.
 Lemma pi_consistent_small_step_pi
       e tid c1 c2 c3
       (PI_CONSISTENT: pi_consistent c1)
+      (WF: Configuration.wf c1)
       (CONSISTENT: Configuration.consistent c1)
       (PI_RACEFREE: pi_racefree c1)
       (PI_STEPS: rtc (pi_step tid) c1 c2)
@@ -217,6 +307,7 @@ Admitted.
 Lemma pi_consistent_rtc_tau_small_step_pi
       tid c1 c2 c3
       (PI_CONSISTENT: pi_consistent c1)
+      (WF: Configuration.wf c1)
       (CONSISTENT: Configuration.consistent c1)
       (PI_RACEFREE: pi_racefree c1)
       (PI_STEPS: rtc (pi_step tid) c1 c2)
@@ -234,6 +325,7 @@ Lemma pi_consistent_step_pi
       c1 c2
       e tid
       (PI_CONSISTENT: pi_consistent c1)
+      (WF: Configuration.wf c1)
       (CONSISTENT: Configuration.consistent c1)
       (PI_RACEFREE: pi_racefree c1)
       (STEP: Configuration.step e tid c1 c2):
@@ -249,6 +341,8 @@ Lemma pi_consistent_pi_step_pi_consistent
       c1 c2
       tid
       (PI_CONSISTENT: pi_consistent c1)
+      (WF1: Configuration.wf c1)
+      (WF2: Configuration.wf c2)
       (CONSISTENT1: Configuration.consistent c1)
       (CONSISTENT2: Configuration.consistent c2)
       (STEP: rtc (pi_step tid) c1 c2):

@@ -87,6 +87,12 @@ Proof.
   apply IMPL. auto.
 Qed.
 
+Lemma rtc_refl
+      A R (a b:A)
+      (EQ: a = b):
+  rtc R a b.
+Proof. subst. econs. Qed.
+
 Lemma fapp A (B:A->Type) (a:A) (P Q:forall (a:A), B a)
       (EQ: P = Q):
   P a = Q a.
