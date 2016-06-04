@@ -72,11 +72,11 @@ Proof.
   { apply COMMIT. }
   { apply WF0. }
   { exploit MEM0; eauto.
-    - apply WF0. eapply Memory.fulfill_get2. eauto.
+    - apply WF0. eapply Memory.remove_disjoint. apply FULFILL.
     - s. i. des. auto.
   }
   i. des.
-  exploit Memory.fulfill_get2; eauto. i.
+  exploit Memory.remove_disjoint; try apply FULFILL; eauto. i.
   inversion WF0. exploit PROMISES; eauto. i.
   eexists. splits.
   - econs; eauto. eapply CommitFacts.write_min_closed; eauto; apply WF0.
@@ -102,11 +102,11 @@ Proof.
   { apply COMMIT. }
   { apply WF0. }
   { exploit MEM0; eauto.
-    - apply WF0. eapply Memory.fulfill_get2. eauto.
+    - apply WF0. eapply Memory.remove_disjoint. apply FULFILL.
     - s. i. des. etrans; eauto. apply TimeMap.join_r.
   }
   i. des.
-  exploit Memory.fulfill_get2; eauto. i.
+  exploit Memory.remove_disjoint; try apply FULFILL; eauto. i.
   inversion WF0. exploit PROMISES; eauto. i.
   eexists. splits.
   - econs; eauto. eapply CommitFacts.write_min_closed; eauto; apply WF0.

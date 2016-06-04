@@ -1031,12 +1031,16 @@ Module Memory.
     - eapply split_get1'; eauto.
   Qed.
 
-  Lemma fulfill_get2
-        promises1 loc from to msg promises2
-        (PROMISE: fulfill promises1 loc from to msg promises2):
-    get loc to promises1 = Some (from, msg).
+  Lemma promise_promises_get1
+        promises1 mem1 loc from to msg promises2 mem2
+        l t f m
+        (PROMISE: promise promises1 mem1 loc from to msg promises2 mem2)
+        (GET: get l t promises1 = Some (f, m)):
+    exists f', get l t promises2 = Some (f', m).
   Proof.
-    eapply remove_disjoint. apply PROMISE.
+    inv PROMISE.
+    - exploit add_get1; try apply PROMISES; eauto.
+    - eapply split_get1'; eauto.
   Qed.
 
   Lemma promise_future

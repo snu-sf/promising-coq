@@ -150,6 +150,28 @@ Inductive pi_step (tid:Ident.t) (c1 c2:Configuration.t): Prop :=
     (READINFO: pi_machine_event e c1.(Configuration.threads))
 .
 
+Lemma pi_step_future
+      tid c1 c2
+      (WF1: Configuration.wf c1)
+      (STEP: pi_step tid c1 c2):
+  <<WF2: Configuration.wf c2>> /\
+  <<FUTURE: Memory.future c1.(Configuration.memory) c2.(Configuration.memory)>>.
+Proof. inv STEP. eapply small_step_future; eauto. Qed.
+
+Lemma rtc_pi_step_future
+      tid c1 c2
+      (WF1: Configuration.wf c1)
+      (STEPS: rtc (pi_step tid) c1 c2):
+  <<WF2: Configuration.wf c2>> /\
+  <<FUTURE: Memory.future c1.(Configuration.memory) c2.(Configuration.memory)>>.
+Proof.
+  revert WF1. induction STEPS; i.
+  - splits; auto. refl.
+  - exploit pi_step_future; eauto. i. des.
+    exploit IHSTEPS; eauto. i. des.
+    splits; auto. etrans; eauto.
+Qed.
+
 Inductive pi_step_all (c1 c2:Configuration.t): Prop :=
 | pi_step_all_intro
     tid
@@ -217,11 +239,74 @@ Definition pi_racefree (c1:Configuration.t): Prop :=
     <<ORDR: Ordering.le Ordering.acqrel ordr>> /\
     <<ORDW: Ordering.le Ordering.acqrel ordw>>.
 
+Lemma fulfill_unset_promises
+      loc from ts msg
+      promises1 promises2
+      l t f m
+      (FULFILL: Memory.fulfill promises1 loc from ts msg promises2)
+      (TH1: Memory.get l t promises1 = Some (f, m))
+      (TH2: Memory.get l t promises2 = None):
+  l = loc /\ t = ts /\ f = from /\ m = msg.
+Proof.
+  exploit Memory.remove_get1; try apply FULFILL; eauto. i. des; [|congr].
+  subst. auto.
+Qed.
+
+Lemma ordering_relaxed_dec
+      ord:
+  Ordering.le ord Ordering.relaxed \/ Ordering.le Ordering.acqrel ord.
+Proof. destruct ord; auto. Qed.
+
+Lemma thread_step_unset_promises
+      lang e loc from ts msg (th1 th2:Thread.t lang)
+      (WF1: Local.wf th1.(Thread.local) th1.(Thread.memory))
+      (STEP: Thread.step e th1 th2)
+      (TH1: Memory.get loc ts th1.(Thread.local).(Local.promises) = Some (from, msg))
+      (TH2: Memory.get loc ts th2.(Thread.local).(Local.promises) = None):
+  exists e ord,
+    <<STEP: lang.(Language.step) (Some e) th1.(Thread.state) th2.(Thread.state)>> /\
+    <<EVENT: ProgramEvent.is_writing e = Some (loc, ord)>> /\
+    <<ORD: Ordering.le ord Ordering.relaxed>>.
+Proof.
+  inv STEP.
+  { inv STEP0. inv LOCAL. ss.
+    exploit Memory.promise_promises_get1; eauto. i. des. congr.
+  }
+  inv STEP0; ss; try by inv LOCAL; ss; congr.
+  - inv LOCAL.
+    + inv FULFILL. ss.
+      exploit fulfill_unset_promises; eauto. i. des. subst.
+      eexists _, _. splits; eauto; ss.
+      destruct (ordering_relaxed_dec ord); auto.
+      unfold Memory.get in TH1. rewrite RELEASE, Cell.bot_get in TH1; auto. congr.
+    + inv PROMISE.
+      exploit Memory.promise_promises_get1; eauto. i. des.
+      inv FULFILL. ss.
+      exploit fulfill_unset_promises; eauto. i. des. subst.
+      eexists _, _. splits; eauto; ss.
+      destruct (ordering_relaxed_dec ord); auto.
+      unfold Memory.get in TH1. rewrite RELEASE, Cell.bot_get in TH1; auto. congr.
+  - inv LOCAL1. inv LOCAL2.
+    + inv FULFILL. ss.
+      exploit fulfill_unset_promises; eauto. i. des. subst.
+      eexists _, _. splits; eauto; ss.
+      destruct (ordering_relaxed_dec ordw); auto.
+      unfold Memory.get in TH1. rewrite RELEASE, Cell.bot_get in TH1; auto. congr.
+    + inv PROMISE.
+      exploit Memory.promise_promises_get1; eauto. i. des.
+      inv FULFILL. ss.
+      exploit fulfill_unset_promises; eauto. i. des. subst.
+      eexists _, _. splits; eauto; ss.
+      destruct (ordering_relaxed_dec ordw); auto.
+      unfold Memory.get in TH1. rewrite RELEASE, Cell.bot_get in TH1; auto. congr.
+Qed.
+
 Lemma pi_steps_promise
       tid
       c1 lang1 st1 lc1
       c3 lang3 st3 lc3
       loc from ts msg
+      (WF1: Configuration.wf c1)
       (STEPS: rtc (pi_step tid) c1 c3)
       (TH1: IdentMap.find tid c1.(Configuration.threads) = Some (existT _ lang1 st1, lc1))
       (TH3: IdentMap.find tid c3.(Configuration.threads) = Some (existT _ lang3 st3, lc3))
@@ -238,31 +323,17 @@ Proof.
   induction STEPS; i.
   { rewrite TH1 in TH3. inv TH3. apply inj_pair2 in H1. congr. }
   inversion H. inv STEP. destruct (Memory.get loc ts lc2.(Local.promises)) as [[]|] eqn:X.
-  { exploit IHSTEPS; s; eauto.
+  { exploit IHSTEPS; eauto; s.
+    { inv H. eapply small_step_future; eauto. }
     { rewrite IdentMap.Facts.add_eq_o; eauto. }
     i. des. eexists _, _, _, _, _, _, _. splits; [|eauto|eauto|eauto|eauto].
     etrans; [|eauto]. econs 2; [|econs 1]. eauto.
   }
-
-  (* STEP0 : Thread.step e *)
-  (*           {| *)
-  (*           Thread.state := st0; *)
-  (*           Thread.local := lc0; *)
-  (*           Thread.memory := Configuration.memory x |} *)
-  (*           {| *)
-  (*           Thread.state := st2; *)
-  (*           Thread.local := lc2; *)
-  (*           Thread.memory := memory2 |} *)
-
-  (* GET1 : Memory.get loc ts (Local.promises lc1) = Some (from, msg) *)
-  (* X : Memory.get loc ts (Local.promises lc2) = None *)
-
-  (* NOTE: maybe it would be better to change Configuration.consistent: split wf & validation *)
-  eexists _, _, _, _, _, _, _. splits; eauto.
-  - admit. (* thread is executed *)
-  - admit. (* the event is writing *)
-  - admit. (* the ordering is <= relaxed *)
-Admitted.
+  clear H STEPS IHSTEPS. rewrite TH1 in TID. inv TID. apply inj_pair2 in H1. subst.
+  exploit thread_step_unset_promises; eauto; s.
+  { eapply WF1. eauto. }
+  i. des. eexists _, _, _, _, _, _, _. splits; eauto.
+Qed.
 
 Lemma pi_consistent_small_step_pi
       e tid c1 c2 c3
@@ -284,7 +355,12 @@ Proof.
     i. econs; eauto.
   }
   i. des.
-  exploit pi_steps_promise; eauto.
+  exploit pi_steps_promise.
+  { eapply rtc_pi_step_future; eauto. }
+  { eauto. }
+  { eauto. }
+  { eauto. }
+  { eauto. }
   { rewrite PROMISES0. apply Memory.bot_get. }
   i. des.
   exploit PI_RACEFREE.

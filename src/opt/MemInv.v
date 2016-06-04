@@ -285,7 +285,7 @@ Module MemInv.
     rewrite unset_set in INV2; auto.
     destruct (mem loc to inv) eqn:X; auto.
     inv INV1. specialize (GET _ _ X). des.
-    exploit Memory.fulfill_get2; try apply FULFILL_TGT.
+    exploit Memory.remove_disjoint; try apply FULFILL_TGT.
     rewrite GET0. congr.
   Qed.
 

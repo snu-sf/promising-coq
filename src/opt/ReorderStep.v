@@ -152,7 +152,7 @@ Proof.
   eexists. splits.
   - econs; eauto.
     eapply CommitFacts.write_min_closed; eauto; try by apply WF0.
-    apply WF0. eapply Memory.fulfill_get2. eauto.
+    apply WF0. eapply Memory.remove_disjoint. apply FULFILL.
   - econs; eauto.
 Qed.
 
@@ -292,7 +292,7 @@ Proof.
   eexists. splits.
   - econs; eauto.
     eapply CommitFacts.write_min_closed; eauto; try by apply WF0.
-    apply WF0. eapply Memory.fulfill_get2. eauto.
+    apply WF0. eapply Memory.remove_disjoint. apply x0.
   - econs; eauto.
 Qed.
 
@@ -376,7 +376,7 @@ Proof.
   eexists. splits.
   - econs; eauto.
     eapply CommitFacts.write_min_closed; eauto; try by apply WF0.
-    apply WF0. eapply Memory.fulfill_get2. eauto.
+    apply WF0. eapply Memory.remove_disjoint. apply FULFILL.
   - econs; eauto. i. destruct ordw1; inv ORDW1; inv H.
 Qed.
 
