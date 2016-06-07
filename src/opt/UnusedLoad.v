@@ -56,7 +56,7 @@ Proof.
   destruct lc0.
   assert (exists from msg, Memory.get loc (Capability.ur (Commit.cur commit) loc) mem0 = Some (from, msg)) by apply WF.
   i. des. destruct msg.
-  exploit MEM; eauto. i. des.
+  inv MEM. exploit CLOSED; eauto. i. des.
   exploit (CommitFacts.read_min_spec loc); eauto.
   { refl. }
   { i. instantiate (1 := ord) in H0. destruct ord; inv ORD; inv H0. }

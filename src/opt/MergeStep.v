@@ -48,7 +48,7 @@ Proof.
   { apply ORD2. }
   { apply COMMIT. }
   { apply WF0. }
-  { exploit MEM0; eauto. s. i. des. auto. }
+  { inv MEM0. exploit CLOSED; eauto. s. i. des. auto. }
   i. des.
   eexists. splits.
   - econs; eauto. eapply CommitFacts.read_min_closed; eauto; apply WF0.
@@ -71,7 +71,7 @@ Proof.
   { apply ORD2. }
   { apply COMMIT. }
   { apply WF0. }
-  { exploit MEM0; eauto.
+  { inv MEM0. exploit CLOSED; eauto.
     - apply WF0. eapply Memory.remove_disjoint. apply FULFILL.
     - s. i. des. auto.
   }
@@ -101,7 +101,7 @@ Proof.
   { etrans. apply ORD2. auto. }
   { apply COMMIT. }
   { apply WF0. }
-  { exploit MEM0; eauto.
+  { inv MEM0. exploit CLOSED; eauto.
     - apply WF0. eapply Memory.remove_disjoint. apply FULFILL.
     - s. i. des. etrans; eauto. apply TimeMap.join_r.
   }

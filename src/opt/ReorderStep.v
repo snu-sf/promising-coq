@@ -44,19 +44,16 @@ Proof.
     + hexploit progress_silent_step; eauto. i.
       eexists _, _. econs 1; s; eauto.
       econs. econs.
-    + hexploit exists_max_timestamp; try apply WF1; eauto. i. des.
-      hexploit progress_read_step; eauto. i. des.
+    + hexploit progress_read_step; eauto. i. des.
       eexists _, _. econs 2; s; eauto.
       econs. econs.
-    + hexploit exists_max_timestamp; try apply WF1; eauto. i. des.
-      hexploit progress_write_step; try apply Time.incr_spec; eauto. i. des.
+    + hexploit progress_write_step; try apply Time.incr_spec; eauto. i. des.
       eexists _, _. econs 3; s; eauto.
       econs. econs.
-    + hexploit exists_max_timestamp; try apply WF1; eauto. i. des.
-      hexploit progress_read_step; eauto. i. des.
+    + hexploit progress_read_step; eauto. i. des.
       exploit Local.read_step_future; eauto. i.
       hexploit progress_write_step; try apply Time.incr_spec; eauto.
-      { inv H0. auto. }
+      { inv H. auto. }
       i. des.
       eexists _, _. econs 4; s; eauto.
       * econs. econs. apply surjective_pairing.

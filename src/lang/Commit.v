@@ -76,7 +76,7 @@ Module Commit <: JoinableType.
   Lemma join_comm lhs rhs: join lhs rhs = join rhs lhs.
   Proof.
     unfold join. f_equal.
-    - extensionality loc. apply Capability.join_comm.
+    - apply LocFun.ext. i. apply Capability.join_comm.
     - apply Capability.join_comm.
     - apply Capability.join_comm.
   Qed.
@@ -84,7 +84,7 @@ Module Commit <: JoinableType.
   Lemma join_assoc a b c: join (join a b) c = join a (join b c).
   Proof.
     unfold join. s. f_equal.
-    - extensionality loc. apply Capability.join_assoc.
+    - apply LocFun.ext. i. apply Capability.join_assoc.
     - apply Capability.join_assoc.
     - apply Capability.join_assoc.
   Qed.
@@ -403,7 +403,7 @@ Module CommitFacts.
         (READ: Commit.read commit loc to released ord (read_min loc to released ord commit)):
     Commit.closed (read_min loc to released ord commit) mem.
   Proof.
-    exploit MEM; eauto. i. des.
+    inv MEM. exploit CLOSED; eauto. i. des.
     econs; s.
     - apply COMMIT.
     - unfold Capability.join_if. condtac; tac.
@@ -485,7 +485,7 @@ Module CommitFacts.
         (WRITE: Commit.write commit loc to releasedc ord (write_min loc to releasedc commit)):
     Commit.closed (write_min loc to releasedc commit) mem.
   Proof.
-    exploit MEM; eauto. i. des.
+    inv MEM. exploit CLOSED0; eauto. i. des.
     econs; s.
     - i. unfold LocFun.add. condtac; auto. apply COMMIT.
     - tac. apply COMMIT.

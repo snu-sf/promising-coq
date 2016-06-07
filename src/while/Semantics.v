@@ -112,7 +112,7 @@ Module RegFile.
   Proof.
     econs; i; subst; auto.
     - econs.
-    - extensionality reg. apply H.
+    - apply RegFun.ext. i. apply H.
       ii. eapply RegSet.Facts.empty_iff; eauto.
   Qed.
 

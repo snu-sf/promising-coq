@@ -140,7 +140,7 @@ Module UsualFun (A:UsualDecidableType).
       congruence.
     Qed.
 
-    Lemma extensionality lhs rhs
+    Lemma ext lhs rhs
           (EQ: forall i, find i lhs = find i rhs):
       lhs = rhs.
     Proof. extensionality i. apply EQ. Qed.
@@ -149,7 +149,7 @@ Module UsualFun (A:UsualDecidableType).
           (DIFF: a1 <> a2):
       add a1 b1 (add a2 b2 f) = add a2 b2 (add a1 b1 f).
     Proof.
-      apply extensionality. i.
+      apply ext. i.
       rewrite ? add_spec.
       destruct (A.eq_dec i a1), (A.eq_dec i a2); auto.
       congruence.
@@ -158,7 +158,7 @@ Module UsualFun (A:UsualDecidableType).
     Lemma add_init a b:
       add a b (init b) = init b.
     Proof.
-      apply extensionality. i.
+      apply ext. i.
       rewrite add_spec.
       destruct (A.eq_dec i a); auto.
     Qed.

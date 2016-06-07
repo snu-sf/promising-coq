@@ -294,6 +294,26 @@ Module DenseOrder <: DenseOrderType.
   Proof.
     destruct (eq_dec i1 i2); [congruence|]. auto.
   Qed.
+
+  Lemma le_xI
+        lhs rhs
+        (LE: le lhs rhs):
+    le (xI lhs) (xI rhs).
+  Proof.
+    inv LE.
+    - left. econs. auto.
+    - inv H. right. refl.
+  Qed.
+
+  Lemma le_xO
+        lhs rhs
+        (LE: le lhs rhs):
+    le (xO lhs) (xO rhs).
+  Proof.
+    inv LE.
+    - left. econs. auto.
+    - inv H. right. refl.
+  Qed.
 End DenseOrder.
 
 Global Program Instance DenseOrder_le_PreOrder: PreOrder DenseOrder.le.
@@ -308,8 +328,81 @@ Next Obligation.
   left. rewrite H. auto.
 Qed.
 
-Module DOMap := UsualPositiveMap.
 Module DOSet := UsualSet DenseOrder.
+
+Module DOMap.
+  Include UsualPositiveMap.
+
+  Fixpoint raw_max_key A (m:Raw.t A): option DenseOrder.t :=
+    match m with
+    | Raw.Leaf _ => None
+    | Raw.Node l o r =>
+      match raw_max_key _ r, o, raw_max_key _ l with
+      | Some k, _, _ => Some (xI k)
+      | None, Some _, _ => Some xH
+      | None, None, Some k => Some (xO k)
+      | None, None, None => None
+      end
+    end.
+
+  Lemma raw_max_key_spec1 A (m:Raw.t A)
+        (KEY: raw_max_key _ m = None):
+    forall k', Raw.find k' m = None.
+  Proof.
+    revert KEY. induction m; s; i.
+    { apply Raw.gleaf. }
+    destruct (raw_max_key A m2) eqn:K2; [congr|].
+    destruct o eqn:O; [congr|].
+    destruct (raw_max_key A m1) eqn:K1; [congr|].
+    destruct k'; eauto.
+  Qed.
+
+  Lemma raw_max_key_spec2 A (m:Raw.t A) k
+        (KEY: raw_max_key _ m = Some k):
+    <<FIND: Raw.find k m <> None>> /\
+    <<MAX: forall k' (FIND': Raw.find k' m <> None), DenseOrder.le k' k>>.
+  Proof.
+    revert k KEY. induction m; s; [congr|].
+    destruct (raw_max_key A m2) eqn:K2.
+    { i. inv KEY. s. exploit IHm2; eauto. i. des.
+      splits; eauto. i. destruct k'; ss.
+      - apply DenseOrder.le_xI. auto.
+      - left. econs.
+      - left. econs.
+    }
+    destruct o.
+    { i. inv KEY. s. splits; [congr|].
+      i. destruct k'; ss.
+      - erewrite raw_max_key_spec1 in FIND'; eauto. congr.
+      - left. econs.
+      - refl.
+    }
+    destruct (raw_max_key A m1) eqn:K1.
+    { i. inv KEY. s. exploit IHm1; eauto. i. des.
+      splits; eauto. i. destruct k'; ss.
+      - erewrite raw_max_key_spec1 in FIND'; eauto. congr.
+      - apply DenseOrder.le_xO. auto.
+      - congr.
+    }
+    i. congr.
+  Qed.
+
+  Definition max_key A (m:t A): DenseOrder.t :=
+    match raw_max_key A (proj1_sig m)  with
+    | Some k => k
+    | None => DenseOrder.elt
+    end.
+
+  Lemma max_key_spec A (m:t A)
+        (ELT: find DenseOrder.elt m <> None):
+    <<FIND: find (max_key _ m) m <> None>> /\
+    <<MAX: forall k' (FIND': find k' m <> None), DenseOrder.le k' (max_key _ m)>>.
+  Proof.
+    unfold max_key. destruct (raw_max_key A (proj1_sig m)) eqn:X.
+    - exploit raw_max_key_spec2; eauto.
+    - unfold find in ELT. erewrite raw_max_key_spec1 in ELT; eauto. congr.
+  Qed.
+End DOMap.
 
 Module DenseOrderFacts.
   Include (OrderedTypeFacts DenseOrder).

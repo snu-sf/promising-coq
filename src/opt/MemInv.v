@@ -49,9 +49,9 @@ Module MemInv.
         (EXT: forall loc ts, mem loc ts lhs = mem loc ts rhs):
     lhs = rhs.
   Proof.
-    extensionality loc.
+    apply LocFun.ext. unfold LocFun.find. i.
     apply DOSet.eq_leibniz. ii.
-    specialize (EXT loc a). unfold mem in *. econs; i.
+    specialize (EXT i a). unfold mem in *. econs; i.
     - apply DOSet.mem_spec. erewrite <- EXT.
       apply DOSet.mem_spec. auto.
     - apply DOSet.mem_spec. erewrite EXT.
@@ -73,14 +73,14 @@ Module MemInv.
 
   Lemma join_comm lhs rhs: join lhs rhs = join rhs lhs.
   Proof.
-    unfold join. extensionality loc.
+    apply LocFun.ext. unfold LocFun.find, join. i.
     apply DOSet.eq_leibniz. ii.
     rewrite ? DOSet.union_spec. econs; i; des; auto.
   Qed.
 
   Lemma join_assoc a b c: join (join a b) c = join a (join b c).
   Proof.
-    unfold join. extensionality loc.
+    apply LocFun.ext. unfold LocFun.find, join. i.
     apply DOSet.eq_leibniz. ii.
     rewrite ? DOSet.union_spec. econs; i; des; auto.
   Qed.
@@ -321,11 +321,11 @@ Module MemInv.
         (SEM: sem bot promises_src promises_tgt):
     promises_src = promises_tgt.
   Proof.
-    extensionality loc. apply Cell.ext.
-    apply DOMap.eq_leibniz. ii.
-    destruct (DOMap.find y (Cell.raw (promises_tgt loc))) as [[]|] eqn:X.
+    apply LocFun.ext. unfold LocFun.find. i.
+    apply Cell.ext. i. unfold Cell.get.
+    destruct (DOMap.find ts (Cell.raw (promises_tgt i))) as [[]|] eqn:X.
     - inv SEM. exploit LE; eauto.
-    - destruct (DOMap.find y (Cell.raw (promises_src loc))) eqn:Y; auto.
+    - destruct (DOMap.find ts (Cell.raw (promises_src i))) eqn:Y; auto.
       inv SEM. exploit MEM; eauto.
       + unfold Memory.get, Cell.get. rewrite Y. congr.
       + i. rewrite bot_spec in x. congr.
