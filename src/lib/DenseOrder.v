@@ -393,14 +393,17 @@ Module DOMap.
     | None => DenseOrder.elt
     end.
 
-  Lemma max_key_spec A (m:t A)
-        (ELT: find DenseOrder.elt m <> None):
-    <<FIND: find (max_key _ m) m <> None>> /\
+  Lemma max_key_spec A (m:t A):
+    <<FIND: find DenseOrder.elt m <> None -> find (max_key _ m) m <> None>> /\
     <<MAX: forall k' (FIND': find k' m <> None), DenseOrder.le k' (max_key _ m)>>.
   Proof.
     unfold max_key. destruct (raw_max_key A (proj1_sig m)) eqn:X.
-    - exploit raw_max_key_spec2; eauto.
-    - unfold find in ELT. erewrite raw_max_key_spec1 in ELT; eauto. congr.
+    - exploit raw_max_key_spec2; eauto. i. des. splits; i.
+      + unfold find. auto.
+      + apply MAX. auto.
+    - splits; i.
+      + unfold find in H. erewrite raw_max_key_spec1 in H; eauto.
+      + unfold find in FIND'. erewrite raw_max_key_spec1 in FIND'; eauto. congr.
   Qed.
 End DOMap.
 
@@ -424,6 +427,16 @@ Module DenseOrderFacts.
   Proof.
     apply DenseOrder.le_lteq in AB. des; subst; auto.
     etrans; eauto.
+  Qed.
+
+  Lemma antisym a b
+        (AB: DenseOrder.le a b)
+        (BA: DenseOrder.le b a):
+    a = b.
+  Proof.
+    apply le_antisym; ii.
+    - eapply DenseOrder.lt_strorder. eapply lt_le_lt; eauto.
+    - eapply DenseOrder.lt_strorder. eapply lt_le_lt; eauto.
   Qed.
 
   Lemma le_lt_dec (lhs rhs:DenseOrder.t): {DenseOrder.le lhs rhs} + {DenseOrder.lt rhs lhs}.

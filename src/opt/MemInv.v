@@ -206,14 +206,14 @@ Module MemInv.
         inv
         loc from to msg
         promises1_src mem1_src
-        promises1_tgt mem1_tgt promises2_tgt mem2_tgt
-        (PROMISES_TGT: Memory.promise promises1_tgt mem1_tgt loc from to msg promises2_tgt mem2_tgt)
+        promises1_tgt mem1_tgt promises2_tgt mem2_tgt kind_tgt
+        (PROMISES_TGT: Memory.promise promises1_tgt mem1_tgt loc from to msg promises2_tgt mem2_tgt kind_tgt)
         (INV1: sem inv promises1_src promises1_tgt)
         (SIM1: sim_memory mem1_src mem1_tgt)
         (LE1_SRC: Memory.le promises1_src mem1_src)
         (LE1_TGT: Memory.le promises1_tgt mem1_tgt):
-    exists promises2_src mem2_src,
-      <<PROMISES_SRC: Memory.promise promises1_src mem1_src loc from to msg promises2_src mem2_src>> /\
+    exists promises2_src mem2_src kind_src,
+      <<PROMISES_SRC: Memory.promise promises1_src mem1_src loc from to msg promises2_src mem2_src kind_src>> /\
       <<INV2: sem inv promises2_src promises2_tgt>> /\
       <<LE2_SRC: Memory.le promises2_src mem2_src>> /\
       <<SIM2: sim_memory mem2_src mem2_tgt>>.

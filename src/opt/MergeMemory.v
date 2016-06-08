@@ -30,11 +30,12 @@ Lemma fulfill_promise
       promises2 loc2 from2 to2 msg2
       promises3
       mem1 mem3
+      kind
       (LE: Memory.le promises1 mem1)
       (FULFILL: Memory.fulfill promises1 loc1 from1 to1 msg1 promises2)
-      (PROMISE: Memory.promise promises2 mem1 loc2 from2 to2 msg2 promises3 mem3):
+      (PROMISE: Memory.promise promises2 mem1 loc2 from2 to2 msg2 promises3 mem3 kind):
   exists promises2',
-    Memory.promise promises1 mem1 loc2 from2 to2 msg2 promises2' mem3 /\
+    Memory.promise promises1 mem1 loc2 from2 to2 msg2 promises2' mem3 kind /\
     Memory.fulfill promises2' loc1 from1 to1 msg1 promises3.
 Proof.
 Admitted.

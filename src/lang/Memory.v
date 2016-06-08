@@ -101,6 +101,24 @@ Module TimeMap <: JoinableType.
     exploit TimeFacts.lt_le_lt; eauto. i.
     apply Time.lt_strorder in x0. inv x0.
   Qed.
+
+  Lemma le_join_l l r
+        (LE: le r l):
+    join l r = l.
+  Proof.
+    apply LocFun.ext. i.
+    unfold join, Time.join, LocFun.find. condtac; auto.
+    apply TimeFacts.antisym; auto.
+  Qed.
+
+  Lemma le_join_r l r
+        (LE: le l r):
+    join l r = r.
+  Proof.
+    apply LocFun.ext. i.
+    unfold join, Time.join, LocFun.find. condtac; auto.
+    exfalso. eapply Time.lt_strorder. eapply TimeFacts.lt_le_lt; eauto.
+  Qed.
 End TimeMap.
 
 Module Capability <: JoinableType.
@@ -345,6 +363,22 @@ Module Capability <: JoinableType.
     - apply TimeMap.incr_nop. auto.
     - apply TimeMap.incr_nop. etrans; eauto. apply WF.
   Qed.
+
+  Lemma le_join_l l r
+        (LE: le r l):
+    join l r = l.
+  Proof.
+    unfold join. destruct l. ss.
+    f_equal; apply TimeMap.le_join_l; apply LE.
+  Qed.
+
+  Lemma le_join_r l r
+        (LE: le l r):
+    join l r = r.
+  Proof.
+    unfold join. destruct r. ss.
+    f_equal; apply TimeMap.le_join_r; apply LE.
+  Qed.
 End Capability.
 
 Module Message.
@@ -559,6 +593,19 @@ Module Cell.
              (LT: Time.lt from to): t :=
     mk (Raw.singleton_wf msg LT).
 
+  Lemma singleton_get
+        from to msg (LT:Time.lt from to)
+        t:
+    get t (singleton msg LT) =
+    if Loc.eq_dec t to
+    then Some (from, msg)
+    else None.
+  Proof.
+    unfold get, singleton, Raw.singleton. ss. condtac.
+    - subst. rewrite DOMap.singleton_eq. auto.
+    - rewrite DOMap.singleton_neq; auto.
+  Qed.
+
   Definition init: t :=
     singleton (Message.mk 0 Capability.elt)
               (Time.decr_spec Time.elt).
@@ -571,6 +618,175 @@ Module Cell.
 
   Definition remove (cell1:t) (from1 to1:Time.t) (msg1:Message.t) (cell2:t): Prop :=
     Raw.remove cell1 from1 to1 msg1 cell2.
+
+  Definition max_ts (cell:t): Time.t :=
+    DOMap.max_key _ cell.(raw).
+
+  Lemma max_ts_spec
+        cell:
+    <<GET: get Time.elt cell <> None -> exists from msg, get (max_ts cell) cell = Some (from, msg)>> /\
+    <<MAX: forall ts (GET: get ts cell <> None), Time.le ts (max_ts cell)>>.
+  Proof.
+    generalize (DOMap.max_key_spec _ cell.(Cell.raw)). i. des. splits; eauto. i.
+    destruct (DOMap.find
+                (DOMap.max_key (DenseOrder.t * Message.t) (Cell.raw cell))
+                (Cell.raw cell)) as [[]|] eqn:X.
+    - eexists _, _. eauto.
+    - exfalso. apply FIND; auto.
+  Qed.
+
+  Lemma raw_add_exists_max_ts
+        cell1 to val released
+        (TO: Time.lt (max_ts cell1) to):
+    exists cell2,
+      Capability.wf released ->
+      Raw.add cell1 (max_ts cell1) to (Message.mk val released) cell2.
+  Proof.
+    generalize (max_ts_spec cell1). i. des.
+    destruct cell1. ss.
+    eexists. i. econs; ss.
+    i. exploit MAX.
+    { unfold get. s. rewrite GET2. congr. }
+    i.
+    splits.
+    - ii. subst. inversion WF0. exploit VOLUME; eauto. i.
+      rewrite x0 in TO. eapply Time.lt_strorder. eapply TimeFacts.le_lt_lt; eauto.
+    - ii. inv LHS. inv RHS. ss.
+      rewrite x in TO1. eapply Time.lt_strorder. eapply TimeFacts.le_lt_lt; eauto.
+  Qed.
+
+  Lemma add_exists_max_ts
+        cell1 to val released
+        (TO: Time.lt (max_ts cell1) to):
+    exists cell2,
+      Capability.wf released ->
+      add cell1 (max_ts cell1) to (Message.mk val released) cell2.
+  Proof.
+    exploit raw_add_exists_max_ts; eauto. i. des.
+    destruct (classic (Capability.wf released)).
+    - eexists (mk _). eauto.
+    - exists cell1. congr.
+  Grab Existential Variables.
+    { eapply Raw.add_wf; eauto. apply Cell.WF. }
+  Qed.
+
+  Lemma raw_add_exists_le
+        promises1 mem1 from to msg mem2
+        (LE: le promises1 mem1)
+        (ADD: Raw.add mem1 from to msg mem2):
+    exists promises2, Raw.add promises1 from to msg promises2.
+  Proof.
+    inv ADD. eexists. econs; eauto.
+  Qed.
+
+  Lemma add_exists_le
+        promises1 mem1 from to msg mem2
+        (LE: le promises1 mem1)
+        (ADD: add mem1 from to msg mem2):
+    exists promises2, add promises1 from to msg promises2.
+  Proof.
+    exploit raw_add_exists_le; eauto. i. des.
+    eexists (mk _). unfold add. s.  eauto.
+  Grab Existential Variables.
+    { eapply Raw.add_wf; eauto. apply Cell.WF. }
+  Qed.
+
+  (* Lemmas on add, split & remove *)
+
+  Lemma add_disjoint
+        cell1 from1 to1 msg1 cell2
+        (ADD: add cell1 from1 to1 msg1 cell2):
+    get to1 cell1 = None.
+  Proof.
+    inv ADD. unfold get.
+    destruct (DOMap.find to1 (raw cell1)) as [[]|] eqn:X; auto.
+    exfalso. eapply DISJOINT; eauto.
+    - apply Interval.mem_ub. auto.
+    - apply Interval.mem_ub. eapply WF. eauto.
+  Qed.
+
+  Lemma add_get1
+        cell1 from1 to1 msg1 cell2
+        t f m
+        (ADD: add cell1 from1 to1 msg1 cell2)
+        (GET: get t cell1 = Some (f, m)):
+    get t cell2 = Some (f, m).
+  Proof.
+    exploit add_disjoint; eauto. i.
+    unfold get in *. inv ADD.
+    rewrite DOMap.gsspec. condtac; auto. subst.
+    congr.
+  Qed.
+
+  Lemma add_get2
+        cell1 from1 to1 msg1 cell2
+        (ADD: add cell1 from1 to1 msg1 cell2):
+    get to1 cell2 = Some (from1, msg1).
+  Proof.
+    unfold get in *. inv ADD.
+    rewrite DOMap.gss. auto.
+  Qed.
+
+  Lemma add_get_inv
+        cell1 from1 to1 msg1 cell2
+        t f m
+        (ADD: add cell1 from1 to1 msg1 cell2)
+        (GET: get t cell2 = Some (f, m)):
+    (t = to1 /\ f = from1 /\ m = msg1) \/
+    (~ t = to1 /\
+     get t cell1 = Some (f, m)).
+  Proof.
+    unfold get in *. inv ADD.
+    revert GET. rewrite <- H0. rewrite DOMap.gsspec. condtac; auto.
+    i. inv GET. auto.
+  Qed.
+
+  Lemma add_inhabited
+        cell1 cell2 to msg
+        (ADD: add cell1 (max_ts cell1) to msg cell2)
+        (INHABITED: get Time.elt cell1 <> None):
+    <<INHABITED: get Time.elt cell2 <> None>>.
+  Proof.
+    ii. eapply INHABITED.
+    destruct (get Time.elt cell1) as [[]|] eqn:X; auto.
+    exploit add_get1; eauto. i. congr.
+  Qed.
+
+  Lemma add_max_ts
+        cell1 to msg cell2
+        (INHABITED: get Time.elt cell1 <> None)
+        (ADD: add cell1 (max_ts cell1) to msg cell2):
+    max_ts cell2 = to.
+  Proof.
+    hexploit add_inhabited; eauto. i. des.
+    generalize (max_ts_spec cell1). i. des.
+    generalize (max_ts_spec cell2). i. des.
+    specialize (GET0 H). des.
+    exploit add_get_inv; eauto. i. des.
+    - subst. auto.
+    - exploit MAX0; i.
+      { erewrite add_get2; eauto. congr. }
+      exploit MAX; i.
+      { rewrite x1. congr. }
+      inv ADD. exploit TimeFacts.lt_le_lt; eauto. i.
+      exploit TimeFacts.lt_le_lt; eauto. i.
+      exfalso. eapply Time.lt_strorder. eauto.
+  Qed.
+
+  Lemma remove_singleton
+        from to msg (LT:Time.lt from to):
+    remove (singleton msg LT) from to msg bot.
+  Proof.
+    assert (Raw.bot = DOMap.remove to ((singleton msg LT).(raw))).
+    { apply DOMap.eq_leibniz. ii.
+      unfold Raw.bot. rewrite DOMap.gempty.
+      rewrite DOMap.grspec. condtac; auto.
+      unfold singleton, Raw.singleton, raw.
+      rewrite DOMap.singleton_neq; auto.
+    }
+    unfold remove. s. rewrite H. econs. s.
+    unfold Raw.singleton. rewrite DOMap.singleton_eq. auto.
+  Qed.    
 End Cell.
 
 Module Memory.
@@ -622,8 +838,25 @@ Module Memory.
   Definition singleton
              (loc:Loc.t) (from to:Time.t) (msg:Message.t)
              (LT: Time.lt from to): t :=
-    (LocFun.add loc (Cell.mk (Cell.Raw.singleton_wf msg LT))
+    (LocFun.add loc (Cell.singleton msg LT)
                 (fun _ => Cell.bot)).
+
+  Lemma singleton_get
+        loc from to msg (LT:Time.lt from to)
+        l t:
+    get l t (singleton loc msg LT) =
+    if Loc.eq_dec l loc
+    then if Time.eq_dec t to
+         then Some (from, msg)
+         else None
+    else None.
+  Proof.
+    unfold get, singleton. unfold LocFun.add, LocFun.find.
+    repeat condtac; subst.
+    - rewrite Cell.singleton_get. condtac; [|congr]. auto.
+    - rewrite Cell.singleton_get. condtac; [congr|]. auto.
+    - apply Cell.bot_get.
+  Qed.
 
   Definition init: t := fun _ => Cell.init.
 
@@ -650,7 +883,7 @@ Module Memory.
   Proof.
     econs. unfold TimeMap.elt.
     unfold get, init, Cell.get, Cell.init. s.
-    unfold Cell.Raw.singleton. rewrite DOMap.singleton_find. eauto.
+    unfold Cell.Raw.singleton. rewrite DOMap.singleton_eq. eauto.
   Qed.
 
   Lemma init_closed: closed init.
@@ -713,23 +946,28 @@ Module Memory.
     - econs 2; eauto. inv H. econs 2; eauto.
   Qed.
 
+  Inductive promise_kind :=
+  | promise_kind_add
+  | promise_kind_split
+  .
+
   Inductive promise
             (promises1 mem1:t)
             (loc:Loc.t) (from1 to1:Time.t) (msg1:Message.t)
-            (promises2 mem2:t): Prop :=
+            (promises2 mem2:t): forall (kind:promise_kind), Prop :=
   | promise_add
       (PROMISES: add promises1 loc from1 to1 msg1 promises2)
       (MEM: add mem1 loc from1 to1 msg1 mem2)
       (CLOSED: closed_capability msg1.(Message.released) mem2)
       (TS: Time.le (Capability.rw (Message.released msg1) loc) to1):
-      promise promises1 mem1 loc from1 to1 msg1 promises2 mem2
+      promise promises1 mem1 loc from1 to1 msg1 promises2 mem2 promise_kind_add
   | promise_split
       to2
       (PROMISES: split promises1 loc from1 to1 to2 msg1 promises2)
       (MEM: split mem1 loc from1 to1 to2 msg1 mem2)
       (CLOSED: closed_capability msg1.(Message.released) mem2)
       (TS: Time.le (Capability.rw (Message.released msg1) loc) to1):
-      promise promises1 mem1 loc from1 to1 msg1 promises2 mem2
+      promise promises1 mem1 loc from1 to1 msg1 promises2 mem2 promise_kind_split
   .
 
   Inductive fulfill
@@ -748,12 +986,7 @@ Module Memory.
         (ADD: add mem1 loc from1 to1 msg1 mem2):
     get loc to1 mem1 = None.
   Proof.
-    inv ADD. inv ADD0. destruct r. ss. subst.
-    unfold get, Cell.get.
-    destruct (DOMap.find to1 (Cell.raw (mem1 loc))) as [[]|] eqn:X; auto.
-    exfalso. eapply DISJOINT; eauto.
-    - apply Interval.mem_ub. auto.
-    - apply Interval.mem_ub. eapply Cell.WF. eauto.
+    inv ADD. exploit Cell.add_disjoint; eauto.
   Qed.
 
   Lemma add_get1
@@ -763,11 +996,8 @@ Module Memory.
         (GET: get l t mem1 = Some (f, m)):
     get l t mem2 = Some (f, m).
   Proof.
-    exploit add_disjoint; eauto. i.
-    unfold get, Cell.get in *. inv ADD. inv ADD0.
-    unfold LocFun.add, LocFun.find. condtac; auto. subst.
-    rewrite <- H0. rewrite DOMap.gsspec. condtac; auto. subst.
-    congr.
+    inv ADD. unfold get, LocFun.add, LocFun.find. condtac; auto. subst.
+    exploit Cell.add_get1; eauto.
   Qed.
 
   Lemma add_get2
@@ -775,9 +1005,8 @@ Module Memory.
         (ADD: add mem1 loc from1 to1 msg1 mem2):
     get loc to1 mem2 = Some (from1, msg1).
   Proof.
-    unfold get, Cell.get in *. inv ADD. inv ADD0.
-    unfold LocFun.add, LocFun.find. condtac; [|congr].
-    rewrite <- H0. rewrite DOMap.gss. auto.
+    inv ADD. unfold get, LocFun.add, LocFun.find. condtac; [|congr].
+    exploit Cell.add_get2; eauto.
   Qed.
 
   Lemma add_get_inv
@@ -789,12 +1018,11 @@ Module Memory.
     (~ (l = loc /\ t = to1) /\
      get l t mem1 = Some (f, m)).
   Proof.
-    unfold get, Cell.get in *. inv ADD. inv ADD0.
-    revert GET. unfold LocFun.add, LocFun.find. condtac; auto.
-    - subst. rewrite <- H0. rewrite DOMap.gsspec. condtac; auto.
-      + subst. s. i. inv GET. auto.
-      + right. splits; auto. ii. des. congr.
-    - right. splits; auto. ii. des. congr.
+    inv ADD. revert GET. unfold get, LocFun.add, LocFun.find. condtac; i.
+    - subst. exploit Cell.add_get_inv; eauto. i. des.
+      + subst. left. auto.
+      + right. splits; auto. contradict x0. des. auto.
+    - right. splits; auto. clear COND. contradict n. des. auto.
   Qed.
 
   Lemma split_disjoint
@@ -1055,9 +1283,9 @@ Module Memory.
   (* Lemmas on promise & fulfill *)
 
   Lemma promise_get1
-        promises1 mem1 loc from to msg promises2 mem2
+        promises1 mem1 loc from to msg promises2 mem2 kind
         l t f m
-        (PROMISE: promise promises1 mem1 loc from to msg promises2 mem2)
+        (PROMISE: promise promises1 mem1 loc from to msg promises2 mem2 kind)
         (GET: get l t mem1 = Some (f, m)):
     exists f', get l t mem2 = Some (f', m).
   Proof.
@@ -1066,10 +1294,20 @@ Module Memory.
     - eapply split_get1'; eauto.
   Qed.
 
+  Lemma promise_get2
+        promises1 mem1 loc from to msg promises2 mem2 kind
+        (PROMISE: promise promises1 mem1 loc from to msg promises2 mem2 kind):
+    get loc to promises2 = Some (from, msg).
+  Proof.
+    inv PROMISE.
+    - eapply add_get2; eauto.
+    - eapply split_get2; eauto.
+  Qed.
+
   Lemma promise_promises_get1
-        promises1 mem1 loc from to msg promises2 mem2
+        promises1 mem1 loc from to msg promises2 mem2 kind
         l t f m
-        (PROMISE: promise promises1 mem1 loc from to msg promises2 mem2)
+        (PROMISE: promise promises1 mem1 loc from to msg promises2 mem2 kind)
         (GET: get l t promises1 = Some (f, m)):
     exists f', get l t promises2 = Some (f', m).
   Proof.
@@ -1079,9 +1317,9 @@ Module Memory.
   Qed.
 
   Lemma promise_promises_get2
-        promises1 mem1 loc from to msg promises2 mem2
+        promises1 mem1 loc from to msg promises2 mem2 kind
         l t f m
-        (PROMISE: promise promises1 mem1 loc from to msg promises2 mem2)
+        (PROMISE: promise promises1 mem1 loc from to msg promises2 mem2 kind)
         (GET: get l t promises2 = Some (f, m)):
     (l = loc /\ t = to /\ f = from /\ m = msg /\ get l t promises1 = None) \/
     (~ (l = loc /\ t = to) /\ exists f', get l t promises1 = Some (f', m)).
@@ -1102,10 +1340,10 @@ Module Memory.
   Qed.
 
   Lemma promise_future
-        promises1 mem1 loc from to msg promises2 mem2
+        promises1 mem1 loc from to msg promises2 mem2 kind
         (LE_PROMISES1: le promises1 mem1)
         (CLOSED1: closed mem1)
-        (PROMISE: promise promises1 mem1 loc from to msg promises2 mem2):
+        (PROMISE: promise promises1 mem1 loc from to msg promises2 mem2 kind):
     <<LE_PROMISES2: le promises2 mem2>> /\
     <<CLOSED2: closed mem2>> /\
     <<FUTURE: future mem1 mem2>>.
@@ -1147,10 +1385,10 @@ Module Memory.
   Qed.
 
   Lemma promise_disjoint
-        promises1 mem1 loc from to msg promises2 mem2 ctx
+        promises1 mem1 loc from to msg promises2 mem2 ctx kind
         (LE_PROMISES1: le promises1 mem1)
         (CLOSED1: closed mem1)
-        (PROMISE: promise promises1 mem1 loc from to msg promises2 mem2)
+        (PROMISE: promise promises1 mem1 loc from to msg promises2 mem2 kind)
         (LE_PROMISES: le ctx mem1)
         (DISJOINT: Memory.disjoint promises1 ctx):
     <<DISJOINT: Memory.disjoint promises2 ctx>> /\
@@ -1207,5 +1445,173 @@ Module Memory.
     inv FULFILL. econs. i. econs. i.
     eapply remove_get_inv in GET1; eauto. des.
     eapply DISJOINT; eauto.
+  Qed.
+
+  Definition max_ts (loc:Loc.t) (mem:t): Time.t :=
+    Cell.max_ts (mem loc).
+
+  Lemma max_ts_spec
+        loc mem
+        (INHABITED: get loc Time.elt mem <> None):
+    <<GET: exists from msg, get loc (max_ts loc mem) mem = Some (from, msg)>> /\
+    <<MAX: forall ts (GET: get loc ts mem <> None), Time.le ts (max_ts loc mem)>>.
+  Proof.
+    exploit Cell.max_ts_spec; eauto. i. des.
+    splits; eauto.
+  Qed.
+
+  Definition max_timemap (mem:t): TimeMap.t :=
+    fun loc => max_ts loc mem.
+
+  Lemma max_timemap_closed
+        mem
+        (INHABITED: forall loc, get loc Time.elt mem <> None):
+    closed_timemap (max_timemap mem) mem.
+  Proof.
+    ii. apply max_ts_spec; auto.
+  Qed.
+
+  Lemma max_timemap_spec tm mem
+        (TIMEMAP: closed_timemap tm mem)
+        (INHABITED: forall loc, get loc Time.elt mem <> None):
+    TimeMap.le tm (max_timemap mem).
+  Proof.
+    ii. apply max_ts_spec; auto.
+    exploit TIMEMAP. i. des. rewrite x. congr.
+  Qed.
+
+  Definition max_capability (mem:t): Capability.t :=
+    Capability.mk (max_timemap mem) (max_timemap mem) (max_timemap mem).
+
+  Lemma max_capability_wf mem: Capability.wf (max_capability mem).
+  Proof. econs. refl. refl. Qed.
+
+  Lemma max_capability_closed
+        mem
+        (INHABITED: forall loc, get loc Time.elt mem <> None):
+    closed_capability (max_capability mem) mem.
+  Proof. econs; apply max_timemap_closed; auto. Qed.
+
+  Lemma max_capability_spec tm mem
+        (CAPABILITY: closed_capability tm mem)
+        (INHABITED: forall loc, get loc Time.elt mem <> None):
+    Capability.le tm (max_capability mem).
+  Proof.
+    econs; apply max_timemap_spec; try apply CAPABILITY; auto.
+  Qed.
+
+  Lemma add_inhabited
+        mem1 mem2 loc to msg
+        (ADD: add mem1 loc (max_ts loc mem1) to msg mem2)
+        (INHABITED: forall loc, get loc Time.elt mem1 <> None):
+    <<INHABITED: forall loc, get loc Time.elt mem2 <> None>>.
+  Proof.
+    ii. eapply INHABITED. instantiate (1 := loc0).
+    destruct (get loc0 Time.elt mem1) as [[]|] eqn:X; auto.
+    exploit add_get1; eauto. i. congr.
+  Qed.
+
+  Lemma add_max_timemap
+        mem1 mem2 loc to msg
+        (ADD: add mem1 loc (max_ts loc mem1) to msg mem2)
+        (INHABITED: forall loc, get loc Time.elt mem1 <> None):
+    max_timemap mem2 = TimeMap.incr loc to (max_timemap mem1).
+  Proof.
+    hexploit add_inhabited; eauto. i. des.
+    extensionality l. apply TimeFacts.antisym; auto.
+    - exploit max_timemap_closed; eauto. instantiate (1 := l). i. des.
+      exploit add_get_inv; eauto. i. des.
+      + subst. apply TimeMap.incr_ts.
+      + etrans; [|apply TimeMap.incr_le].
+        inv ADD. unfold LocFun.add, LocFun.find.
+        unfold max_timemap, max_ts. condtac; [|refl].
+        subst. contradict x1. splits; auto.
+        unfold LocFun.add, LocFun.find.
+        unfold max_timemap, max_ts. condtac; [|congr].
+        eapply Cell.add_max_ts; eauto.
+    - apply max_timemap_spec; auto.
+      exploit add_get2; eauto. i.
+      eapply incr_closed_timemap; eauto.
+      eapply future_closed_timemap.
+      + apply max_timemap_closed. auto.
+      + econs 2; [|econs 1]. econs 1. eauto.
+  Qed.
+
+  Lemma add_max_capability
+        mem1 mem2 loc to msg
+        (ADD: add mem1 loc (max_ts loc mem1) to msg mem2)
+        (INHABITED: forall loc, get loc Time.elt mem1 <> None):
+    max_capability mem2 = Capability.incr_ur loc to (max_capability mem1).
+  Proof.
+    unfold max_capability, Capability.incr_ur. s. f_equal.
+    - eapply add_max_timemap; eauto.
+    - eapply add_max_timemap; eauto.
+    - eapply add_max_timemap; eauto.
+  Qed.
+
+  Lemma add_exists_max_ts
+        mem1 loc to val
+        (TS: Time.lt (max_ts loc mem1) to)
+        (CLOSED: closed mem1):
+    exists mem2,
+      add mem1 loc (max_ts loc mem1) to (Message.mk val (max_capability mem2)) mem2.
+  Proof.
+    exploit Cell.add_exists_max_ts; eauto. i. des.
+    instantiate (1 := Capability.incr_ur loc to (max_capability mem1)) in x0.
+    exploit x0; i.
+    { apply Capability.incr_ur_wf. apply max_capability_wf. }
+    eexists. erewrite add_max_capability; eauto.
+    - econs; eauto. s.
+      apply Capability.incr_ur_wf. apply max_capability_wf.
+    - econs; eauto. s.
+      apply Capability.incr_ur_wf. apply max_capability_wf.
+    - apply CLOSED.
+  Qed.
+
+  Lemma add_exists_le
+        promises1 mem1 loc from to msg mem2
+        (LE: le promises1 mem1)
+        (ADD: add mem1 loc from to msg mem2):
+    exists promises2, add promises1 loc from to msg promises2.
+  Proof.
+    inv ADD.
+    exploit Cell.add_exists_le; eauto.
+    { ii. eapply LE. eauto. }
+    i. des.
+    eexists. econs; eauto.
+  Qed.
+
+  Lemma promise_add_exists
+        promises1 mem1 loc to val
+        (LE_PROMISES1: le promises1 mem1)
+        (CLOSED1: closed mem1)
+        (TS: Time.lt (max_ts loc mem1) to):
+    exists promises2 mem2,
+      promise promises1 mem1 loc (max_ts loc mem1) to (Message.mk val (max_capability mem2)) promises2 mem2 promise_kind_add.
+  Proof.
+    exploit add_exists_max_ts; eauto. i. des.
+    hexploit add_inhabited; try apply CLOSED1; eauto. i. des.
+    exploit add_exists_le; eauto. i. des.
+    eexists _, _. econs 1; s; eauto.
+    { apply max_capability_closed. auto. }
+    erewrite add_max_timemap; try apply CLOSED1; eauto.
+    unfold TimeMap.incr, LocFun.add, LocFun.find. condtac; [|congr].
+    apply Time.join_spec; [|refl]. apply Time.le_lteq. eauto.
+  Qed.
+
+  Lemma remove_singleton
+        loc from to msg (LT:Time.lt from to):
+    remove (singleton loc msg LT) loc from to msg bot.
+  Proof.
+    assert (bot = LocFun.add loc Cell.bot (singleton loc msg LT)).
+    { apply ext. i. rewrite bot_get.
+      unfold get, LocFun.add, LocFun.find. condtac.
+      - rewrite Cell.bot_get. auto.
+      - unfold singleton, LocFun.add, LocFun.find. condtac; [congr|].
+        rewrite Cell.bot_get. auto.
+    }
+    rewrite H. econs.
+    unfold singleton, LocFun.add, LocFun.find. condtac; [|congr].
+    eapply Cell.remove_singleton.
   Qed.
 End Memory.

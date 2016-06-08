@@ -80,14 +80,14 @@ Module Local.
     econs. symmetry. apply H.
   Qed.
 
-  Inductive promise_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:Capability.t): forall (lc2:t) (mem2:Memory.t), Prop :=
+  Inductive promise_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:Capability.t): forall (lc2:t) (mem2:Memory.t) (kind:Memory.promise_kind), Prop :=
   | step_promise
-      commit2 promises2 mem2
-      (PROMISE: Memory.promise lc1.(promises) mem1 loc from to (Message.mk val released) promises2 mem2)
+      commit2 promises2 mem2 kind
+      (PROMISE: Memory.promise lc1.(promises) mem1 loc from to (Message.mk val released) promises2 mem2 kind)
       (COMMIT: Commit.le lc1.(commit) commit2)
       (COMMIT_WF: Commit.wf commit2)
       (COMMIT_CLOSED: Commit.closed commit2 mem2):
-      promise_step lc1 mem1 loc from to val released (mk commit2 promises2) mem2
+      promise_step lc1 mem1 loc from to val released (mk commit2 promises2) mem2 kind
   .
 
   Inductive silent_step (lc1:t) (mem1:Memory.t): forall (lc2:t), Prop :=
@@ -119,18 +119,18 @@ Module Local.
       fulfill_step lc1 mem1 loc from to val releasedc releasedm ord (mk commit2 promises2)
   .
 
-  Inductive write_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (releasedc releasedm:Capability.t) (ord:Ordering.t): forall (lc2:t) (mem2:Memory.t), Prop :=
+  Inductive write_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (releasedc releasedm:Capability.t) (ord:Ordering.t): forall (lc2:t) (mem2:Memory.t) (kind:option Memory.promise_kind), Prop :=
   | step_write_fulfill
       lc2
       (FULFILL: fulfill_step lc1 mem1 loc from to val releasedc releasedm ord lc2)
       (RELEASE: Ordering.le Ordering.acqrel ord -> lc1.(promises) loc = Cell.bot):
-      write_step lc1 mem1 loc from to val releasedc releasedm ord lc2 mem1
-  | step_write_add
-      lc2 mem2 lc3
-      (PROMISE: promise_step lc1 mem1 loc from to val releasedm lc2 mem2)
+      write_step lc1 mem1 loc from to val releasedc releasedm ord lc2 mem1 None
+  | step_write_promise_fulfill
+      kind lc2 mem2 lc3
+      (PROMISE: promise_step lc1 mem1 loc from to val releasedm lc2 mem2 kind)
       (FULFILL: fulfill_step lc2 mem2 loc from to val releasedc releasedm ord lc3)
       (RELEASE: Ordering.le Ordering.acqrel ord -> lc1.(promises) loc = Cell.bot):
-      write_step lc1 mem1 loc from to val releasedc releasedm ord lc3 mem2
+      write_step lc1 mem1 loc from to val releasedc releasedm ord lc3 mem2 (Some kind)
   .
 
   Inductive fence_step (lc1:t) (mem1:Memory.t) (ordr ordw:Ordering.t): forall (lc2:t), Prop :=
@@ -171,8 +171,8 @@ Module Local.
     eapply Commit.future_closed; eauto.
   Qed.
 
-  Lemma promise_step_future lc1 mem1 loc from to val released lc2 mem2
-        (STEP: promise_step lc1 mem1 loc from to val released lc2 mem2)
+  Lemma promise_step_future lc1 mem1 loc from to val released lc2 mem2 kind
+        (STEP: promise_step lc1 mem1 loc from to val released lc2 mem2 kind)
         (WF1: wf lc1 mem1)
         (CLOSED1: Memory.closed mem1):
     <<WF2: wf lc2 mem2>> /\
@@ -213,8 +213,8 @@ Module Local.
     - eapply Memory.fulfill_future; eauto.
   Qed.
 
-  Lemma write_step_future lc1 mem1 loc from to val releasedc releasedm ord lc2 mem2
-        (STEP: write_step lc1 mem1 loc from to val releasedc releasedm ord lc2 mem2)
+  Lemma write_step_future lc1 mem1 loc from to val releasedc releasedm ord lc2 mem2 kind
+        (STEP: write_step lc1 mem1 loc from to val releasedc releasedm ord lc2 mem2 kind)
         (WF1: wf lc1 mem1)
         (CLOSED1: Memory.closed mem1):
     <<WF2: wf lc2 mem2>> /\
@@ -237,8 +237,8 @@ Module Local.
   Qed.
 
   Lemma promise_step_disjoint
-        lc1 mem1 loc from to val released lc2 mem2 lc
-        (STEP: promise_step lc1 mem1 loc from to val released lc2 mem2)
+        lc1 mem1 loc from to val released lc2 mem2 lc kind
+        (STEP: promise_step lc1 mem1 loc from to val released lc2 mem2 kind)
         (WF1: wf lc1 mem1)
         (CLOSED1: Memory.closed mem1)
         (DISJOINT1: disjoint lc1 lc)
@@ -290,8 +290,8 @@ Module Local.
   Qed.
 
   Lemma write_step_disjoint
-        lc1 mem1 lc2 loc from to val releasedc releasedm ord mem2 lc
-        (STEP: write_step lc1 mem1 loc from to val releasedc releasedm ord lc2 mem2)
+        lc1 mem1 lc2 loc from to val releasedc releasedm ord mem2 lc kind
+        (STEP: write_step lc1 mem1 loc from to val releasedc releasedm ord lc2 mem2 kind)
         (WF1: wf lc1 mem1)
         (CLOSED1: Memory.closed mem1)
         (DISJOINT1: disjoint lc1 lc)
@@ -331,8 +331,8 @@ Module Thread.
 
     Inductive promise_step (e1:t) loc from to val released: forall (e2:t), Prop :=
     | promise_step_intro
-        lc2 mem2
-        (LOCAL: Local.promise_step e1.(local) e1.(memory) loc from to val released lc2 mem2):
+        lc2 mem2 kind
+        (LOCAL: Local.promise_step e1.(local) e1.(memory) loc from to val released lc2 mem2 kind):
         promise_step e1 loc from to val released (mk e1.(state) lc2 mem2)
     .
 
@@ -360,18 +360,18 @@ Module Thread.
         program_step (ThreadEvent.read loc ts val ord) (mk st1 lc1 mem1) (mk st2 lc2 mem1)
     | step_write
         st1 lc1 mem1
-        st2 loc from to val released ord lc2 mem2
+        st2 loc from to val released ord lc2 mem2 kind
         (STATE: lang.(Language.step) (Some (ProgramEvent.write loc val ord)) st1 st2)
-        (LOCAL: Local.write_step lc1 mem1 loc from to val released released ord lc2 mem2):
+        (LOCAL: Local.write_step lc1 mem1 loc from to val released released ord lc2 mem2 kind):
         program_step (ThreadEvent.write loc to val ord) (mk st1 lc1 mem1) (mk st2 lc2 mem2)
     | step_update
         st1 lc1 mem1
         st3 loc ordr ordw
         tsr valr releasedr lc2
-        tsw valw releasedw lc3 mem3
+        tsw valw releasedw lc3 mem3 kind
         (STATE: lang.(Language.step) (Some (ProgramEvent.update loc valr valw ordr ordw)) st1 st3)
         (LOCAL1: Local.read_step lc1 mem1 loc tsr valr releasedr ordr lc2)
-        (LOCAL2: Local.write_step lc2 mem1 loc tsr tsw valw releasedw (Capability.join releasedr releasedw) ordw lc3 mem3):
+        (LOCAL2: Local.write_step lc2 mem1 loc tsr tsw valw releasedw (Capability.join releasedr releasedw) ordw lc3 mem3 kind):
         program_step (ThreadEvent.update loc tsr tsw valr valw ordr ordw) (mk st1 lc1 mem1) (mk st3 lc3 mem3)
     | step_fence
         st1 lc1 mem1

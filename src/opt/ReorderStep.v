@@ -7,6 +7,7 @@ Require Import paco.
 Require Import respectful5.
 
 Require Import Basic.
+Require Import DenseOrder.
 Require Import Event.
 Require Import Language.
 Require Import Time.
@@ -55,8 +56,19 @@ Proof.
       hexploit progress_write_step; try apply Time.incr_spec; eauto.
       { inv H. auto. }
       i. des.
-      eexists _, _. econs 4; s; eauto.
+      assert (exists from, Memory.get loc (Memory.max_ts loc mem1) mem1 = Some (from, (Message.mk val released))).
+      { inv H. inv MEM1. exploit CLOSED; eauto. }
+      des. eexists _, _. econs 4; s; eauto.
       * econs. econs. apply surjective_pairing.
+      * rewrite Capability.le_join_r; eauto.
+        etrans.
+        { apply Memory.max_capability_spec; try apply MEM1.
+          inv MEM1. exploit CLOSED; eauto. s. i. des. eauto.
+        }
+        { inv H0. inv PROMISE. inv PROMISE0. ss.
+          erewrite (@Memory.add_max_capability _ mem2); try apply MEM1; eauto.
+          apply Capability.incr_ur_le.
+        }
     + hexploit progress_fence_step; eauto. i. des.
       eexists _, _. econs 5; s; eauto.
       econs. econs.
@@ -71,8 +83,6 @@ Proof.
     + apply progress_silent_step. auto.
 Grab Existential Variables.
   { auto. }
-  { apply Capability.elt. }
-  { apply Capability.elt. }
 Qed.
 
 
@@ -108,12 +118,13 @@ Lemma reorder_read_promise
       lc0 mem0
       lc1
       lc2 mem2
+      kind
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
       (STEP1: Local.read_step lc0 mem0 loc1 ts1 val1 released1 ord1 lc1)
-      (STEP2: Local.promise_step lc1 mem0 loc2 from2 to2 val2 released2 lc2 mem2):
+      (STEP2: Local.promise_step lc1 mem0 loc2 from2 to2 val2 released2 lc2 mem2 kind):
   exists lc1',
-    <<STEP1: Local.promise_step lc0 mem0 loc2 from2 to2 val2 released2 lc1' mem2>> /\
+    <<STEP1: Local.promise_step lc0 mem0 loc2 from2 to2 val2 released2 lc1' mem2 kind>> /\
     <<STEP2: Local.read_step lc1' mem2 loc1 ts1 val1 released1 ord1 lc2>>.
 Proof.
   inv STEP1. inv STEP2. ss.
@@ -159,14 +170,15 @@ Lemma reorder_read_write
       lc0 mem0
       lc1 mem1
       lc2
+      kind
       (LOC: loc1 <> loc2)
       (ORD: Ordering.le Ordering.seqcst ord2 -> Ordering.le Ordering.seqcst ord1 -> False)
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
       (STEP1: Local.read_step lc0 mem0 loc1 ts1 val1 released1 ord1 lc1)
-      (STEP2: Local.write_step lc1 mem0 loc2 from2 to2 val2 releasedc2 releasedm2 ord2 lc2 mem1):
+      (STEP2: Local.write_step lc1 mem0 loc2 from2 to2 val2 releasedc2 releasedm2 ord2 lc2 mem1 kind):
   exists lc1',
-    <<STEP1: Local.write_step lc0 mem0 loc2 from2 to2 val2 releasedc2 releasedm2 ord2 lc1' mem1>> /\
+    <<STEP1: Local.write_step lc0 mem0 loc2 from2 to2 val2 releasedc2 releasedm2 ord2 lc1' mem1 kind>> /\
     <<STEP2: Local.read_step lc1' mem1 loc1 ts1 val1 released1 ord1 lc2>>.
 Proof.
   inv STEP2.
@@ -246,12 +258,13 @@ Lemma reorder_fulfill_promise
       lc0 mem0
       lc1
       lc2 mem2
+      kind
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
       (STEP1: Local.fulfill_step lc0 mem0 loc1 from1 to1 val1 releasedc1 releasedm1 ord1 lc1)
-      (STEP2: Local.promise_step lc1 mem0 loc2 from2 to2 val2 released2 lc2 mem2):
+      (STEP2: Local.promise_step lc1 mem0 loc2 from2 to2 val2 released2 lc2 mem2 kind):
   exists lc1',
-    <<STEP1: Local.promise_step lc0 mem0 loc2 from2 to2 val2 released2 lc1' mem2>> /\
+    <<STEP1: Local.promise_step lc0 mem0 loc2 from2 to2 val2 released2 lc1' mem2 kind>> /\
     <<STEP2: Local.fulfill_step lc1' mem2 loc1 from1 to1 val1 releasedc1 releasedm1 ord1 lc2>>.
 Proof.
   inv STEP1. inv STEP2. ss.
@@ -299,14 +312,15 @@ Lemma reorder_fulfill_write
       lc0 mem0
       lc1
       lc2 mem2
+      kind
       (LOC: loc1 <> loc2)
       (ORD1: Ordering.le ord1 Ordering.relaxed)
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
       (STEP1: Local.fulfill_step lc0 mem0 loc1 from1 to1 val1 releasedc1 releasedm1 ord1 lc1)
-      (STEP2: Local.write_step lc1 mem0 loc2 from2 to2 val2 releasedc2 releasedm2 ord2 lc2 mem2):
+      (STEP2: Local.write_step lc1 mem0 loc2 from2 to2 val2 releasedc2 releasedm2 ord2 lc2 mem2 kind):
   exists lc1',
-    <<STEP1: Local.write_step lc0 mem0 loc2 from2 to2 val2 releasedc2 releasedm2 ord2 lc1' mem2>> /\
+    <<STEP1: Local.write_step lc0 mem0 loc2 from2 to2 val2 releasedc2 releasedm2 ord2 lc1' mem2 kind>> /\
     <<STEP2: Local.fulfill_step lc1' mem2 loc1 from1 to1 val1 releasedc1 releasedm1 ord1 lc2>>.
 Proof.
   inv STEP2.
@@ -326,14 +340,15 @@ Lemma reorder_fence_promise
       lc0 mem0
       lc1
       lc2 mem2
+      kind
       (ORDR1: Ordering.le ordr1 Ordering.acqrel)
       (ORDW1: Ordering.le ordw1 Ordering.relaxed)
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
       (STEP1: Local.fence_step lc0 mem0 ordr1 ordw1 lc1)
-      (STEP2: Local.promise_step lc1 mem0 loc2 from2 to2 val2 released2 lc2 mem2):
+      (STEP2: Local.promise_step lc1 mem0 loc2 from2 to2 val2 released2 lc2 mem2 kind):
   exists lc1',
-    <<STEP1: Local.promise_step lc0 mem0 loc2 from2 to2 val2 released2 lc1' mem2>> /\
+    <<STEP1: Local.promise_step lc0 mem0 loc2 from2 to2 val2 released2 lc1' mem2 kind>> /\
     <<STEP2: Local.fence_step lc1' mem2 ordr1 ordw1 lc2>>.
 Proof.
   inv STEP1. inv STEP2. ss.
@@ -383,14 +398,15 @@ Lemma reorder_fence_write
       lc0 mem0
       lc1
       lc2 mem2
+      kind
       (ORDR1: Ordering.le ordr1 Ordering.acqrel)
       (ORDW1: Ordering.le ordw1 Ordering.relaxed)
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
       (STEP1: Local.fence_step lc0 mem0 ordr1 ordw1 lc1)
-      (STEP2: Local.write_step lc1 mem0 loc2 from2 to2 val2 releasedc2 releasedm2 ord2 lc2 mem2):
+      (STEP2: Local.write_step lc1 mem0 loc2 from2 to2 val2 releasedc2 releasedm2 ord2 lc2 mem2 kind):
   exists lc1',
-    <<STEP1: Local.write_step lc0 mem0 loc2 from2 to2 val2 releasedc2 releasedm2 ord2 lc1' mem2>> /\
+    <<STEP1: Local.write_step lc0 mem0 loc2 from2 to2 val2 releasedc2 releasedm2 ord2 lc1' mem2 kind>> /\
     <<STEP2: Local.fence_step lc1' mem2 ordr1 ordw1 lc2>>.
 Proof.
   inv STEP2.

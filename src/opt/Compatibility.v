@@ -55,15 +55,15 @@ Lemma sim_local_promise
       lc1_src mem1_src
       lc1_tgt mem1_tgt
       lc2_tgt mem2_tgt
-      loc from to val released
-      (STEP_TGT: Local.promise_step lc1_tgt mem1_tgt loc from to val released lc2_tgt mem2_tgt)
+      loc from to val released kind_tgt
+      (STEP_TGT: Local.promise_step lc1_tgt mem1_tgt loc from to val released lc2_tgt mem2_tgt kind_tgt)
       (LOCAL1: sim_local lc1_src lc1_tgt)
       (MEM1: sim_memory mem1_src mem1_tgt)
       (WF1_SRC: Local.wf lc1_src mem1_src)
       (WF1_TGT: Local.wf lc1_tgt mem1_tgt)
       (MEM1_SRC: Memory.closed mem1_src):
-  exists lc2_src mem2_src,
-    <<STEP_SRC: Local.promise_step lc1_src mem1_src loc from to val released lc2_src mem2_src>> /\
+  exists lc2_src mem2_src kind_src,
+    <<STEP_SRC: Local.promise_step lc1_src mem1_src loc from to val released lc2_src mem2_src kind_src>> /\
     <<LOCAL2: sim_local lc2_src lc2_tgt>> /\
     <<MEM2: sim_memory mem2_src mem2_tgt>>.
 Proof.
@@ -75,7 +75,7 @@ Proof.
   exploit Memory.promise_future; try apply PROMISES_SRC; eauto.
   { apply WF1_SRC. }
   i. des.
-  eexists _, _. splits; s; eauto.
+  eexists _, _, _. splits; s; eauto.
   - econs; try apply PROMISES_SRC.
     + refl.
     + apply WF1_SRC.
@@ -163,29 +163,29 @@ Lemma sim_local_write
       lc1_src mem1_src
       lc1_tgt mem1_tgt
       lc2_tgt mem2_tgt
-      loc from to val releasedc releasedm ord
-      (STEP_TGT: Local.write_step lc1_tgt mem1_tgt loc from to val releasedc releasedm ord lc2_tgt mem2_tgt)
+      loc from to val releasedc releasedm ord kind_tgt
+      (STEP_TGT: Local.write_step lc1_tgt mem1_tgt loc from to val releasedc releasedm ord lc2_tgt mem2_tgt kind_tgt)
       (LOCAL1: sim_local lc1_src lc1_tgt)
       (MEM1: sim_memory mem1_src mem1_tgt)
       (WF1_SRC: Local.wf lc1_src mem1_src)
       (WF1_TGT: Local.wf lc1_tgt mem1_tgt)
       (MEM1_SRC: Memory.closed mem1_src)
       (MEM1_TGT: Memory.closed mem1_tgt):
-  exists lc2_src mem2_src,
-    <<STEP_SRC: Local.write_step lc1_src mem1_src loc from to val releasedc releasedm ord lc2_src mem2_src>> /\
+  exists lc2_src mem2_src kind_src,
+    <<STEP_SRC: Local.write_step lc1_src mem1_src loc from to val releasedc releasedm ord lc2_src mem2_src kind_src>> /\
     <<LOCAL2: sim_local lc2_src lc2_tgt>> /\
     <<MEM2: sim_memory mem2_src mem2_tgt>>.
 Proof.
   inv STEP_TGT.
   - exploit sim_local_fulfill; eauto. i. des.
-    eexists _, _. splits; eauto. econs 1; eauto.
+    eexists _, _, _. splits; eauto. econs 1; eauto.
     inv LOCAL1. i. apply MemInv.sem_bot_inv in PROMISES. rewrite PROMISES. auto.
   - exploit sim_local_promise; eauto. i. des.
     exploit sim_local_fulfill; eauto.
     { eapply Local.promise_step_future; eauto. }
     { eapply Local.promise_step_future; eauto. }
     i. des.
-    eexists _, _. splits; eauto. econs 2; eauto.
+    eexists _, _, _. splits; eauto. econs 2; eauto.
     inv LOCAL1. apply MemInv.sem_bot_inv in PROMISES. rewrite PROMISES. auto.
 Qed.
 
@@ -315,7 +315,7 @@ Lemma step_seq
               (Thread.mk lang (State.mk rs2 (stmts2 ++ stmts)) lc2 mem2).
 Proof.
   inv STEP; ss.
-  - econs 1. inv STEP0. econs; ss.
+  - econs 1. inv STEP0. econs; ss. eauto.
   - econs 2. apply program_step_seq. eauto.
 Qed.
 

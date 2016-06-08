@@ -241,9 +241,9 @@ Lemma singleton_consistent_inv
   <<CONSISTENT: Thread.consistent (Thread.mk lang st lc mem)>>.
 Proof.
   inv WF. inv WF0. exploit THREADS; eauto.
-  { apply IdentMap.singleton_find. }
+  { apply IdentMap.singleton_eq. }
   i. splits; eauto.
-  eapply CONSISTENT. apply IdentMap.singleton_find.
+  eapply CONSISTENT. apply IdentMap.singleton_eq.
 Qed.
 
 Lemma singleton_is_terminal
@@ -253,7 +253,7 @@ Lemma singleton_is_terminal
   <<THREAD: Local.is_terminal lc>>.
 Proof.
   econs; intro X.
-  - eapply X. apply IdentMap.singleton_find.
+  - eapply X. apply IdentMap.singleton_eq.
   - ii. apply IdentMap.singleton_find_inv in FIND. i. des.
     Configuration.simplify.
 Qed.
@@ -383,7 +383,7 @@ Proof.
     + generalize (rtc_tail STEPS). intro X. des. inv X0.
       * destruct a2. econs 2; [|econs 1].
         econs. rewrite <- TAU. econs; ss; eauto.
-        { eapply IdentMap.singleton_find. }
+        { eapply IdentMap.singleton_eq. }
         { ii. eexists. splits; eauto. ss.
           eapply MemInv.sem_bot_inv.
           inv THREAD. rewrite <- PROMISES0. apply LOCAL.
@@ -403,7 +403,7 @@ Proof.
     exploit sim_step; try apply MEMORY; eauto. i. des.
     eexists _, _, _, _, _, _. splits; eauto.
     + econs; s.
-      * apply IdentMap.singleton_find.
+      * apply IdentMap.singleton_eq.
       * etrans; eauto.
       * eauto.
       * eapply sim_thread_consistent; eauto.

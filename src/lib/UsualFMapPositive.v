@@ -580,10 +580,16 @@ Module UsualPositiveMap' <: S with Module E:=PositiveOrderedTypeBits.
   Definition singleton A (key:positive) (value:A): t A :=
     add key value (empty _).
 
-  Lemma singleton_find A key (value:A):
+  Lemma singleton_eq A key (value:A):
     find key (singleton key value) = Some value.
   Proof.
     unfold singleton. rewrite gss. auto.
+  Qed.
+
+  Lemma singleton_neq A k1 k2 (value:A) (NEQ: k1 <> k2):
+    find k1 (singleton k2 value) = None.
+  Proof.
+    unfold singleton. rewrite gso; auto. apply gempty.
   Qed.
 
   Lemma singleton_find_inv A key key' (value value':A)
