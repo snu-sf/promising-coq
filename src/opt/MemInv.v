@@ -40,6 +40,41 @@ Proof.
   eapply Memory.splits_get; eauto. apply SIM.
 Qed.
 
+Lemma sim_memory_add
+      mem1_src mem1_tgt
+      mem2_src mem2_tgt
+      loc from to msg
+      (SIM: sim_memory mem1_src mem1_tgt)
+      (SRC: Memory.add mem1_src loc from to msg mem2_src)
+      (TGT: Memory.add mem1_tgt loc from to msg mem2_tgt):
+  sim_memory mem2_src mem2_tgt.
+Proof.
+Admitted.
+
+Lemma sim_memory_closed_timemap
+      mem_src mem_tgt
+      tm
+      (SIM: sim_memory mem_src mem_tgt)
+      (TGT: Memory.closed_timemap tm mem_tgt):
+  Memory.closed_timemap tm mem_src.
+Proof.
+  ii. exploit TGT; eauto. i. des.
+  exploit sim_memory_get; eauto. i. des. eauto.
+Qed.
+
+Lemma sim_memory_closed_capability
+      mem_src mem_tgt
+      capability
+      (SIM: sim_memory mem_src mem_tgt)
+      (TGT: Memory.closed_capability capability mem_tgt):
+  Memory.closed_capability capability mem_src.
+Proof.
+  econs.
+  - eapply sim_memory_closed_timemap; eauto. apply TGT.
+  - eapply sim_memory_closed_timemap; eauto. apply TGT.
+  - eapply sim_memory_closed_timemap; eauto. apply TGT.
+Qed.
+
 Module MemInv.
   Definition t := Loc.t -> DOSet.t.
 
@@ -212,19 +247,41 @@ Module MemInv.
         (INV1: sem inv promises1_src promises1_tgt)
         (SIM1: sim_memory mem1_src mem1_tgt)
         (LE1_SRC: Memory.le promises1_src mem1_src)
-        (LE1_TGT: Memory.le promises1_tgt mem1_tgt):
+        (LE1_TGT: Memory.le promises1_tgt mem1_tgt)
+        (CLOSED1_SEC: Memory.closed mem1_src)
+        (CLOSED1_TGT: Memory.closed mem1_tgt):
     exists promises2_src mem2_src,
       <<PROMISES_SRC: Memory.promise promises1_src mem1_src loc from to msg promises2_src mem2_src kind>> /\
       <<INV2: sem inv promises2_src promises2_tgt>> /\
       <<LE2_SRC: Memory.le promises2_src mem2_src>> /\
       <<SIM2: sim_memory mem2_src mem2_tgt>>.
   Proof.
-    inv PROMISES_TGT.
-    - exploit Memory.promise_add_exists. (* TODO: generalize the lemma *)
-      admit.
-      admit.
-      admit.
-      admit.
+    destruct msg. inv PROMISES_TGT; ss.
+    - exploit Memory.add_exists; eauto. i. des.
+      exploit sim_memory_add; try apply INV1; eauto. i.      
+      exploit Memory.promise_add_exists; try apply LE1_SRC; eauto.
+      { eapply sim_memory_closed_capability; eauto. }
+      i. des.
+      exploit Memory.promise_future; try apply x2; eauto. i. des.
+      eexists _, _. splits; eauto.
+      inv x2. inv INV1. ss. econs.
+      + ii. exploit Memory.add_get_inv; try apply PROMISES; eauto. i. des.
+        * subst. eapply Memory.add_get2; eauto.
+        * exploit LE; eauto. i.
+          eapply Memory.add_get1; eauto.
+      + i. exploit GET; eauto. i. des. splits.
+        * destruct (Memory.get loc0 ts promises1_src) as [[]|] eqn:X; [|congr].
+          erewrite Memory.add_get1; eauto.
+        * destruct (Memory.get loc0 ts promises2_tgt) as [[]|] eqn:X; [|done].
+          exploit Memory.add_get_inv; try apply X; eauto. i. des; [|congr].
+          subst. exploit Memory.add_disjoint; try apply PROMISES0; eauto. congr.
+      + i.
+        destruct (Memory.get loc0 ts promises2) as [[]|] eqn:X; [|congr].
+        exploit Memory.add_get_inv; try apply X; eauto. i. des.
+        * subst. exploit Memory.add_get2; try apply PROMISES; eauto. congr.
+        * apply MEM1; [congr|].
+          destruct (Memory.get loc0 ts promises1_tgt) as [[]|] eqn:Y; [|done].
+          exploit Memory.add_get1; try apply Y; eauto. congr.
     - (* exploit Memory.promise_split_exists. *)
       admit.
   Admitted.

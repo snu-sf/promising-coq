@@ -637,10 +637,9 @@ Module Cell.
 
   Lemma raw_add_exists_max_ts
         cell1 to val released
-        (TO: Time.lt (max_ts cell1) to):
-    exists cell2,
-      Capability.wf released ->
-      Raw.add cell1 (max_ts cell1) to (Message.mk val released) cell2.
+        (TO: Time.lt (max_ts cell1) to)
+        (WF: Capability.wf released):
+    exists cell2, Raw.add cell1 (max_ts cell1) to (Message.mk val released) cell2.
   Proof.
     generalize (max_ts_spec cell1). i. des.
     destruct cell1. ss.
@@ -657,10 +656,9 @@ Module Cell.
 
   Lemma add_exists_max_ts
         cell1 to val released
-        (TO: Time.lt (max_ts cell1) to):
-    exists cell2,
-      Capability.wf released ->
-      add cell1 (max_ts cell1) to (Message.mk val released) cell2.
+        (TO: Time.lt (max_ts cell1) to)
+        (WF: Capability.wf released):
+    exists cell2, add cell1 (max_ts cell1) to (Message.mk val released) cell2.
   Proof.
     exploit raw_add_exists_max_ts; eauto. i. des.
     destruct (classic (Capability.wf released)).
@@ -1562,6 +1560,12 @@ Module Memory.
     - eapply add_max_timemap; eauto.
   Qed.
 
+  Lemma add_exists
+        mem1 loc from to msg:
+    exists mem2, add mem1 loc from to msg mem2.
+  Proof.
+  Admitted.
+
   Lemma add_exists_max_ts
         mem1 loc to val
         (TS: Time.lt (max_ts loc mem1) to)
@@ -1569,11 +1573,11 @@ Module Memory.
     exists mem2,
       add mem1 loc (max_ts loc mem1) to (Message.mk val (max_capability mem2)) mem2.
   Proof.
-    exploit Cell.add_exists_max_ts; eauto. i. des.
-    instantiate (1 := Capability.incr_ur loc to (max_capability mem1)) in x0.
-    exploit x0; i.
-    { apply Capability.incr_ur_wf. apply max_capability_wf. }
-    eexists. erewrite add_max_capability; eauto.
+    exploit Cell.add_exists_max_ts; eauto.
+    { instantiate (1 := Capability.incr_ur loc to (max_capability mem1)).
+      apply Capability.incr_ur_wf. apply max_capability_wf.
+    }
+    i. des. eexists. erewrite add_max_capability; eauto.
     - econs; eauto. s.
       apply Capability.incr_ur_wf. apply max_capability_wf.
     - econs; eauto. s.
@@ -1595,6 +1599,19 @@ Module Memory.
   Qed.
 
   Lemma promise_add_exists
+        promises1 mem1 loc from to val released mem2
+        (LE_PROMISES1: le promises1 mem1)
+        (ADD: add mem1 loc from to (Message.mk val released) mem2)
+        (REL: closed_capability released mem2)
+        (TS: Time.le (Capability.rw released loc) to):
+    exists promises2,
+      promise promises1 mem1 loc from to (Message.mk val released) promises2 mem2 promise_kind_add.
+  Proof.
+    exploit add_exists_le; eauto. i. des.
+    eexists _. econs 1; s; eauto.
+  Qed.
+
+  Lemma promise_add_exists_max_ts
         promises1 mem1 loc to val
         (LE_PROMISES1: le promises1 mem1)
         (CLOSED1: closed mem1)
@@ -1604,12 +1621,13 @@ Module Memory.
   Proof.
     exploit add_exists_max_ts; eauto. i. des.
     hexploit add_inhabited; try apply CLOSED1; eauto. i. des.
-    exploit add_exists_le; eauto. i. des.
-    eexists _, _. econs 1; s; eauto.
+    exploit promise_add_exists; eauto.
     { apply max_capability_closed. auto. }
-    erewrite add_max_timemap; try apply CLOSED1; eauto.
-    unfold TimeMap.incr, LocFun.add, LocFun.find. condtac; [|congr].
-    apply Time.join_spec; [|refl]. apply Time.le_lteq. eauto.
+    { erewrite add_max_capability; try apply CLOSED1; eauto. ss.
+      unfold TimeMap.incr, LocFun.add, LocFun.find. condtac; [|congr].
+      apply Time.join_spec; [|refl]. apply Time.le_lteq. eauto.
+    }
+    i. des. eexists _, _. eauto.
   Qed.
 
   Lemma remove_singleton

@@ -58,7 +58,7 @@ Lemma progress_promise_step
     Local.promise_step lc1 mem1 loc (Memory.max_ts loc mem1) to val (Memory.max_capability mem2) (Local.mk lc1.(Local.commit) promises2) mem2 Memory.promise_kind_add.
 Proof.
   destruct lc1. s.
-  exploit Memory.promise_add_exists; try apply WF1; eauto. s. i. des.
+  exploit Memory.promise_add_exists_max_ts; try apply WF1; eauto. s. i. des.
   eexists _, _. econs; eauto.
   - refl.
   - apply WF1.

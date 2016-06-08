@@ -61,7 +61,8 @@ Lemma sim_local_promise
       (MEM1: sim_memory mem1_src mem1_tgt)
       (WF1_SRC: Local.wf lc1_src mem1_src)
       (WF1_TGT: Local.wf lc1_tgt mem1_tgt)
-      (MEM1_SRC: Memory.closed mem1_src):
+      (MEM1_SRC: Memory.closed mem1_src)
+      (MEM1_TGT: Memory.closed mem1_tgt):
   exists lc2_src mem2_src kind_src,
     <<STEP_SRC: Local.promise_step lc1_src mem1_src loc from to val released lc2_src mem2_src kind_src>> /\
     <<LOCAL2: sim_local lc2_src lc2_tgt>> /\
