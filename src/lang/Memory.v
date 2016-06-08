@@ -787,6 +787,19 @@ Module Cell.
     unfold remove. s. rewrite H. econs. s.
     unfold Raw.singleton. rewrite DOMap.singleton_eq. auto.
   Qed.    
+
+  Lemma remove_exists
+        cell1 from to msg
+        (GET: get to cell1 = Some (from, msg)):
+    exists cell2, remove cell1 from to msg cell2.
+  Proof.
+    eexists (mk _). destruct cell1. ss.
+    Grab Existential Variables.
+    { eapply Raw.remove_wf.
+      - econs. eauto.
+      - apply WF.
+    }
+  Qed.
 End Cell.
 
 Module Memory.
@@ -1613,5 +1626,14 @@ Module Memory.
     rewrite H. econs.
     unfold singleton, LocFun.add, LocFun.find. condtac; [|congr].
     eapply Cell.remove_singleton.
+  Qed.
+
+  Lemma remove_exists
+        mem1 loc from to msg
+        (GET: get loc to mem1 = Some (from, msg)):
+    exists mem2, remove mem1 loc from to msg mem2.
+  Proof.
+    exploit Cell.remove_exists; eauto. i. des.
+    eexists. econs. eauto.
   Qed.
 End Memory.

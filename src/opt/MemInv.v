@@ -206,18 +206,27 @@ Module MemInv.
         inv
         loc from to msg
         promises1_src mem1_src
-        promises1_tgt mem1_tgt promises2_tgt mem2_tgt kind_tgt
-        (PROMISES_TGT: Memory.promise promises1_tgt mem1_tgt loc from to msg promises2_tgt mem2_tgt kind_tgt)
+        promises1_tgt mem1_tgt promises2_tgt mem2_tgt
+        kind
+        (PROMISES_TGT: Memory.promise promises1_tgt mem1_tgt loc from to msg promises2_tgt mem2_tgt kind)
         (INV1: sem inv promises1_src promises1_tgt)
         (SIM1: sim_memory mem1_src mem1_tgt)
         (LE1_SRC: Memory.le promises1_src mem1_src)
         (LE1_TGT: Memory.le promises1_tgt mem1_tgt):
-    exists promises2_src mem2_src kind_src,
-      <<PROMISES_SRC: Memory.promise promises1_src mem1_src loc from to msg promises2_src mem2_src kind_src>> /\
+    exists promises2_src mem2_src,
+      <<PROMISES_SRC: Memory.promise promises1_src mem1_src loc from to msg promises2_src mem2_src kind>> /\
       <<INV2: sem inv promises2_src promises2_tgt>> /\
       <<LE2_SRC: Memory.le promises2_src mem2_src>> /\
       <<SIM2: sim_memory mem2_src mem2_tgt>>.
   Proof.
+    inv PROMISES_TGT.
+    - exploit Memory.promise_add_exists. (* TODO: generalize the lemma *)
+      admit.
+      admit.
+      admit.
+      admit.
+    - (* exploit Memory.promise_split_exists. *)
+      admit.
   Admitted.
 
   Lemma fulfill_tgt
@@ -255,13 +264,35 @@ Module MemInv.
         promises1_src
         promises1_tgt
         loc from to msg
-        (TGT: Memory.get loc to promises1_tgt = None)
+        (MEM: mem loc to inv)
+        (SRC: Memory.get loc to promises1_src = Some (from, msg))
         (INV1: sem inv promises1_src promises1_tgt):
     exists promises2_src,
       <<FULFILL_SRC: Memory.fulfill promises1_src loc from to msg promises2_src>> /\
       <<INV2: sem (unset loc to inv) promises2_src promises1_tgt>>.
   Proof.
-  Admitted.
+    inv INV1. exploit GET; eauto. i. des.
+    exploit Memory.remove_exists; eauto. i. des.
+    eexists _. splits; [econs; eauto|].
+    econs.
+    - ii. exploit LE; eauto. i.
+      hexploit Memory.remove_get1; eauto. i. des; auto.
+      subst. congr.
+    - i. revert MEM1. rewrite unset_o. repeat condtac; subst.
+      + congr.
+      + i. exploit GET; eauto. i. des. splits; auto.
+        destruct (Memory.get loc ts promises1_src) as [[]|] eqn:Y; [|congr].
+        exploit Memory.remove_get1; eauto. i. des; auto. congr.
+      + i. exploit GET; eauto. i. des. splits; auto.
+        destruct (Memory.get loc0 ts promises1_src) as [[]|] eqn:Y; [|congr].
+        exploit Memory.remove_get1; eauto. i. des; auto. congr.
+    - i. destruct (Memory.get loc0 ts mem2) as [[]|] eqn:Y; [|congr].
+      exploit Memory.remove_get_inv; eauto. i. des.
+      rewrite unset_o. repeat condtac; subst.
+      + contradict x3. auto.
+      + apply MEM0; auto. congr.
+      + apply MEM0; auto. congr.
+  Qed.
 
   Lemma fulfill
         inv
@@ -279,7 +310,8 @@ Module MemInv.
   Proof.
     exploit fulfill_tgt; eauto. i.
     exploit fulfill_src; eauto.
-    { inv x0. eapply GET; eauto. apply set_eq. }
+    { apply set_eq. }
+    { apply INV1. eapply Memory.remove_disjoint. apply FULFILL_TGT. }
     i. des.
     eexists. splits; eauto.
     rewrite unset_set in INV2; auto.
