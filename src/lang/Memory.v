@@ -669,24 +669,45 @@ Module Cell.
   Qed.
 
   Lemma raw_add_exists_le
-        promises1 mem1 from to msg mem2
-        (LE: le promises1 mem1)
-        (ADD: Raw.add mem1 from to msg mem2):
+        promises1 cell1 from to msg cell2
+        (LE: le promises1 cell1)
+        (ADD: Raw.add cell1 from to msg cell2):
     exists promises2, Raw.add promises1 from to msg promises2.
   Proof.
     inv ADD. eexists. econs; eauto.
   Qed.
 
+  Lemma raw_split_exists_le
+        promises1 cell1 from to1 to2 msg promises2
+        (LE: le promises1 cell1)
+        (SPLIT: Raw.split promises1 from to1 to2 msg promises2):
+    exists cell2, Raw.split cell1 from to1 to2 msg cell2.
+  Proof.
+    inv SPLIT. eexists. econs; eauto.
+  Qed.
+
   Lemma add_exists_le
-        promises1 mem1 from to msg mem2
-        (LE: le promises1 mem1)
-        (ADD: add mem1 from to msg mem2):
+        promises1 cell1 from to msg cell2
+        (LE: le promises1 cell1)
+        (ADD: add cell1 from to msg cell2):
     exists promises2, add promises1 from to msg promises2.
   Proof.
     exploit raw_add_exists_le; eauto. i. des.
     eexists (mk _). unfold add. s.  eauto.
   Grab Existential Variables.
     { eapply Raw.add_wf; eauto. apply Cell.WF. }
+  Qed.
+
+  Lemma split_exists_le
+        promises1 cell1 from to1 to2 msg promises2
+        (LE: le promises1 cell1)
+        (SPLIT: split promises1 from to1 to2 msg promises2):
+    exists cell2, split cell1 from to1 to2 msg cell2.
+  Proof.
+    exploit raw_split_exists_le; eauto. i. des.
+    eexists (mk _). unfold split. s.  eauto.
+  Grab Existential Variables.
+    { eapply Raw.split_wf; eauto. apply Cell.WF. }
   Qed.
 
   (* Lemmas on add, split & remove *)
@@ -1049,6 +1070,15 @@ Module Memory.
     - ii. subst. eapply Time.lt_strorder. eauto.
     - econs; eauto. apply Time.le_lteq. auto.
     - apply Interval.mem_ub. eapply VOLUME. eauto.
+  Qed.
+
+  Lemma split_get0
+        mem1 loc from1 to1 to2 msg1 mem2
+        (SPLIT: split mem1 loc from1 to1 to2 msg1 mem2):
+    exists msg2, get loc to2 mem1 = Some (from1, msg2).
+  Proof.
+    inv SPLIT. inv SPLIT0. destruct r. ss. subst.
+    unfold get, Cell.get. eauto.
   Qed.
 
   Lemma split_get1
@@ -1566,6 +1596,12 @@ Module Memory.
   Proof.
   Admitted.
 
+  Lemma split_exists
+        mem1 loc from to1 to2 msg:
+    exists mem2, split mem1 loc from to1 to2 msg mem2.
+  Proof.
+  Admitted.
+
   Lemma add_exists_max_ts
         mem1 loc to val
         (TS: Time.lt (max_ts loc mem1) to)
@@ -1598,6 +1634,19 @@ Module Memory.
     eexists. econs; eauto.
   Qed.
 
+  Lemma split_exists_le
+        promises1 mem1 loc from to1 to2 msg promises2
+        (LE: le promises1 mem1)
+        (SPLIT: split promises1 loc from to1 to2 msg promises2):
+    exists mem2, split mem1 loc from to1 to2 msg mem2.
+  Proof.
+    inv SPLIT.
+    exploit Cell.split_exists_le; eauto.
+    { ii. eapply LE. eauto. }
+    i. des.
+    eexists. econs; eauto.
+  Qed.
+
   Lemma promise_add_exists
         promises1 mem1 loc from to val released mem2
         (LE_PROMISES1: le promises1 mem1)
@@ -1609,6 +1658,19 @@ Module Memory.
   Proof.
     exploit add_exists_le; eauto. i. des.
     eexists _. econs 1; s; eauto.
+  Qed.
+
+  Lemma promise_split_exists
+        promises1 mem1 loc from to1 to2 val released promises2
+        (LE_PROMISES1: le promises1 mem1)
+        (ADD: split promises1 loc from to1 to2 (Message.mk val released) promises2)
+        (TS: Time.le (Capability.rw released loc) to1):
+    exists mem2,
+      closed_capability released mem2 ->
+      promise promises1 mem1 loc from to1 (Message.mk val released) promises2 mem2 promise_kind_split.
+  Proof.
+    exploit split_exists_le; eauto. i. des.
+    eexists _. i. econs 2; s; eauto.
   Qed.
 
   Lemma promise_add_exists_max_ts
