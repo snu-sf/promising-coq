@@ -32,6 +32,8 @@ Lemma read_read
       commit0 commit1 commit2
       (COMMIT1: Commit.read commit0 loc1 ts1 released1 ord1 commit1)
       (COMMIT2: Commit.read commit1 loc2 ts2 released2 ord2 commit2)
+      (LOC: loc1 <> loc2)
+      (ORD2: Ordering.le ord2 Ordering.relaxed)
       (WF0: Commit.wf commit0):
   <<COMMIT1': Commit.read commit0 loc2 ts2 released2 ord2 (CommitFacts.read_min loc2 ts2 released2 ord2 commit0)>> /\
   <<COMMIT2': Commit.read (CommitFacts.read_min loc2 ts2 released2 ord2 commit0) loc1 ts1 released1 ord1 commit2>>.
@@ -43,8 +45,16 @@ Proof.
   { inv COMMIT2. apply WF_REL. }
   i.
   exploit CommitFacts.read_min_spec.
-  { admit. }
-  { admit. }
+  { instantiate (3 := (CommitFacts.read_min loc2 ts2 released2 ord2 commit0)).
+    ss. unfold Capability.join_if. condtac; committac; try apply COMMIT1.
+    destruct ord2; inv ORD2; inv COND.
+  }
+  { i. ss. unfold Capability.join_if. condtac; committac.
+    - destruct ord2; inv ORD2; inv COND.
+    - destruct ord2; inv ORD2; inv COND.
+    - unfold TimeMap.incr, LocFun.add. condtac; committac; try congr.
+      apply COMMIT1. eauto.
+  }
   { apply x0. }
   { inv COMMIT1. apply WF_REL. }
   i.
@@ -58,7 +68,7 @@ Proof.
   - etrans; eauto. etrans; [apply WF1|]. apply WF1.
   - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
   - etrans; eauto. etrans; [apply CUR0|]. etrans; [apply WF1|]. apply WF1.
-Admitted.
+Qed.
 
 Lemma read_write
       loc1 ts1 released1 ord1
@@ -84,8 +94,16 @@ Proof.
   { apply COMMIT2. }
   i.
   exploit CommitFacts.read_min_spec.
-  { admit. }
-  { admit. }
+  { instantiate (3 := (CommitFacts.write_min loc2 ts2 released2 commit0)).
+    ss. committac.
+    - admit.
+    - unfold TimeMap.incr, LocFun.add. condtac; try apply COMMIT1. congr.
+  }
+  { i. committac.
+    - admit.
+    - unfold TimeMap.incr, LocFun.add. condtac; committac; try congr.
+      apply COMMIT1. eauto.
+  }
   { apply x0. }
   { inv COMMIT1. apply WF_REL. }
   i.
@@ -113,14 +131,22 @@ Lemma read_read_fence
       commit0 commit1 commit2
       (COMMIT1: Commit.read commit0 loc1 ts1 released1 ord1 commit1)
       (COMMIT2: Commit.read_fence commit1 ord2 commit2)
+      (ORD2: Ordering.le ord2 Ordering.relaxed)
       (WF0: Commit.wf commit0):
   <<COMMIT1': Commit.read_fence commit0 ord2 (CommitFacts.read_fence_min ord2 commit0)>> /\
   <<COMMIT2': Commit.read (CommitFacts.read_fence_min ord2 commit0) loc1 ts1 released1 ord1 commit2>>.
 Proof.
   exploit CommitFacts.read_fence_min_spec; eauto. i.
   exploit CommitFacts.read_min_spec.
-  { admit. }
-  { admit. }
+  { instantiate (3 := (CommitFacts.read_fence_min ord2 commit0)).
+    ss. condtac; committac.
+    - destruct ord2; inv ORD2; inv COND.
+    - apply COMMIT1.
+  }
+  { i. ss. condtac; committac.
+    - destruct ord2; inv ORD2; inv COND.
+    - apply COMMIT1. eauto.
+  }
   { apply x0. }
   { inv COMMIT1. apply WF_REL. }
   i.
@@ -132,7 +158,7 @@ Proof.
   - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
   - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
   - etrans; eauto. etrans; [apply CUR0|]. etrans; [apply WF1|]. apply WF1.
-Admitted.
+Qed.
 
 Lemma read_write_fence
       loc1 ts1 released1 ord1
@@ -146,8 +172,10 @@ Lemma read_write_fence
 Proof.
   exploit CommitFacts.write_fence_min_spec; eauto. i.
   exploit CommitFacts.read_min_spec.
-  { admit. }
-  { admit. }
+  { instantiate (3 := (CommitFacts.write_fence_min ord2 commit0)).
+    apply COMMIT1.
+  }
+  { apply COMMIT1. }
   { apply x0. }
   { inv COMMIT1. apply WF_REL. }
   i.
@@ -161,7 +189,7 @@ Proof.
   - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
   - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
   - etrans; eauto. etrans; [apply CUR0|]. etrans; [apply WF1|]. apply WF1.
-Admitted.
+Qed.
 
 Lemma write_read
       loc1 ts1 released1 ord1
@@ -183,10 +211,19 @@ Proof.
   { inv COMMIT2. apply WF_REL. }
   i.
   exploit CommitFacts.write_min_spec.
-  { admit. }
-  { admit. }
-  { admit. }
-  { admit. }
+  { inv COMMIT1. apply REL. }
+  { instantiate (1 := CommitFacts.read_min loc2 ts2 released2 ord2 commit0).
+    ss. unfold Capability.join_if. condtac; committac.
+    - destruct ord2; inv ORD2; inv COND.
+    - unfold TimeMap.incr, LocFun.add, LocFun.find. condtac; try apply COMMIT1. congr.
+  }
+  { ss. apply COMMIT1. }
+  { s. i. unfold Capability.join_if. condtac; committac.
+    - destruct ord2; inv ORD2; inv COND.
+    - splits.
+      + admit.
+      + apply COMMIT1. eauto.
+  }
   { apply x0. }
   { inv COMMIT1. apply WF_REL. }
   i.
@@ -233,10 +270,20 @@ Proof.
   { apply COMMIT2. }
   i.
   exploit CommitFacts.write_min_spec.
-  { admit. }
-  { admit. }
-  { admit. }
-  { admit. }
+  { inv COMMIT1. apply REL. }
+  { instantiate (1 := CommitFacts.write_min loc2 ts2 released2 commit0).
+    ss. admit.
+  }
+  { ss. unfold LocFun.add, LocFun.find. condtac; [congr|]. apply COMMIT1. }
+  { s. i. splits.
+    - committac.
+      + admit.
+      + apply COMMIT1. eauto.
+      + destruct ord1; inv ORD1; inv H.
+      + destruct ord1; inv ORD1; inv H.
+      + destruct ord1; inv ORD1; inv H.
+    - destruct ord1; inv ORD1; inv H.
+  }
   { apply x0. }
   { inv COMMIT1. apply WF_REL. }
   i.

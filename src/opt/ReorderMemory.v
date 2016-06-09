@@ -42,14 +42,20 @@ Admitted.
 
 Lemma get_fulfill
       promises0 mem0 loc from to msg promises1
-      l t m
+      l t
       (LOC: loc <> l)
       (LE: Memory.le promises0 mem0)
-      (GET: Memory.get l t mem0 = Some m)
       (FULFILL: Memory.fulfill promises0 loc from to msg promises1):
   Memory.get l t promises0 = Memory.get l t promises1.
 Proof.
-Admitted.
+  destruct (Memory.get l t promises0) as [[]|] eqn:X.
+  { exploit Memory.remove_get1; try apply FULFILL; eauto. i. des; auto.
+    subst. congr.
+  }
+  destruct (Memory.get l t promises1) as [[]|] eqn:Y.
+  { exploit Memory.remove_get_inv; try apply FULFILL; eauto. i. des. congr. }
+  auto.
+Qed.
 
 Lemma cell_fulfill
       promises0 loc from to msg promises1
@@ -58,7 +64,8 @@ Lemma cell_fulfill
       (FULFILL: Memory.fulfill promises0 loc from to msg promises1):
   promises0 l = promises1 l.
 Proof.
-Admitted.
+  apply Cell.ext. i. eapply get_fulfill; eauto. refl.
+Qed.
 
 Lemma fulfill_fulfill
       promises1 loc1 from1 to1 msg1
@@ -70,4 +77,29 @@ Lemma fulfill_fulfill
     Memory.fulfill promises1 loc2 from2 to2 msg2 promises2' /\
     Memory.fulfill promises2' loc1 from1 to1 msg1 promises3.
 Proof.
-Admitted.
+  exploit Memory.remove_disjoint; try apply FULFILL2; eauto. i.
+  exploit Memory.remove_get_inv; try apply FULFILL1; eauto. i. des.
+  exploit Memory.remove_exists; eauto. i. des.
+  exploit Memory.remove_disjoint; try apply FULFILL1; eauto. i.
+  exploit Memory.remove_get1; try apply x3; eauto. i. des; [by contradict x1|].
+  exploit Memory.remove_exists; eauto. i. des.
+  assert (mem0 = promises3).
+  { apply Memory.ext. i.
+    destruct (Memory.get loc ts mem0) as [[]|] eqn:X.
+    { exploit Memory.remove_get_inv; try apply x6; eauto. i. des.
+      exploit Memory.remove_get_inv; try apply x3; eauto. i. des.
+      exploit Memory.remove_get1; try apply FULFILL1; eauto. i. des; [by contradict x7|].
+      exploit Memory.remove_get1; try apply FULFILL2; eauto. i. des; [by contradict x9|].
+      auto.
+    }
+    destruct (Memory.get loc ts promises3) as [[]|] eqn:Y.
+    { exploit Memory.remove_get_inv; try apply FULFILL2; eauto. i. des.
+      exploit Memory.remove_get_inv; try apply FULFILL1; eauto. i. des.
+      exploit Memory.remove_get1; try apply x3; eauto. i. des; [by contradict x7|].
+      exploit Memory.remove_get1; try apply x6; eauto. i. des; [by contradict x9|].
+      congr.
+    }
+    auto.
+  }
+  subst. eexists. splits; econs; eauto.
+Qed.
