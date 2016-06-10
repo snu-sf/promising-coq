@@ -119,18 +119,23 @@ Module Local.
       fulfill_step lc1 mem1 loc from to val releasedc releasedm ord (mk commit2 promises2)
   .
 
-  Inductive write_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (releasedc releasedm:Capability.t) (ord:Ordering.t): forall (lc2:t) (mem2:Memory.t) (kind:option Memory.promise_kind), Prop :=
+  Inductive write_kind :=
+  | write_kind_fulfill
+  | write_kind_promise_fulfill
+  .
+
+  Inductive write_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (releasedc releasedm:Capability.t) (ord:Ordering.t): forall (lc2:t) (mem2:Memory.t) (kind:write_kind), Prop :=
   | step_write_fulfill
       lc2
       (FULFILL: fulfill_step lc1 mem1 loc from to val releasedc releasedm ord lc2)
       (RELEASE: Ordering.le Ordering.acqrel ord -> lc1.(promises) loc = Cell.bot):
-      write_step lc1 mem1 loc from to val releasedc releasedm ord lc2 mem1 None
+      write_step lc1 mem1 loc from to val releasedc releasedm ord lc2 mem1 write_kind_fulfill
   | step_write_promise_fulfill
-      kind lc2 mem2 lc3
-      (PROMISE: promise_step lc1 mem1 loc from to val releasedm lc2 mem2 kind)
+      lc2 mem2 lc3
+      (PROMISE: promise_step lc1 mem1 loc from to val releasedm lc2 mem2 Memory.promise_kind_add)
       (FULFILL: fulfill_step lc2 mem2 loc from to val releasedc releasedm ord lc3)
       (RELEASE: Ordering.le Ordering.acqrel ord -> lc1.(promises) loc = Cell.bot):
-      write_step lc1 mem1 loc from to val releasedc releasedm ord lc3 mem2 (Some kind)
+      write_step lc1 mem1 loc from to val releasedc releasedm ord lc3 mem2 write_kind_promise_fulfill
   .
 
   Inductive fence_step (lc1:t) (mem1:Memory.t) (ordr ordw:Ordering.t): forall (lc2:t), Prop :=

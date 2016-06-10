@@ -127,7 +127,7 @@ Lemma progress_write_step
       (MEM1: Memory.closed mem1)
       (PROMISES1: lc1.(Local.promises) = Memory.bot):
   exists lc2 mem2,
-    Local.write_step lc1 mem1 loc (Memory.max_ts loc mem1) to val (Memory.max_capability mem2) (Memory.max_capability mem2) ord lc2 mem2 (Some Memory.promise_kind_add).
+    Local.write_step lc1 mem1 loc (Memory.max_ts loc mem1) to val (Memory.max_capability mem2) (Memory.max_capability mem2) ord lc2 mem2 Local.write_kind_promise_fulfill.
 Proof.
   destruct lc1. ss. subst.
   exploit progress_promise_step; eauto. s. i. des.

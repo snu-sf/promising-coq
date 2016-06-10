@@ -118,9 +118,62 @@ Proof.
     + apply Capability.join_wf; auto.
 Qed.
 
+Lemma merge_write_read1
+      loc from to val released ord1 ord2
+      lc0 lc2 mem0 mem2 kind
+      (ORD2: Ordering.le ord2 Ordering.acqrel)
+      (WF0: Local.wf lc0 mem0)
+      (MEM0: Memory.closed mem0)
+      (STEP: Local.write_step lc0 mem0 loc from to val released released ord1 lc2 mem2 kind):
+  exists lc1,
+    <<STEP1: Local.write_step lc0 mem0 loc from to val released released ord1 lc1 mem2 kind>> /\
+    <<STEP2: Local.read_step lc1 mem2 loc to val released ord2 lc2>>.
+Proof.
+  inv STEP.
+  - exploit merge_fulfill_read1; eauto. i. des.
+    eexists. splits; eauto. econs 1; eauto.
+  - exploit Local.promise_step_future; eauto. i. des.
+    exploit merge_fulfill_read1; eauto. i. des.
+    eexists. splits; eauto. econs 2; eauto.
+Qed.
 
-(* TODO: WW merge *)
+Lemma merge_write_read2
+      loc from to val releasedr releasedw ord1 ord2
+      lc0 lc2 mem0 mem2 kind
+      (ORD2: Ordering.le ord2 Ordering.relaxed)
+      (WF0: Local.wf lc0 mem0)
+      (MEM0: Memory.closed mem0)
+      (WF_RELEASED: Capability.wf releasedr)
+      (RELEASED: Capability.le releasedr lc0.(Local.commit).(Commit.acq))
+      (STEP: Local.write_step lc0 mem0 loc from to val releasedw (Capability.join releasedr releasedw) ord1 lc2 mem2 kind):
+  exists lc1,
+    <<STEP1: Local.write_step lc0 mem0 loc from to val releasedw (Capability.join releasedr releasedw) ord1 lc1 mem2 kind>> /\
+    <<STEP2: Local.read_step lc1 mem2 loc to val (Capability.join releasedr releasedw) ord2 lc2>>.
+Proof.
+  inv STEP.
+  - exploit merge_fulfill_read2; eauto. i. des.
+    eexists. splits; eauto. econs 1; eauto.
+  - exploit Local.promise_step_future; eauto. i. des.
+    exploit merge_fulfill_read2; eauto.
+    { etrans; eauto. inv PROMISE. ss. apply COMMIT. }
+    i. des.
+    eexists. splits; eauto. econs 2; eauto.
+Qed.
 
+Lemma merge_write_write
+      loc ts1 ts2 ts3 val1 released1 val2 released2 ord1 ord2 ord
+      lc0 lc2 mem0 mem2 kind
+      (ORD1: Ordering.le ord1 ord)
+      (ORD2: Ordering.le ord2 ord)
+      (WF0: Local.wf lc0 mem0)
+      (MEM0: Memory.closed mem0)
+      (STEP: Local.write_step lc0 mem0 loc ts1 ts3 val2 released2 released2 ord lc2 mem2 kind):
+  exists lc1 mem1 mem2',
+    <<STEP1: Local.write_step lc0 mem0 loc ts1 ts2 val1 released1 released1 ord1 lc1 mem1 kind>> /\
+    <<STEP2: Local.write_step lc1 mem1 loc ts2 ts3 val2 released2 released2 ord2 lc2 mem2' kind>> /\
+    <<MEM: sim_memory mem2' mem2>>.
+Proof.
+Admitted.
 
 Lemma merge_fence_fence
       ordr1 ordw1

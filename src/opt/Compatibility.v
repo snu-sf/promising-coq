@@ -23,6 +23,24 @@ Require Import Semantics.
 
 Set Implicit Arguments.
 
+Lemma sim_local_memory_bot
+      lc_src lc_tgt
+      (SIM: sim_local lc_src lc_tgt)
+      (BOT: lc_tgt.(Local.promises) = Memory.bot):
+  lc_src.(Local.promises) = Memory.bot.
+Proof.
+  inv SIM. eapply MemInv.sem_bot_inv in PROMISES. rewrite PROMISES. auto.
+Qed.
+
+Lemma sim_local_cell_bot
+      loc lc_src lc_tgt
+      (SIM: sim_local lc_src lc_tgt)
+      (BOT: lc_tgt.(Local.promises) loc = Cell.bot):
+  lc_src.(Local.promises) loc = Cell.bot.
+Proof.
+  inv SIM. eapply MemInv.sem_bot_inv in PROMISES. rewrite PROMISES. auto.
+Qed.
+
 Lemma sim_local_future
       inv
       lc_src mem1_src mem2_src
@@ -55,16 +73,16 @@ Lemma sim_local_promise
       lc1_src mem1_src
       lc1_tgt mem1_tgt
       lc2_tgt mem2_tgt
-      loc from to val released kind_tgt
-      (STEP_TGT: Local.promise_step lc1_tgt mem1_tgt loc from to val released lc2_tgt mem2_tgt kind_tgt)
+      loc from to val released kind
+      (STEP_TGT: Local.promise_step lc1_tgt mem1_tgt loc from to val released lc2_tgt mem2_tgt kind)
       (LOCAL1: sim_local lc1_src lc1_tgt)
       (MEM1: sim_memory mem1_src mem1_tgt)
       (WF1_SRC: Local.wf lc1_src mem1_src)
       (WF1_TGT: Local.wf lc1_tgt mem1_tgt)
       (MEM1_SRC: Memory.closed mem1_src)
       (MEM1_TGT: Memory.closed mem1_tgt):
-  exists lc2_src mem2_src kind_src,
-    <<STEP_SRC: Local.promise_step lc1_src mem1_src loc from to val released lc2_src mem2_src kind_src>> /\
+  exists lc2_src mem2_src,
+    <<STEP_SRC: Local.promise_step lc1_src mem1_src loc from to val released lc2_src mem2_src kind>> /\
     <<LOCAL2: sim_local lc2_src lc2_tgt>> /\
     <<MEM2: sim_memory mem2_src mem2_tgt>>.
 Proof.
@@ -76,7 +94,7 @@ Proof.
   exploit Memory.promise_future; try apply PROMISES_SRC; eauto.
   { apply WF1_SRC. }
   i. des.
-  eexists _, _, _. splits; s; eauto.
+  eexists _, _. splits; s; eauto.
   - econs; try apply PROMISES_SRC.
     + refl.
     + apply WF1_SRC.
@@ -180,14 +198,14 @@ Proof.
   inv STEP_TGT.
   - exploit sim_local_fulfill; eauto. i. des.
     eexists _, _, _. splits; eauto. econs 1; eauto.
-    inv LOCAL1. i. apply MemInv.sem_bot_inv in PROMISES. rewrite PROMISES. auto.
+    i. eapply sim_local_cell_bot; eauto.
   - exploit sim_local_promise; eauto. i. des.
     exploit sim_local_fulfill; eauto.
     { eapply Local.promise_step_future; eauto. }
     { eapply Local.promise_step_future; eauto. }
     i. des.
     eexists _, _, _. splits; eauto. econs 2; eauto.
-    inv LOCAL1. apply MemInv.sem_bot_inv in PROMISES. rewrite PROMISES. auto.
+    i. eapply sim_local_cell_bot; eauto.
 Qed.
 
 Lemma sim_local_fence
@@ -204,15 +222,15 @@ Lemma sim_local_fence
     <<STEP_SRC: Local.fence_step lc1_src mem1_src ordr ordw lc2_src>> /\
     <<LOCAL2: sim_local lc2_src lc2_tgt>>.
 Proof.
-  inv LOCAL1. inv STEP_TGT.
+  inv STEP_TGT.
   eexists. splits; eauto.
   - econs.
-    + eapply CommitFacts.read_fence_mon1; eauto.
+    + eapply CommitFacts.read_fence_mon1; eauto. apply LOCAL1.
     + eapply CommitFacts.write_fence_mon1; eauto. refl.
-    + apply MemInv.sem_bot_inv in PROMISES. rewrite PROMISES. auto.
+    + i. eapply sim_local_memory_bot; eauto.
     + eapply Commit.future_closed; eauto.
       apply Memory.splits_future. apply MEM1.
-  - econs; eauto. s. refl.
+  - econs; try apply LOCAL1; eauto. s. refl.
 Qed.
 
 Definition SIM_REGS := forall (rs_src rs_tgt:RegFile.t), Prop.

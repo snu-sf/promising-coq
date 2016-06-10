@@ -805,7 +805,7 @@ Module Cell.
     }
     unfold remove. s. rewrite H. econs. s.
     unfold Raw.singleton. rewrite DOMap.singleton_eq. auto.
-  Qed.    
+  Qed.
 
   Lemma remove_exists
         cell1 from to msg
