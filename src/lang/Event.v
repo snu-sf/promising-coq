@@ -70,7 +70,7 @@ Module Ordering.
 End Ordering.
 
 
-(* TODO (syscall): In fact, syscalls may change the memory, on the
+(* NOTE (syscall): In fact, syscalls may change the memory, on the
  * contrary to what is currently defined.
  *)
 (* NOTE (syscall): we disallow syscalls in the validation of the

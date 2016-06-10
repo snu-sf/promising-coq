@@ -20,7 +20,6 @@ Require Import Compatibility.
 Require Import MemInv.
 Require Import Progress.
 
-Require MergeMemory.
 Require MergeCommit.
 Require ReorderCommit.
 
