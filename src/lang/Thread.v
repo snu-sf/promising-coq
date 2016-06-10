@@ -176,6 +176,17 @@ Module Local.
     eapply Commit.future_closed; eauto.
   Qed.
 
+  Lemma read_step_mon2
+        lc1 mem1 loc to val released ord ord' lc2
+        (READ: read_step lc1 mem1 loc to val released ord lc2)
+        (ORD: Ordering.le ord' ord):
+    read_step lc1 mem1 loc to val released ord' lc2.
+  Proof.
+    inv READ. econs; eauto. eapply CommitFacts.read_mon2; eauto.
+    - refl.
+    - apply COMMIT.
+  Qed.
+
   Lemma promise_step_future lc1 mem1 loc from to val released lc2 mem2 kind
         (STEP: promise_step lc1 mem1 loc from to val released lc2 mem2 kind)
         (WF1: wf lc1 mem1)

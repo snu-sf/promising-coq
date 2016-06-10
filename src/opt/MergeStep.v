@@ -89,7 +89,7 @@ Lemma merge_fulfill_read2
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
       (WF_RELEASED: Capability.wf releasedr)
-      (RELEASED: Capability.le releasedr lc0.(Local.commit).(Commit.acq))
+      (RELEASED: Ordering.le Ordering.relaxed ord2 -> Capability.le releasedr lc0.(Local.commit).(Commit.acq))
       (STEP: Local.fulfill_step lc0 mem0 loc from to val releasedw (Capability.join releasedr releasedw) ord1 lc2):
   exists lc1,
     <<STEP1: Local.fulfill_step lc0 mem0 loc from to val releasedw (Capability.join releasedr releasedw) ord1 lc1>> /\
@@ -144,7 +144,7 @@ Lemma merge_write_read2
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
       (WF_RELEASED: Capability.wf releasedr)
-      (RELEASED: Capability.le releasedr lc0.(Local.commit).(Commit.acq))
+      (RELEASED: Ordering.le Ordering.relaxed ord2 -> Capability.le releasedr lc0.(Local.commit).(Commit.acq))
       (STEP: Local.write_step lc0 mem0 loc from to val releasedw (Capability.join releasedr releasedw) ord1 lc2 mem2 kind):
   exists lc1,
     <<STEP1: Local.write_step lc0 mem0 loc from to val releasedw (Capability.join releasedr releasedw) ord1 lc1 mem2 kind>> /\

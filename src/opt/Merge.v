@@ -236,16 +236,17 @@ Grab Existential Variables.
   { apply Time.elt. }
 Qed.
 
-(* TODO: check the condition `OR1` *)
 Lemma merge_update_load_sim_stmts
       l
       r1 v1 or1 ow1
       r2 o2
-      (OR1: Ordering.le Ordering.relaxed or1)
-      (O2: Ordering.le o2 Ordering.relaxed):
+      or
+      (O2_RLX: Ordering.le o2 Ordering.relaxed)
+      (OR1: Ordering.le or1 or)
+      (O2: Ordering.le o2 or):
   sim_stmts eq
             [Stmt.instr (Instr.update r1 l (Instr.fetch_add v1) or1 ow1); Stmt.instr (Instr.load r2 l o2); Stmt.instr Instr.skip]
-            [Stmt.instr (Instr.update r1 l (Instr.fetch_add v1) or1 ow1); Stmt.instr (Instr.assign r2 r1)]
+            [Stmt.instr (Instr.update r1 l (Instr.fetch_add v1) or ow1); Stmt.instr (Instr.assign r2 r1)]
             eq.
 Proof.
   pcofix CIH. ii. subst. pfold. ii. splits.
@@ -263,7 +264,7 @@ Proof.
     exploit Local.read_step_future; eauto. i. des.
     exploit merge_write_read2; try apply LOCAL2; eauto.
     { inv LOCAL1. apply COMMIT. }
-    { inv LOCAL1. apply COMMIT. auto. }
+    { i. inv LOCAL1. apply COMMIT. etrans; eauto. }
     i. des.
     exploit sim_local_read; try apply LOCAL1; eauto. i. des.
     exploit Local.read_step_future; eauto. i. des.
@@ -274,7 +275,10 @@ Proof.
     i. des.
     eexists _, _, _, _, _, _, _. splits.
     + econs 2; [|econs 1]. econs.
-      * econs 2. econs 4; eauto. econs. econs. eauto.
+      * econs 2. econs 4.
+        { econs. econs. eauto. }
+        { eapply Local.read_step_mon2; eauto. }
+        { eauto. }
       * eauto.
     + econs 2. econs 2; eauto. econs. econs.
     + eauto.
