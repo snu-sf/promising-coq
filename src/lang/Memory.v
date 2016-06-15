@@ -16,7 +16,6 @@ Set Implicit Arguments.
 
 Module TimeMap <: JoinableType.
   Definition t := Loc.t -> Time.t.
-  Definition elt: t := fun _ => Time.elt.
 
   Definition eq := @eq t.
 
@@ -26,6 +25,11 @@ Module TimeMap <: JoinableType.
   Global Program Instance le_PreOrder: PreOrder le.
   Next Obligation. ii. refl. Qed.
   Next Obligation. ii. etrans; eauto. Qed.
+
+  Definition bot: t := fun _ => Time.bot.
+
+  Lemma bot_spec (tm:t): le bot tm.
+  Proof. ii. apply Time.bot_spec. Qed.
 
   Definition get (loc:Loc.t) (c:t) := c loc.
 
@@ -52,54 +56,23 @@ Module TimeMap <: JoinableType.
     le (join lhs rhs) o.
   Proof. unfold join. ii. apply Time.join_spec; auto. Qed.
 
-  Definition incr loc ts c :=
-    LocFun.add loc (Time.join (c loc) ts) c.
+  Definition singleton loc ts :=
+    LocFun.add loc ts (LocFun.init Time.bot).
 
-  Lemma incr_mon loc ts c1 c2
-        (LE: le c1 c2):
-    le (incr loc ts c1) (incr loc ts c2).
+  Lemma singleton_spec loc ts c
+        (LOC: Time.le ts (c loc)):
+    le (singleton loc ts) c.
   Proof.
-    ii. unfold incr, LocFun.add, LocFun.find. condtac; ss.
-    apply Time.join_spec.
-    - etrans; [apply LE|]. apply Time.join_l.
-    - apply Time.join_r.
+    ii. unfold singleton, LocFun.add, LocFun.find.
+    condtac; subst; ss. apply Time.bot_spec.
   Qed.
 
-  Lemma incr_le loc ts c:
-    le c (incr loc ts c).
+  Lemma singleton_inv loc ts c
+        (LE: le (singleton loc ts) c):
+    Time.le ts (c loc).
   Proof.
-    unfold incr, LocFun.add, LocFun.find. ii. condtac; ss.
-    - subst. apply Time.join_l.
-    - refl.
-  Qed.
-
-  Lemma incr_ts loc ts c:
-    Time.le ts (get loc (incr loc ts c)).
-  Proof.
-    unfold get, incr, LocFun.add, LocFun.find.
-    rewrite Loc.eq_dec_eq. apply Time.join_r.
-  Qed.
-
-  Lemma incr_spec loc ts c1 c2
-        (LE: le c1 c2)
-        (TS: Time.le ts (get loc c2)):
-    TimeMap.le (incr loc ts c1) c2.
-  Proof.
-    ii. unfold get, incr, LocFun.add, LocFun.find. condtac; ss.
-    subst. apply Time.join_spec; auto.
-  Qed.
-
-  Lemma incr_nop
-        loc ts tm
-        (TS: Time.le ts (tm loc)):
-    incr loc ts tm = tm.
-  Proof.
-    unfold incr. apply LocFun.ext. i.
-    rewrite LocFun.add_spec. condtac; auto. subst.
-    unfold LocFun.find. unfold Time.join. condtac; auto.
-    apply Time.le_lteq in TS. des; auto.
-    exploit TimeFacts.lt_le_lt; eauto. i.
-    apply Time.lt_strorder in x0. inv x0.
+    generalize (LE loc). unfold singleton, LocFun.add, LocFun.find.
+    condtac; [|congr]. auto.
   Qed.
 
   Lemma le_join_l l r
@@ -119,6 +92,14 @@ Module TimeMap <: JoinableType.
     unfold join, Time.join, LocFun.find. condtac; auto.
     exfalso. eapply Time.lt_strorder. eapply TimeFacts.lt_le_lt; eauto.
   Qed.
+
+  Lemma antisym l r
+        (LR: le l r)
+        (RL: le r l):
+    l = r.
+  Proof.
+    extensionality loc. apply TimeFacts.antisym; auto.
+  Qed.
 End TimeMap.
 
 Module Capability <: JoinableType.
@@ -134,11 +115,6 @@ Module Capability <: JoinableType.
       (UR_RW: TimeMap.le capability.(ur) capability.(rw))
       (RW_SC: TimeMap.le capability.(rw) capability.(sc))
   .
-
-  Definition elt: t := mk TimeMap.elt TimeMap.elt TimeMap.elt.
-
-  Lemma elt_wf: wf elt.
-  Proof. econs; refl. Qed.
 
   Definition eq := @eq t.
 
@@ -157,6 +133,23 @@ Module Capability <: JoinableType.
   Next Obligation.
     ii. inv H. inv H0. econs; etrans; eauto.
   Qed.
+
+  Lemma ext l r
+        (UR: l.(ur) = r.(ur))
+        (RW: l.(rw) = r.(rw))
+        (SC: l.(sc) = r.(sc)):
+    l = r.
+  Proof.
+    destruct l, r. f_equal; auto.
+  Qed.
+
+  Definition bot: t := mk TimeMap.bot TimeMap.bot TimeMap.bot.
+
+  Lemma bot_wf: wf bot.
+  Proof. econs; refl. Qed.
+
+  Lemma bot_spec (c:t): le bot c.
+  Proof. econs; apply TimeMap.bot_spec. Qed.
 
   Definition join (lhs rhs:t): t :=
     mk (TimeMap.join lhs.(ur) rhs.(ur))
@@ -204,164 +197,105 @@ Module Capability <: JoinableType.
       + etrans; [apply RHS|]. apply TimeMap.join_r.
   Qed.
 
-  Definition join_if (cond:bool) (a b:t): t :=
-    if cond then join a b else b.
+  Definition bot_unless (cond:bool) (c:t): t :=
+    if cond then c else bot.
 
-  Lemma join_if_wf
-        cond lhs rhs
-        (LHS: wf lhs)
-        (RHS: wf rhs):
-    wf (join_if cond lhs rhs).
+  Lemma bot_unless_wf
+        cond c
+        (WF: wf c):
+    wf (bot_unless cond c).
   Proof.
-    destruct cond; ss. apply join_wf; auto.
+    destruct cond; ss. apply bot_wf.
   Qed.
 
-  Lemma join_if_spec
-        (cond:bool) a b c
-        (A: cond -> le a c)
-        (B: le b c):
-    le (join_if cond a b) c.
-  Proof. destruct cond; auto. apply join_spec; auto. Qed.
+  Definition singleton_ur loc ts :=
+    mk (TimeMap.singleton loc ts)
+       (TimeMap.singleton loc ts)
+       (TimeMap.singleton loc ts).
 
-  Lemma join_if_le
-        (cond:bool) a b c
-        (A: cond -> le c a)
-        (B: ~cond -> le c b):
-    le c (if cond then a else b).
-  Proof. destruct cond; auto. Qed.
-
-  Definition incr_ur loc ts s :=
-    mk (TimeMap.incr loc ts s.(ur))
-       (TimeMap.incr loc ts s.(rw))
-       (TimeMap.incr loc ts s.(sc)).
-
-  Lemma incr_ur_wf loc ts s
-        (WF: wf s):
-    wf (incr_ur loc ts s).
+  Lemma singleton_ur_wf
+        loc ts:
+    wf (singleton_ur loc ts).
   Proof.
-    econs; s.
-    - apply TimeMap.incr_mon. apply WF.
-    - apply TimeMap.incr_mon. apply WF.
+    econs; ss; refl.
   Qed.
 
-  Lemma incr_ur_le
-        loc ts s:
-    le s (incr_ur loc ts s).
+  Lemma singleton_ur_spec loc ts c
+        (WF: wf c)
+        (TS: Time.le ts (c.(ur) loc)):
+    le (singleton_ur loc ts) c.
   Proof.
-    econs; ss.
-    - apply TimeMap.incr_le.
-    - apply TimeMap.incr_le.
-    - apply TimeMap.incr_le.
+    econs; s;
+      try apply TimeMap.bot_spec;
+      try apply TimeMap.singleton_spec; auto.
+    - etrans; eauto. apply WF.
+    - etrans; eauto. etrans; apply WF.
   Qed.
 
-  Lemma incr_ur_spec
-        loc ts s1 s2
-        (LE: le s1 s2)
-        (UR: Time.le ts (s2.(ur) loc))
-        (RW: Time.le ts (s2.(rw) loc))
-        (SC: Time.le ts (s2.(sc) loc)):
-    le (incr_ur loc ts s1) s2.
+  Lemma singleton_ur_inv loc ts c
+        (LE: le (singleton_ur loc ts) c):
+    Time.le ts (c.(ur) loc).
   Proof.
-    inv LE. econs; ss.
-    - apply TimeMap.incr_spec; ss.
-    - apply TimeMap.incr_spec; ss.
-    - apply TimeMap.incr_spec; ss.
+    apply TimeMap.singleton_inv. apply LE.
   Qed.
 
-  Lemma incr_ur_inv
-        loc ts s1 s2
-        (LE: le (incr_ur loc ts s1) s2):
-    <<LE:le s1 s2>> /\
-    <<UR: Time.le ts (s2.(ur) loc)>> /\
-    <<RW: Time.le ts (s2.(rw) loc)>> /\
-    <<SC: Time.le ts (s2.(sc) loc)>>.
+  Definition singleton_rw loc ts :=
+    mk TimeMap.bot
+       (TimeMap.singleton loc ts)
+       (TimeMap.singleton loc ts).
+
+  Lemma singleton_rw_wf
+        loc ts:
+    wf (singleton_rw loc ts).
   Proof.
-    inv LE. splits.
-    - econs; ss; etrans; eauto; apply TimeMap.incr_le.
-    - etrans; eauto. apply TimeMap.incr_ts.
-    - etrans; eauto. apply TimeMap.incr_ts.
-    - etrans; eauto. apply TimeMap.incr_ts.
+    econs; ss; try refl. apply TimeMap.bot_spec.
   Qed.
 
-  Lemma incr_ur_mon loc ts s1 s2
-        (LE: le s1 s2):
-    le (incr_ur loc ts s1) (incr_ur loc ts s2).
+  Lemma singleton_rw_spec loc ts c
+        (WF: wf c)
+        (TS: Time.le ts (c.(rw) loc)):
+    le (singleton_rw loc ts) c.
   Proof.
-    apply incr_ur_spec.
-    - etrans; eauto. apply incr_ur_le.
-    - apply TimeMap.incr_ts.
-    - apply TimeMap.incr_ts.
-    - apply TimeMap.incr_ts.
+    econs; s;
+      try apply TimeMap.bot_spec;
+      try apply TimeMap.singleton_spec; auto.
+    etrans; eauto. apply WF.
   Qed.
 
-  Definition incr_rw loc ts s :=
-    mk s.(ur)
-       (TimeMap.incr loc ts s.(rw))
-       (TimeMap.incr loc ts s.(sc)).
-
-  Lemma incr_rw_wf loc ts s
-        (WF: wf s):
-    wf (incr_rw loc ts s).
+  Lemma singleton_rw_inv loc ts c
+        (LE: le (singleton_rw loc ts) c):
+    Time.le ts (c.(rw) loc).
   Proof.
-    econs; s.
-    - etrans; [|apply TimeMap.incr_le]. apply WF.
-    - apply TimeMap.incr_mon. apply WF.
+    apply TimeMap.singleton_inv. apply LE.
   Qed.
 
-  Lemma incr_rw_le
-        loc ts s:
-    le s (incr_rw loc ts s).
+  Definition singleton_sc loc ts :=
+    mk TimeMap.bot
+       TimeMap.bot
+       (TimeMap.singleton loc ts).
+
+  Lemma singleton_sc_wf
+        loc ts:
+    wf (singleton_sc loc ts).
   Proof.
-    econs; ss.
-    - refl.
-    - apply TimeMap.incr_le.
-    - apply TimeMap.incr_le.
+    econs; ss; try refl. apply TimeMap.bot_spec.
   Qed.
 
-  Lemma incr_rw_spec
-        loc ts s1 s2
-        (LE: le s1 s2)
-        (RW: Time.le ts (s2.(rw) loc))
-        (SC: Time.le ts (s2.(sc) loc)):
-    le (incr_rw loc ts s1) s2.
+  Lemma singleton_sc_spec loc ts c
+        (WF: wf c)
+        (TS: Time.le ts (c.(sc) loc)):
+    le (singleton_sc loc ts) c.
   Proof.
-    inv LE. econs; ss.
-    - apply TimeMap.incr_spec; ss.
-    - apply TimeMap.incr_spec; ss.
+    econs; s;
+      try apply TimeMap.bot_spec;
+      try apply TimeMap.singleton_spec; auto.
   Qed.
 
-  Lemma incr_rw_inv
-        loc ts s1 s2
-        (LE: le (incr_rw loc ts s1) s2):
-    <<LE:le s1 s2>> /\
-    <<RW: Time.le ts (s2.(rw) loc)>> /\
-    <<SC: Time.le ts (s2.(sc) loc)>>.
+  Lemma singleton_sc_inv loc ts c
+        (LE: le (singleton_sc loc ts) c):
+    Time.le ts (c.(sc) loc).
   Proof.
-    inv LE. splits.
-    - econs; ss; etrans; eauto; apply TimeMap.incr_le.
-    - etrans; eauto. apply TimeMap.incr_ts.
-    - etrans; eauto. apply TimeMap.incr_ts.
-  Qed.
-
-  Lemma incr_rw_mon loc ts s1 s2
-        (LE: le s1 s2):
-    le (incr_rw loc ts s1) (incr_rw loc ts s2).
-  Proof.
-    apply incr_rw_spec.
-    - etrans; eauto. apply incr_rw_le.
-    - apply TimeMap.incr_ts.
-    - apply TimeMap.incr_ts.
-  Qed.
-
-  Lemma incr_rw_nop
-        loc ts cur
-        (WF: Capability.wf cur)
-        (TS: Time.le ts (cur.(Capability.rw) loc)):
-    incr_rw loc ts cur = cur.
-  Proof.
-    destruct cur. unfold incr_rw. ss. f_equal.
-    - apply TimeMap.incr_nop. auto.
-    - apply TimeMap.incr_nop. etrans; eauto. apply WF.
+    apply TimeMap.singleton_inv. apply LE.
   Qed.
 
   Lemma le_join_l l r
@@ -386,7 +320,7 @@ Module Message.
     val: Const.t;
     released: Capability.t;
   }.
-  Definition elt: t := mk 0 Capability.elt.
+  Definition elt: t := mk 0 Capability.bot.
 End Message.
 
 Module Cell.
@@ -414,13 +348,13 @@ Module Cell.
       - rewrite DOMap.gempty in GET1. inv GET1.
     Qed.
 
-    Definition singleton (from to:Time.t) (msg:Message.t): t :=
-      DOMap.singleton to (from, msg).
+    Definition singleton (from to:Time.t) (val:Const.t) (released:Capability.t): t :=
+      DOMap.singleton to (from, Message.mk val released).
 
     Lemma singleton_wf
-          from to msg
+          from to val released
           (LT: Time.lt from to):
-      wf (singleton from to msg).
+      wf (singleton from to val released).
     Proof.
       unfold singleton. econs; s; i.
       - apply DOMap.singleton_find_inv in GET. des. inv GET0.
@@ -430,18 +364,18 @@ Module Cell.
         congr.
     Qed.
 
-    Inductive add (cell1:t) (from to:Time.t) (msg:Message.t): forall (rhs:t), Prop :=
+    Inductive add (cell1:t) (from to:Time.t) (val:Const.t) (released:Capability.t): forall (rhs:t), Prop :=
     | add_intro
         (DISJOINT: forall to2 from2 msg2
                      (GET2: DOMap.find to2 cell1 = Some (from2, msg2)),
             to <> from2 /\ Interval.disjoint (from, to) (from2, to2))
         (TO1: Time.lt from to):
-        add cell1 from to msg (DOMap.add to (from, msg) cell1)
+        add cell1 from to val released (DOMap.add to (from, (Message.mk val released)) cell1)
     .
 
     Lemma add_wf
-          cell1 from to msg rhs
-          (ADD: add cell1 from to msg rhs)
+          cell1 from to val released rhs
+          (ADD: add cell1 from to val released rhs)
           (CELL1: wf cell1):
       wf rhs.
     Proof.
@@ -458,19 +392,19 @@ Module Cell.
         + eapply DISJOINT0; eauto.
     Qed.
 
-    Inductive split (cell1:t) (from to1 to2:Time.t) (msg1:Message.t): forall (rhs:t), Prop :=
+    Inductive split (cell1:t) (from to1 to2:Time.t) (val1:Const.t) (released1:Capability.t): forall (rhs:t), Prop :=
     | split_intro
         msg2
         (GET2: DOMap.find to2 cell1 = Some (from, msg2))
         (TO1: Time.lt from to1)
         (TO2: Time.lt to1 to2):
-        split cell1 from to1 to2 msg1
-              (DOMap.add to1 (from, msg1) (DOMap.add to2 (to1, msg2) cell1))
+        split cell1 from to1 to2 val1 released1
+              (DOMap.add to1 (from, Message.mk val1 released1) (DOMap.add to2 (to1, msg2) cell1))
     .
 
     Lemma split_wf
-          cell1 from1 to1 to2 msg1 cell2
-          (SPLIT: split cell1 from1 to1 to2 msg1 cell2)
+          cell1 from1 to1 to2 val1 released1 cell2
+          (SPLIT: split cell1 from1 to1 to2 val1 released1 cell2)
           (CELL1: wf cell1):
       wf cell2.
     Proof.
@@ -500,15 +434,15 @@ Module Cell.
           econs; s. apply Time.le_lteq. auto. refl.
     Qed.
 
-    Inductive remove (cell1:t) (from to:Time.t) (msg:Message.t): forall (rhs:t), Prop :=
+    Inductive remove (cell1:t) (from to:Time.t) (val:Const.t) (released:Capability.t): forall (rhs:t), Prop :=
     | remove_intro
-        (GET: DOMap.find to cell1 = Some (from, msg)):
-        remove cell1 from to msg (DOMap.remove to cell1)
+        (GET: DOMap.find to cell1 = Some (from, Message.mk val released)):
+        remove cell1 from to val released (DOMap.remove to cell1)
     .
 
     Lemma remove_wf
-          cell1 from to msg rhs
-          (REMOVE: remove cell1 from to msg rhs)
+          cell1 from to val released rhs
+          (REMOVE: remove cell1 from to val released rhs)
           (CELL1: wf cell1):
       wf rhs.
     Proof.
@@ -589,16 +523,16 @@ Module Cell.
   Proof. econs. ii. rewrite bot_get in GET1. congr. Qed.
 
   Definition singleton
-             (from to:Time.t) (msg:Message.t)
+             (from to:Time.t) (val:Const.t) (released:Capability.t)
              (LT: Time.lt from to): t :=
-    mk (Raw.singleton_wf msg LT).
+    mk (Raw.singleton_wf val released LT).
 
   Lemma singleton_get
-        from to msg (LT:Time.lt from to)
+        from to val released (LT:Time.lt from to)
         t:
-    get t (singleton msg LT) =
+    get t (singleton val released LT) =
     if Loc.eq_dec t to
-    then Some (from, msg)
+    then Some (from, Message.mk val released)
     else None.
   Proof.
     unfold get, singleton, Raw.singleton. ss. condtac.
@@ -607,114 +541,101 @@ Module Cell.
   Qed.
 
   Definition init: t :=
-    singleton (Message.mk 0 Capability.elt)
-              (Time.decr_spec Time.elt).
+    singleton 0
+              Capability.bot
+              (Time.incr_spec Time.bot).
 
-  Definition add (cell1:t) (from1 to1:Time.t) (msg1:Message.t) (cell2:t): Prop :=
-    Raw.add cell1 from1 to1 msg1 cell2.
+  Definition add (cell1:t) (from1 to1:Time.t) (val1:Const.t) (released1:Capability.t) (cell2:t): Prop :=
+    Raw.add cell1 from1 to1 val1 released1 cell2.
 
-  Definition split (cell1:t) (from1 to1 to2:Time.t) (msg1:Message.t) (cell2:t): Prop :=
-    Raw.split cell1 from1 to1 to2 msg1 cell2.
+  Definition split (cell1:t) (from1 to1 to2:Time.t) (val1:Const.t) (released1:Capability.t) (cell2:t): Prop :=
+    Raw.split cell1 from1 to1 to2 val1 released1 cell2.
 
-  Definition remove (cell1:t) (from1 to1:Time.t) (msg1:Message.t) (cell2:t): Prop :=
-    Raw.remove cell1 from1 to1 msg1 cell2.
+  Definition remove (cell1:t) (from1 to1:Time.t) (val1:Const.t) (released1:Capability.t) (cell2:t): Prop :=
+    Raw.remove cell1 from1 to1 val1 released1 cell2.
 
   Definition max_ts (cell:t): Time.t :=
     DOMap.max_key _ cell.(raw).
 
   Lemma max_ts_spec
-        cell:
-    <<GET: get Time.elt cell <> None -> exists from msg, get (max_ts cell) cell = Some (from, msg)>> /\
-    <<MAX: forall ts (GET: get ts cell <> None), Time.le ts (max_ts cell)>>.
+        ts from msg cell
+        (GET: get ts cell = Some (from, msg)):
+    <<GET: exists from val released, get (max_ts cell) cell = Some (from, Message.mk val released)>> /\
+    <<MAX: Time.le ts (max_ts cell)>>.
   Proof.
-    generalize (DOMap.max_key_spec _ cell.(Cell.raw)). i. des. splits; eauto. i.
-    destruct (DOMap.find
-                (DOMap.max_key (DenseOrder.t * Message.t) (Cell.raw cell))
-                (Cell.raw cell)) as [[]|] eqn:X.
-    - eexists _, _. eauto.
-    - exfalso. apply FIND; auto.
+    unfold get in GET.
+    generalize (DOMap.max_key_spec _ cell.(Cell.raw)). i. des. splits; eauto.
+    - destruct (DOMap.find
+                  (DOMap.max_key (DenseOrder.t * Message.t) (Cell.raw cell))
+                  (Cell.raw cell)) as [[? []]|] eqn:X.
+      + eexists _, _, _. eauto.
+      + exfalso. eapply FIND; eauto. rewrite GET. congr.
+    - apply MAX. rewrite GET. auto. congr.
   Qed.
 
-  Lemma raw_add_exists_max_ts
-        cell1 to val released
-        (TO: Time.lt (max_ts cell1) to)
-        (WF: Capability.wf released):
-    exists cell2, Raw.add cell1 (max_ts cell1) to (Message.mk val released) cell2.
+  Lemma add_exists
+        cell1 from to val released
+        (DISJOINT: forall to2 from2 msg2
+                     (GET2: get to2 cell1 = Some (from2, msg2)),
+            to <> from2 /\ Interval.disjoint (from, to) (from2, to2))
+        (TO1: Time.lt from to):
+    exists cell2, add cell1 from to val released cell2.
   Proof.
-    generalize (max_ts_spec cell1). i. des.
-    destruct cell1. ss.
-    eexists. i. econs; ss.
-    i. exploit MAX.
-    { unfold get. s. rewrite GET2. congr. }
-    i.
-    splits.
-    - ii. subst. inversion WF0. exploit VOLUME; eauto. i.
-      rewrite x0 in TO. eapply Time.lt_strorder. eapply TimeFacts.le_lt_lt; eauto.
-    - ii. inv LHS. inv RHS. ss.
-      rewrite x in TO1. eapply Time.lt_strorder. eapply TimeFacts.le_lt_lt; eauto.
+    destruct cell1. eexists (mk _). unfold add. econs; eauto.
+  Grab Existential Variables.
+    eapply Raw.add_wf; eauto. econs; eauto.
   Qed.
 
   Lemma add_exists_max_ts
         cell1 to val released
         (TO: Time.lt (max_ts cell1) to)
         (WF: Capability.wf released):
-    exists cell2, add cell1 (max_ts cell1) to (Message.mk val released) cell2.
+    exists cell2, add cell1 (max_ts cell1) to val released cell2.
   Proof.
-    exploit raw_add_exists_max_ts; eauto. i. des.
-    destruct (classic (Capability.wf released)).
-    - eexists (mk _). eauto.
-    - exists cell1. congr.
-  Grab Existential Variables.
-    { eapply Raw.add_wf; eauto. apply Cell.WF. }
-  Qed.
-
-  Lemma raw_add_exists_le
-        promises1 cell1 from to msg cell2
-        (LE: le promises1 cell1)
-        (ADD: Raw.add cell1 from to msg cell2):
-    exists promises2, Raw.add promises1 from to msg promises2.
-  Proof.
-    inv ADD. eexists. econs; eauto.
-  Qed.
-
-  Lemma raw_split_exists_le
-        promises1 cell1 from to1 to2 msg promises2
-        (LE: le promises1 cell1)
-        (SPLIT: Raw.split promises1 from to1 to2 msg promises2):
-    exists cell2, Raw.split cell1 from to1 to2 msg cell2.
-  Proof.
-    inv SPLIT. eexists. econs; eauto.
+    apply add_exists; auto. i.
+    exploit max_ts_spec; eauto. i. des. splits.
+    - ii. subst. destruct cell1.(Cell.WF). exploit VOLUME; try apply GET2; eauto. i.
+      rewrite x in TO. eapply Time.lt_strorder. eapply TimeFacts.le_lt_lt; eauto.
+    - ii. inv LHS. inv RHS. ss.
+      rewrite MAX in TO1. eapply Time.lt_strorder. eapply TimeFacts.le_lt_lt; eauto.
   Qed.
 
   Lemma add_exists_le
-        promises1 cell1 from to msg cell2
+        promises1 cell1 from to val released cell2
         (LE: le promises1 cell1)
-        (ADD: add cell1 from to msg cell2):
-    exists promises2, add promises1 from to msg promises2.
+        (ADD: add cell1 from to val released cell2):
+    exists promises2, add promises1 from to val released promises2.
   Proof.
-    exploit raw_add_exists_le; eauto. i. des.
-    eexists (mk _). unfold add. s.  eauto.
+    inv ADD. apply add_exists; auto. i.
+    eapply DISJOINT. eauto.
+  Qed.
+
+  Lemma split_exists
+        cell1 from to1 to2 val released msg2
+        (GET2: get to2 cell1 = Some (from, msg2))
+        (TO1: Time.lt from to1)
+        (TO2: Time.lt to1 to2):
+    exists cell2, split cell1 from to1 to2 val released cell2.
+  Proof.
+    destruct cell1. eexists (mk _). unfold split. econs; eauto.
   Grab Existential Variables.
-    { eapply Raw.add_wf; eauto. apply Cell.WF. }
+    eapply Raw.split_wf; eauto. econs; eauto.
   Qed.
 
   Lemma split_exists_le
-        promises1 cell1 from to1 to2 msg promises2
+        promises1 cell1 from to1 to2 val released promises2
         (LE: le promises1 cell1)
-        (SPLIT: split promises1 from to1 to2 msg promises2):
-    exists cell2, split cell1 from to1 to2 msg cell2.
+        (SPLIT: split promises1 from to1 to2 val released promises2):
+    exists cell2, split cell1 from to1 to2 val released cell2.
   Proof.
-    exploit raw_split_exists_le; eauto. i. des.
-    eexists (mk _). unfold split. s.  eauto.
-  Grab Existential Variables.
-    { eapply Raw.split_wf; eauto. apply Cell.WF. }
+    inv SPLIT. eapply split_exists; eauto.
   Qed.
 
   (* Lemmas on add, split & remove *)
 
   Lemma add_disjoint
-        cell1 from1 to1 msg1 cell2
-        (ADD: add cell1 from1 to1 msg1 cell2):
+        cell1 from1 to1 val1 released1 cell2
+        (ADD: add cell1 from1 to1 val1 released1 cell2):
     get to1 cell1 = None.
   Proof.
     inv ADD. unfold get.
@@ -725,9 +646,9 @@ Module Cell.
   Qed.
 
   Lemma add_get1
-        cell1 from1 to1 msg1 cell2
+        cell1 from1 to1 val1 released1 cell2
         t f m
-        (ADD: add cell1 from1 to1 msg1 cell2)
+        (ADD: add cell1 from1 to1 val1 released1 cell2)
         (GET: get t cell1 = Some (f, m)):
     get t cell2 = Some (f, m).
   Proof.
@@ -738,20 +659,20 @@ Module Cell.
   Qed.
 
   Lemma add_get2
-        cell1 from1 to1 msg1 cell2
-        (ADD: add cell1 from1 to1 msg1 cell2):
-    get to1 cell2 = Some (from1, msg1).
+        cell1 from1 to1 val1 released1 cell2
+        (ADD: add cell1 from1 to1 val1 released1 cell2):
+    get to1 cell2 = Some (from1, Message.mk val1 released1).
   Proof.
     unfold get in *. inv ADD.
     rewrite DOMap.gss. auto.
   Qed.
 
   Lemma add_get_inv
-        cell1 from1 to1 msg1 cell2
+        cell1 from1 to1 val1 released1 cell2
         t f m
-        (ADD: add cell1 from1 to1 msg1 cell2)
+        (ADD: add cell1 from1 to1 val1 released1 cell2)
         (GET: get t cell2 = Some (f, m)):
-    (t = to1 /\ f = from1 /\ m = msg1) \/
+    (t = to1 /\ f = from1 /\ m = Message.mk val1 released1) \/
     (~ t = to1 /\
      get t cell1 = Some (f, m)).
   Proof.
@@ -761,42 +682,36 @@ Module Cell.
   Qed.
 
   Lemma add_inhabited
-        cell1 cell2 to msg
-        (ADD: add cell1 (max_ts cell1) to msg cell2)
-        (INHABITED: get Time.elt cell1 <> None):
-    <<INHABITED: get Time.elt cell2 <> None>>.
+        cell1 cell2 to val released
+        (ADD: add cell1 (max_ts cell1) to val released cell2)
+        (INHABITED: exists ts from msg, get ts cell1 = Some (from, msg)):
+    <<INHABITED: exists ts from msg, get ts cell2 = Some (from, msg)>>.
   Proof.
-    ii. eapply INHABITED.
-    destruct (get Time.elt cell1) as [[]|] eqn:X; auto.
-    exploit add_get1; eauto. i. congr.
+    des. exploit add_get1; eauto.
   Qed.
 
   Lemma add_max_ts
-        cell1 to msg cell2
-        (INHABITED: get Time.elt cell1 <> None)
-        (ADD: add cell1 (max_ts cell1) to msg cell2):
+        cell1 to val released cell2
+        (INHABITED: exists ts from msg, get ts cell1 = Some (from, msg))
+        (ADD: add cell1 (max_ts cell1) to val released cell2):
     max_ts cell2 = to.
   Proof.
     hexploit add_inhabited; eauto. i. des.
-    generalize (max_ts_spec cell1). i. des.
-    generalize (max_ts_spec cell2). i. des.
-    specialize (GET0 H). des.
-    exploit add_get_inv; eauto. i. des.
-    - subst. auto.
-    - exploit MAX0; i.
-      { erewrite add_get2; eauto. congr. }
-      exploit MAX; i.
-      { rewrite x1. congr. }
-      inv ADD. exploit TimeFacts.lt_le_lt; eauto. i.
-      exploit TimeFacts.lt_le_lt; eauto. i.
-      exfalso. eapply Time.lt_strorder. eauto.
+    exploit max_ts_spec; eauto. i. des.
+    apply TimeFacts.antisym.
+    - exploit add_get_inv; eauto. i. des.
+      + subst. refl.
+      + left. eapply TimeFacts.le_lt_lt.
+        * eapply max_ts_spec. rewrite x1. eauto.
+        * inv ADD. eauto.
+    - eapply max_ts_spec. erewrite add_get2; eauto.
   Qed.
 
   Lemma remove_singleton
-        from to msg (LT:Time.lt from to):
-    remove (singleton msg LT) from to msg bot.
+        from to val released (LT:Time.lt from to):
+    remove (singleton val released LT) from to val released bot.
   Proof.
-    assert (Raw.bot = DOMap.remove to ((singleton msg LT).(raw))).
+    assert (Raw.bot = DOMap.remove to ((singleton val released LT).(raw))).
     { apply DOMap.eq_leibniz. ii.
       unfold Raw.bot. rewrite DOMap.gempty.
       rewrite DOMap.grspec. condtac; auto.
@@ -808,9 +723,9 @@ Module Cell.
   Qed.
 
   Lemma remove_exists
-        cell1 from to msg
-        (GET: get to cell1 = Some (from, msg)):
-    exists cell2, remove cell1 from to msg cell2.
+        cell1 from to val released
+        (GET: get to cell1 = Some (from, Message.mk val released)):
+    exists cell2, remove cell1 from to val released cell2.
   Proof.
     eexists (mk _). destruct cell1. ss.
     Grab Existential Variables.
@@ -868,18 +783,18 @@ Module Memory.
   Proof. econs. i. apply Cell.bot_disjoint. Qed.
 
   Definition singleton
-             (loc:Loc.t) (from to:Time.t) (msg:Message.t)
+             (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:Capability.t)
              (LT: Time.lt from to): t :=
-    (LocFun.add loc (Cell.singleton msg LT)
+    (LocFun.add loc (Cell.singleton val released LT)
                 (fun _ => Cell.bot)).
 
   Lemma singleton_get
-        loc from to msg (LT:Time.lt from to)
+        loc from to val released (LT:Time.lt from to)
         l t:
-    get l t (singleton loc msg LT) =
+    get l t (singleton loc val released LT) =
     if Loc.eq_dec l loc
     then if Time.eq_dec t to
-         then Some (from, msg)
+         then Some (from, Message.mk val released)
          else None
     else None.
   Proof.
@@ -893,7 +808,7 @@ Module Memory.
   Definition init: t := fun _ => Cell.init.
 
   Definition closed_timemap (times:TimeMap.t) (mem:t): Prop :=
-    forall loc, exists from msg, get loc (times loc) mem = Some (from, msg).
+    forall loc, times loc = Time.bot \/ exists from val released, get loc (times loc) mem = Some (from, Message.mk val released).
 
   Inductive closed_capability (capability:Capability.t) (mem:t): Prop :=
   | closed_capability_intro
@@ -904,19 +819,15 @@ Module Memory.
 
   Inductive closed (mem:t): Prop :=
   | closed_intro
-      (CLOSED: forall loc from to msg (MSG: get loc to mem = Some (from, msg)),
-          <<WF: Capability.wf msg.(Message.released)>> /\
-          <<TS: Time.le (msg.(Message.released).(Capability.rw) loc) to>> /\
-          <<CLOSED: closed_capability msg.(Message.released) mem>>)
-      (ELT: forall loc, get loc Time.elt mem <> None)
+      (CLOSED: forall loc from to val released (MSG: get loc to mem = Some (from, Message.mk val released)),
+          <<WF: Capability.wf released>> /\
+          <<TS: Time.le (released.(Capability.rw) loc) to>> /\
+          <<CLOSED: closed_capability released mem>>)
+      (ELT: forall loc, exists ts from msg, get loc ts mem = Some (from, msg))
   .
 
-  Lemma timemap_elt_closed: closed_timemap TimeMap.elt init.
-  Proof.
-    econs. unfold TimeMap.elt.
-    unfold get, init, Cell.get, Cell.init. s.
-    unfold Cell.Raw.singleton. rewrite DOMap.singleton_eq. eauto.
-  Qed.
+  Lemma timemap_bot_closed mem: closed_timemap TimeMap.bot mem.
+  Proof. ii. left. auto. Qed.
 
   Lemma init_closed: closed init.
   Proof.
@@ -924,58 +835,78 @@ Module Memory.
     unfold get, init, Cell.get, Cell.init in MSG. ss.
     unfold Cell.Raw.singleton in MSG. ss. apply DOMap.singleton_find_inv in MSG. des. inv MSG0.
     splits; ss.
-    - apply Capability.elt_wf.
-    - refl.
-    - econs; apply timemap_elt_closed.
+    - apply Capability.bot_wf.
+    - left. apply Time.incr_spec.
+    - econs; apply timemap_bot_closed.
+    - unfold get, init, Cell.get, Cell.init. ss. unfold Cell.Raw.singleton.
+      eexists. rewrite DOMap.singleton_eq. eauto.
   Qed.
 
-  Inductive add (mem1:t) (loc:Loc.t) (from1 to1:Time.t) (msg1:Message.t): forall (mem2:t), Prop :=
+  Inductive add (mem1:t) (loc:Loc.t) (from1 to1:Time.t) (val1:Const.t) (released1:Capability.t): forall (mem2:t), Prop :=
   | add_intro
       r
-      (ADD: Cell.add (mem1 loc) from1 to1 msg1 r)
-      (WF: Capability.wf msg1.(Message.released)):
-      add mem1 loc from1 to1 msg1 (LocFun.add loc r mem1)
+      (ADD: Cell.add (mem1 loc) from1 to1 val1 released1 r)
+      (WF: Capability.wf released1):
+      add mem1 loc from1 to1 val1 released1 (LocFun.add loc r mem1)
   .
 
-  Inductive split (mem1:t) (loc:Loc.t) (from1 to1 to2:Time.t) (msg1:Message.t): forall (mem2:t), Prop :=
+  Inductive split (mem1:t) (loc:Loc.t) (from1 to1 to2:Time.t) (val1:Const.t) (released1:Capability.t): forall (mem2:t), Prop :=
   | split_intro
       r
-      (SPLIT: Cell.split (mem1 loc) from1 to1 to2 msg1 r)
-      (WF: Capability.wf msg1.(Message.released)):
-      split mem1 loc from1 to1 to2 msg1 (LocFun.add loc r mem1)
+      (SPLIT: Cell.split (mem1 loc) from1 to1 to2 val1 released1 r)
+      (WF: Capability.wf released1):
+      split mem1 loc from1 to1 to2 val1 released1 (LocFun.add loc r mem1)
   .
 
-  Inductive remove (mem1:t) (loc:Loc.t) (from1 to1:Time.t) (msg1:Message.t): forall (mem2:t), Prop :=
+  Inductive remove (mem1:t) (loc:Loc.t) (from1 to1:Time.t) (val1:Const.t) (released1:Capability.t): forall (mem2:t), Prop :=
   | remove_intro
       r
-      (REMOVE: Cell.remove (mem1 loc) from1 to1 msg1 r):
-      remove mem1 loc from1 to1 msg1 (LocFun.add loc r mem1)
+      (REMOVE: Cell.remove (mem1 loc) from1 to1 val1 released1 r):
+      remove mem1 loc from1 to1 val1 released1 (LocFun.add loc r mem1)
+  .
+
+  Inductive lower
+            (mem1:t)
+            (loc:Loc.t) (from to:Time.t) (val:Const.t) (released1 released2:Capability.t)
+            (mem3:t): Prop :=
+  | lower_intro
+      mem2
+      (LE: Capability.le released2 released1)
+      (REMOVE: remove mem1 loc from to val released1 mem2)
+      (ADD: add mem2 loc from to val released2 mem3)
   .
 
   Inductive future_imm (mem1 mem2:t): Prop :=
   | future_imm_add
-      loc from1 to1 msg1
-      (ADD: add mem1 loc from1 to1 msg1 mem2)
+      loc from1 to1 val1 released1
+      (ADD: add mem1 loc from1 to1 val1 released1 mem2)
   | future_imm_split
-      loc from1 to1 to2 msg1
-      (SPLIT: split mem1 loc from1 to1 to2 msg1 mem2)
+      loc from1 to1 to2 val1 released1
+      (SPLIT: split mem1 loc from1 to1 to2 val1 released1 mem2)
+  | future_imm_lower
+      loc from1 to1 val1 released1 released2
+      (LOWER: lower mem1 loc from1 to1 val1 released1 released2 mem2)
   .
 
-  Inductive splits_imm (mem1 mem2:t): Prop :=
-  | splits_imm_intro
-      loc from1 to1 to2 msg1
-      (SPLIT: split mem1 loc from1 to1 to2 msg1 mem2)
-      (CLOSED: closed mem2)
+  Inductive sim_imm (mem1 mem2:t): Prop :=
+  | sim_imm_split
+      loc from1 to1 to2 val1 released1
+      (SPLIT: split mem1 loc from1 to1 to2 val1 released1 mem2)
+  | sim_imm_lower
+      loc from1 to1 val1 released1 released2
+      (LOWER: lower mem1 loc from1 to1 val1 released1 released2 mem2)
   .
 
   Definition future := rtc future_imm.
-  Definition splits := rtc splits_imm.
+  Definition sim := rtc sim_imm.
 
-  Lemma splits_future: splits <2= future.
+  Lemma sim_future: sim <2= future.
   Proof.
     i. induction PR.
     - econs 1.
-    - econs 2; eauto. inv H. econs 2; eauto.
+    - econs 2; eauto. inv H.
+      + econs 2; eauto.
+      + econs 3; eauto.
   Qed.
 
   Inductive promise_kind :=
@@ -985,46 +916,56 @@ Module Memory.
 
   Inductive promise
             (promises1 mem1:t)
-            (loc:Loc.t) (from1 to1:Time.t) (msg1:Message.t)
+            (loc:Loc.t) (from1 to1:Time.t) (val1:Const.t) (released1:Capability.t)
             (promises2 mem2:t): forall (kind:promise_kind), Prop :=
   | promise_add
-      (PROMISES: add promises1 loc from1 to1 msg1 promises2)
-      (MEM: add mem1 loc from1 to1 msg1 mem2)
-      (CLOSED: closed_capability msg1.(Message.released) mem2)
-      (TS: Time.le (Capability.rw (Message.released msg1) loc) to1):
-      promise promises1 mem1 loc from1 to1 msg1 promises2 mem2 promise_kind_add
+      (PROMISES: add promises1 loc from1 to1 val1 released1 promises2)
+      (MEM: add mem1 loc from1 to1 val1 released1 mem2)
+      (CLOSED: closed_capability released1 mem2)
+      (TS: Time.le (Capability.rw released1 loc) to1):
+      promise promises1 mem1 loc from1 to1 val1 released1 promises2 mem2 promise_kind_add
   | promise_split
       to2
-      (PROMISES: split promises1 loc from1 to1 to2 msg1 promises2)
-      (MEM: split mem1 loc from1 to1 to2 msg1 mem2)
-      (CLOSED: closed_capability msg1.(Message.released) mem2)
-      (TS: Time.le (Capability.rw (Message.released msg1) loc) to1):
-      promise promises1 mem1 loc from1 to1 msg1 promises2 mem2 promise_kind_split
+      (PROMISES: split promises1 loc from1 to1 to2 val1 released1 promises2)
+      (MEM: split mem1 loc from1 to1 to2 val1 released1 mem2)
+      (CLOSED: closed_capability released1 mem2)
+      (TS: Time.le (Capability.rw released1 loc) to1):
+      promise promises1 mem1 loc from1 to1 val1 released1 promises2 mem2 promise_kind_split
   .
 
   Inductive fulfill
             (promises1:t)
-            (loc:Loc.t) (from to:Time.t) (msg:Message.t)
+            (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:Capability.t)
             (promises2:t): Prop :=
   | fulfill_intro
-      (REMOVE: remove promises1 loc from to msg promises2)
+      (REMOVE: remove promises1 loc from to val released promises2)
+  .
+
+  Inductive strengthen
+            (promises1 mem1:t)
+            (loc:Loc.t) (from to:Time.t) (val:Const.t) (released1 released2:Capability.t)
+            (promises2 mem2:t): Prop :=
+  | strengthen_intro
+      (CLOSED: closed_capability released2 mem1)
+      (PROMISES: lower promises1 loc from to val released1 released2 promises2)
+      (MEM: lower mem1 loc from to val released1 released2 mem2)
   .
 
 
   (* Lemmas on add, split & remove *)
 
   Lemma add_disjoint
-        mem1 loc from1 to1 msg1 mem2
-        (ADD: add mem1 loc from1 to1 msg1 mem2):
+        mem1 loc from1 to1 val1 released1 mem2
+        (ADD: add mem1 loc from1 to1 val1 released1 mem2):
     get loc to1 mem1 = None.
   Proof.
     inv ADD. exploit Cell.add_disjoint; eauto.
   Qed.
 
   Lemma add_get1
-        mem1 loc from1 to1 msg1 mem2
+        mem1 loc from1 to1 val1 released1 mem2
         l t f m
-        (ADD: add mem1 loc from1 to1 msg1 mem2)
+        (ADD: add mem1 loc from1 to1 val1 released1 mem2)
         (GET: get l t mem1 = Some (f, m)):
     get l t mem2 = Some (f, m).
   Proof.
@@ -1033,20 +974,20 @@ Module Memory.
   Qed.
 
   Lemma add_get2
-        mem1 loc from1 to1 msg1 mem2
-        (ADD: add mem1 loc from1 to1 msg1 mem2):
-    get loc to1 mem2 = Some (from1, msg1).
+        mem1 loc from1 to1 val1 released1 mem2
+        (ADD: add mem1 loc from1 to1 val1 released1 mem2):
+    get loc to1 mem2 = Some (from1, Message.mk val1 released1).
   Proof.
     inv ADD. unfold get, LocFun.add, LocFun.find. condtac; [|congr].
     exploit Cell.add_get2; eauto.
   Qed.
 
   Lemma add_get_inv
-        mem1 loc from1 to1 msg1 mem2
+        mem1 loc from1 to1 val1 released1 mem2
         l t f m
-        (ADD: add mem1 loc from1 to1 msg1 mem2)
+        (ADD: add mem1 loc from1 to1 val1 released1 mem2)
         (GET: get l t mem2 = Some (f, m)):
-    (l = loc /\ t = to1 /\ f = from1 /\ m = msg1) \/
+    (l = loc /\ t = to1 /\ f = from1 /\ m = Message.mk val1 released1) \/
     (~ (l = loc /\ t = to1) /\
      get l t mem1 = Some (f, m)).
   Proof.
@@ -1058,8 +999,8 @@ Module Memory.
   Qed.
 
   Lemma split_disjoint
-        mem1 loc from1 to1 to2 msg1 mem2
-        (SPLIT: split mem1 loc from1 to1 to2 msg1 mem2):
+        mem1 loc from1 to1 to2 val1 released1 mem2
+        (SPLIT: split mem1 loc from1 to1 to2 val1 released1 mem2):
     get loc to1 mem1 = None.
   Proof.
     inv SPLIT. inv SPLIT0. destruct r. ss. subst.
@@ -1073,8 +1014,8 @@ Module Memory.
   Qed.
 
   Lemma split_get0
-        mem1 loc from1 to1 to2 msg1 mem2
-        (SPLIT: split mem1 loc from1 to1 to2 msg1 mem2):
+        mem1 loc from1 to1 to2 val1 released1 mem2
+        (SPLIT: split mem1 loc from1 to1 to2 val1 released1 mem2):
     exists msg2, get loc to2 mem1 = Some (from1, msg2).
   Proof.
     inv SPLIT. inv SPLIT0. destruct r. ss. subst.
@@ -1082,9 +1023,9 @@ Module Memory.
   Qed.
 
   Lemma split_get1
-        mem1 loc from1 to1 to2 msg1 mem2
+        mem1 loc from1 to1 to2 val1 released1 mem2
         l t f m
-        (SPLIT: split mem1 loc from1 to1 to2 msg1 mem2)
+        (SPLIT: split mem1 loc from1 to1 to2 val1 released1 mem2)
         (GET: get l t mem1 = Some (f, m)):
     (l = loc /\ f = from1 /\ t = to2 /\ get l t mem2 = Some (to1, m)) \/
     (~ (l = loc /\ t = to2) /\
@@ -1105,9 +1046,9 @@ Module Memory.
   Qed.
 
   Lemma split_get1'
-        mem1 loc from1 to1 to2 msg1 mem2
+        mem1 loc from1 to1 to2 val1 released1 mem2
         l t f m
-        (SPLIT: split mem1 loc from1 to1 to2 msg1 mem2)
+        (SPLIT: split mem1 loc from1 to1 to2 val1 released1 mem2)
         (GET: get l t mem1 = Some (f, m)):
     exists f', get l t mem2 = Some (f', m).
   Proof.
@@ -1115,9 +1056,9 @@ Module Memory.
   Qed.
 
   Lemma split_get2
-        mem1 loc from1 to1 to2 msg1 mem2
-        (SPLIT: split mem1 loc from1 to1 to2 msg1 mem2):
-    get loc to1 mem2 = Some (from1, msg1).
+        mem1 loc from1 to1 to2 val1 released1 mem2
+        (SPLIT: split mem1 loc from1 to1 to2 val1 released1 mem2):
+    get loc to1 mem2 = Some (from1, Message.mk val1 released1).
   Proof.
     unfold get, Cell.get in *. inv SPLIT. inv SPLIT0.
     unfold LocFun.add, LocFun.find. condtac; [|congr].
@@ -1125,11 +1066,11 @@ Module Memory.
   Qed.
 
   Lemma split_get_inv
-        mem1 loc from1 to1 to2 msg1 mem2
+        mem1 loc from1 to1 to2 val1 released1 mem2
         l t f m
-        (SPLIT: split mem1 loc from1 to1 to2 msg1 mem2)
+        (SPLIT: split mem1 loc from1 to1 to2 val1 released1 mem2)
         (GET: get l t mem2 = Some (f, m)):
-    (l = loc /\ t = to1 /\ f = from1 /\ m = msg1) \/
+    (l = loc /\ t = to1 /\ f = from1 /\ m = Message.mk val1 released1) \/
     (l = loc /\ t = to2 /\ f = to1 /\ get l t mem1 = Some (from1, m)) \/
     (~ (l = loc /\ t = to1) /\
      ~ (l = loc /\ t = to2) /\
@@ -1149,29 +1090,29 @@ Module Memory.
   Qed.
 
   Lemma split_get_inv'
-        mem1 loc from1 to1 to2 msg1 mem2
+        mem1 loc from1 to1 to2 val1 released1 mem2
         l t f m
-        (SPLIT: split mem1 loc from1 to1 to2 msg1 mem2)
+        (SPLIT: split mem1 loc from1 to1 to2 val1 released1 mem2)
         (GET: get l t mem2 = Some (f, m)):
-    (l = loc /\ t = to1 /\ f = from1 /\ m = msg1) \/ exists f', get l t mem1 = Some (f', m).
+    (l = loc /\ t = to1 /\ f = from1 /\ m = Message.mk val1 released1) \/ exists f', get l t mem1 = Some (f', m).
   Proof.
     exploit split_get_inv; eauto. i. des; eauto.
   Qed.
 
   Lemma remove_disjoint
-        mem1 loc from1 to1 msg1 mem2
-        (REMOVE: remove mem1 loc from1 to1 msg1 mem2):
-    get loc to1 mem1 = Some (from1, msg1).
+        mem1 loc from1 to1 val1 released1 mem2
+        (REMOVE: remove mem1 loc from1 to1 val1 released1 mem2):
+    get loc to1 mem1 = Some (from1, Message.mk val1 released1).
   Proof.
     inv REMOVE. inv REMOVE0. destruct r. ss.
   Qed.
 
   Lemma remove_get1
-        mem1 loc from1 to1 msg1 mem2
+        mem1 loc from1 to1 val1 released1 mem2
         l t f m
-        (REMOVE: remove mem1 loc from1 to1 msg1 mem2)
+        (REMOVE: remove mem1 loc from1 to1 val1 released1 mem2)
         (GET: get l t mem1 = Some (f, m)):
-    (l = loc /\ t = to1 /\ f = from1 /\ m = msg1) \/ get l t mem2 = Some (f, m).
+    (l = loc /\ t = to1 /\ f = from1 /\ m = Message.mk val1 released1) \/ get l t mem2 = Some (f, m).
   Proof.
     exploit remove_disjoint; eauto. i.
     unfold get, Cell.get in *. inv REMOVE. inv REMOVE0.
@@ -1181,8 +1122,8 @@ Module Memory.
   Qed.
 
   Lemma remove_get2
-        mem1 loc from1 to1 msg1 mem2
-        (REMOVE: remove mem1 loc from1 to1 msg1 mem2):
+        mem1 loc from1 to1 val1 released1 mem2
+        (REMOVE: remove mem1 loc from1 to1 val1 released1 mem2):
     get loc to1 mem2 = None.
   Proof.
     unfold get, Cell.get in *. inv REMOVE. inv REMOVE0.
@@ -1191,9 +1132,9 @@ Module Memory.
   Qed.
 
   Lemma remove_get_inv
-        mem1 loc from1 to1 msg1 mem2
+        mem1 loc from1 to1 val1 released1 mem2
         l t f m
-        (REMOVE: remove mem1 loc from1 to1 msg1 mem2)
+        (REMOVE: remove mem1 loc from1 to1 val1 released1 mem2)
         (GET: get l t mem2 = Some (f, m)):
     ~ (l = loc /\ t = to1) /\
     get l t mem1 = Some (f, m).
@@ -1205,28 +1146,93 @@ Module Memory.
     - i. splits; auto. ii. des. congr.
   Qed.
 
-  Lemma future_get
-        loc from to msg mem1 mem2
-        (LE: future mem1 mem2)
-        (GET: get loc to mem1 = Some (from, msg)):
-    exists from', get loc to mem2 = Some (from', msg).
+  Lemma lower_disjoint
+        mem1 loc from1 to1 val1 released1 released2 mem2
+        (LOWER: lower mem1 loc from1 to1 val1 released1 released2 mem2):
+    get loc to1 mem1 = Some (from1, Message.mk val1 released1).
   Proof.
-    revert from GET. induction LE; eauto.
+    inv LOWER. eapply remove_disjoint. eauto.
+  Qed.
+
+  Lemma lower_get1
+        mem1 loc from1 to1 val1 released1 released2 mem2
+        l t
+        (LOWER: lower mem1 loc from1 to1 val1 released1 released2 mem2)
+        (LOCTO: ~ (l = loc /\ t = to1)):
+    get l t mem1 = get l t mem2.
+  Proof.
+    inv LOWER.
+    destruct (get l t mem1) as [[]|] eqn:X.
+    { exploit remove_get1; eauto. i. des.
+      { subst. contradict LOCTO. auto. }
+      exploit add_get1; eauto.
+    }
+    destruct (get l t mem2) as [[]|] eqn:Y.
+    { exploit add_get_inv; eauto. i. des.
+      { subst. contradict LOCTO. auto. }
+      exploit remove_get_inv; eauto. i. des. congr.
+    }
+    auto.
+  Qed.
+
+  Lemma lower_get2
+        mem1 loc from1 to1 val released1 released2 mem2
+        (LOWER: lower mem1 loc from1 to1 val released1 released2 mem2):
+    get loc to1 mem2 = Some (from1, Message.mk val released2).
+  Proof.
+    inv LOWER. eapply add_get2. eauto.
+  Qed.
+
+  Lemma lower_get1'
+        mem1 loc from1 to1 val1 released1 released2 mem2
+        l t f v r
+        (LOWER: lower mem1 loc from1 to1 val1 released1 released2 mem2)
+        (GET: get l t mem1 = Some (f, Message.mk v r)):
+    exists r',
+      <<GET: get l t mem2 = Some (f, Message.mk v r')>> /\
+      <<RELEASED: Capability.le r' r>>.
+  Proof.
+    destruct (Loc.eq_dec l loc).
+    - destruct (Time.eq_dec t to1).
+      + subst. erewrite lower_get2; eauto.
+        erewrite lower_disjoint in GET; eauto. inv GET.
+        eexists. splits; eauto. apply LOWER.
+      + erewrite <- lower_get1; eauto.
+        * eexists. splits; eauto. refl.
+        * contradict n. des. auto.
+    - erewrite <- lower_get1; eauto.
+      + eexists. splits; eauto. refl.
+      + contradict n. des. auto.
+  Qed.
+
+  Lemma future_get
+        loc from to val released mem1 mem2
+        (LE: future mem1 mem2)
+        (GET: get loc to mem1 = Some (from, Message.mk val released)):
+    exists from' released',
+      <<GET: get loc to mem2 = Some (from', Message.mk val released')>> /\
+      <<RELEASED: Capability.le released' released>>.
+  Proof.
+    revert from released GET. induction LE.
+    { i. eexists _, _. splits; eauto. refl. }
     i. inv H.
     - exploit add_get1; eauto.
     - exploit split_get1'; eauto. i. des.
       eapply IHLE; eauto.
+    - exploit lower_get1'; eauto. i. des.
+      exploit IHLE; eauto. i. des.
+      eexists _, _. splits; eauto. etrans; eauto.
   Qed.
 
-  Lemma splits_get
-        loc from to msg mem1 mem2
-        (LE: splits mem1 mem2)
-        (GET: get loc to mem1 = Some (from, msg)):
-    exists from', get loc to mem2 = Some (from', msg).
+  Lemma sim_get
+        loc from to val released mem1 mem2
+        (LE: sim mem1 mem2)
+        (GET: get loc to mem1 = Some (from, Message.mk val released)):
+    exists from' released',
+      <<GET: get loc to mem2 = Some (from', Message.mk val released')>> /\
+      <<RELEASED: Capability.le released' released>>.
   Proof.
-    revert from GET. induction LE; eauto.
-    i. inv H. exploit split_get1'; eauto. i. des.
-    eapply IHLE; eauto.
+    eapply future_get; eauto. apply sim_future. auto.
   Qed.
 
 
@@ -1268,7 +1274,7 @@ Module Memory.
         (FUTURE: future mem1 mem2):
     closed_timemap times mem2.
   Proof.
-    ii. exploit CLOSED; eauto. i. des.
+    ii. exploit CLOSED; eauto. i. des; eauto. right.
     exploit future_get; eauto. i. des.
     eexists _, _. splits; eauto.
   Qed.
@@ -1285,48 +1291,56 @@ Module Memory.
     - eapply future_closed_timemap; eauto.
   Qed.
 
-  Lemma incr_closed_timemap
-        loc s from to msg mem
-        (CLOSED: closed_timemap s mem)
-        (GET: get loc to mem = Some (from, msg)):
-    closed_timemap (TimeMap.incr loc to s) mem.
+  Lemma singleton_closed_timemap
+        loc from to val released mem
+        (GET: get loc to mem = Some (from, Message.mk val released)):
+    closed_timemap (TimeMap.singleton loc to) mem.
   Proof.
-    unfold TimeMap.incr, LocFun.add, LocFun.find. ii. condtac.
-    - subst. destruct (Time.join_cases (s loc) to) as [X|X]; rewrite X; eauto.
-    - apply CLOSED.
+    unfold TimeMap.singleton, LocFun.add, LocFun.find. ii. condtac.
+    - subst. right. eauto.
+    - left. auto.
   Qed.
 
-  Lemma incr_ur_closed_capability
-        loc from to s msg mem
-        (CLOSED: closed_capability s mem)
-        (GET: get loc to mem = Some (from, msg)):
-    closed_capability (Capability.incr_ur loc to s) mem.
+  Lemma singleton_ur_closed_capability
+        loc from to val released mem
+        (GET: get loc to mem = Some (from, Message.mk val released)):
+    closed_capability (Capability.singleton_ur loc to) mem.
   Proof.
-    inv CLOSED. econs; s.
-    - eapply incr_closed_timemap; eauto.
-    - eapply incr_closed_timemap; eauto.
-    - eapply incr_closed_timemap; eauto.
+    econs; s.
+    - eapply singleton_closed_timemap. eauto.
+    - eapply singleton_closed_timemap. eauto.
+    - eapply singleton_closed_timemap. eauto.
   Qed.
 
-  Lemma incr_rw_closed_capability
-        loc from to s msg mem
-        (CLOSED: closed_capability s mem)
-        (GET: get loc to mem = Some (from, msg)):
-    closed_capability (Capability.incr_rw loc to s) mem.
+  Lemma singleton_rw_closed_capability
+        loc from to val released mem
+        (GET: get loc to mem = Some (from, Message.mk val released)):
+    closed_capability (Capability.singleton_rw loc to) mem.
   Proof.
-    inv CLOSED. econs; s.
-    - auto.
-    - eapply incr_closed_timemap; eauto.
-    - eapply incr_closed_timemap; eauto.
+    econs; s.
+    - apply timemap_bot_closed.
+    - eapply singleton_closed_timemap. eauto.
+    - eapply singleton_closed_timemap. eauto.
+  Qed.
+
+  Lemma singleton_sc_closed_capability
+        loc from to val released mem
+        (GET: get loc to mem = Some (from, Message.mk val released)):
+    closed_capability (Capability.singleton_sc loc to) mem.
+  Proof.
+    econs; s.
+    - apply timemap_bot_closed.
+    - apply timemap_bot_closed.
+    - eapply singleton_closed_timemap. eauto.
   Qed.
 
 
   (* Lemmas on promise & fulfill *)
 
   Lemma promise_get1
-        promises1 mem1 loc from to msg promises2 mem2 kind
+        promises1 mem1 loc from to val released promises2 mem2 kind
         l t f m
-        (PROMISE: promise promises1 mem1 loc from to msg promises2 mem2 kind)
+        (PROMISE: promise promises1 mem1 loc from to val released promises2 mem2 kind)
         (GET: get l t mem1 = Some (f, m)):
     exists f', get l t mem2 = Some (f', m).
   Proof.
@@ -1336,9 +1350,9 @@ Module Memory.
   Qed.
 
   Lemma promise_get2
-        promises1 mem1 loc from to msg promises2 mem2 kind
-        (PROMISE: promise promises1 mem1 loc from to msg promises2 mem2 kind):
-    get loc to promises2 = Some (from, msg).
+        promises1 mem1 loc from to val released promises2 mem2 kind
+        (PROMISE: promise promises1 mem1 loc from to val released promises2 mem2 kind):
+    get loc to promises2 = Some (from, Message.mk val released).
   Proof.
     inv PROMISE.
     - eapply add_get2; eauto.
@@ -1346,9 +1360,9 @@ Module Memory.
   Qed.
 
   Lemma promise_promises_get1
-        promises1 mem1 loc from to msg promises2 mem2 kind
+        promises1 mem1 loc from to val released promises2 mem2 kind
         l t f m
-        (PROMISE: promise promises1 mem1 loc from to msg promises2 mem2 kind)
+        (PROMISE: promise promises1 mem1 loc from to val released promises2 mem2 kind)
         (GET: get l t promises1 = Some (f, m)):
     exists f', get l t promises2 = Some (f', m).
   Proof.
@@ -1358,11 +1372,11 @@ Module Memory.
   Qed.
 
   Lemma promise_promises_get2
-        promises1 mem1 loc from to msg promises2 mem2 kind
+        promises1 mem1 loc from to val released promises2 mem2 kind
         l t f m
-        (PROMISE: promise promises1 mem1 loc from to msg promises2 mem2 kind)
+        (PROMISE: promise promises1 mem1 loc from to val released promises2 mem2 kind)
         (GET: get l t promises2 = Some (f, m)):
-    (l = loc /\ t = to /\ f = from /\ m = msg /\ get l t promises1 = None) \/
+    (l = loc /\ t = to /\ f = from /\ m = Message.mk val released /\ get l t promises1 = None) \/
     (~ (l = loc /\ t = to) /\ exists f', get l t promises1 = Some (f', m)).
   Proof.
     inv PROMISE.
@@ -1381,10 +1395,10 @@ Module Memory.
   Qed.
 
   Lemma promise_future
-        promises1 mem1 loc from to msg promises2 mem2 kind
+        promises1 mem1 loc from to val released promises2 mem2 kind
         (LE_PROMISES1: le promises1 mem1)
         (CLOSED1: closed mem1)
-        (PROMISE: promise promises1 mem1 loc from to msg promises2 mem2 kind):
+        (PROMISE: promise promises1 mem1 loc from to val released promises2 mem2 kind):
     <<LE_PROMISES2: le promises2 mem2>> /\
     <<CLOSED2: closed mem2>> /\
     <<FUTURE: future mem1 mem2>>.
@@ -1396,14 +1410,13 @@ Module Memory.
         * eapply add_get1; eauto.
       + econs.
         * ii. eapply add_get_inv in MSG; eauto. des.
-          { inv MSG1. inv MEM. eauto. }
+          { inv MSG2. inv MEM. eauto. }
           { inv CLOSED1. exploit CLOSED0; eauto. i. des. splits; auto.
             eapply future_closed_capability; eauto.
             econs 2; eauto. econs 1. eauto.
           }
-        * ii. eapply CLOSED1. instantiate (1 := loc0).
-          destruct (get loc0 Time.elt mem1) as [[]|] eqn:X; auto.
-          exploit add_get1; eauto. i. congr.
+        * i. inv CLOSED1. exploit ELT; eauto. instantiate (1 := loc0). i. des.
+          exploit add_get1; eauto.
       + econs 2; eauto. econs 1; eauto.
     - splits; eauto.
       + ii. eapply split_get_inv in LHS; eauto. des.
@@ -1414,22 +1427,23 @@ Module Memory.
           subst. contradict LHS0. auto.
       + econs.
         * ii. eapply split_get_inv' in MSG; eauto. des.
-          { subst. inv MEM. eauto. }
+          { inv MSG2. subst. inv MEM. eauto. }
           { inv CLOSED1. exploit CLOSED0; eauto. i. des. splits; auto.
             eapply future_closed_capability; eauto.
             econs 2; eauto. econs 2. eauto.
           }
-        * ii. eapply CLOSED1. instantiate (1 := loc0).
-          destruct (get loc0 Time.elt mem1) as [[]|] eqn:X; auto.
-          exploit split_get1; eauto. i. des; congr.
+        * i. inv CLOSED1. exploit ELT; eauto. instantiate (1 := loc0). i. des.
+          exploit split_get1; eauto. i. des; subst.
+          { eexists _, _, _. eauto. }
+          { eexists _, _, _. eauto. }
       + econs 2; eauto. econs 2; eauto.
   Qed.
 
   Lemma promise_disjoint
-        promises1 mem1 loc from to msg promises2 mem2 ctx kind
+        promises1 mem1 loc from to val released promises2 mem2 ctx kind
         (LE_PROMISES1: le promises1 mem1)
         (CLOSED1: closed mem1)
-        (PROMISE: promise promises1 mem1 loc from to msg promises2 mem2 kind)
+        (PROMISE: promise promises1 mem1 loc from to val released promises2 mem2 kind)
         (LE_PROMISES: le ctx mem1)
         (DISJOINT: Memory.disjoint promises1 ctx):
     <<DISJOINT: Memory.disjoint promises2 ctx>> /\
@@ -1465,20 +1479,20 @@ Module Memory.
   Qed.
 
   Lemma fulfill_future
-        promises1 mem1 loc from to msg promises2
+        promises1 mem1 loc from to val released promises2
         (LE_PROMISES1: le promises1 mem1)
         (CLOSED1: closed mem1)
-        (FULFILL: fulfill promises1 loc from to msg promises2):
+        (FULFILL: fulfill promises1 loc from to val released promises2):
     <<LE_PROMISES2: le promises2 mem1>>.
   Proof.
     inv FULFILL. ii. eapply remove_get_inv in LHS; eauto. des. auto.
   Qed.
 
   Lemma fulfill_disjoint
-        promises1 mem1 loc from to msg promises2 ctx
+        promises1 mem1 loc from to val released promises2 ctx
         (LE_PROMISES1: le promises1 mem1)
         (CLOSED1: closed mem1)
-        (FULFILL: fulfill promises1 loc from to msg promises2)
+        (FULFILL: fulfill promises1 loc from to val released promises2)
         (LE_PROMISES: le ctx mem1)
         (DISJOINT: disjoint promises1 ctx):
     <<DISJOINT: disjoint promises2 ctx>>.
@@ -1488,37 +1502,60 @@ Module Memory.
     eapply DISJOINT; eauto.
   Qed.
 
+  Lemma strengthen_future
+        promises1 mem1 loc from to val released1 released2 promises2 mem2
+        (LE_PROMISES1: le promises1 mem1)
+        (CLOSED1: closed mem1)
+        (STRENGTHEN: strengthen promises1 mem1 loc from to val released1 released2 promises2 mem2):
+    <<LE_PROMISES2: le promises2 mem2>> /\
+    <<CLOSED2: closed mem2>> /\
+    <<FUTURE: future mem1 mem2>>.
+  Proof.
+  Admitted.
+
+  Lemma strengthen_disjoint
+        promises1 mem1 loc from to val released1 released2 promises2 mem2 ctx
+        (LE_PROMISES1: le promises1 mem1)
+        (CLOSED1: closed mem1)
+        (STRENGTHEN: strengthen promises1 mem1 loc from to val released1 released2 promises2 mem2)
+        (LE_PROMISES: le ctx mem1)
+        (DISJOINT: Memory.disjoint promises1 ctx):
+    <<DISJOINT: Memory.disjoint promises2 ctx>> /\
+    <<LE_PROMISES: le ctx mem2>>.
+  Proof.
+  Admitted.
+
   Definition max_ts (loc:Loc.t) (mem:t): Time.t :=
     Cell.max_ts (mem loc).
 
   Lemma max_ts_spec
-        loc mem
-        (INHABITED: get loc Time.elt mem <> None):
-    <<GET: exists from msg, get loc (max_ts loc mem) mem = Some (from, msg)>> /\
-    <<MAX: forall ts (GET: get loc ts mem <> None), Time.le ts (max_ts loc mem)>>.
-  Proof.
-    exploit Cell.max_ts_spec; eauto. i. des.
-    splits; eauto.
-  Qed.
+        loc ts from msg mem
+        (GET: get loc ts mem = Some (from, msg)):
+    <<GET: exists from val released, get loc (max_ts loc mem) mem = Some (from, Message.mk val released)>> /\
+    <<MAX: Time.le ts (max_ts loc mem)>>.
+  Proof. eapply Cell.max_ts_spec; eauto. Qed.
 
   Definition max_timemap (mem:t): TimeMap.t :=
     fun loc => max_ts loc mem.
 
   Lemma max_timemap_closed
         mem
-        (INHABITED: forall loc, get loc Time.elt mem <> None):
+        (INHABITED: forall loc, exists ts from msg, get loc ts mem = Some (from, msg)):
     closed_timemap (max_timemap mem) mem.
   Proof.
-    ii. apply max_ts_spec; auto.
+    ii. specialize (INHABITED loc). des.
+    right. eapply max_ts_spec. eauto.
   Qed.
 
   Lemma max_timemap_spec tm mem
         (TIMEMAP: closed_timemap tm mem)
-        (INHABITED: forall loc, get loc Time.elt mem <> None):
+        (INHABITED: forall loc, exists ts from msg, get loc ts mem = Some (from, msg)):
     TimeMap.le tm (max_timemap mem).
   Proof.
-    ii. apply max_ts_spec; auto.
-    exploit TIMEMAP. i. des. rewrite x. congr.
+    ii. specialize (INHABITED loc). des.
+    exploit TIMEMAP. i. des.
+    - rewrite x. apply Time.bot_spec.
+    - eapply max_ts_spec; eauto.
   Qed.
 
   Definition max_capability (mem:t): Capability.t :=
@@ -1529,103 +1566,116 @@ Module Memory.
 
   Lemma max_capability_closed
         mem
-        (INHABITED: forall loc, get loc Time.elt mem <> None):
+        (INHABITED: forall loc, exists ts from msg, get loc ts mem = Some (from, msg)):
     closed_capability (max_capability mem) mem.
   Proof. econs; apply max_timemap_closed; auto. Qed.
 
   Lemma max_capability_spec tm mem
         (CAPABILITY: closed_capability tm mem)
-        (INHABITED: forall loc, get loc Time.elt mem <> None):
+        (INHABITED: forall loc, exists ts from msg, get loc ts mem = Some (from, msg)):
     Capability.le tm (max_capability mem).
   Proof.
     econs; apply max_timemap_spec; try apply CAPABILITY; auto.
   Qed.
 
   Lemma add_inhabited
-        mem1 mem2 loc to msg
-        (ADD: add mem1 loc (max_ts loc mem1) to msg mem2)
-        (INHABITED: forall loc, get loc Time.elt mem1 <> None):
-    <<INHABITED: forall loc, get loc Time.elt mem2 <> None>>.
+        mem1 mem2 loc to val released
+        (ADD: add mem1 loc (max_ts loc mem1) to val released mem2)
+        (INHABITED: forall loc, exists ts from msg, get loc ts mem1 = Some (from, msg)):
+    <<INHABITED: forall loc, exists ts from msg, get loc ts mem2 = Some (from, msg)>>.
   Proof.
-    ii. eapply INHABITED. instantiate (1 := loc0).
-    destruct (get loc0 Time.elt mem1) as [[]|] eqn:X; auto.
-    exploit add_get1; eauto. i. congr.
+    ii. specialize (INHABITED loc0). des.
+    exploit add_get1; eauto.
   Qed.
 
   Lemma add_max_timemap
-        mem1 mem2 loc to msg
-        (ADD: add mem1 loc (max_ts loc mem1) to msg mem2)
-        (INHABITED: forall loc, get loc Time.elt mem1 <> None):
-    max_timemap mem2 = TimeMap.incr loc to (max_timemap mem1).
+        mem1 mem2 loc to val released
+        (ADD: add mem1 loc (max_ts loc mem1) to val released mem2)
+        (INHABITED: forall loc, exists ts from msg, get loc ts mem1 = Some (from, msg)):
+    max_timemap mem2 = TimeMap.join (max_timemap mem1) (TimeMap.singleton loc to).
   Proof.
     hexploit add_inhabited; eauto. i. des.
     extensionality l. apply TimeFacts.antisym; auto.
     - exploit max_timemap_closed; eauto. instantiate (1 := l). i. des.
+      { rewrite x0. apply Time.bot_spec. }
       exploit add_get_inv; eauto. i. des.
-      + subst. apply TimeMap.incr_ts.
-      + etrans; [|apply TimeMap.incr_le].
-        inv ADD. unfold LocFun.add, LocFun.find.
-        unfold max_timemap, max_ts. condtac; [|refl].
-        subst. contradict x1. splits; auto.
-        unfold LocFun.add, LocFun.find.
-        unfold max_timemap, max_ts. condtac; [|congr].
-        eapply Cell.add_max_ts; eauto.
-    - apply max_timemap_spec; auto.
-      exploit add_get2; eauto. i.
-      eapply incr_closed_timemap; eauto.
-      eapply future_closed_timemap.
-      + apply max_timemap_closed. auto.
-      + econs 2; [|econs 1]. econs 1. eauto.
+      + subst. etrans; [|apply TimeMap.join_r].
+        apply TimeMap.singleton_inv. refl.
+      + etrans; [|apply TimeMap.join_l].
+        eapply max_ts_spec; eauto.
+    - apply TimeMap.join_spec.
+      + apply max_timemap_spec; auto.
+        eapply future_closed_timemap.
+        * apply max_timemap_closed. auto.
+        * econs 2; [|econs 1]. econs 1. eauto.
+      + exploit add_get2; eauto. i.
+        apply TimeMap.singleton_spec. eapply max_ts_spec. eauto.
   Qed.
 
   Lemma add_max_capability
-        mem1 mem2 loc to msg
-        (ADD: add mem1 loc (max_ts loc mem1) to msg mem2)
-        (INHABITED: forall loc, get loc Time.elt mem1 <> None):
-    max_capability mem2 = Capability.incr_ur loc to (max_capability mem1).
+        mem1 mem2 loc to val released
+        (ADD: add mem1 loc (max_ts loc mem1) to val released mem2)
+        (INHABITED: forall loc, exists ts from msg, get loc ts mem1 = Some (from, msg)):
+    max_capability mem2 = Capability.join (max_capability mem1) (Capability.singleton_ur loc to).
   Proof.
-    unfold max_capability, Capability.incr_ur. s. f_equal.
+    apply Capability.ext; s.
     - eapply add_max_timemap; eauto.
     - eapply add_max_timemap; eauto.
     - eapply add_max_timemap; eauto.
   Qed.
 
   Lemma add_exists
-        mem1 loc from to msg:
-    exists mem2, add mem1 loc from to msg mem2.
+        mem1 loc from to val released
+        (DISJOINT: forall to2 from2 msg2
+                     (GET2: get loc to2 mem1 = Some (from2, msg2)),
+            to <> from2 /\ Interval.disjoint (from, to) (from2, to2))
+        (TO1: Time.lt from to)
+        (WF: Capability.wf released):
+    exists mem2, add mem1 loc from to val released mem2.
   Proof.
-  Admitted.
+    exploit Cell.add_exists; eauto. i. des.
+    eexists. econs; eauto.
+  Qed.
 
   Lemma split_exists
-        mem1 loc from to1 to2 msg:
-    exists mem2, split mem1 loc from to1 to2 msg mem2.
+        mem1 loc from to1 to2 val released msg2
+        (GET2: get loc to2 mem1 = Some (from, msg2))
+        (TO1: Time.lt from to1)
+        (TO2: Time.lt to1 to2)
+        (WF: Capability.wf released):
+    exists mem2, split mem1 loc from to1 to2 val released mem2.
   Proof.
-  Admitted.
+    exploit Cell.split_exists; eauto. i. des.
+    eexists. econs; eauto.
+  Qed.
 
   Lemma add_exists_max_ts
         mem1 loc to val
         (TS: Time.lt (max_ts loc mem1) to)
         (CLOSED: closed mem1):
     exists mem2,
-      add mem1 loc (max_ts loc mem1) to (Message.mk val (max_capability mem2)) mem2.
+      add mem1 loc (max_ts loc mem1) to val (max_capability mem2) mem2.
   Proof.
-    exploit Cell.add_exists_max_ts; eauto.
-    { instantiate (1 := Capability.incr_ur loc to (max_capability mem1)).
-      apply Capability.incr_ur_wf. apply max_capability_wf.
+    exploit add_exists; eauto.
+    { instantiate (1 := mem1). instantiate (1 := loc).
+      i. exploit max_ts_spec; eauto. i. des. splits.
+      - ii. subst. destruct (mem1 loc).(Cell.WF). exploit VOLUME; try apply GET2; eauto. i.
+        rewrite x in TS. eapply Time.lt_strorder. eapply TimeFacts.le_lt_lt; eauto.
+      - ii. inv LHS. inv RHS. ss.
+        rewrite MAX in TO0. eapply Time.lt_strorder. eapply TimeFacts.le_lt_lt; eauto.
     }
-    i. des. eexists. erewrite add_max_capability; eauto.
-    - econs; eauto. s.
-      apply Capability.incr_ur_wf. apply max_capability_wf.
-    - econs; eauto. s.
-      apply Capability.incr_ur_wf. apply max_capability_wf.
-    - apply CLOSED.
+    { apply Capability.join_wf.
+      - apply max_capability_wf.
+      - apply Capability.singleton_ur_wf.
+    }
+    i. des. erewrite <- add_max_capability in x0; eauto. apply CLOSED.
   Qed.
 
   Lemma add_exists_le
-        promises1 mem1 loc from to msg mem2
+        promises1 mem1 loc from to val released mem2
         (LE: le promises1 mem1)
-        (ADD: add mem1 loc from to msg mem2):
-    exists promises2, add promises1 loc from to msg promises2.
+        (ADD: add mem1 loc from to val released mem2):
+    exists promises2, add promises1 loc from to val released promises2.
   Proof.
     inv ADD.
     exploit Cell.add_exists_le; eauto.
@@ -1635,10 +1685,10 @@ Module Memory.
   Qed.
 
   Lemma split_exists_le
-        promises1 mem1 loc from to1 to2 msg promises2
+        promises1 mem1 loc from to1 to2 val released promises2
         (LE: le promises1 mem1)
-        (SPLIT: split promises1 loc from to1 to2 msg promises2):
-    exists mem2, split mem1 loc from to1 to2 msg mem2.
+        (SPLIT: split promises1 loc from to1 to2 val released promises2):
+    exists mem2, split mem1 loc from to1 to2 val released mem2.
   Proof.
     inv SPLIT.
     exploit Cell.split_exists_le; eauto.
@@ -1650,11 +1700,11 @@ Module Memory.
   Lemma promise_add_exists
         promises1 mem1 loc from to val released mem2
         (LE_PROMISES1: le promises1 mem1)
-        (ADD: add mem1 loc from to (Message.mk val released) mem2)
+        (ADD: add mem1 loc from to val released mem2)
         (REL: closed_capability released mem2)
         (TS: Time.le (Capability.rw released loc) to):
     exists promises2,
-      promise promises1 mem1 loc from to (Message.mk val released) promises2 mem2 promise_kind_add.
+      promise promises1 mem1 loc from to val released promises2 mem2 promise_kind_add.
   Proof.
     exploit add_exists_le; eauto. i. des.
     eexists _. econs 1; s; eauto.
@@ -1663,11 +1713,11 @@ Module Memory.
   Lemma promise_split_exists
         promises1 mem1 loc from to1 to2 val released promises2
         (LE_PROMISES1: le promises1 mem1)
-        (ADD: split promises1 loc from to1 to2 (Message.mk val released) promises2)
+        (ADD: split promises1 loc from to1 to2 val released promises2)
         (TS: Time.le (Capability.rw released loc) to1):
     exists mem2,
       closed_capability released mem2 ->
-      promise promises1 mem1 loc from to1 (Message.mk val released) promises2 mem2 promise_kind_split.
+      promise promises1 mem1 loc from to1 val released promises2 mem2 promise_kind_split.
   Proof.
     exploit split_exists_le; eauto. i. des.
     eexists _. i. econs 2; s; eauto.
@@ -1679,24 +1729,25 @@ Module Memory.
         (CLOSED1: closed mem1)
         (TS: Time.lt (max_ts loc mem1) to):
     exists promises2 mem2,
-      promise promises1 mem1 loc (max_ts loc mem1) to (Message.mk val (max_capability mem2)) promises2 mem2 promise_kind_add.
+      promise promises1 mem1 loc (max_ts loc mem1) to val (max_capability mem2) promises2 mem2 promise_kind_add.
   Proof.
     exploit add_exists_max_ts; eauto. i. des.
     hexploit add_inhabited; try apply CLOSED1; eauto. i. des.
     exploit promise_add_exists; eauto.
     { apply max_capability_closed. auto. }
     { erewrite add_max_capability; try apply CLOSED1; eauto. ss.
-      unfold TimeMap.incr, LocFun.add, LocFun.find. condtac; [|congr].
-      apply Time.join_spec; [|refl]. apply Time.le_lteq. eauto.
+      apply Time.join_spec.
+      - left. auto.
+      - unfold TimeMap.singleton, LocFun.add, LocFun.find. condtac; [|congr]. refl.
     }
     i. des. eexists _, _. eauto.
   Qed.
 
   Lemma remove_singleton
-        loc from to msg (LT:Time.lt from to):
-    remove (singleton loc msg LT) loc from to msg bot.
+        loc from to val released (LT:Time.lt from to):
+    remove (singleton loc val released LT) loc from to val released bot.
   Proof.
-    assert (bot = LocFun.add loc Cell.bot (singleton loc msg LT)).
+    assert (bot = LocFun.add loc Cell.bot (singleton loc val released LT)).
     { apply ext. i. rewrite bot_get.
       unfold get, LocFun.add, LocFun.find. condtac.
       - rewrite Cell.bot_get. auto.
@@ -1709,9 +1760,9 @@ Module Memory.
   Qed.
 
   Lemma remove_exists
-        mem1 loc from to msg
-        (GET: get loc to mem1 = Some (from, msg)):
-    exists mem2, remove mem1 loc from to msg mem2.
+        mem1 loc from to val released
+        (GET: get loc to mem1 = Some (from, Message.mk val released)):
+    exists mem2, remove mem1 loc from to val released mem2.
   Proof.
     exploit Cell.remove_exists; eauto. i. des.
     eexists. econs. eauto.

@@ -83,14 +83,15 @@ Lemma progress_read_step
   exists val released lc2,
     Local.read_step lc1 mem1 loc (Memory.max_ts loc mem1) val released ord lc2.
 Proof.
-  exploit (Memory.max_ts_spec loc); try apply MEM1; eauto. i. des. destruct msg.
+  exploit (Memory.max_ts_spec loc); try apply MEM1; eauto. i. des.
   exploit (@CommitFacts.read_min_spec loc (Memory.max_ts loc mem1) released); try apply WF1; i.
   { eapply MAX. inv WF1. inv COMMIT_CLOSED. inv CUR. exploit UR; eauto. i. des. rewrite x. congr. }
   { eapply MAX. inv WF1. inv COMMIT_CLOSED. inv CUR. exploit RW; eauto. i. des. rewrite x. congr. }
   { inv MEM1. exploit CLOSED; eauto. i. des. auto. }
-  eexists _, _, _. econs; try apply x0; eauto.
-  eapply CommitFacts.read_min_closed; eauto.
-  apply WF1.
+  eexists _, _, _. econs; try exact x0; eauto.
+  - refl.
+  - eapply CommitFacts.read_min_closed; eauto.
+    apply WF1.
 Qed.
 
 Lemma progress_fulfill_step
@@ -100,7 +101,7 @@ Lemma progress_fulfill_step
       (WF1: Local.wf lc1 mem1)
       (MEM1: Memory.closed mem1)
       (GET1: Memory.get loc to mem1 = Some (from, Message.mk val releasedm))
-      (PROMISES1: lc1.(Local.promises) = Memory.singleton loc (Message.mk val releasedm) LT)
+      (PROMISES1: lc1.(Local.promises) = Memory.singleton loc val releasedm LT)
       (TO: Time.le (Capability.rw releasedc loc) to)
       (RW: Time.lt (Capability.rw (Commit.cur (Local.commit lc1)) loc) to)
       (REL2: Capability.le (Commit.rel (Local.commit lc1) loc) releasedc)
@@ -131,7 +132,7 @@ Lemma progress_write_step
 Proof.
   destruct lc1. ss. subst.
   exploit progress_promise_step; eauto. s. i. des.
-  assert (promises2 = Memory.singleton loc (Message.mk val (Memory.max_capability mem2)) LT); subst.
+  assert (promises2 = Memory.singleton loc val (Memory.max_capability mem2) LT); subst.
   { inv x0. ss. apply Memory.ext. i.
     rewrite Memory.singleton_get. repeat condtac; subst.
     - destruct (Memory.get loc to promises2) as [[]|] eqn:X.

@@ -54,14 +54,14 @@ Lemma unused_read
     Local.read_step lc0 mem0 loc ts val released ord lc0.
 Proof.
   destruct lc0.
-  assert (exists from msg, Memory.get loc (Capability.ur (Commit.cur commit) loc) mem0 = Some (from, msg)) by apply WF.
-  i. des. destruct msg.
+  assert (exists from val released, Memory.get loc (Capability.ur (Commit.cur commit) loc) mem0 = Some (from, Message.mk val released)) by apply WF.
+  i. des.
   inv MEM. exploit CLOSED; eauto. i. des.
   exploit (CommitFacts.read_min_spec loc); eauto.
   { refl. }
   { i. instantiate (1 := ord) in H0. destruct ord; inv ORD; inv H0. }
   { apply WF. }
-  s. i. eexists _, _, _. refine (Local.step_read _ _ _ _ ); eauto. s.
+  s. i. eexists _, _, _. refine (Local.step_read _ _ _ _ _ ); eauto. s.
   replace (CommitFacts.read_min
              loc
              (Capability.ur (Commit.cur commit) loc) released ord

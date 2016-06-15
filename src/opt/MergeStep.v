@@ -47,7 +47,7 @@ Proof.
   { apply ORD2. }
   { apply COMMIT. }
   { apply WF0. }
-  { inv MEM0. exploit CLOSED; eauto. s. i. des. auto. }
+  { inv MEM0. exploit CLOSED; eauto. i. des. auto. }
   i. des.
   eexists. splits.
   - econs; eauto. eapply CommitFacts.read_min_closed; eauto; apply WF0.

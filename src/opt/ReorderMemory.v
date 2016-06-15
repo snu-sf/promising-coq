@@ -26,26 +26,26 @@ Set Implicit Arguments.
 
 
 Lemma fulfill_promise
-      promises1 loc1 from1 to1 msg1
-      promises2 loc2 from2 to2 msg2
+      promises1 loc1 from1 to1 val1 released1
+      promises2 loc2 from2 to2 val2 released2
       promises3
       mem1 mem3
       kind
       (LE: Memory.le promises1 mem1)
-      (FULFILL: Memory.fulfill promises1 loc1 from1 to1 msg1 promises2)
-      (PROMISE: Memory.promise promises2 mem1 loc2 from2 to2 msg2 promises3 mem3 kind):
+      (FULFILL: Memory.fulfill promises1 loc1 from1 to1 val1 released1 promises2)
+      (PROMISE: Memory.promise promises2 mem1 loc2 from2 to2 val2 released2 promises3 mem3 kind):
   exists promises2',
-    Memory.promise promises1 mem1 loc2 from2 to2 msg2 promises2' mem3 kind /\
-    Memory.fulfill promises2' loc1 from1 to1 msg1 promises3.
+    Memory.promise promises1 mem1 loc2 from2 to2 val2 released2 promises2' mem3 kind /\
+    Memory.fulfill promises2' loc1 from1 to1 val1 released1 promises3.
 Proof.
 Admitted.
 
 Lemma get_fulfill
-      promises0 mem0 loc from to msg promises1
+      promises0 mem0 loc from to val released promises1
       l t
       (LOC: loc <> l)
       (LE: Memory.le promises0 mem0)
-      (FULFILL: Memory.fulfill promises0 loc from to msg promises1):
+      (FULFILL: Memory.fulfill promises0 loc from to val released promises1):
   Memory.get l t promises0 = Memory.get l t promises1.
 Proof.
   destruct (Memory.get l t promises0) as [[]|] eqn:X.
@@ -58,24 +58,24 @@ Proof.
 Qed.
 
 Lemma cell_fulfill
-      promises0 loc from to msg promises1
+      promises0 loc from to val released promises1
       l
       (LOC: loc <> l)
-      (FULFILL: Memory.fulfill promises0 loc from to msg promises1):
+      (FULFILL: Memory.fulfill promises0 loc from to val released promises1):
   promises0 l = promises1 l.
 Proof.
   apply Cell.ext. i. eapply get_fulfill; eauto. refl.
 Qed.
 
 Lemma fulfill_fulfill
-      promises1 loc1 from1 to1 msg1
-      promises2 loc2 from2 to2 msg2
+      promises1 loc1 from1 to1 val1 released1
+      promises2 loc2 from2 to2 val2 released2
       promises3
-      (FULFILL1: Memory.fulfill promises1 loc1 from1 to1 msg1 promises2)
-      (FULFILL2: Memory.fulfill promises2 loc2 from2 to2 msg2 promises3):
+      (FULFILL1: Memory.fulfill promises1 loc1 from1 to1 val1 released1 promises2)
+      (FULFILL2: Memory.fulfill promises2 loc2 from2 to2 val2 released2 promises3):
   exists promises2',
-    Memory.fulfill promises1 loc2 from2 to2 msg2 promises2' /\
-    Memory.fulfill promises2' loc1 from1 to1 msg1 promises3.
+    Memory.fulfill promises1 loc2 from2 to2 val2 released2 promises2' /\
+    Memory.fulfill promises2' loc1 from1 to1 val1 released1 promises3.
 Proof.
   exploit Memory.remove_disjoint; try apply FULFILL2; eauto. i.
   exploit Memory.remove_get_inv; try apply FULFILL1; eauto. i. des.

@@ -20,70 +20,50 @@ Require Import Configuration.
 
 Set Implicit Arguments.
 
-
-Inductive sim_memory (mem_src mem_tgt:Memory.t): Prop :=
-| sim_memory_intro
-    (SPLITS: Memory.splits mem_tgt mem_src)
-.
-
-Program Instance sim_memory_PreOrder: PreOrder sim_memory.
-Next Obligation. ii. econs. refl. Qed.
-Next Obligation. ii. inv H. inv H0. econs. etrans; eauto. Qed.
-
-Lemma sim_memory_get
-      mem_src mem_tgt
-      loc from to msg
-      (SIM: sim_memory mem_src mem_tgt)
-      (TGT: Memory.get loc to mem_tgt = Some (from, msg)):
-  exists from', Memory.get loc to mem_src = Some (from', msg).
-Proof.
-  eapply Memory.splits_get; eauto. apply SIM.
-Qed.
-
-Lemma sim_memory_add
+Lemma memory_sim_add
       mem1_src mem1_tgt
       mem2_src mem2_tgt
-      loc from to msg
-      (SIM: sim_memory mem1_src mem1_tgt)
-      (SRC: Memory.add mem1_src loc from to msg mem2_src)
-      (TGT: Memory.add mem1_tgt loc from to msg mem2_tgt):
-  sim_memory mem2_src mem2_tgt.
+      loc from to val released
+      (SIM: Memory.sim mem1_tgt mem1_src)
+      (SRC: Memory.add mem1_src loc from to val released mem2_src)
+      (TGT: Memory.add mem1_tgt loc from to val released  mem2_tgt):
+  Memory.sim mem2_tgt mem2_src.
 Proof.
 Admitted.
 
-Lemma sim_memory_split
+Lemma memory_sim_split
       mem1_src mem1_tgt
       mem2_src mem2_tgt
-      loc from to1 to2 msg
-      (SIM: sim_memory mem1_src mem1_tgt)
-      (SRC: Memory.split mem1_src loc from to1 to2 msg mem2_src)
-      (TGT: Memory.split mem1_tgt loc from to1 to2 msg mem2_tgt):
-  sim_memory mem2_src mem2_tgt.
+      loc from to1 to2 val released
+      (SIM: Memory.sim mem1_tgt mem1_src)
+      (SRC: Memory.split mem1_src loc from to1 to2 val released mem2_src)
+      (TGT: Memory.split mem1_tgt loc from to1 to2 val released mem2_tgt):
+  Memory.sim mem2_tgt mem2_src.
 Proof.
 Admitted.
 
-Lemma sim_memory_closed_timemap
+Lemma memory_sim_closed_timemap
       mem_src mem_tgt
       tm
-      (SIM: sim_memory mem_src mem_tgt)
+      (SIM: Memory.sim mem_tgt mem_src)
       (TGT: Memory.closed_timemap tm mem_tgt):
   Memory.closed_timemap tm mem_src.
 Proof.
   ii. exploit TGT; eauto. i. des.
-  exploit sim_memory_get; eauto. i. des. eauto.
+  exploit Memory.sim_get; eauto. i. des. eauto.
 Qed.
 
-Lemma sim_memory_closed_capability
+Lemma memory_sim_closed_capability
       mem_src mem_tgt
       capability
-      (SIM: sim_memory mem_src mem_tgt)
+      (SIM: Memory.sim mem_tgt mem_src)
       (TGT: Memory.closed_capability capability mem_tgt):
   Memory.closed_capability capability mem_src.
 Proof.
   econs.
-  - eapply sim_memory_closed_timemap; eauto. apply TGT.
-  - eapply sim_memory_closed_timemap; eauto. apply TGT.
-  - eapply sim_memory_closed_timemap; eauto. apply TGT.
+  - eapply memory_sim_closed_timemap; eauto. apply TGT.
+  - eapply memory_sim_closed_timemap; eauto. apply TGT.
+  - eapply memory_sim_closed_timemap; eauto. apply TGT.
 Qed.
 
 Module MemInv.
@@ -250,28 +230,28 @@ Module MemInv.
 
   Lemma promise
         inv
-        loc from to msg
+        loc from to val released
         promises1_src mem1_src
         promises1_tgt mem1_tgt promises2_tgt mem2_tgt
         kind
-        (PROMISES_TGT: Memory.promise promises1_tgt mem1_tgt loc from to msg promises2_tgt mem2_tgt kind)
+        (PROMISES_TGT: Memory.promise promises1_tgt mem1_tgt loc from to val released promises2_tgt mem2_tgt kind)
         (INV1: sem inv promises1_src promises1_tgt)
-        (SIM1: sim_memory mem1_src mem1_tgt)
+        (SIM1: Memory.sim mem1_tgt mem1_src)
         (LE1_SRC: Memory.le promises1_src mem1_src)
         (LE1_TGT: Memory.le promises1_tgt mem1_tgt)
         (CLOSED1_SEC: Memory.closed mem1_src)
         (CLOSED1_TGT: Memory.closed mem1_tgt):
     exists promises2_src mem2_src,
-      <<PROMISES_SRC: Memory.promise promises1_src mem1_src loc from to msg promises2_src mem2_src kind>> /\
+      <<PROMISES_SRC: Memory.promise promises1_src mem1_src loc from to val released promises2_src mem2_src kind>> /\
       <<INV2: sem inv promises2_src promises2_tgt>> /\
       <<LE2_SRC: Memory.le promises2_src mem2_src>> /\
-      <<SIM2: sim_memory mem2_src mem2_tgt>>.
+      <<SIM2: Memory.sim mem2_tgt mem2_src>>.
   Proof.
-    destruct msg. inv PROMISES_TGT; ss.
+    inv PROMISES_TGT; ss.
     - exploit Memory.add_exists; eauto. i. des.
-      exploit sim_memory_add; try apply INV1; eauto. i.
+      exploit memory_sim_add; try apply INV1; eauto. i.
       exploit Memory.promise_add_exists; try apply LE1_SRC; eauto.
-      { eapply sim_memory_closed_capability; eauto. }
+      { eapply memory_sim_closed_capability; eauto. }
       i. des.
       exploit Memory.promise_future; try apply x2; eauto. i. des.
       eexists _, _. splits; eauto.
@@ -295,8 +275,8 @@ Module MemInv.
           exploit Memory.add_get1; try apply Y; eauto. congr.
     - exploit Memory.split_exists; eauto. i. des.
       exploit Memory.split_exists_le; try apply LE1_SRC; eauto. i. des.
-      exploit sim_memory_split; try apply INV1; eauto. i.
-      exploit sim_memory_closed_capability; eauto. i.
+      exploit memory_sim_split; try apply INV1; eauto. i.
+      exploit memory_sim_closed_capability; eauto. i.
       exploit Memory.promise_split; [apply x0|apply x1| | |]; eauto. i.
       exploit Memory.promise_future; try apply x4; eauto. i. des.
       eexists _, _. splits; eauto.
@@ -329,8 +309,8 @@ Module MemInv.
         inv
         promises1_src
         promises1_tgt promises2_tgt
-        loc from to msg
-        (FULFILL_TGT: Memory.fulfill promises1_tgt loc from to msg promises2_tgt)
+        loc from to val released
+        (FULFILL_TGT: Memory.fulfill promises1_tgt loc from to val released promises2_tgt)
         (INV: sem inv promises1_src promises1_tgt):
     sem (set loc to inv) promises1_src promises2_tgt.
   Proof.
@@ -359,12 +339,12 @@ Module MemInv.
         inv
         promises1_src
         promises1_tgt
-        loc from to msg
+        loc from to val released
         (MEM: mem loc to inv)
-        (SRC: Memory.get loc to promises1_src = Some (from, msg))
+        (SRC: Memory.get loc to promises1_src = Some (from, Message.mk val released))
         (INV1: sem inv promises1_src promises1_tgt):
     exists promises2_src,
-      <<FULFILL_SRC: Memory.fulfill promises1_src loc from to msg promises2_src>> /\
+      <<FULFILL_SRC: Memory.fulfill promises1_src loc from to val released promises2_src>> /\
       <<INV2: sem (unset loc to inv) promises2_src promises1_tgt>>.
   Proof.
     inv INV1. exploit GET; eauto. i. des.
@@ -392,16 +372,16 @@ Module MemInv.
 
   Lemma fulfill
         inv
-        loc from to msg
+        loc from to val released
         promises1_src mem1_src
         promises1_tgt mem1_tgt promises2_tgt
-        (FULFILL_TGT: Memory.fulfill promises1_tgt loc from to msg promises2_tgt)
+        (FULFILL_TGT: Memory.fulfill promises1_tgt loc from to val released promises2_tgt)
         (INV1: sem inv promises1_src promises1_tgt)
-        (SIM1: sim_memory mem1_src mem1_tgt)
+        (SIM1: Memory.sim mem1_tgt mem1_src)
         (LE1_SRC: Memory.le promises1_src mem1_src)
         (LE1_TGT: Memory.le promises1_tgt mem1_tgt):
     exists promises2_src,
-      <<FULFILL_SRC: Memory.fulfill promises1_src loc from to msg promises2_src>> /\
+      <<FULFILL_SRC: Memory.fulfill promises1_src loc from to val released promises2_src>> /\
       <<INV2: sem inv promises2_src promises2_tgt>>.
   Proof.
     exploit fulfill_tgt; eauto. i.
@@ -423,7 +403,7 @@ Module MemInv.
         promises_tgt mem1_tgt
         (FUTURE_SRC: Memory.future mem1_src mem2_src)
         (INV1: sem inv promises_src promises_tgt)
-        (SIM1: sim_memory mem1_src mem1_tgt)
+        (SIM1: Memory.sim mem1_tgt mem1_src)
         (LE1_SRC: Memory.le promises_src mem1_src)
         (LE1_TGT: Memory.le promises_tgt mem1_tgt)
         (LE2_SRC: Memory.le promises_src mem2_src):
@@ -431,7 +411,7 @@ Module MemInv.
       <<LE2_TGT: Memory.le promises_tgt mem2_src>>.
   Proof.
     splits.
-    - etrans; eauto. apply Memory.splits_future. apply SIM1.
+    - etrans; eauto. apply Memory.sim_future. apply SIM1.
     - etrans; [apply INV1|]. eauto.
   Qed.
 

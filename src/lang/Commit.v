@@ -116,22 +116,54 @@ Module Commit <: JoinableType.
     - apply Capability.join_spec; eauto.
   Qed.
 
-  Inductive read
-            (commit1:t) (loc:Loc.t) (ts:Time.t) (released:Capability.t) (ord:Ordering.t)
-            (commit2:t): Prop :=
-  | read_intro
-      (MON: le commit1 commit2)
-      (ACQ: Ordering.le Ordering.relaxed ord ->
-            Capability.le released commit2.(acq))
-      (UR1: Time.le (commit1.(cur).(Capability.ur) loc) ts)
-      (RW1: Ordering.le Ordering.relaxed ord ->
-            Time.le (commit1.(cur).(Capability.rw) loc) ts)
-      (RW2: Time.le ts (commit2.(cur).(Capability.rw) loc))
-      (RA: Ordering.le Ordering.acqrel ord ->
-           Capability.le released commit2.(cur))
-      (WF_REL: Capability.wf released)
-      (WF: Commit.wf commit2)
+  Inductive readable
+            (commit1:t) (loc:Loc.t) (ts:Time.t) (released:Capability.t) (ord:Ordering.t): Prop :=
+  | readable_intro
+      (TS: Time.le (commit1.(cur).(Capability.rw) loc) ts)
+      (SC: Ordering.le Ordering.seqcst ord ->
+           Time.le (commit1.(cur).(Capability.sc) loc) ts /\
+           Time.le (released.(Capability.sc) loc) ts)
   .
+
+  Definition read
+             (commit1:t) (loc:Loc.t) (ts:Time.t) (released:Capability.t) (ord:Ordering.t): t :=
+    mk commit1.(rel)
+       (Capability.join_if
+          (Ordering.le Ordering.acqrel ord)
+          released
+          (Capability.incr_rw loc ts commit1.(cur)))
+       (Capability.join_if
+          (Ordering.le Ordering.relaxed ord)
+          released
+          (Capability.incr_rw loc ts commit1.(acq))).
+
+  Inductive writable
+            (commit1:t) (sc1:TimeMap.t) (loc:Loc.t) (ts:Time.t) (released:Capability.t) (ord:Ordering.t): Prop :=
+  | writable_intro
+      (TS: Time.lt (commit1.(cur).(Capability.rw) loc) ts)
+      (SC: Ordering.le Ordering.seqcst ord ->
+           Time.lt (commit1.(cur).(Capability.sc) loc) ts /\
+           Time.lt (sc1 loc) ts)
+  .
+
+  Definition write
+             (commit1:t) (loc:Loc.t) (ts:Time.t) (ord:Ordering.t): Capability.t * t * TimeMap.t :=
+    let cur := Capability.join_if
+                 (Ordering.le Ordering.seqcst ord)
+                 
+                 (Capability.incr_ur loc ts commit.(Commit.cur))
+    in
+
+Capability.join
+                 Capability.join released ()
+
+            (commit2:t): Prop :=
+
+             loc ts released commit: Commit.t :=
+    (Commit.mk (LocFun.add loc released commit.(Commit.rel))
+               (Capability.join released (Capability.incr_ur loc ts commit.(Commit.cur)))
+               (Capability.join released (Capability.incr_ur loc ts commit.(Commit.acq)))).
+  
 
   Inductive write
             (commit1:t) (loc:Loc.t) (ts:Time.t) (released:Capability.t) (ord:Ordering.t)

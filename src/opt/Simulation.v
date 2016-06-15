@@ -53,7 +53,7 @@ Section SimulationLocal.
                               (Thread.mk _ st2_src lc2_src mem2_src)
                               (Thread.mk _ st3_src lc3_src mem3_src)>> /\
       <<EVENT: ThreadEvent.get_event e_src = ThreadEvent.get_event e_tgt>> /\
-      <<MEMORY2: sim_memory mem3_src mem3_tgt>> /\
+      <<MEMORY2: Memory.sim mem3_tgt mem3_src>> /\
       <<SIM: sim_thread st3_src lc3_src mem3_src st3_tgt lc3_tgt mem3_tgt>>.
 
   (* TODO: inftau & liveness *)
@@ -63,7 +63,7 @@ Section SimulationLocal.
              (st1_src:lang_src.(Language.state)) (lc1_src:Local.t) (mem_k_src:Memory.t)
              (st1_tgt:lang_tgt.(Language.state)) (lc1_tgt:Local.t) (mem_k_tgt:Memory.t): Prop :=
     forall mem1_src mem1_tgt
-      (MEMORY: sim_memory mem1_src mem1_tgt)
+      (MEMORY: Memory.sim mem1_tgt mem1_src)
       (FUTURE_SRC: Memory.future mem_k_src mem1_src)
       (FUTURE_TGT: Memory.future mem_k_tgt mem1_tgt)
       (WF_SRC: Local.wf lc1_src mem1_src)
@@ -76,7 +76,7 @@ Section SimulationLocal.
           <<STEPS: rtc (@Thread.tau_step _)
                        (Thread.mk _ st1_src lc1_src mem1_src)
                        (Thread.mk _ st2_src lc2_src mem2_src)>> /\
-          <<MEMORY: sim_memory mem2_src mem1_tgt>> /\
+          <<MEMORY: Memory.sim mem1_tgt mem2_src>> /\
           <<TERMINAL_SRC: lang_src.(Language.is_terminal) st2_src>> /\
           <<LOCAL: sim_local lc2_src lc1_tgt>> /\
           <<TERMINAL: sim_terminal st2_src st1_tgt>>>> /\
@@ -86,7 +86,7 @@ Section SimulationLocal.
           (WF_SRC: Local.wf lc1_src mem2_src)
           (MEM_SRC: Memory.closed mem2_src),
         exists mem2_tgt,
-          <<MEMORY: sim_memory mem2_src mem2_tgt>> /\
+          <<MEMORY: Memory.sim mem2_tgt mem2_src>> /\
           <<FUTURE_TGT: Memory.future mem1_tgt mem2_tgt>> /\
           <<WF_TGT: Local.wf lc1_tgt mem2_tgt>> /\
           <<MEM_TGT: Memory.closed mem2_tgt>>>> /\
@@ -140,7 +140,7 @@ Section Simulation.
              (ths1_src:Threads.t) (mem_k_src:Memory.t)
              (ths1_tgt:Threads.t) (mem_k_tgt:Memory.t): Prop :=
     forall mem1_src mem1_tgt
-      (MEMORY1: sim_memory mem1_src mem1_tgt)
+      (MEMORY1: Memory.sim mem1_tgt mem1_src)
       (WF_SRC: Configuration.wf (Configuration.mk ths1_src mem1_src))
       (WF_TGT: Configuration.wf (Configuration.mk ths1_tgt mem1_tgt))
       (CONSISTENT_SRC: Configuration.consistent (Configuration.mk ths1_src mem1_src))
@@ -151,7 +151,7 @@ Section Simulation.
         forall (TERMINAL_TGT: Threads.is_terminal ths1_tgt),
         exists ths2_src mem2_src,
           <<STEPS: rtc Configuration.tau_step (Configuration.mk ths1_src mem1_src) (Configuration.mk ths2_src mem2_src)>> /\
-          <<MEMORY: sim_memory mem2_src mem1_tgt>> /\
+          <<MEMORY: Memory.sim mem1_tgt mem2_src>> /\
           <<TERMINAL_SRC: Threads.is_terminal ths2_src>>>> /\
       <<STEP:
         forall e tid_tgt ths3_tgt mem3_tgt
@@ -159,7 +159,7 @@ Section Simulation.
         exists e tid_src ths2_src mem2_src ths3_src mem3_src,
           <<STEPS: rtc Configuration.tau_step (Configuration.mk ths1_src mem1_src) (Configuration.mk ths2_src mem2_src)>> /\
           <<STEP_SRC: Configuration.step e tid_src (Configuration.mk ths2_src mem2_src) (Configuration.mk ths3_src mem3_src)>> /\
-          <<MEMORY2: sim_memory mem3_src mem3_tgt>> /\
+          <<MEMORY2: Memory.sim mem3_tgt mem3_src>> /\
           <<SIM: sim ths3_src mem3_src ths3_tgt mem3_tgt>>>>.
 
   Lemma _sim_mon: monotone4 _sim.
@@ -268,7 +268,7 @@ Lemma sim_step
       (STEP: @Thread.step lang_tgt e_tgt
                           (Thread.mk _ st1_tgt lc1_tgt mem1_tgt)
                           (Thread.mk _ st3_tgt lc3_tgt mem3_tgt))
-      (MEMORY: sim_memory mem1_src mem1_tgt)
+      (MEMORY: Memory.sim mem1_tgt mem1_src)
       (WF_SRC: Local.wf lc1_src mem1_src)
       (WF_TGT: Local.wf lc1_tgt mem1_tgt)
       (MEM_SRC: Memory.closed mem1_src)
@@ -282,7 +282,7 @@ Lemma sim_step
                         (Thread.mk _ st2_src lc2_src mem2_src)
                         (Thread.mk _ st3_src lc3_src mem3_src)>> /\
     <<EVENT: ThreadEvent.get_event e_src = ThreadEvent.get_event e_tgt>> /\
-    <<MEMORY: sim_memory mem3_src mem3_tgt>> /\
+    <<MEMORY: Memory.sim mem3_tgt mem3_src>> /\
     <<WF_SRC: Local.wf lc3_src mem3_src>> /\
     <<WF_TGT: Local.wf lc3_tgt mem3_tgt>> /\
     <<MEM_SRC: Memory.closed mem3_src>> /\
@@ -303,7 +303,7 @@ Lemma sim_rtc_step
       st1_src lc1_src mem1_src
       e1_tgt e2_tgt
       (STEPS: rtc (@Thread.tau_step lang_tgt) e1_tgt e2_tgt)
-      (MEMORY: sim_memory mem1_src e1_tgt.(Thread.memory))
+      (MEMORY: Memory.sim e1_tgt.(Thread.memory) mem1_src)
       (WF_SRC: Local.wf lc1_src mem1_src)
       (WF_TGT: Local.wf e1_tgt.(Thread.local) e1_tgt.(Thread.memory))
       (MEM_SRC: Memory.closed mem1_src)
@@ -313,7 +313,7 @@ Lemma sim_rtc_step
     <<STEPS: rtc (@Thread.tau_step lang_src)
                  (Thread.mk _ st1_src lc1_src mem1_src)
                  (Thread.mk _ st2_src lc2_src mem2_src)>> /\
-    <<MEMORY: sim_memory mem2_src e2_tgt.(Thread.memory)>> /\
+    <<MEMORY: Memory.sim e2_tgt.(Thread.memory) mem2_src>> /\
     <<WF_SRC: Local.wf lc2_src mem2_src>> /\
     <<WF_TGT: Local.wf e2_tgt.(Thread.local) e2_tgt.(Thread.memory)>> /\
     <<MEM_SRC: Memory.closed mem2_src>> /\
@@ -337,7 +337,7 @@ Lemma sim_thread_consistent
       st_src lc_src mem_src
       st_tgt lc_tgt mem_tgt
       (SIM: sim_thread sim_terminal st_src lc_src mem_src st_tgt lc_tgt mem_tgt)
-      (MEMORY: sim_memory mem_src mem_tgt)
+      (MEMORY: Memory.sim mem_tgt mem_src)
       (WF_SRC: Local.wf lc_src mem_src)
       (WF_TGT: Local.wf lc_tgt mem_tgt)
       (MEM_SRC: Memory.closed mem_src)

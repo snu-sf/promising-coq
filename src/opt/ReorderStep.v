@@ -56,7 +56,9 @@ Proof.
       hexploit progress_write_step; try apply Time.incr_spec; eauto.
       { inv H. auto. }
       i. des.
-      assert (exists from, Memory.get loc (Memory.max_ts loc mem1) mem1 = Some (from, (Message.mk val released))).
+      assert (exists from released',
+                 Memory.get loc (Memory.max_ts loc mem1) mem1 = Some (from, (Message.mk val released')) /\
+                 Capability.le released' released).
       { inv H. inv MEM1. exploit CLOSED; eauto. }
       des. eexists _, _. econs 4; s; eauto.
       * econs. econs. apply surjective_pairing.
