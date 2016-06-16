@@ -249,62 +249,65 @@ Module MemInv.
       <<SIM2: Memory.sim mem2_tgt mem2_src>>.
   Proof.
     inv PROMISES_TGT; ss.
-    - exploit Memory.add_exists; eauto. i. des.
-      exploit memory_sim_add; try apply INV1; eauto. i.
-      exploit Memory.promise_add_exists; try apply LE1_SRC; eauto.
-      { eapply memory_sim_closed_capability; eauto. }
-      i. des.
-      exploit Memory.promise_future; try apply x2; eauto. i. des.
-      eexists _, _. splits; eauto.
-      inv x2. inv INV1. ss. econs.
-      + ii. exploit Memory.add_get_inv; try apply PROMISES; eauto. i. des.
-        * subst. eapply Memory.add_get2; eauto.
-        * exploit LE; eauto. i.
-          eapply Memory.add_get1; eauto.
-      + i. exploit GET; eauto. i. des. splits.
-        * destruct (Memory.get loc0 ts promises1_src) as [[]|] eqn:X; [|congr].
-          erewrite Memory.add_get1; eauto.
-        * destruct (Memory.get loc0 ts promises2_tgt) as [[]|] eqn:X; [|done].
-          exploit Memory.add_get_inv; try apply X; eauto. i. des; [|congr].
-          subst. exploit Memory.add_disjoint; try apply PROMISES0; eauto. congr.
-      + i.
-        destruct (Memory.get loc0 ts promises2) as [[]|] eqn:X; [|congr].
-        exploit Memory.add_get_inv; try apply X; eauto. i. des.
-        * subst. exploit Memory.add_get2; try apply PROMISES; eauto. congr.
-        * apply MEM1; [congr|].
-          destruct (Memory.get loc0 ts promises1_tgt) as [[]|] eqn:Y; [|done].
-          exploit Memory.add_get1; try apply Y; eauto. congr.
-    - exploit Memory.split_exists; eauto. i. des.
-      exploit Memory.split_exists_le; try apply LE1_SRC; eauto. i. des.
-      exploit memory_sim_split; try apply INV1; eauto. i.
-      exploit memory_sim_closed_capability; eauto. i.
-      exploit Memory.promise_split; [apply x0|apply x1| | |]; eauto. i.
-      exploit Memory.promise_future; try apply x4; eauto. i. des.
-      eexists _, _. splits; eauto.
-      inv INV1. ss. econs.
-      + ii. exploit Memory.split_get_inv; try apply PROMISES; eauto. i. des.
-        * subst. eapply Memory.split_get2; eauto.
-        * subst. exploit Memory.split_get1; try apply x0; eauto. i. des; [done|].
-          contradict x5. auto.
-        * exploit LE; eauto. i.
-          exploit Memory.split_get1; try apply x0; eauto. i. des; [|done].
-          contradict x6. auto.
-      + i. exploit GET; eauto. i. des. splits.
-        * destruct (Memory.get loc0 ts promises1_src) as [[]|] eqn:X; [|congr].
-          exploit Memory.split_get1; try apply x0; eauto. i. des; congr.
-        * destruct (Memory.get loc0 ts promises2_tgt) as [[]|] eqn:X; [|done].
-          exploit Memory.split_get_inv; try apply X; eauto. i. des; subst; [|congr|congr].
-          exploit Memory.split_disjoint; try apply x0; eauto. congr.
-      + i.
-        destruct (Memory.get loc0 ts mem2) as [[]|] eqn:X; [|congr].
-        exploit Memory.split_get_inv; try apply X; eauto. i. des.
-        * subst. exploit Memory.split_get2; try apply PROMISES; eauto. congr.
-        * subst. exploit Memory.split_get0; try apply PROMISES; eauto. i. des.
-          exploit Memory.split_get1; try apply PROMISES; eauto. i. des; congr.
-        * apply MEM0; [congr|].
-          destruct (Memory.get loc0 ts promises1_tgt) as [[]|] eqn:Y; [|done].
-          exploit Memory.split_get1; try apply Y; eauto. i. des; congr.
-  Qed.
+    - admit.
+    - admit.
+    - admit.
+    (* - exploit Memory.add_exists; eauto. i. des. *)
+    (*   exploit memory_sim_add; try apply INV1; eauto. i. *)
+    (*   exploit Memory.promise_add_exists; try apply LE1_SRC; eauto. *)
+    (*   { eapply memory_sim_closed_capability; eauto. } *)
+    (*   i. des. *)
+    (*   exploit Memory.promise_future; try apply x2; eauto. i. des. *)
+    (*   eexists _, _. splits; eauto. *)
+    (*   inv x2. inv INV1. ss. econs. *)
+    (*   + ii. exploit Memory.add_get_inv; try apply PROMISES; eauto. i. des. *)
+    (*     * subst. eapply Memory.add_get2; eauto. *)
+    (*     * exploit LE; eauto. i. *)
+    (*       eapply Memory.add_get1; eauto. *)
+    (*   + i. exploit GET; eauto. i. des. splits. *)
+    (*     * destruct (Memory.get loc0 ts promises1_src) as [[]|] eqn:X; [|congr]. *)
+    (*       erewrite Memory.add_get1; eauto. *)
+    (*     * destruct (Memory.get loc0 ts promises2_tgt) as [[]|] eqn:X; [|done]. *)
+    (*       exploit Memory.add_get_inv; try apply X; eauto. i. des; [|congr]. *)
+    (*       subst. exploit Memory.add_disjoint; try apply PROMISES0; eauto. congr. *)
+    (*   + i. *)
+    (*     destruct (Memory.get loc0 ts promises2) as [[]|] eqn:X; [|congr]. *)
+    (*     exploit Memory.add_get_inv; try apply X; eauto. i. des. *)
+    (*     * subst. exploit Memory.add_get2; try apply PROMISES; eauto. congr. *)
+    (*     * apply MEM1; [congr|]. *)
+    (*       destruct (Memory.get loc0 ts promises1_tgt) as [[]|] eqn:Y; [|done]. *)
+    (*       exploit Memory.add_get1; try apply Y; eauto. congr. *)
+    (* - exploit Memory.split_exists; eauto. i. des. *)
+    (*   exploit Memory.split_exists_le; try apply LE1_SRC; eauto. i. des. *)
+    (*   exploit memory_sim_split; try apply INV1; eauto. i. *)
+    (*   exploit memory_sim_closed_capability; eauto. i. *)
+    (*   exploit Memory.promise_split; [apply x0|apply x1| | |]; eauto. i. *)
+    (*   exploit Memory.promise_future; try apply x4; eauto. i. des. *)
+    (*   eexists _, _. splits; eauto. *)
+    (*   inv INV1. ss. econs. *)
+    (*   + ii. exploit Memory.split_get_inv; try apply PROMISES; eauto. i. des. *)
+    (*     * subst. eapply Memory.split_get2; eauto. *)
+    (*     * subst. exploit Memory.split_get1; try apply x0; eauto. i. des; [done|]. *)
+    (*       contradict x5. auto. *)
+    (*     * exploit LE; eauto. i. *)
+    (*       exploit Memory.split_get1; try apply x0; eauto. i. des; [|done]. *)
+    (*       contradict x6. auto. *)
+    (*   + i. exploit GET; eauto. i. des. splits. *)
+    (*     * destruct (Memory.get loc0 ts promises1_src) as [[]|] eqn:X; [|congr]. *)
+    (*       exploit Memory.split_get1; try apply x0; eauto. i. des; congr. *)
+    (*     * destruct (Memory.get loc0 ts promises2_tgt) as [[]|] eqn:X; [|done]. *)
+    (*       exploit Memory.split_get_inv; try apply X; eauto. i. des; subst; [|congr|congr]. *)
+    (*       exploit Memory.split_disjoint; try apply x0; eauto. congr. *)
+    (*   + i. *)
+    (*     destruct (Memory.get loc0 ts mem2) as [[]|] eqn:X; [|congr]. *)
+    (*     exploit Memory.split_get_inv; try apply X; eauto. i. des. *)
+    (*     * subst. exploit Memory.split_get2; try apply PROMISES; eauto. congr. *)
+    (*     * subst. exploit Memory.split_get0; try apply PROMISES; eauto. i. des. *)
+    (*       exploit Memory.split_get1; try apply PROMISES; eauto. i. des; congr. *)
+    (*     * apply MEM0; [congr|]. *)
+    (*       destruct (Memory.get loc0 ts promises1_tgt) as [[]|] eqn:Y; [|done]. *)
+    (*       exploit Memory.split_get1; try apply Y; eauto. i. des; congr. *)
+  Admitted.
 
   Lemma fulfill_tgt
         inv
