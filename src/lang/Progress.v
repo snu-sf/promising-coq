@@ -19,8 +19,8 @@ Set Implicit Arguments.
 
 
 Lemma write_step_promise
-      lc1 mem1 loc from to val releasedc releasedm ord lc2 mem2 kind
-      (STEP: Local.write_step lc1 mem1 loc from to val releasedc releasedm ord lc2 mem2 kind)
+      lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind
+      (STEP: Local.write_step lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind)
       (PROMISES: lc1.(Local.promises) = Memory.bot):
   lc2.(Local.promises) = Memory.bot.
 Proof.
@@ -36,9 +36,10 @@ Proof.
 Qed.
 
 Lemma program_step_promise
-      lang
-      e st1 lc1 mem1 st2 lc2 mem2
-      (STEP: Thread.program_step e (Thread.mk lang st1 lc1 mem1) (Thread.mk lang st2 lc2 mem2))
+      lang e
+      st1 lc1 sc1 mem1
+      st2 lc2 sc2 mem2
+      (STEP: Thread.program_step e (Thread.mk lang st1 lc1 sc1 mem1) (Thread.mk lang st2 lc2 sc2 mem2))
       (PROMISES: lc1.(Local.promises) = Memory.bot):
   lc2.(Local.promises) = Memory.bot.
 Proof.
@@ -48,22 +49,64 @@ Proof.
     inv LOCAL1. auto.
 Qed.
 
+Lemma closed_timemap_max_ts
+      loc tm mem
+      (CLOSED: Memory.closed_timemap tm mem):
+  Time.le (tm loc) (Memory.max_ts loc mem).
+Proof.
+  specialize (CLOSED loc). des.
+  - rewrite CLOSED. apply Time.bot_spec.
+  - eapply Memory.max_ts_spec. eauto.
+Qed.
+
 Lemma progress_promise_step
-      lc1 mem1
-      loc to val
+      lc1 sc1 mem1
+      loc to val releasedm ord
       (LT: Time.lt (Memory.max_ts loc mem1) to)
       (WF1: Local.wf lc1 mem1)
-      (MEM1: Memory.closed mem1):
+      (MEM1: Memory.closed mem1)
+      (SC1: Memory.closed_timemap sc1 mem1)
+      (WF_REL: Capability.wf releasedm)
+      (CLOSED_REL: Memory.closed_capability releasedm mem1):
   exists promises2 mem2,
-    Local.promise_step lc1 mem1 loc (Memory.max_ts loc mem1) to val (Memory.max_capability mem2) (Local.mk lc1.(Local.commit) promises2) mem2 Memory.promise_kind_add.
+    Local.promise_step lc1 mem1 loc (Memory.max_ts loc mem1) to val
+                       (Capability.join
+                          releasedm
+                          (Commit.rel
+                             (Commit.write_commit (Local.commit lc1) sc1 loc to ord) loc))
+                       (Local.mk lc1.(Local.commit) promises2) mem2 Memory.promise_kind_add.
 Proof.
-  destruct lc1. s.
-  exploit Memory.promise_add_exists_max_ts; try apply WF1; eauto. s. i. des.
-  eexists _, _. econs; eauto.
+  exploit (@Memory.add_exists_max_ts mem1 loc to val (Capability.join releasedm (Commit.rel (Commit.write_commit (Local.commit lc1) sc1 loc to ord) loc))); eauto.
+  { committac. unfold LocFun.add. repeat condtac; committac; try apply WF1.
+    econs; apply TimeMap.bot_spec.
+  }
+  i. des.
+  exploit Memory.add_exists_le; try apply WF1; eauto. i. des.
+  assert (FUTURE: Memory.future mem1 mem2).
+  { econs 2; [|econs 1]. econs 1. eauto. }
+  eexists _, _. econs.
+  - econs; eauto.
+    + committac.
+      * eapply Memory.future_closed_capability; eauto.
+      * unfold LocFun.add.
+        repeat condtac; committac;
+          (try eapply Memory.future_closed_capability; eauto);
+          (try apply WF1).
+        { eapply Memory.add_get2. eauto. }
+        { econs; try apply Memory.closed_timemap_bot. s. auto. }
+        { eapply Memory.add_get2. eauto. }
+    + committac.
+      * left. eapply TimeFacts.le_lt_lt; [|eauto].
+        eapply closed_timemap_max_ts. apply CLOSED_REL.
+      * unfold LocFun.add. condtac; [|congr].
+        repeat condtac; committac;
+          (try by apply Time.bot_spec);
+          (try by unfold TimeMap.singleton, LocFun.add; condtac; [refl|congr]);
+          (try by left; eapply TimeFacts.le_lt_lt; [|eauto];
+           eapply closed_timemap_max_ts; apply WF1).
   - refl.
   - apply WF1.
   - eapply Commit.future_closed; try apply WF1; eauto.
-    eapply Memory.promise_future; try apply WF1; eauto.
 Qed.
 
 Lemma progress_silent_step
@@ -83,57 +126,51 @@ Lemma progress_read_step
   exists val released lc2,
     Local.read_step lc1 mem1 loc (Memory.max_ts loc mem1) val released ord lc2.
 Proof.
-  exploit (Memory.max_ts_spec loc); try apply MEM1; eauto. i. des.
-  exploit (@CommitFacts.read_min_spec loc (Memory.max_ts loc mem1) released); try apply WF1; i.
-  { eapply MAX. inv WF1. inv COMMIT_CLOSED. inv CUR. exploit UR; eauto. i. des. rewrite x. congr. }
-  { eapply MAX. inv WF1. inv COMMIT_CLOSED. inv CUR. exploit RW; eauto. i. des. rewrite x. congr. }
-  { inv MEM1. exploit CLOSED; eauto. i. des. auto. }
-  eexists _, _, _. econs; try exact x0; eauto.
-  - refl.
-  - eapply CommitFacts.read_min_closed; eauto.
-    apply WF1.
+  inversion MEM1. specialize (ELT loc). des.
+  exploit (Memory.max_ts_spec loc); eauto. i. des.
+  eexists _, _, _. econs; eauto.
 Qed.
 
 Lemma progress_fulfill_step
-      lc1 mem1
-      loc from to val releasedc releasedm ord
+      lc1 sc1 mem1
+      loc from to val releasedm released ord
       (LT: Time.lt from to)
-      (WF1: Local.wf lc1 mem1)
-      (MEM1: Memory.closed mem1)
-      (GET1: Memory.get loc to mem1 = Some (from, Message.mk val releasedm))
-      (PROMISES1: lc1.(Local.promises) = Memory.singleton loc val releasedm LT)
-      (TO: Time.le (Capability.rw releasedc loc) to)
-      (RW: Time.lt (Capability.rw (Commit.cur (Local.commit lc1)) loc) to)
-      (REL2: Capability.le (Commit.rel (Local.commit lc1) loc) releasedc)
-      (REL: Ordering.le Ordering.acqrel ord ->
-            Capability.le (Commit.cur (Local.commit lc1)) releasedc /\
-            Time.le to (Capability.rw releasedc loc))
-      (WF: Capability.wf releasedc)
-      (CLOSED: Memory.closed_capability releasedc mem1):
-  exists lc2,
-    Local.fulfill_step lc1 mem1 loc from to val releasedc releasedm ord lc2.
+      (PROMISES1: lc1.(Local.promises) = Memory.singleton loc val released LT)
+      (RELEASED: Capability.join
+                   releasedm
+                   (Commit.rel
+                      (Commit.write_commit (Local.commit lc1) sc1 loc to ord) loc) =
+                 released):
+  exists lc2 sc2,
+    Local.fulfill_step lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2.
 Proof.
-  exploit (@CommitFacts.write_min_spec loc to releasedc); try apply WF1; eauto. i. des.
-  eexists (Local.mk _ _). econs; eauto.
-  - rewrite PROMISES1. econs.
-    apply Memory.remove_singleton.
-  - eapply CommitFacts.write_min_closed; eauto. apply WF1.
+  eexists _, _. econs; eauto.
+  rewrite PROMISES1. econs. apply Memory.remove_singleton.
 Qed.
 
 Lemma progress_write_step
-      lc1 mem1
-      loc to val ord
+      lc1 sc1 mem1
+      loc to val releasedm ord
       (LT: Time.lt (Memory.max_ts loc mem1) to)
       (WF1: Local.wf lc1 mem1)
+      (SC1: Memory.closed_timemap sc1 mem1)
       (MEM1: Memory.closed mem1)
+      (WF_REL: Capability.wf releasedm)
+      (CLOSED_REL: Memory.closed_capability releasedm mem1)
       (PROMISES1: lc1.(Local.promises) = Memory.bot):
-  exists lc2 mem2,
-    Local.write_step lc1 mem1 loc (Memory.max_ts loc mem1) to val (Memory.max_capability mem2) (Memory.max_capability mem2) ord lc2 mem2 Local.write_kind_promise_fulfill.
+  exists lc2 sc2 mem2,
+    Local.write_step lc1 sc1 mem1 loc (Memory.max_ts loc mem1) to val releasedm
+                     (Capability.join releasedm (Commit.rel (Commit.write_commit (Local.commit lc1) sc1 loc to ord) loc))
+                     ord lc2 sc2 mem2 Local.write_kind_promise_fulfill.
 Proof.
-  destruct lc1. ss. subst.
-  exploit progress_promise_step; eauto. s. i. des.
-  assert (promises2 = Memory.singleton loc val (Memory.max_capability mem2) LT); subst.
-  { inv x0. ss. apply Memory.ext. i.
+  exploit progress_promise_step; eauto. i. des.
+  exploit Local.promise_step_future; eauto. i. des.
+  assert (PROMISES2:
+            promises2 = Memory.singleton
+                          loc val
+                          (Capability.join releasedm (Commit.rel (Commit.write_commit (Local.commit lc1) sc1 loc to ord) loc))
+                          LT).
+  { inv x0. apply Memory.ext. i.
     rewrite Memory.singleton_get. repeat condtac; subst.
     - destruct (Memory.get loc to promises2) as [[]|] eqn:X.
       + exploit Memory.promise_promises_get2; eauto. i. des; subst; eauto.
@@ -142,60 +179,26 @@ Proof.
     - destruct (Memory.get loc ts promises2) as [[]|] eqn:X; [|done].
       exploit Memory.promise_promises_get2; eauto. i. des; subst; eauto.
       + congr.
-      + rewrite Memory.bot_get in *. congr.
+      + rewrite PROMISES1, Memory.bot_get in *. congr.
     - destruct (Memory.get loc0 ts promises2) as [[]|] eqn:X; [|done].
       exploit Memory.promise_promises_get2; eauto. i. des; subst; eauto.
       + congr.
-      + rewrite Memory.bot_get in *. congr.
+      + rewrite PROMISES1, Memory.bot_get in *. congr.
   }
-  exploit Local.promise_step_future; eauto. i. des.
-  hexploit progress_fulfill_step; eauto; s.
-  { inv x0. ss. apply WF2. eapply Memory.promise_get2. eauto. }
-  { eauto. }
-  { inv x0. inv PROMISE. ss.
-    instantiate (1 := Memory.max_capability mem2).
-    erewrite Memory.add_max_capability; try apply MEM1; eauto.
-    s. unfold TimeMap.incr, LocFun.add. condtac; [|congr].
-    apply Time.join_spec; [|refl]. apply Time.le_lteq. auto.
-  }
-  { eapply TimeFacts.le_lt_lt; [|apply LT].
-    apply Memory.max_ts_spec. apply MEM1.
-    inv WF1. inv COMMIT_CLOSED. inv CUR. exploit RW; eauto. s. i. des. rewrite x. congr.
-  }
-  { inv x0. inv PROMISE. ss.
-    erewrite Memory.add_max_capability; try apply MEM1; eauto.
-    etrans; [|apply Capability.incr_ur_le].
-    apply Memory.max_capability_spec.
-    - inv WF1. inv COMMIT_CLOSED0. apply REL.
-    - apply MEM1.
-  }
-  { instantiate (1 := ord). i.
-    inv x0. inv PROMISE.
-    erewrite Memory.add_max_capability; try apply MEM1; eauto. ss. splits.
-    - etrans; [|apply Capability.incr_ur_le].
-      apply Memory.max_capability_spec.
-      + inv WF1. inv COMMIT_CLOSED0. apply CUR.
-      + apply MEM1.
-    - apply TimeMap.incr_ts.
-  }
-  { apply Memory.max_capability_wf. }
-  { apply Memory.max_capability_closed. apply CLOSED2. }
-  i. des. eexists _, _. econs 2; eauto.
+  hexploit progress_fulfill_step; eauto.
+  { instantiate (7 := Local.mk _ _). apply PROMISES2. }
+  i. des. eexists _, _, _. econs; eauto.
+  rewrite PROMISES1. auto.
 Qed.
 
 Lemma progress_fence_step
-      lc1 mem1
+      lc1 sc1 mem1
       ordr ordw
       (WF1: Local.wf lc1 mem1)
       (MEM1: Memory.closed mem1)
       (PROMISES1: lc1.(Local.promises) = Memory.bot):
-  exists lc2,
-    Local.fence_step lc1 mem1 ordr ordw lc2.
+  exists lc2 sc2,
+    Local.fence_step lc1 sc1 mem1 ordr ordw lc2 sc2.
 Proof.
-  exploit CommitFacts.read_fence_min_spec; try apply WF1; eauto. i. des.
-  exploit CommitFacts.write_fence_min_spec; try apply x0. i.
-  eexists. econs; eauto.
-  apply CommitFacts.write_fence_min_closed; eauto.
-  apply CommitFacts.read_fence_min_closed; eauto.
-  apply WF1.
+  eexists _, _. econs; eauto.
 Qed.

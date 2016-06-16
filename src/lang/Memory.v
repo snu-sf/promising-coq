@@ -826,8 +826,11 @@ Module Memory.
       (ELT: forall loc, exists ts from msg, get loc ts mem = Some (from, msg))
   .
 
-  Lemma timemap_bot_closed mem: closed_timemap TimeMap.bot mem.
+  Lemma closed_timemap_bot mem: closed_timemap TimeMap.bot mem.
   Proof. ii. left. auto. Qed.
+
+  Lemma closed_capability_bot mem: closed_capability Capability.bot mem.
+  Proof. econs; apply closed_timemap_bot. Qed.
 
   Lemma init_closed: closed init.
   Proof.
@@ -837,7 +840,7 @@ Module Memory.
     splits; ss.
     - apply Capability.bot_wf.
     - left. apply Time.incr_spec.
-    - econs; apply timemap_bot_closed.
+    - apply closed_capability_bot.
     - unfold get, init, Cell.get, Cell.init. ss. unfold Cell.Raw.singleton.
       eexists. rewrite DOMap.singleton_eq. eauto.
   Qed.
@@ -912,6 +915,7 @@ Module Memory.
   Inductive promise_kind :=
   | promise_kind_add
   | promise_kind_split
+  | promise_kind_lower
   .
 
   Inductive promise
@@ -931,6 +935,12 @@ Module Memory.
       (CLOSED: closed_capability released1 mem2)
       (TS: Time.le (Capability.rw released1 loc) to1):
       promise promises1 mem1 loc from1 to1 val1 released1 promises2 mem2 promise_kind_split
+  | promise_lower
+      released0
+      (PROMISES: lower promises1 loc from1 to1 val1 released0 released1 promises2)
+      (MEM: lower mem1 loc from1 to1 val1 released0 released1 mem2)
+      (CLOSED: closed_capability released1 mem2):
+      promise promises1 mem1 loc from1 to1 val1 released1 promises2 mem2 promise_kind_split
   .
 
   Inductive fulfill
@@ -939,16 +949,6 @@ Module Memory.
             (promises2:t): Prop :=
   | fulfill_intro
       (REMOVE: remove promises1 loc from to val released promises2)
-  .
-
-  Inductive strengthen
-            (promises1 mem1:t)
-            (loc:Loc.t) (from to:Time.t) (val:Const.t) (released1 released2:Capability.t)
-            (promises2 mem2:t): Prop :=
-  | strengthen_intro
-      (CLOSED: closed_capability released2 mem1)
-      (PROMISES: lower promises1 loc from to val released1 released2 promises2)
-      (MEM: lower mem1 loc from to val released1 released2 mem2)
   .
 
 
@@ -1318,7 +1318,7 @@ Module Memory.
     closed_capability (Capability.singleton_rw loc to) mem.
   Proof.
     econs; s.
-    - apply timemap_bot_closed.
+    - apply closed_timemap_bot.
     - eapply singleton_closed_timemap. eauto.
     - eapply singleton_closed_timemap. eauto.
   Qed.
@@ -1329,8 +1329,8 @@ Module Memory.
     closed_capability (Capability.singleton_sc loc to) mem.
   Proof.
     econs; s.
-    - apply timemap_bot_closed.
-    - apply timemap_bot_closed.
+    - apply closed_timemap_bot.
+    - apply closed_timemap_bot.
     - eapply singleton_closed_timemap. eauto.
   Qed.
 
@@ -1347,7 +1347,8 @@ Module Memory.
     inv PROMISE.
     - exploit add_get1; eauto.
     - eapply split_get1'; eauto.
-  Qed.
+    - admit.
+  Admitted.
 
   Lemma promise_get2
         promises1 mem1 loc from to val released promises2 mem2 kind
@@ -1357,7 +1358,8 @@ Module Memory.
     inv PROMISE.
     - eapply add_get2; eauto.
     - eapply split_get2; eauto.
-  Qed.
+    - admit.
+  Admitted.
 
   Lemma promise_promises_get1
         promises1 mem1 loc from to val released promises2 mem2 kind
@@ -1369,7 +1371,8 @@ Module Memory.
     inv PROMISE.
     - exploit add_get1; try apply PROMISES; eauto.
     - eapply split_get1'; eauto.
-  Qed.
+    - admit.
+  Admitted.
 
   Lemma promise_promises_get2
         promises1 mem1 loc from to val released promises2 mem2 kind
@@ -1392,7 +1395,8 @@ Module Memory.
           eapply Time.lt_strorder. eauto.
         * eexists. eauto.
       + right. splits; auto. eexists. eauto.
-  Qed.
+    - admit.
+  Admitted.
 
   Lemma promise_future
         promises1 mem1 loc from to val released promises2 mem2 kind
@@ -1437,7 +1441,8 @@ Module Memory.
           { eexists _, _, _. eauto. }
           { eexists _, _, _. eauto. }
       + econs 2; eauto. econs 2; eauto.
-  Qed.
+    - admit.
+  Admitted.
 
   Lemma promise_disjoint
         promises1 mem1 loc from to val released promises2 mem2 ctx kind
@@ -1476,7 +1481,8 @@ Module Memory.
       + ii. exploit split_get1; eauto. i. des; auto. subst.
         inv PROMISES. inv SPLIT.
         exfalso. eapply Cell.disjoint_get; [apply DISJOINT| |]; eauto.
-  Qed.
+    - admit.
+  Admitted.
 
   Lemma fulfill_future
         promises1 mem1 loc from to val released promises2
@@ -1501,29 +1507,6 @@ Module Memory.
     eapply remove_get_inv in GET1; eauto. des.
     eapply DISJOINT; eauto.
   Qed.
-
-  Lemma strengthen_future
-        promises1 mem1 loc from to val released1 released2 promises2 mem2
-        (LE_PROMISES1: le promises1 mem1)
-        (CLOSED1: closed mem1)
-        (STRENGTHEN: strengthen promises1 mem1 loc from to val released1 released2 promises2 mem2):
-    <<LE_PROMISES2: le promises2 mem2>> /\
-    <<CLOSED2: closed mem2>> /\
-    <<FUTURE: future mem1 mem2>>.
-  Proof.
-  Admitted.
-
-  Lemma strengthen_disjoint
-        promises1 mem1 loc from to val released1 released2 promises2 mem2 ctx
-        (LE_PROMISES1: le promises1 mem1)
-        (CLOSED1: closed mem1)
-        (STRENGTHEN: strengthen promises1 mem1 loc from to val released1 released2 promises2 mem2)
-        (LE_PROMISES: le ctx mem1)
-        (DISJOINT: Memory.disjoint promises1 ctx):
-    <<DISJOINT: Memory.disjoint promises2 ctx>> /\
-    <<LE_PROMISES: le ctx mem2>>.
-  Proof.
-  Admitted.
 
   Definition max_ts (loc:Loc.t) (mem:t): Time.t :=
     Cell.max_ts (mem loc).
@@ -1650,25 +1633,18 @@ Module Memory.
   Qed.
 
   Lemma add_exists_max_ts
-        mem1 loc to val
+        mem1 loc to val released
         (TS: Time.lt (max_ts loc mem1) to)
-        (CLOSED: closed mem1):
+        (WF: Capability.wf released):
     exists mem2,
-      add mem1 loc (max_ts loc mem1) to val (max_capability mem2) mem2.
+      add mem1 loc (max_ts loc mem1) to val released mem2.
   Proof.
-    exploit add_exists; eauto.
-    { instantiate (1 := mem1). instantiate (1 := loc).
-      i. exploit max_ts_spec; eauto. i. des. splits.
-      - ii. subst. destruct (mem1 loc).(Cell.WF). exploit VOLUME; try apply GET2; eauto. i.
-        rewrite x in TS. eapply Time.lt_strorder. eapply TimeFacts.le_lt_lt; eauto.
-      - ii. inv LHS. inv RHS. ss.
-        rewrite MAX in TO0. eapply Time.lt_strorder. eapply TimeFacts.le_lt_lt; eauto.
-    }
-    { apply Capability.join_wf.
-      - apply max_capability_wf.
-      - apply Capability.singleton_ur_wf.
-    }
-    i. des. erewrite <- add_max_capability in x0; eauto. apply CLOSED.
+    eapply add_exists; eauto.
+    i. exploit max_ts_spec; eauto. i. des. splits.
+    - ii. subst. destruct (mem1 loc).(Cell.WF). exploit VOLUME; try apply GET2; eauto. i.
+      rewrite x in TS. eapply Time.lt_strorder. eapply TimeFacts.le_lt_lt; eauto.
+    - ii. inv LHS. inv RHS. ss.
+      rewrite MAX in TO0. eapply Time.lt_strorder. eapply TimeFacts.le_lt_lt; eauto.
   Qed.
 
   Lemma add_exists_le
@@ -1708,39 +1684,6 @@ Module Memory.
   Proof.
     exploit add_exists_le; eauto. i. des.
     eexists _. econs 1; s; eauto.
-  Qed.
-
-  Lemma promise_split_exists
-        promises1 mem1 loc from to1 to2 val released promises2
-        (LE_PROMISES1: le promises1 mem1)
-        (ADD: split promises1 loc from to1 to2 val released promises2)
-        (TS: Time.le (Capability.rw released loc) to1):
-    exists mem2,
-      closed_capability released mem2 ->
-      promise promises1 mem1 loc from to1 val released promises2 mem2 promise_kind_split.
-  Proof.
-    exploit split_exists_le; eauto. i. des.
-    eexists _. i. econs 2; s; eauto.
-  Qed.
-
-  Lemma promise_add_exists_max_ts
-        promises1 mem1 loc to val
-        (LE_PROMISES1: le promises1 mem1)
-        (CLOSED1: closed mem1)
-        (TS: Time.lt (max_ts loc mem1) to):
-    exists promises2 mem2,
-      promise promises1 mem1 loc (max_ts loc mem1) to val (max_capability mem2) promises2 mem2 promise_kind_add.
-  Proof.
-    exploit add_exists_max_ts; eauto. i. des.
-    hexploit add_inhabited; try apply CLOSED1; eauto. i. des.
-    exploit promise_add_exists; eauto.
-    { apply max_capability_closed. auto. }
-    { erewrite add_max_capability; try apply CLOSED1; eauto. ss.
-      apply Time.join_spec.
-      - left. auto.
-      - unfold TimeMap.singleton, LocFun.add, LocFun.find. condtac; [|congr]. refl.
-    }
-    i. des. eexists _, _. eauto.
   Qed.
 
   Lemma remove_singleton
