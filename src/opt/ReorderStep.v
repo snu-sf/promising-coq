@@ -40,7 +40,7 @@ Proof.
   destruct i1.
   - destruct i.
     + hexploit progress_silent_step; eauto. i.
-      eexists _, _. splits. econs 1; s; eauto.
+      esplits. econs 1; s; eauto.
       econs. econs.
     + hexploit progress_silent_step; eauto. i.
       eexists _, _. econs 1; s; eauto.

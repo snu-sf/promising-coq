@@ -97,7 +97,7 @@ Proof.
     { eapply Local.read_step_future; eauto. }
     i. des.
     exploit reorder_read_promise; try apply x0; try apply STEP_SRC; eauto. i. des.
-    eexists _, _, _, _, _, _, _. splits; eauto.
+    esplits; eauto.
     + econs. econs 1; eauto.
     + eauto.
     + right. econs; eauto.
@@ -106,7 +106,7 @@ Proof.
     { eapply Local.read_step_future; eauto. }
     i. des.
     exploit reorder_read_read; try apply x0; try apply STEP_SRC; eauto. i. des.
-    eexists _, _, _, _, _, _, _. splits.
+    esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 2; eauto. econs. econs.
       * eauto.
@@ -122,7 +122,7 @@ Proof.
     { eapply Local.read_step_future; eauto. }
     i. des.
     exploit reorder_read_write; try apply x0; try apply STEP_SRC; eauto. i. des.
-    eexists _, _, _, _, _, _, _. splits.
+    esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 3; eauto. econs.
         erewrite RegFile.eq_except_value; eauto.
@@ -147,7 +147,7 @@ Proof.
     exploit reorder_read_write; try apply STEP2; try apply LOCAL2; eauto.
     { eapply Local.read_step_future; eauto. }
     i. des.
-    eexists _, _, _, _, _, _, _. splits.
+    esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 4; eauto. econs. econs.
         erewrite <- RegFile.eq_except_rmw; eauto; try apply RegFile.eq_except_singleton.
@@ -167,7 +167,7 @@ Proof.
     { eapply Local.read_step_future; eauto. }
     i. des.
     exploit reorder_read_fence; try apply x0; try apply STEP_SRC; eauto. i. des.
-    eexists _, _, _, _, _, _, _. splits.
+    esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 5; eauto. econs. econs.
       * eauto.
@@ -188,11 +188,11 @@ Proof.
     + eapply Local.read_step_future; eauto.
       eapply Local.future_read_step; eauto.
       eapply Local.future_read_step; eauto.
-  - i. eexists _, _, _. splits; eauto.
+  - i. esplits; eauto.
     inv PR. inv READ. inv LOCAL. ss.
     apply MemInv.sem_bot_inv in PROMISES. rewrite PROMISES. auto.
   - ii. exploit sim_load_step; eauto. i. des.
-    + eexists _, _, _, _, _, _, _. splits; eauto.
+    + esplits; eauto.
       left. eapply paco7_mon; eauto. ss.
-    + eexists _, _, _, _, _, _, _. splits; eauto.
+    + esplits; eauto.
 Qed.

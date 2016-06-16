@@ -364,7 +364,7 @@ Proof.
     exploit Configuration.rtc_step_future; eauto. s. i. des.
     exploit Configuration.rtc_step_disjoint; try symmetry; eauto. s. i. des.
     exploit compose_rtc_step2; eauto. s. i. des.
-    eexists _, _. splits; [|eauto|].
+    esplits; [|eauto|].
     + etrans; eauto.
     + apply compose_is_terminal; auto.
   - i. apply compose_step in STEP_TGT; auto. des; subst.
@@ -378,7 +378,7 @@ Proof.
       exploit Configuration.step_future; eauto. s. i. des.
       exploit Configuration.step_disjoint; eauto. s. i. des.
       exploit compose_step1; eauto. i. des.
-      eexists _, _, _, _, _, _. splits; eauto.
+      esplits; eauto.
       right. apply CIH; auto.
       eapply sim_future; eauto.
       * repeat (etrans; eauto).
@@ -393,7 +393,7 @@ Proof.
       exploit Configuration.step_future; eauto. s. i. des.
       exploit Configuration.step_disjoint; eauto. s. i. des.
       exploit compose_step2; eauto. i. des.
-      eexists _, _, _, _, _, _. splits; eauto.
+      esplits; eauto.
       right. apply CIH; auto.
       { symmetry. auto. }
       eapply sim_future; eauto.

@@ -88,17 +88,17 @@ Proof.
   pcofix CIH. ii. subst. pfold. ii. splits.
   { i. inv TERMINAL_TGT. }
   { i. eapply sim_local_future; try apply MEMORY; eauto. apply LOCAL. }
-  { i. eexists _, _, _. splits; eauto.
+  { i. esplits; eauto.
     inv LOCAL. apply MemInv.sem_bot_inv in PROMISES. rewrite PROMISES. auto.
   }
   ii. inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR); ss.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
-    eexists _, _, _, _, _, _, _. splits; eauto.
+    esplits; eauto.
     econs 1; eauto. econs; eauto. eauto.
   - (* silent *)
     exploit unused_read; try apply WF_SRC; eauto. i. des.
-    eexists _, _, _, _, _, _, _. splits; eauto.
+    esplits; eauto.
     + econs 2. econs 2; eauto. econs. econs.
     + auto.
     + left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.

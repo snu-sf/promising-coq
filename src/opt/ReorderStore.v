@@ -89,7 +89,7 @@ Proof.
     { eapply Local.fulfill_step_future; eauto. }
     i. des.
     exploit reorder_fulfill_promise; try apply x0; try apply STEP_SRC; eauto. i. des.
-    eexists _, _, _, _, _, _, _. splits; eauto.
+    esplits; eauto.
     + econs 1. econs; eauto.
     + right. econs; eauto.
   - (* load *)
@@ -97,7 +97,7 @@ Proof.
     { eapply Local.fulfill_step_future; eauto. }
     i. des.
     exploit reorder_fulfill_read; try apply x0; try apply STEP_SRC; eauto. i. des.
-    eexists _, _, _, _, _, _, _. splits.
+    esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 2; eauto. econs. econs.
       * eauto.
@@ -116,7 +116,7 @@ Proof.
     i. des.
     exploit reorder_fulfill_write; try apply x0; try apply STEP_SRC; eauto.
     i. des.
-    eexists _, _, _, _, _, _, _. splits.
+    esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 3; eauto. econs. econs.
       * eauto.
@@ -141,7 +141,7 @@ Proof.
     exploit reorder_fulfill_write; try apply STEP2; try apply STEP_SRC0; eauto.
     { eapply Local.read_step_future; eauto. }
     i. des.
-    eexists _, _, _, _, _, _, _. splits.
+    esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 4; eauto. econs. econs. eauto.
       * eauto.
@@ -178,13 +178,13 @@ Proof.
       exploit Thread.program_step_future; eauto. s. i. des.
       punfold SIM. exploit SIM; eauto; try refl. s. i. des.
       exploit PROMISES; eauto. i. des.
-      eexists _, _, _. splits; [|eauto].
+      esplits; [|eauto].
       etrans; eauto. etrans; [|eauto].
       econs 2; eauto. econs; eauto. etrans; eauto.
       destruct e; by inv STEP; inv STATE; inv INSTR; inv REORDER.
     + inv SIM. inv STEP; inv STATE.
   - ii. exploit sim_store_step; eauto. i. des.
-    + eexists _, _, _, _, _, _, _. splits; eauto.
+    + esplits; eauto.
       left. eapply paco7_mon; eauto. ss.
-    + eexists _, _, _, _, _, _, _. splits; eauto.
+    + esplits; eauto.
 Qed.

@@ -260,7 +260,7 @@ Module MemInv.
     (*   { eapply memory_sim_closed_capability; eauto. } *)
     (*   i. des. *)
     (*   exploit Memory.promise_future; try apply x2; eauto. i. des. *)
-    (*   eexists _, _. splits; eauto. *)
+    (*   esplits; eauto. *)
     (*   inv x2. inv INV1. ss. econs. *)
     (*   + ii. exploit Memory.add_get_inv; try apply PROMISES; eauto. i. des. *)
     (*     * subst. eapply Memory.add_get2; eauto. *)
@@ -285,7 +285,7 @@ Module MemInv.
     (*   exploit memory_sim_closed_capability; eauto. i. *)
     (*   exploit Memory.promise_split; [apply x0|apply x1| | |]; eauto. i. *)
     (*   exploit Memory.promise_future; try apply x4; eauto. i. des. *)
-    (*   eexists _, _. splits; eauto. *)
+    (*   esplits; eauto. *)
     (*   inv INV1. ss. econs. *)
     (*   + ii. exploit Memory.split_get_inv; try apply PROMISES; eauto. i. des. *)
     (*     * subst. eapply Memory.split_get2; eauto. *)
@@ -350,7 +350,7 @@ Module MemInv.
         (CLOSED1_TGT: Memory.closed mem1_tgt):
     exists promises2_src mem2_src,
       <<WRITE_SRC: Memory.write promises1_src mem1_src loc from to val released_src promises2_src mem2_src kind>> /\
-      <<INV2: sem (unset loc to inv) promises2_src promises2_tgt>> /\
+      <<INV2: sem inv promises2_src promises2_tgt>> /\
       <<SIM2: Memory.sim mem2_tgt mem2_src>>.
   Proof.
     exploit write_promise; eauto. i. des.

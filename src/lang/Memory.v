@@ -940,7 +940,7 @@ Module Memory.
       (PROMISES: lower promises1 loc from1 to1 val1 released0 released1 promises2)
       (MEM: lower mem1 loc from1 to1 val1 released0 released1 mem2)
       (CLOSED: closed_capability released1 mem2):
-      promise promises1 mem1 loc from1 to1 val1 released1 promises2 mem2 promise_kind_split
+      promise promises1 mem1 loc from1 to1 val1 released1 promises2 mem2 promise_kind_lower
   .
 
   Inductive write
@@ -1216,14 +1216,14 @@ Module Memory.
       <<RELEASED: Capability.le released' released>>.
   Proof.
     revert from released GET. induction LE.
-    { i. eexists _, _. splits; eauto. refl. }
+    { i. esplits; eauto. refl. }
     i. inv H.
     - exploit add_get1; eauto.
     - exploit split_get1'; eauto. i. des.
       eapply IHLE; eauto.
     - exploit lower_get1'; eauto. i. des.
       exploit IHLE; eauto. i. des.
-      eexists _, _. splits; eauto. etrans; eauto.
+      esplits; eauto. etrans; eauto.
   Qed.
 
   Lemma sim_get
@@ -1278,7 +1278,7 @@ Module Memory.
   Proof.
     ii. exploit CLOSED; eauto. i. des; eauto. right.
     exploit future_get; eauto. i. des.
-    eexists _, _. splits; eauto.
+    esplits; eauto.
   Qed.
 
   Lemma future_closed_capability

@@ -53,7 +53,8 @@ Section SimulationLocal.
                               (Thread.mk _ st2_src lc2_src sc2_src mem2_src)
                               (Thread.mk _ st3_src lc3_src sc3_src mem3_src)>> /\
       <<EVENT: ThreadEvent.get_event e_src = ThreadEvent.get_event e_tgt>> /\
-      <<MEMORY2: Memory.sim mem3_tgt mem3_src>> /\
+      <<SC3: TimeMap.le sc3_src sc3_tgt>> /\
+      <<MEMORY3: Memory.sim mem3_tgt mem3_src>> /\
       <<SIM: sim_thread st3_src lc3_src sc3_src mem3_src st3_tgt lc3_tgt sc3_tgt mem3_tgt>>.
 
   (* TODO: inftau & liveness *)
@@ -64,6 +65,7 @@ Section SimulationLocal.
              (st1_tgt:lang_tgt.(Language.state)) (lc1_tgt:Local.t) (sc_k_tgt:TimeMap.t) (mem_k_tgt:Memory.t): Prop :=
     forall sc1_src mem1_src
       sc1_tgt mem1_tgt
+      (SC: TimeMap.le sc1_src sc1_tgt)
       (MEMORY: Memory.sim mem1_tgt mem1_src)
       (SC_FUTURE_SRC: TimeMap.le sc_k_src sc1_src)
       (SC_FUTURE_TGT: TimeMap.le sc_k_tgt sc1_tgt)
@@ -81,6 +83,7 @@ Section SimulationLocal.
           <<STEPS: rtc (@Thread.tau_step _)
                        (Thread.mk _ st1_src lc1_src sc1_src mem1_src)
                        (Thread.mk _ st2_src lc2_src sc2_src mem2_src)>> /\
+          <<SC: TimeMap.le sc2_src sc1_tgt>> /\
           <<MEMORY: Memory.sim mem1_tgt mem2_src>> /\
           <<TERMINAL_SRC: lang_src.(Language.is_terminal) st2_src>> /\
           <<LOCAL: sim_local lc2_src lc1_tgt>> /\
@@ -93,6 +96,7 @@ Section SimulationLocal.
           (SC_SRC: Memory.closed_timemap sc2_src mem2_src)
           (MEM_SRC: Memory.closed mem2_src),
         exists sc2_tgt mem2_tgt,
+          <<SC: TimeMap.le sc2_src sc2_tgt>> /\
           <<MEMORY: Memory.sim mem2_tgt mem2_src>> /\
           <<SC_FUTURE_TGT: TimeMap.le sc1_tgt sc2_tgt>> /\
           <<MEM_FUTURE_TGT: Memory.future mem1_tgt mem2_tgt>> /\
@@ -112,10 +116,10 @@ Section SimulationLocal.
 
   Lemma _sim_thread_mon: monotone9 _sim_thread.
   Proof.
-    ii. exploit IN; eauto. i. des.
+    ii. exploit IN; try apply SC; eauto. i. des.
     splits; eauto. ii.
     exploit STEP; eauto. i. des.
-    eexists _, _, _, _, _, _, _, _, _. splits; eauto.
+    esplits; eauto.
   Qed.
   Hint Resolve _sim_thread_mon: paco.
 
@@ -127,12 +131,12 @@ Section SimulationLocal.
     sim_thread sim_terminal1 <8= sim_thread sim_terminal2.
   Proof.
     pcofix CIH. i. punfold PR. pfold. ii.
-    exploit PR; eauto. i. des.
+    exploit PR; try apply SC; eauto. i. des.
     splits; auto.
     - i. exploit TERMINAL; eauto. i. des.
-      eexists _, _, _, _. splits; eauto.
+      esplits; eauto.
     - ii. exploit STEP; eauto. i. des; [|done].
-      eexists _, _, _, _, _, _, _, _, _. splits; eauto.
+      esplits; eauto.
   Qed.
 End SimulationLocal.
 Hint Resolve _sim_thread_mon: paco.
@@ -150,6 +154,7 @@ Section Simulation.
              (ths1_tgt:Threads.t) (sc_k_tgt:TimeMap.t) (mem_k_tgt:Memory.t): Prop :=
     forall sc1_src mem1_src
       sc1_tgt mem1_tgt
+      (SC1: TimeMap.le sc1_src sc1_tgt)
       (MEMORY1: Memory.sim mem1_tgt mem1_src)
       (WF_SRC: Configuration.wf (Configuration.mk ths1_src sc1_src mem1_src))
       (WF_TGT: Configuration.wf (Configuration.mk ths1_tgt sc1_tgt mem1_tgt))
@@ -163,6 +168,7 @@ Section Simulation.
         forall (TERMINAL_TGT: Threads.is_terminal ths1_tgt),
         exists ths2_src sc2_src mem2_src,
           <<STEPS: rtc Configuration.tau_step (Configuration.mk ths1_src sc1_src mem1_src) (Configuration.mk ths2_src sc2_src mem2_src)>> /\
+          <<SC: TimeMap.le sc2_src sc1_tgt>> /\
           <<MEMORY: Memory.sim mem1_tgt mem2_src>> /\
           <<TERMINAL_SRC: Threads.is_terminal ths2_src>>>> /\
       <<STEP:
@@ -171,15 +177,16 @@ Section Simulation.
         exists e tid_src ths2_src sc2_src mem2_src ths3_src sc3_src mem3_src,
           <<STEPS: rtc Configuration.tau_step (Configuration.mk ths1_src sc1_src mem1_src) (Configuration.mk ths2_src sc2_src mem2_src)>> /\
           <<STEP_SRC: Configuration.step e tid_src (Configuration.mk ths2_src sc2_src mem2_src) (Configuration.mk ths3_src sc3_src mem3_src)>> /\
-          <<MEMORY2: Memory.sim mem3_tgt mem3_src>> /\
+          <<SC3: TimeMap.le sc3_src sc3_tgt>> /\
+          <<MEMORY3: Memory.sim mem3_tgt mem3_src>> /\
           <<SIM: sim ths3_src sc3_src mem3_src ths3_tgt sc3_tgt mem3_tgt>>>>.
 
   Lemma _sim_mon: monotone6 _sim.
   Proof.
-    ii. exploit IN; eauto. i. des.
+    ii. exploit IN; try apply SC1; eauto. i. des.
     splits; eauto. i.
     exploit STEP; eauto. i. des.
-    eexists _, _, _, _, _, _, _, _. splits; eauto.
+    esplits; eauto.
   Qed.
   Hint Resolve _sim_mon: paco.
 
@@ -278,6 +285,7 @@ Lemma sim_step
       (STEP: @Thread.step lang_tgt e_tgt
                           (Thread.mk _ st1_tgt lc1_tgt sc1_tgt mem1_tgt)
                           (Thread.mk _ st3_tgt lc3_tgt sc3_tgt mem3_tgt))
+      (SC: TimeMap.le sc1_src sc1_tgt)
       (MEMORY: Memory.sim mem1_tgt mem1_src)
       (WF_SRC: Local.wf lc1_src mem1_src)
       (WF_TGT: Local.wf lc1_tgt mem1_tgt)
@@ -294,6 +302,7 @@ Lemma sim_step
                         (Thread.mk _ st2_src lc2_src sc2_src mem2_src)
                         (Thread.mk _ st3_src lc3_src sc3_src mem3_src)>> /\
     <<EVENT: ThreadEvent.get_event e_src = ThreadEvent.get_event e_tgt>> /\
+    <<SC: TimeMap.le sc3_src sc3_tgt>> /\
     <<MEMORY: Memory.sim mem3_tgt mem3_src>> /\
     <<WF_SRC: Local.wf lc3_src mem3_src>> /\
     <<WF_TGT: Local.wf lc3_tgt mem3_tgt>> /\
@@ -308,7 +317,7 @@ Proof.
   exploit STEP0; eauto. i. des; [|done].
   exploit Thread.rtc_step_future; eauto. s. i. des.
   exploit Thread.step_future; eauto. s. i. des.
-  eexists _, _, _, _, _, _, _, _, _. splits; eauto.
+  esplits; eauto.
 Qed.
 
 Lemma sim_rtc_step
@@ -317,6 +326,7 @@ Lemma sim_rtc_step
       st1_src lc1_src sc1_src mem1_src
       e1_tgt e2_tgt
       (STEPS: rtc (@Thread.tau_step lang_tgt) e1_tgt e2_tgt)
+      (SC: TimeMap.le sc1_src e1_tgt.(Thread.sc))
       (MEMORY: Memory.sim e1_tgt.(Thread.memory) mem1_src)
       (WF_SRC: Local.wf lc1_src mem1_src)
       (WF_TGT: Local.wf e1_tgt.(Thread.local) e1_tgt.(Thread.memory))
@@ -329,6 +339,7 @@ Lemma sim_rtc_step
     <<STEPS: rtc (@Thread.tau_step lang_src)
                  (Thread.mk _ st1_src lc1_src sc1_src mem1_src)
                  (Thread.mk _ st2_src lc2_src sc2_src mem2_src)>> /\
+    <<SC: TimeMap.le sc2_src e2_tgt.(Thread.sc)>> /\
     <<MEMORY: Memory.sim e2_tgt.(Thread.memory) mem2_src>> /\
     <<WF_SRC: Local.wf lc2_src mem2_src>> /\
     <<WF_TGT: Local.wf e2_tgt.(Thread.local) e2_tgt.(Thread.memory)>> /\
@@ -338,15 +349,15 @@ Lemma sim_rtc_step
     <<MEM_TGT: Memory.closed e2_tgt.(Thread.memory)>> /\
     <<SIM: sim_thread sim_terminal st2_src lc2_src sc2_src mem2_src e2_tgt.(Thread.state) e2_tgt.(Thread.local) e2_tgt.(Thread.sc) e2_tgt.(Thread.memory)>>.
 Proof.
-  revert MEMORY WF_SRC WF_TGT SC_SRC SC_TGT MEM_SRC MEM_TGT SIM.
+  revert SC MEMORY WF_SRC WF_TGT SC_SRC SC_TGT MEM_SRC MEM_TGT SIM.
   revert st1_src lc1_src sc1_src mem1_src.
   induction STEPS; i.
-  { eexists _, _, _, _. splits; eauto. }
+  { esplits; eauto. }
   inv H. destruct x, y. ss.
   exploit sim_step; eauto. i. des.
   exploit IHSTEPS; eauto. i. des.
   destruct z. ss.
-  eexists _, _, _, _. splits; try apply MEMORY1; eauto.
+  esplits; try apply MEMORY1; eauto.
   etrans; [eauto|]. econs 2; eauto. econs; eauto. etrans; eauto.
 Qed.
 
@@ -356,6 +367,7 @@ Lemma sim_thread_consistent
       st_src lc_src sc_src mem_src
       st_tgt lc_tgt sc_tgt mem_tgt
       (SIM: sim_thread sim_terminal st_src lc_src sc_src mem_src st_tgt lc_tgt sc_tgt mem_tgt)
+      (SC: TimeMap.le sc_src sc_tgt)
       (MEMORY: Memory.sim mem_tgt mem_src)
       (WF_SRC: Local.wf lc_src mem_src)
       (WF_TGT: Local.wf lc_tgt mem_tgt)
@@ -370,7 +382,7 @@ Proof.
   punfold X. exploit X; eauto; try refl. i. des.
   ii. ss. exploit FUTURE; eauto. i. des.
   exploit CONSISTENT; eauto; try refl. i. des.
-  exploit sim_rtc_step; try apply MEMORY0; eauto.
+  exploit sim_rtc_step; try apply MEMORY0; try apply SC0; eauto.
   { s. eapply sim_thread_future; eauto. }
   i. des. destruct e2. ss.
   punfold SIM0. exploit SIM0; eauto; try refl. i. des.
@@ -398,9 +410,9 @@ Proof.
   exploit singleton_consistent_inv; try apply WF_TGT; eauto. i. des.
   splits.
   - i. apply (singleton_is_terminal tid) in TERMINAL_TGT. des.
-    punfold SIM0. exploit SIM0; eauto. i. des.
+    punfold SIM0. exploit SIM0; try apply SC1; eauto. i. des.
     exploit TERMINAL; eauto. i. des.
-    eexists _, _, _. splits; [|eauto|].
+    esplits; [|eauto|eauto|].
     + generalize (rtc_tail STEPS). intro X. des. inv X0.
       * destruct a2. econs 2; [|econs 1].
         econs. rewrite <- TAU. econs; ss; eauto.
@@ -418,11 +430,11 @@ Proof.
   - i. inv STEP_TGT. ss.
     apply IdentMap.singleton_find_inv in TID. des.
     Configuration.simplify.
-    exploit sim_rtc_step; eauto.
+    exploit sim_rtc_step; try apply STEPS; try apply SC1; eauto.
     { eapply sim_thread_future; eauto. }
     i. des. destruct e2. ss.
     exploit sim_step; try apply MEMORY; eauto. i. des.
-    eexists _, _, _, _, _, _, _, _. splits; eauto.
+    esplits; eauto.
     + econs; s.
       * apply IdentMap.singleton_eq.
       * etrans; eauto.

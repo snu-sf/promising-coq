@@ -59,17 +59,17 @@ Proof.
   pcofix CIH. ii. subst. pfold. ii. splits.
   { i. inv TERMINAL_TGT. }
   { i. eapply sim_local_future; try apply MEMORY; eauto. apply LOCAL. }
-  { i. eexists _, _, _. splits; eauto.
+  { i. esplits; eauto.
     inv LOCAL. apply MemInv.sem_bot_inv in PROMISES. rewrite PROMISES. auto.
   }
   ii. inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR; inv REORDER); ss.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
-    eexists _, _, _, _, _, _, _. splits; eauto.
+    esplits; eauto.
     econs 1; eauto. econs; eauto. eauto.
   - (* load *)
     exploit sim_local_read; eauto. i. des.
-    eexists _, _, _, _, _, _, _. splits; eauto.
+    esplits; eauto.
     + econs 2. econs 1; ss.
       * econs. econs.
       * apply progress_silent_step. auto.
@@ -79,14 +79,14 @@ Proof.
   - (* store *)
     exploit sim_local_write; eauto. i. des.
     inv STEP_SRC.
-    + eexists _, _, _, _, _, _, _. splits; eauto.
+    + esplits; eauto.
       * econs 2. econs 1; ss.
         { econs. econs. }
         { apply progress_silent_step. auto. }
       * auto.
       * left. eapply paco7_mon; [apply sim_store_sim_thread|]; ss.
         econs; eauto.
-    + eexists _, _, _, _, _, _, _. splits.
+    + esplits.
       * econs 2; [|econs 1]. econs.
         { econs 2. econs 1; ss.
           - econs. econs.
@@ -105,7 +105,7 @@ Proof.
     { eapply Local.read_step_future; eauto. }
     i. des.
     inv STEP_SRC0.
-    + eexists _, _, _, _, _, _, _. splits; eauto.
+    + esplits; eauto.
       * econs 2. econs 1; ss.
         { econs. econs. }
         { apply progress_silent_step. auto. }
@@ -113,7 +113,7 @@ Proof.
       * left. eapply paco7_mon; [apply sim_update_sim_thread|]; ss.
         econs; eauto.
     + exploit reorder_read_promise; try apply STEP_SRC; try apply x0; eauto. i. des.
-      eexists _, _, _, _, _, _, _. splits.
+      esplits.
       * econs 2; [|econs 1]. econs.
         { econs 2. econs 1; ss.
           - econs. econs.
@@ -127,7 +127,7 @@ Proof.
         econs; eauto.
   - (* fence *)
     exploit sim_local_fence; eauto. i. des.
-    eexists _, _, _, _, _, _, _. splits; eauto.
+    esplits; eauto.
     + econs 2. econs 1; ss.
         { econs. econs. }
         { apply progress_silent_step. auto. }

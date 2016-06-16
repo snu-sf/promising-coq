@@ -38,17 +38,17 @@ Proof.
   pcofix CIH. i. pfold. ii. splits.
   { i. inv TERMINAL_TGT. }
   { i. eapply sim_local_future; try apply MEMORY; eauto. apply LOCAL. }
-  { i. eexists _, _, _. splits; eauto.
+  { i. esplits; eauto.
     eapply sim_local_memory_bot; eauto.
   }
   ii. inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR); ss.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
-    eexists _, _, _, _, _, _, _. splits; eauto.
+    esplits; eauto.
     econs 1; eauto. econs; eauto. eauto.
   - (* load *)
     exploit sim_local_silent; eauto. i. des.
-    eexists _, _, _, _, _, _, _. splits; eauto.
+    esplits; eauto.
     + econs 2. econs 1; eauto. econs. econs.
     + eauto.
     + left. eapply paco7_mon.
@@ -71,13 +71,13 @@ Proof.
   pcofix CIH. ii. subst. pfold. ii. splits.
   { i. inv TERMINAL_TGT. }
   { i. eapply sim_local_future; try apply MEMORY; eauto. apply LOCAL. }
-  { i. eexists _, _, _. splits; eauto.
+  { i. esplits; eauto.
     eapply sim_local_memory_bot; eauto.
   }
   ii. inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR); ss.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
-    eexists _, _, _, _, _, _, _. splits; eauto.
+    esplits; eauto.
     econs 1; eauto. econs; eauto. eauto.
   - (* load *)
     exploit merge_read_read; try apply LOCAL0; [apply O1|apply O2| | |]; eauto. i. des.
@@ -86,7 +86,7 @@ Proof.
     { eapply Local.read_step_future; eauto. }
     { eapply Local.read_step_future; eauto. }
     i. des.
-    eexists _, _, _, _, _, _, _. splits.
+    esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 2; eauto. econs. econs.
       * eauto.
@@ -111,13 +111,13 @@ Proof.
   pcofix CIH. ii. subst. pfold. ii. splits.
   { i. inv TERMINAL_TGT. }
   { i. eapply sim_local_future; try apply MEMORY; eauto. apply LOCAL. }
-  { i. eexists _, _, _. splits; eauto.
+  { i. esplits; eauto.
     eapply sim_local_memory_bot; eauto.
   }
   ii. inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR); ss.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
-    eexists _, _, _, _, _, _, _. splits; eauto.
+    esplits; eauto.
     econs 1; eauto. econs; eauto. eauto.
   - (* store *)
     exploit merge_write_read1; eauto. i. des.
@@ -126,7 +126,7 @@ Proof.
     { eapply Local.write_step_future; eauto. }
     { eapply Local.write_step_future; eauto. }
     i. des.
-    eexists _, _, _, _, _, _, _. splits.
+    esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 3; eauto. econs. econs.
       * eauto.
@@ -153,13 +153,13 @@ Proof.
   pcofix CIH. ii. subst. pfold. ii. splits.
   { i. inv TERMINAL_TGT. }
   { i. eapply sim_local_future; try apply MEMORY; eauto. apply LOCAL. }
-  { i. eexists _, _, _. splits; eauto.
+  { i. esplits; eauto.
     eapply sim_local_memory_bot; eauto.
   }
   ii. inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR); ss.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
-    eexists _, _, _, _, _, _, _. splits; eauto.
+    esplits; eauto.
     econs 1; eauto. econs; eauto. eauto.
   - (* store *)
     exploit merge_write_write; try apply LOCAL0; [apply O1|apply O2| | |]; eauto. i. des.
@@ -170,7 +170,7 @@ Proof.
     { eapply Local.write_step_future; eauto. }
     { eapply Local.write_step_future; eauto. }
     i. des.
-    eexists _, _, _, _, _, _, _. splits.
+    esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 3; eauto. econs. econs.
       * eauto.
@@ -201,13 +201,13 @@ Proof.
   pcofix CIH. ii. subst. pfold. ii. splits.
   { i. inv TERMINAL_TGT. }
   { i. eapply sim_local_future; try apply MEMORY; eauto. apply LOCAL. }
-  { i. eexists _, _, _. splits; eauto.
+  { i. esplits; eauto.
     eapply sim_local_memory_bot; eauto.
   }
   ii. inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR); ss.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
-    eexists _, _, _, _, _, _, _. splits; eauto.
+    esplits; eauto.
     econs 1; eauto. econs; eauto. eauto.
   - (* store *)
     exploit merge_write_write; try apply LOCAL0; [apply O1|apply OW2| | |]; eauto. i. des.
@@ -220,7 +220,7 @@ Proof.
     { eapply Local.read_step_future; eauto. }
     { eapply Local.read_step_future; eauto. }
     i. des.
-    eexists _, _, _, _, _, _, _. splits.
+    esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 3; eauto. econs. econs.
       * eauto.
@@ -252,13 +252,13 @@ Proof.
   pcofix CIH. ii. subst. pfold. ii. splits.
   { i. inv TERMINAL_TGT. }
   { i. eapply sim_local_future; try apply MEMORY; eauto. apply LOCAL. }
-  { i. eexists _, _, _. splits; eauto.
+  { i. esplits; eauto.
     eapply sim_local_memory_bot; eauto.
   }
   ii. inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR); ss.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
-    eexists _, _, _, _, _, _, _. splits; eauto.
+    esplits; eauto.
     econs 1; eauto. econs; eauto. eauto.
   - (* update *)
     exploit Local.read_step_future; eauto. i. des.
@@ -273,7 +273,7 @@ Proof.
     { eapply Local.write_step_future; eauto. }
     { eapply Local.write_step_future; eauto. }
     i. des.
-    eexists _, _, _, _, _, _, _. splits.
+    esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 4.
         { econs. econs. eauto. }
@@ -307,13 +307,13 @@ Proof.
   pcofix CIH. ii. subst. pfold. ii. splits.
   { i. inv TERMINAL_TGT. }
   { i. eapply sim_local_future; try apply MEMORY; eauto. apply LOCAL. }
-  { i. eexists _, _, _. splits; eauto.
+  { i. esplits; eauto.
     eapply sim_local_memory_bot; eauto.
   }
   ii. inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR); ss.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
-    eexists _, _, _, _, _, _, _. splits; eauto.
+    esplits; eauto.
     econs 1; eauto. econs; eauto. eauto.
   - (* update *)
     admit.
@@ -335,13 +335,13 @@ Proof.
   pcofix CIH. ii. subst. pfold. ii. splits.
   { i. inv TERMINAL_TGT. }
   { i. eapply sim_local_future; try apply MEMORY; eauto. apply LOCAL. }
-  { i. eexists _, _, _. splits; eauto.
+  { i. esplits; eauto.
     eapply sim_local_memory_bot; eauto.
   }
   ii. inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR); ss.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
-    eexists _, _, _, _, _, _, _. splits; eauto.
+    esplits; eauto.
     econs 1; eauto. econs; eauto. eauto.
   - (* fence *)
     exploit merge_fence_fence; try apply LOCAL0; [apply ORDR1|apply ORDR2|apply ORDW1|apply ORDW2| | |]; eauto. i. des.
@@ -350,7 +350,7 @@ Proof.
     { eapply Local.fence_step_future; eauto. }
     { eapply Local.fence_step_future; eauto. }
     i. des.
-    eexists _, _, _, _, _, _, _. splits.
+    esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 5; eauto. econs. econs.
       * eauto.

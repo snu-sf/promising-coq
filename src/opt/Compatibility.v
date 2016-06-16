@@ -4,7 +4,7 @@ Require Import List.
 
 Require Import sflib.
 Require Import paco.
-Require Import respectful7.
+Require Import respectful9.
 
 Require Import Axioms.
 Require Import Basic.
@@ -58,7 +58,7 @@ Lemma sim_local_future
     <<WF2_TGT: Local.wf lc_tgt mem2_tgt>> /\
     <<MEM2_TGT: Memory.closed mem2_tgt>>.
 Proof.
-  eexists. splits.
+  esplits.
   - reflexivity.
   - etrans; eauto. apply Memory.sim_future. apply MEM1.
   - econs.
@@ -117,7 +117,7 @@ Lemma sim_local_read
 Proof.
   inv LOCAL1. inv STEP_TGT.
   exploit Memory.sim_get; try apply MEM1; eauto. i. des.
-  eexists _, _. splits; eauto.
+  esplits; eauto.
   - econs; eauto.
   - econs; eauto. s. admit. (* Commit.read_commit_mon *)
 Admitted.
@@ -183,146 +183,29 @@ Proof.
   { apply WF1_SRC. }
   { apply WF1_TGT. }
   i. des. esplits; eauto.
-  - econs; eauto. admit.
-  - 
-  - 
-  { 
-  - exploit sim_local_fulfill; eauto. i. des.
-    eexists _, _, _. splits; eauto. econs 1; eauto.
-    i. eapply sim_local_cell_bot; eauto.
-  - exploit sim_local_promise; eauto. i. des.
-    exploit sim_local_fulfill; eauto.
-    { eapply Local.promise_step_future; eauto. }
-    { eapply Local.promise_step_future; eauto. }
-    i. des.
-    eexists _, _, _. splits; eauto. econs 2; eauto.
-    i. eapply sim_local_cell_bot; eauto.
-Qed.
-
-Lemma sim_local_fulfill
-      lc1_src sc1_src mem1_src
-      lc1_tgt sc1_tgt mem1_tgt
-      lc3_tgt sc3_tgt
-      loc from to val releasedm_src releasedm_tgt released_tgt ord
-      (RELM: Capability.le releasedm_src releasedm_tgt)
-      (WF_RELM_TGT: Capability.wf releasedm_tgt)
-      (STEP_TGT: Local.fulfill_step lc1_tgt sc1_tgt mem1_tgt loc from to val releasedm_tgt released_tgt ord lc3_tgt sc3_tgt)
-      (LOCAL1: sim_local lc1_src lc1_tgt)
-      (SC1: TimeMap.le sc1_src sc1_tgt)
-      (MEM1: Memory.sim mem1_tgt mem1_src)
-      (WF1_SRC: Local.wf lc1_src mem1_src)
-      (WF1_TGT: Local.wf lc1_tgt mem1_tgt)
-      (MEM1_SRC: Memory.closed mem1_src)
-      (MEM1_TGT: Memory.closed mem1_tgt):
-    exists released_src lc2_src mem2_src lc3_src sc3_src,
-    <<REL: Capability.le released_src released_tgt>> /\
-    <<STEP1_SRC: Local.promise_step lc1_src mem1_src loc from to val released_src lc2_src mem2_src Memory.promise_kind_lower>> /\
-    <<STEP2_SRC: Local.fulfill_step lc2_src sc1_src mem1_src loc from to val releasedm_src released_src ord lc3_src sc3_src>> /\
-    <<LOCAL3: sim_local lc3_src lc3_tgt>> /\
-    <<SC3: TimeMap.le sc3_src sc3_tgt>> /\
-    <<MEM3: Memory.sim mem1_tgt mem2_src>>.
-Proof.
-  inv LOCAL1. inv STEP_TGT.
-  assert (REL:
-   Capability.le
-     (Capability.join releasedm_src
-        (Commit.rel
-           (Commit.write_commit (Local.commit lc1_src) sc1_src loc to
-              ord) loc))
-     (Capability.join releasedm_tgt
-        (Commit.rel
-           (Commit.write_commit (Local.commit lc1_tgt) sc1_tgt loc to
-              ord) loc))).
-  { committac.
-    { etrans; eauto. committac. }
-    unfold LocFun.add. condtac; [|congr]. committac.
-    - rewrite <- Capability.join_r.
-      rewrite <- Capability.join_l.
-      apply COMMIT.
-    - condtac; committac; try apply WF1_TGT.
-      + rewrite <- Capability.join_r.
-        rewrite <- Capability.join_r.
-        rewrite <- Capability.join_l.
-        rewrite <- Capability.join_l.
-        apply COMMIT.
-      + condtac; committac.
-        econs; apply TimeMap.bot_spec.
-      + etrans; [|apply TimeMap.join_r].
-        etrans; [|apply TimeMap.join_r].
-        etrans; [|apply TimeMap.join_l].
-        etrans; [|apply TimeMap.join_r].
-        unfold TimeMap.singleton, LocFun.add. condtac; [refl|congr].
-      + condtac; committac.
-        rewrite <- Capability.join_r.
-        rewrite <- Capability.join_r.
-        rewrite <- Capability.join_r.
-        econs; try refl. ss.
-  }
-  exploit MemInv.fulfill; eauto.
-  { apply WF1_SRC. }
-  { apply WF1_TGT. }
-  i. des.
-  esplits; eauto.
-  - econs; eauto.
-  - econs; eauto.
-  - s. econs; eauto. s. admit. (* Commit.write_commit_mon *)
+  - econs; eauto. i. exploit RELEASE; eauto. i. des.
+    splits; auto. eapply sim_local_cell_bot; eauto.
+  - econs; eauto. s. admit. (* CommitFacts.write_commit_mon *)
 Admitted.
 
-
-Lemma sim_local_write
-      lc1_src mem1_src
-      lc1_tgt mem1_tgt
-      lc2_tgt mem2_tgt
-      loc from to val releasedc releasedm ord kind_tgt
-      (STEP_TGT: Local.write_step lc1_tgt mem1_tgt loc from to val releasedc releasedm ord lc2_tgt mem2_tgt kind_tgt)
-      (LOCAL1: sim_local lc1_src lc1_tgt)
-      (MEM1: Memory.sim mem1_tgt mem1_src)
-      (WF1_SRC: Local.wf lc1_src mem1_src)
-      (WF1_TGT: Local.wf lc1_tgt mem1_tgt)
-      (MEM1_SRC: Memory.closed mem1_src)
-      (MEM1_TGT: Memory.closed mem1_tgt):
-  exists lc2_src mem2_src kind_src,
-    <<STEP_SRC: Local.write_step lc1_src mem1_src loc from to val releasedc releasedm ord lc2_src mem2_src kind_src>> /\
-    <<LOCAL2: sim_local lc2_src lc2_tgt>> /\
-    <<MEM2: Memory.sim mem2_tgt mem2_src>>.
-Proof.
-  inv STEP_TGT.
-  - exploit sim_local_fulfill; eauto. i. des.
-    eexists _, _, _. splits; eauto. econs 1; eauto.
-    i. eapply sim_local_cell_bot; eauto.
-  - exploit sim_local_promise; eauto. i. des.
-    exploit sim_local_fulfill; eauto.
-    { eapply Local.promise_step_future; eauto. }
-    { eapply Local.promise_step_future; eauto. }
-    i. des.
-    eexists _, _, _. splits; eauto. econs 2; eauto.
-    i. eapply sim_local_cell_bot; eauto.
-Qed.
-
 Lemma sim_local_fence
-      lc1_src mem1_src
-      lc1_tgt mem1_tgt
-      lc2_tgt
+      lc1_src sc1_src mem1_src
+      lc1_tgt sc1_tgt mem1_tgt
+      lc2_tgt sc2_tgt
       ordr ordw
-      (STEP_TGT: Local.fence_step lc1_tgt mem1_tgt ordr ordw lc2_tgt)
+      (STEP_TGT: Local.fence_step lc1_tgt sc1_tgt mem1_tgt ordr ordw lc2_tgt sc2_tgt)
       (LOCAL1: sim_local lc1_src lc1_tgt)
       (MEM1: Memory.sim mem1_tgt mem1_src)
       (WF1_SRC: Local.wf lc1_src mem1_src)
       (WF1_TGT: Local.wf lc1_tgt mem1_tgt):
-  exists lc2_src,
-    <<STEP_SRC: Local.fence_step lc1_src mem1_src ordr ordw lc2_src>> /\
+  exists lc2_src sc2_src,
+    <<STEP_SRC: Local.fence_step lc1_src sc1_src mem1_src ordr ordw lc2_src sc2_src>> /\
     <<LOCAL2: sim_local lc2_src lc2_tgt>>.
 Proof.
-  inv STEP_TGT.
-  eexists. splits; eauto.
-  - econs.
-    + eapply CommitFacts.read_fence_mon1; eauto. apply LOCAL1.
-    + eapply CommitFacts.write_fence_mon1; eauto. refl.
-    + i. eapply sim_local_memory_bot; eauto.
-    + eapply Commit.future_closed; eauto.
-      apply Memory.sim_future. apply MEM1.
-  - econs; try apply LOCAL1; eauto. s. refl.
-Qed.
+  inv STEP_TGT. esplits; eauto.
+  - econs; eauto. i. eapply sim_local_memory_bot; eauto.
+  - econs; try apply LOCAL1. s. admit. (* CommitFacts.fence_commit_mon *)
+Admitted.
 
 Definition SIM_REGS := forall (rs_src rs_tgt:RegFile.t), Prop.
 
@@ -344,16 +227,16 @@ Definition _sim_stmts
            (sim_regs0:SIM_REGS)
            (stmts_src stmts_tgt:list Stmt.t)
            (sim_regs1:SIM_REGS): Prop :=
-  forall rs_src rs_tgt lc_src lc_tgt mem_k_src mem_k_tgt
+  forall rs_src rs_tgt lc_src lc_tgt sc_k_src sc_k_tgt mem_k_src mem_k_tgt
     (RS: sim_regs0 rs_src rs_tgt)
     (LOCAL: sim_local lc_src lc_tgt),
     sim_thread
       (sim_terminal sim_regs1)
-      (State.mk rs_src stmts_src) lc_src mem_k_src
-      (State.mk rs_tgt stmts_tgt) lc_tgt mem_k_tgt.
+      (State.mk rs_src stmts_src) lc_src sc_k_src mem_k_src
+      (State.mk rs_tgt stmts_tgt) lc_tgt sc_k_tgt mem_k_tgt.
 
 Lemma _sim_stmts_mon
-      s1 s2 (S: s1 <7= s2):
+      s1 s2 (S: s1 <9= s2):
   _sim_stmts s1 <4= _sim_stmts s2.
 Proof.
   ii. apply S. apply PR; auto.
@@ -386,23 +269,23 @@ Lemma lang_step_deseq
                (State.mk rs2 stmts2').
 Proof.
   inv STEP.
-  - eexists. splits; eauto. econs 1. auto.
+  - esplits; eauto. econs 1. auto.
   - eexists. rewrite app_assoc. splits; eauto. econs 2.
   - eexists. rewrite app_comm_cons, app_assoc. splits; eauto. econs 3.
 Qed.
 
 Lemma program_step_seq
       stmts e
-      rs1 stmts1 lc1 mem1
-      rs2 stmts2 lc2 mem2
+      rs1 stmts1 lc1 sc1 mem1
+      rs2 stmts2 lc2 sc2 mem2
       (STEP: Thread.program_step
                e
-               (Thread.mk lang (State.mk rs1 stmts1) lc1 mem1)
-               (Thread.mk lang (State.mk rs2 stmts2) lc2 mem2)):
+               (Thread.mk lang (State.mk rs1 stmts1) lc1 sc1 mem1)
+               (Thread.mk lang (State.mk rs2 stmts2) lc2 sc2 mem2)):
   Thread.program_step
     e
-    (Thread.mk lang (State.mk rs1 (stmts1 ++ stmts)) lc1 mem1)
-    (Thread.mk lang (State.mk rs2 (stmts2 ++ stmts)) lc2 mem2).
+    (Thread.mk lang (State.mk rs1 (stmts1 ++ stmts)) lc1 sc1 mem1)
+    (Thread.mk lang (State.mk rs2 (stmts2 ++ stmts)) lc2 sc2 mem2).
 Proof.
   inv STEP; ss.
   - econs 1; s; eauto. apply lang_step_seq. auto.
@@ -415,61 +298,56 @@ Qed.
 
 Lemma step_seq
       stmts e
-      rs1 stmts1 lc1 mem1
-      rs2 stmts2 lc2 mem2
+      rs1 stmts1 lc1 sc1 mem1
+      rs2 stmts2 lc2 sc2 mem2
       (STEP: Thread.step e
-                         (Thread.mk lang (State.mk rs1 stmts1) lc1 mem1)
-                         (Thread.mk lang (State.mk rs2 stmts2) lc2 mem2)):
+                         (Thread.mk lang (State.mk rs1 stmts1) lc1 sc1 mem1)
+                         (Thread.mk lang (State.mk rs2 stmts2) lc2 sc2 mem2)):
   Thread.step e
-              (Thread.mk lang (State.mk rs1 (stmts1 ++ stmts)) lc1 mem1)
-              (Thread.mk lang (State.mk rs2 (stmts2 ++ stmts)) lc2 mem2).
+              (Thread.mk lang (State.mk rs1 (stmts1 ++ stmts)) lc1 sc1 mem1)
+              (Thread.mk lang (State.mk rs2 (stmts2 ++ stmts)) lc2 sc2 mem2).
 Proof.
-  inv STEP; ss.
-  - econs 1. inv STEP0.
-    + econs 1; ss. eauto.
-    + econs 2; ss.
+  inv STEP.
+  - econs 1. inv STEP0. econs. eauto.
   - econs 2. apply program_step_seq. eauto.
 Qed.
 
 Lemma thread_step_deseq
       stmts e
-      rs1 stmt1 stmts1 lc1 mem1
-      rs2 stmts2 lc2 mem2
+      rs1 stmt1 stmts1 lc1 sc1 mem1
+      rs2 stmts2 lc2 sc2 mem2
       (STEP: Thread.step e
-                         (Thread.mk lang (State.mk rs1 (stmt1 :: stmts1 ++ stmts)) lc1 mem1)
-                         (Thread.mk lang (State.mk rs2 stmts2) lc2 mem2)):
+                         (Thread.mk lang (State.mk rs1 (stmt1 :: stmts1 ++ stmts)) lc1 sc1 mem1)
+                         (Thread.mk lang (State.mk rs2 stmts2) lc2 sc2 mem2)):
   exists stmts2',
     stmts2 = stmts2' ++ stmts /\
   Thread.step e
-              (Thread.mk lang (State.mk rs1 (stmt1 :: stmts1)) lc1 mem1)
-              (Thread.mk lang (State.mk rs2 stmts2') lc2 mem2).
+              (Thread.mk lang (State.mk rs1 (stmt1 :: stmts1)) lc1 sc1 mem1)
+              (Thread.mk lang (State.mk rs2 stmts2') lc2 sc2 mem2).
 Proof.
   inv STEP.
-  - inv STEP0; ss.
-    + rewrite app_comm_cons.
-      eexists. splits; eauto.
-      econs 1. econs 1. s. eauto.
-    + rewrite app_comm_cons.
-      eexists. splits; eauto.
-      econs 1. econs 2. s. eauto.
+  - inv STEP0.
+    rewrite app_comm_cons.
+    esplits; eauto.
+    econs 1. econs. eauto.
   - inv STEP0; ss.
     + apply lang_step_deseq in STATE. des. subst.
-      eexists. splits; eauto.
+      esplits; eauto.
       econs 2. econs 1; s; eauto.
     + apply lang_step_deseq in STATE. des. subst.
-      eexists. splits; eauto.
+      esplits; eauto.
       econs 2. econs 2; s; eauto.
     + apply lang_step_deseq in STATE. des. subst.
-      eexists. splits; eauto.
+      esplits; eauto.
       econs 2. econs 3; s; eauto.
     + apply lang_step_deseq in STATE. des. subst.
-      eexists. splits; eauto.
+      esplits; eauto.
       econs 2. econs 4; s; eauto.
     + apply lang_step_deseq in STATE. des. subst.
-      eexists. splits; eauto.
+      esplits; eauto.
       econs 2. econs 5; s; eauto.
     + apply lang_step_deseq in STATE. des. subst.
-      eexists. splits; eauto.
+      esplits; eauto.
       econs 2. econs 6; s; eauto.
 Qed.
 
@@ -486,36 +364,36 @@ Lemma sim_rtc
   exists b2, rtc rB b1 b2 /\ sim a2 b2.
 Proof.
   revert b1 SIM1. induction RA; i.
-  - eexists. splits; eauto.
+  - esplits; eauto.
   - exploit SIM; eauto. i. des.
     exploit IHRA; eauto. i. des.
-    eexists. splits; [|eauto].
+    esplits; [|eauto].
     econs; eauto.
 Qed.
 
 Inductive sim_seq (s:list Stmt.t): forall (lhs rhs:Thread.t lang), Prop :=
 | sim_seq_intro
-    rs stmts lc mem:
+    rs stmts lc sc mem:
     sim_seq s
-            (Thread.mk lang (State.mk rs stmts) lc mem)
-            (Thread.mk lang (State.mk rs (stmts ++ s)) lc mem)
+            (Thread.mk lang (State.mk rs stmts) lc sc mem)
+            (Thread.mk lang (State.mk rs (stmts ++ s)) lc sc mem)
 .
 
 Lemma rtc_internal_step_seq
       stmts
-      rs1 stmts1 lc1 mem1
-      rs2 stmts2 lc2 mem2
+      rs1 stmts1 lc1 sc1 mem1
+      rs2 stmts2 lc2 sc2 mem2
       (STEP: rtc (@Thread.tau_step lang)
-                 (Thread.mk lang (State.mk rs1 stmts1) lc1 mem1)
-                 (Thread.mk lang (State.mk rs2 stmts2) lc2 mem2)):
+                 (Thread.mk lang (State.mk rs1 stmts1) lc1 sc1 mem1)
+                 (Thread.mk lang (State.mk rs2 stmts2) lc2 sc2 mem2)):
   rtc (@Thread.tau_step lang)
-      (Thread.mk lang (State.mk rs1 (stmts1 ++ stmts)) lc1 mem1)
-      (Thread.mk lang (State.mk rs2 (stmts2 ++ stmts)) lc2 mem2).
+      (Thread.mk lang (State.mk rs1 (stmts1 ++ stmts)) lc1 sc1 mem1)
+      (Thread.mk lang (State.mk rs2 (stmts2 ++ stmts)) lc2 sc2 mem2).
 Proof.
   exploit (sim_rtc (sim_seq stmts)); eauto.
   - i. inv SIM1. destruct a2. destruct state. destruct local. inv RA.
     generalize (step_seq stmts STEP0). i.
-    eexists. splits; [|econs; eauto].
+    esplits; [|econs; eauto].
     eapply Thread.step_tau; eauto.
   - econs; ss.
   - i. des. inv x1. auto.
@@ -524,48 +402,48 @@ Qed.
 Inductive ctx (sim_thread:SIM_THREAD lang lang): SIM_THREAD lang lang :=
 | ctx_incl
     sim_terminal
-    st1 lc1 mem_k_src st2 lc2 mem_k_tgt
-    (SIM: sim_thread sim_terminal st1 lc1 mem_k_src st2 lc2 mem_k_tgt):
-    ctx sim_thread sim_terminal st1 lc1 mem_k_src st2 lc2 mem_k_tgt
+    st1 lc1 sc_k_src mem_k_src st2 lc2 sc_k_tgt mem_k_tgt
+    (SIM: sim_thread sim_terminal st1 lc1 sc_k_src mem_k_src st2 lc2 sc_k_tgt mem_k_tgt):
+    ctx sim_thread sim_terminal st1 lc1 sc_k_src mem_k_src st2 lc2 sc_k_tgt mem_k_tgt
 | ctx_nil
     (sim_regs:SIM_REGS)
-    rs_src mem_k_src
-    rs_tgt mem_k_tgt
+    rs_src sc_k_src mem_k_src
+    rs_tgt sc_k_tgt mem_k_tgt
     lc_src lc_tgt
     (RS: sim_regs rs_src rs_tgt)
     (LOCAL: sim_local lc_src lc_tgt):
     ctx sim_thread
         (sim_terminal sim_regs)
-        (State.mk rs_src []) lc_src mem_k_src
-        (State.mk rs_tgt []) lc_tgt mem_k_tgt
+        (State.mk rs_src []) lc_src sc_k_src mem_k_src
+        (State.mk rs_tgt []) lc_tgt sc_k_tgt mem_k_tgt
 | ctx_instr
     instr regs
-    rs_src mem_k_src
-    rs_tgt mem_k_tgt
+    rs_src sc_k_src mem_k_src
+    rs_tgt sc_k_tgt mem_k_tgt
     lc_src lc_tgt
     (REGS: RegSet.disjoint regs (Instr.regs_of instr))
     (RS: RegFile.eq_except regs rs_src rs_tgt)
     (LOCAL: sim_local lc_src lc_tgt):
     ctx sim_thread
         (sim_terminal (RegFile.eq_except regs))
-        (State.mk rs_src [Stmt.instr instr]) lc_src mem_k_src
-        (State.mk rs_tgt [Stmt.instr instr]) lc_tgt mem_k_tgt
+        (State.mk rs_src [Stmt.instr instr]) lc_src sc_k_src mem_k_src
+        (State.mk rs_tgt [Stmt.instr instr]) lc_tgt sc_k_tgt mem_k_tgt
 | ctx_seq
     sim_regs1 sim_regs2
-    stmts1_src stmts2_src rs_src lc_src mem_k_src
-    stmts1_tgt stmts2_tgt rs_tgt lc_tgt mem_k_tgt
+    stmts1_src stmts2_src rs_src lc_src sc_k_src mem_k_src
+    stmts1_tgt stmts2_tgt rs_tgt lc_tgt sc_k_tgt mem_k_tgt
     (SIM1: sim_thread (sim_terminal sim_regs1)
-                      (State.mk rs_src stmts1_src) lc_src mem_k_src
-                      (State.mk rs_tgt stmts1_tgt) lc_tgt mem_k_tgt)
+                      (State.mk rs_src stmts1_src) lc_src sc_k_src mem_k_src
+                      (State.mk rs_tgt stmts1_tgt) lc_tgt sc_k_tgt mem_k_tgt)
     (SIM2: _sim_stmts sim_thread sim_regs1 stmts2_src stmts2_tgt sim_regs2):
     ctx sim_thread
         (sim_terminal sim_regs2)
-        (State.mk rs_src (stmts1_src ++ stmts2_src)) lc_src mem_k_src
-        (State.mk rs_tgt (stmts1_tgt ++ stmts2_tgt)) lc_tgt mem_k_tgt
+        (State.mk rs_src (stmts1_src ++ stmts2_src)) lc_src sc_k_src mem_k_src
+        (State.mk rs_tgt (stmts1_tgt ++ stmts2_tgt)) lc_tgt sc_k_tgt mem_k_tgt
 | ctx_ite
     sim_regs0 sim_regs1
-    cond_src stmts1_src stmts2_src rs_src mem_k_src
-    cond_tgt stmts1_tgt stmts2_tgt rs_tgt mem_k_tgt
+    cond_src stmts1_src stmts2_src rs_src sc_k_src mem_k_src
+    cond_tgt stmts1_tgt stmts2_tgt rs_tgt sc_k_tgt mem_k_tgt
     lc_src lc_tgt
     (COND: sim_expr sim_regs0 cond_src cond_tgt)
     (RS: sim_regs0 rs_src rs_tgt)
@@ -574,12 +452,12 @@ Inductive ctx (sim_thread:SIM_THREAD lang lang): SIM_THREAD lang lang :=
     (SIM2: _sim_stmts sim_thread sim_regs0 stmts2_src stmts2_tgt sim_regs1):
     ctx sim_thread
         (sim_terminal sim_regs1)
-        (State.mk rs_src [Stmt.ite cond_src stmts1_src stmts2_src]) lc_src mem_k_src
-        (State.mk rs_tgt [Stmt.ite cond_tgt stmts1_tgt stmts2_tgt]) lc_tgt mem_k_tgt
+        (State.mk rs_src [Stmt.ite cond_src stmts1_src stmts2_src]) lc_src sc_k_src mem_k_src
+        (State.mk rs_tgt [Stmt.ite cond_tgt stmts1_tgt stmts2_tgt]) lc_tgt sc_k_tgt mem_k_tgt
 | ctx_dowhile
     sim_regs
-    cond_src stmts_src rs_src mem_k_src
-    cond_tgt stmts_tgt rs_tgt mem_k_tgt
+    cond_src stmts_src rs_src sc_k_src mem_k_src
+    cond_tgt stmts_tgt rs_tgt sc_k_tgt mem_k_tgt
     lc_src lc_tgt
     (COND: sim_expr sim_regs cond_src cond_tgt)
     (RS: sim_regs rs_src rs_tgt)
@@ -587,12 +465,12 @@ Inductive ctx (sim_thread:SIM_THREAD lang lang): SIM_THREAD lang lang :=
     (SIM: _sim_stmts sim_thread sim_regs stmts_src stmts_tgt sim_regs):
     ctx sim_thread
         (sim_terminal sim_regs)
-        (State.mk rs_src [Stmt.dowhile stmts_src cond_src]) lc_src mem_k_src
-        (State.mk rs_tgt [Stmt.dowhile stmts_tgt cond_tgt]) lc_tgt mem_k_tgt
+        (State.mk rs_src [Stmt.dowhile stmts_src cond_src]) lc_src sc_k_src mem_k_src
+        (State.mk rs_tgt [Stmt.dowhile stmts_tgt cond_tgt]) lc_tgt sc_k_tgt mem_k_tgt
 .
 Hint Constructors ctx.
 
-Lemma ctx_mon: monotone7 ctx.
+Lemma ctx_mon: monotone9 ctx.
 Proof.
   ii. inv IN.
   - econs 1. auto.
@@ -604,91 +482,85 @@ Proof.
 Qed.
 Hint Resolve ctx_mon.
 
-Lemma ctx_weak_respectful: weak_respectful7 (@_sim_thread lang lang) ctx.
+Lemma ctx_weak_respectful: weak_respectful9 (@_sim_thread lang lang) ctx.
 Proof.
   econs; auto. i. destruct PR.
   - (* incl *)
     eapply _sim_thread_mon; eauto.
-    apply rclo7_incl.
+    apply rclo9_incl.
   - (* nil *)
     ii.
     inversion LOCAL. apply MemInv.sem_bot_inv in PROMISES.
     destruct lc_src, lc_tgt. ss. subst.
     splits; s; ii.
-    { inv TERMINAL_TGT. ss. eexists _, _, _. splits; eauto; ss. }
-    { eexists. splits; try refl; eauto.
+    { inv TERMINAL_TGT. ss. esplits; eauto; ss. }
+    { esplits.
+      - ; try refl; eauto.
       - etrans; eauto. apply Memory.sim_future. apply MEMORY.
       - inv WF_SRC0. inv WF_TGT. ss. econs; ss.
         eapply Commit.future_closed; eauto.
         etransitivity; eauto.
         apply Memory.sim_future. apply MEMORY.
+      - admit.
     }
-    { subst. eexists _, _, _. splits; eauto. }
+    { subst. esplits; eauto. }
     inv STEP_TGT; try by inv STEP; inv STATE.
     inv STEP; ss.
-    + exploit sim_local_promise; eauto. i. des.
-      eexists _, _, _, _, _, _, _. splits; eauto.
-      * econs 1. econs 1. s. eauto.
-      * eauto.
-      * apply rclo7_step. apply ctx_nil; auto.
-    + exploit sim_local_strengthen; eauto. i. des.
-      eexists _, _, _, _, _, _, _. splits; eauto.
-      * econs 1. econs 2. s. eauto.
-      * eauto.
-      * apply rclo7_step. apply ctx_nil; auto.
+    exploit sim_local_promise; eauto. i. des.
+    esplits; eauto.
+    + econs 1. econs 1. s. eauto.
+    + eauto.
+    + apply rclo9_step. apply ctx_nil; auto.
   - (* instr *)
     ii.
     inversion LOCAL. apply MemInv.sem_bot_inv in PROMISES.
     destruct lc_src, lc_tgt. ss. subst.
     splits; s; ii.
     { inv TERMINAL_TGT. }
-    { ss. eexists. splits; try refl; eauto.
+    { ss. esplits; try refl; eauto.
       - etrans; eauto. apply Memory.sim_future. apply MEMORY.
       - inv WF_SRC0. inv WF_TGT. ss. econs; ss.
         eapply Commit.future_closed; eauto.
         etransitivity; eauto.
         apply Memory.sim_future. apply MEMORY.
+      - admit.
     }
-    { ss. subst. eexists _, _, _. splits; eauto. }
+    { ss. subst. esplits; eauto. }
     inv STEP_TGT; ss.
-    + inv STEP; ss.
-      * (* promise *)
-        exploit sim_local_promise; eauto. i. des.
-        eexists _, _, _, _, _, _, _. splits; eauto.
-        { econs 1. econs 1. s. eauto. }
-        { eauto. }
-        { apply rclo7_step. apply ctx_instr; auto. }
-      * (* strengthen *)
-        exploit sim_local_strengthen; eauto. i. des.
-        eexists _, _, _, _, _, _, _. splits; eauto.
-        { econs 1. econs 2. s. eauto. }
-        { eauto. }
-        { apply rclo7_step. apply ctx_instr; auto. }
+    + (* promise *)
+      inv STEP; ss.
+      exploit sim_local_promise; eauto. i. des.
+      esplits; eauto.
+      { econs 1. econs 1. s. eauto. }
+      { eauto. }
+      { apply rclo9_step. apply ctx_instr; auto. }
     + inv STEP; ss.
       * (* silent *)
         inv STATE.
-        exploit sim_local_silent; eauto. i. des.
         exploit RegFile.eq_except_instr; eauto. i. des.
-        eexists _, _, _, _, _, _, _. splits; eauto.
+        esplits; eauto.
         { econs 2. econs 1; eauto. s. econs. eauto. }
         { eauto. }
-        { apply rclo7_step. apply ctx_nil; auto. }
+        { apply rclo9_step. apply ctx_nil; auto. }
       * (* read *)
         inv STATE.
         exploit sim_local_read; eauto. i. des.
         exploit RegFile.eq_except_instr; eauto. i. des.
-        eexists _, _, _, _, _, _, _. splits; eauto.
+        esplits; eauto.
         { econs 2. econs 2; eauto. s. econs. eauto. }
         { eauto. }
-        { apply rclo7_step. apply ctx_nil; auto. }
+        { apply rclo9_step. apply ctx_nil; auto. }
       * (* write *)
         inv STATE.
-        exploit sim_local_write; eauto. i. des.
+        exploit sim_local_write; try apply LOCAL0; eauto.
+        { refl. }
+        { apply Capability.bot_wf. }
+        i. des.
         exploit RegFile.eq_except_instr; eauto. i. des.
-        eexists _, _, _, _, _, _, _. splits; eauto.
+        esplits; eauto.
         { econs 2. econs 3; eauto. s. econs. eauto. }
         { eauto. }
-        { apply rclo7_step. apply ctx_nil; auto. }
+        { apply rclo9_step. apply ctx_nil; auto. }
       * (* update *)
         inv STATE.
         exploit sim_local_read; eauto. i. des.
@@ -697,26 +569,26 @@ Proof.
         { eapply Local.read_step_future; eauto. }
         i. des.
         exploit RegFile.eq_except_instr; eauto. i. des.
-        eexists _, _, _, _, _, _, _. splits; eauto.
+        esplits; eauto.
         { econs 2. econs 4; eauto. s. econs. eauto. }
         { eauto. }
-        { apply rclo7_step. apply ctx_nil; auto. }
+        { apply rclo9_step. apply ctx_nil; auto. }
       * (* fence *)
         inv STATE.
         exploit sim_local_fence; eauto. i. des.
         exploit RegFile.eq_except_instr; eauto. i. des.
-        eexists _, _, _, _, _, _, _. splits; eauto.
+        esplits; eauto.
         { econs 2. econs 5; eauto. econs. eauto. }
         { eauto. }
-        { apply rclo7_step. apply ctx_nil; auto. }
+        { apply rclo9_step. apply ctx_nil; auto. }
       * (* syscall *)
         inv STATE.
         exploit sim_local_fence; eauto. i. des.
         exploit RegFile.eq_except_instr; eauto. i. des.
-        eexists _, _, _, _, _, _, _. splits; eauto.
+        esplits; eauto.
         { econs 2. econs 6; eauto. econs. eauto. }
         { eauto. }
-        { apply rclo7_step. apply ctx_nil; auto. }
+        { apply rclo9_step. apply ctx_nil; auto. }
   - (* seq *)
     ii. ss.
     exploit GF; eauto. s. i. des.
@@ -732,7 +604,7 @@ Proof.
       exploit GF; eauto. s. i. des.
       exploit TERMINAL0; try by econs. i. des.
       destruct st2_src, lc2_src. inv TERMINAL_SRC. ss. subst.
-      eexists _, _, _. splits; [|eauto| |eauto|eauto].
+      esplits; [|eauto| |eauto|eauto].
       + etrans; [|eauto].
         eapply rtc_internal_step_seq in STEPS. eauto.
       + econs.
@@ -740,7 +612,7 @@ Proof.
     { eapply FUTURE; eauto. }
     { exploit PROMISES; eauto. i. des.
       destruct lc_tgt, st2_src, lc2_src. ss. subst.
-      eexists _, _, _. splits; [|eauto].
+      esplits; [|eauto].
       - eapply rtc_internal_step_seq. apply STEPS.
       - ss.
     }
@@ -753,20 +625,20 @@ Proof.
       exploit SIM2; eauto. intro LC2.
       exploit GF; eauto. s. i. des.
       exploit STEP0; eauto. i. des.
-      eexists _, _, _, _, _, _, _. splits; [|eauto|eauto|eauto|].
+      esplits; [|eauto|eauto|eauto|].
       * eapply rtc_internal_step_seq in STEPS.
         etrans; [apply STEPS|eauto].
-      * apply rclo7_incl. auto.
+      * apply rclo9_incl. auto.
     + destruct st3_tgt, lc3_tgt.
       exploit thread_step_deseq; eauto. i. des. ss. subst.
       exploit STEP; eauto. i. des.
       destruct st2_src, lc2_src. destruct st3_src, lc3_src.
-      eexists _, _, _, _, _, _, _. splits; [| |eauto|eauto|].
+      esplits; [| |eauto|eauto|].
       * eapply rtc_internal_step_seq. eauto.
       * eapply step_seq. eauto.
-      * apply rclo7_step. eapply ctx_seq; eauto.
-        { apply rclo7_incl. eauto. }
-        { eapply _sim_stmts_mon; try apply rclo7_incl; eauto.
+      * apply rclo9_step. eapply ctx_seq; eauto.
+        { apply rclo9_incl. eauto. }
+        { eapply _sim_stmts_mon; try apply rclo9_incl; eauto.
           eapply _sim_stmts_mon; try apply LE; eauto.
         }
   - (* ite *)
@@ -775,42 +647,42 @@ Proof.
     destruct lc_src, lc_tgt. ss. subst.
     splits; s; ii.
     { inv TERMINAL_TGT. }
-    { ss. eexists. splits; try refl; eauto.
+    { ss. esplits; try refl; eauto.
       - etrans; eauto. apply Memory.sim_future. apply MEMORY.
       - inv WF_SRC0. inv WF_TGT. ss.
         econs; ss. eapply Commit.future_closed; eauto.
         etransitivity; eauto.
         apply Memory.sim_future. apply MEMORY.
     }
-    { ss. subst. eexists _, _. splits; eauto. }
+    { ss. subst. esplits; eauto. }
     inv STEP_TGT; ss.
     + inv STEP; ss.
       * (* promise *)
         exploit sim_local_promise; eauto. i. des.
-        eexists _, _, _, _, _, _, _. splits; eauto.
+        esplits; eauto.
         { econs 1. econs 1. s. eauto. }
         { eauto. }
-        { apply rclo7_step. eapply ctx_ite; eauto.
-          - eapply _sim_stmts_mon; try apply rclo7_incl; eauto.
+        { apply rclo9_step. eapply ctx_ite; eauto.
+          - eapply _sim_stmts_mon; try apply rclo9_incl; eauto.
             eapply _sim_stmts_mon; try apply LE; eauto.
-          - eapply _sim_stmts_mon; try apply rclo7_incl; eauto.
+          - eapply _sim_stmts_mon; try apply rclo9_incl; eauto.
             eapply _sim_stmts_mon; try apply LE; eauto.
         }
       * (* strengthen *)
         exploit sim_local_strengthen; eauto. i. des.
-        eexists _, _, _, _, _, _, _. splits; eauto.
+        esplits; eauto.
         { econs 1. econs 2. s. eauto. }
         { eauto. }
-        { apply rclo7_step. eapply ctx_ite; eauto.
-          - eapply _sim_stmts_mon; try apply rclo7_incl; eauto.
+        { apply rclo9_step. eapply ctx_ite; eauto.
+          - eapply _sim_stmts_mon; try apply rclo9_incl; eauto.
             eapply _sim_stmts_mon; try apply LE; eauto.
-          - eapply _sim_stmts_mon; try apply rclo7_incl; eauto.
+          - eapply _sim_stmts_mon; try apply rclo9_incl; eauto.
             eapply _sim_stmts_mon; try apply LE; eauto.
         }
     + (* ite *)
       inv STEP; inv STATE; ss.
       inv LOCAL0. ss.
-      eexists _, _, _, _, _, _, _. splits; try apply MEMORY; eauto.
+      esplits; try apply MEMORY; eauto.
       { econs 2. econs 1. econs; eauto. s. econs; eauto.
         - apply WF_TGT.
         - eapply Commit.future_closed; try apply WF_TGT; eauto.
@@ -820,8 +692,8 @@ Proof.
       { s. rewrite ? app_nil_r.
         exploit COND; eauto. intro C. rewrite C.
         destruct (RegFile.eval_expr rs_tgt cond_tgt).
-        - apply rclo7_incl. apply LE. apply SIM1; ss.
-        - apply rclo7_incl. apply LE. apply SIM2; ss.
+        - apply rclo9_incl. apply LE. apply SIM1; ss.
+        - apply rclo9_incl. apply LE. apply SIM2; ss.
       }
   - (* dowhile *)
     ii.
@@ -829,51 +701,51 @@ Proof.
     destruct lc_src, lc_tgt. ss. subst.
     splits; s; ii.
     { inv TERMINAL_TGT. }
-    { ss. eexists. splits; try refl; eauto.
+    { ss. esplits; try refl; eauto.
       - etrans; eauto. apply Memory.sim_future. apply MEMORY.
       - inv WF_SRC0. inv WF_TGT. ss.
         econs; ss. eapply Commit.future_closed; eauto.
         etransitivity; eauto.
         apply Memory.sim_future. apply MEMORY.
     }
-    { ss. subst. eexists _, _. splits; eauto. }
+    { ss. subst. esplits; eauto. }
     inv STEP_TGT; ss.
     + inv STEP; ss.
       * (* promise *)
         exploit sim_local_promise; eauto. i. des.
-        eexists _, _, _, _, _, _, _. splits; eauto.
+        esplits; eauto.
         { econs 1. econs 1. s. eauto. }
         { eauto. }
-        { apply rclo7_step. apply ctx_dowhile; auto.
-          - eapply _sim_stmts_mon; try apply rclo7_incl; eauto.
+        { apply rclo9_step. apply ctx_dowhile; auto.
+          - eapply _sim_stmts_mon; try apply rclo9_incl; eauto.
             eapply _sim_stmts_mon; try apply LE; eauto.
         }
       * (* strengthen *)
         exploit sim_local_strengthen; eauto. i. des.
-        eexists _, _, _, _, _, _, _. splits; eauto.
+        esplits; eauto.
         { econs 1. econs 2. s. eauto. }
         { eauto. }
-        { apply rclo7_step. apply ctx_dowhile; auto.
-          - eapply _sim_stmts_mon; try apply rclo7_incl; eauto.
+        { apply rclo9_step. apply ctx_dowhile; auto.
+          - eapply _sim_stmts_mon; try apply rclo9_incl; eauto.
             eapply _sim_stmts_mon; try apply LE; eauto.
         }
     + (* dowhile *)
       inv STEP; inv STATE; ss.
       inv LOCAL0. ss.
-      eexists _, _, _, _, _, _, _. splits; eauto.
+      esplits; eauto.
       { econs 2. econs 1. econs; eauto. s. econs; eauto.
         - apply WF_TGT.
         - eapply Commit.future_closed; try apply WF_TGT; eauto.
           apply Memory.sim_future. apply MEMORY.
       }
       { eauto. }
-      { apply rclo7_step. eapply ctx_seq.
-        { apply rclo7_incl. apply LE. apply SIM; ss. }
-        ii. apply rclo7_step. eapply ctx_ite; eauto.
-        - ii. apply rclo7_step. eapply ctx_dowhile; eauto.
-          eapply _sim_stmts_mon; try apply rclo7_incl; eauto.
+      { apply rclo9_step. eapply ctx_seq.
+        { apply rclo9_incl. apply LE. apply SIM; ss. }
+        ii. apply rclo9_step. eapply ctx_ite; eauto.
+        - ii. apply rclo9_step. eapply ctx_dowhile; eauto.
+          eapply _sim_stmts_mon; try apply rclo9_incl; eauto.
           eapply _sim_stmts_mon; try apply LE; eauto.
-        - ii. apply rclo7_base; auto.
+        - ii. apply rclo9_base; auto.
       }
 Qed.
 
@@ -895,7 +767,7 @@ Qed.
 Lemma sim_stmts_nil sim_regs:
   sim_stmts sim_regs [] [] sim_regs.
 Proof.
-  ii. pupto7_init. pupto7 ctx_weak_respectful.
+  ii. pupto9_init. pupto9 ctx_weak_respectful.
 Qed.
 
 Lemma sim_stmts_instr
@@ -903,7 +775,7 @@ Lemma sim_stmts_instr
       (REGS: RegSet.disjoint regs (Instr.regs_of instr)):
   sim_stmts (RegFile.eq_except regs) [Stmt.instr instr] [Stmt.instr instr] (RegFile.eq_except regs).
 Proof.
-  ii. pupto7_init. pupto7 ctx_weak_respectful.
+  ii. pupto9_init. pupto9 ctx_weak_respectful.
 Qed.
 
 Lemma sim_stmts_seq
@@ -914,10 +786,10 @@ Lemma sim_stmts_seq
       (SIM2: sim_stmts sim_regs1 stmts2_src stmts2_tgt sim_regs2):
   sim_stmts sim_regs0 (stmts1_src ++ stmts2_src) (stmts1_tgt ++ stmts2_tgt) sim_regs2.
 Proof.
-  ii. pupto7_init. pupto7 ctx_weak_respectful.
+  ii. pupto9_init. pupto9 ctx_weak_respectful.
   econs 4.
-  - pupto7_final. apply SIM1; auto.
-  - ii. pupto7_final. apply SIM2; auto.
+  - pupto9_final. apply SIM1; auto.
+  - ii. pupto9_final. apply SIM2; auto.
 Qed.
 
 Lemma sim_stmts_ite
@@ -929,10 +801,10 @@ Lemma sim_stmts_ite
       (SIM2: sim_stmts sim_regs0 stmts2_src stmts2_tgt sim_regs1):
   sim_stmts sim_regs0 [Stmt.ite cond_src stmts1_src stmts2_src] [Stmt.ite cond_tgt stmts1_tgt stmts2_tgt] sim_regs1.
 Proof.
-  ii. pupto7_init. pupto7 ctx_weak_respectful.
+  ii. pupto9_init. pupto9 ctx_weak_respectful.
   econs 5; eauto.
-  - ii. pupto7_final. apply SIM1; auto.
-  - ii. pupto7_final. apply SIM2; auto.
+  - ii. pupto9_final. apply SIM1; auto.
+  - ii. pupto9_final. apply SIM2; auto.
 Qed.
 
 Lemma sim_stmts_dowhile
@@ -943,6 +815,6 @@ Lemma sim_stmts_dowhile
       (SIM: sim_stmts sim_regs stmts_src stmts_tgt sim_regs):
   sim_stmts sim_regs [Stmt.dowhile stmts_src cond_src] [Stmt.dowhile stmts_tgt cond_tgt] sim_regs.
 Proof.
-  ii. pupto7_init. pupto7 ctx_weak_respectful.
-  econs 6; eauto. ii. pupto7_final. apply SIM; auto.
+  ii. pupto9_init. pupto9 ctx_weak_respectful.
+  econs 6; eauto. ii. pupto9_final. apply SIM; auto.
 Qed.

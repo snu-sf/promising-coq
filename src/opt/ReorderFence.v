@@ -76,7 +76,7 @@ Proof.
     { inv REORDER; ss. }
     { inv REORDER; ss. }
     i. des.
-    eexists _, _, _, _, _, _, _. splits; eauto.
+    esplits; eauto.
     + econs. econs 1; eauto.
     + eauto.
     + right. econs; eauto.
@@ -85,7 +85,7 @@ Proof.
     { eapply Local.fence_step_future; eauto. }
     i. des.
     exploit reorder_fence_write; try apply x0; try apply STEP_SRC; eauto. i. des.
-    eexists _, _, _, _, _, _, _. splits.
+    esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 3; eauto. econs. econs.
       * eauto.
@@ -106,11 +106,11 @@ Proof.
     + eapply Local.fence_step_future; eauto.
       eapply Local.future_fence_step; eauto.
       eapply Local.future_fence_step; eauto.
-  - i. eexists _, _, _. splits; eauto.
+  - i. esplits; eauto.
     inv PR. inv FENCE. inv LOCAL. ss.
     apply MemInv.sem_bot_inv in PROMISES. rewrite PROMISES. auto.
   - ii. exploit sim_fence_step; eauto. i. des.
-    + eexists _, _, _, _, _, _, _. splits; eauto.
+    + esplits; eauto.
       left. eapply paco7_mon; eauto. ss.
-    + eexists _, _, _, _, _, _, _. splits; eauto.
+    + esplits; eauto.
 Qed.

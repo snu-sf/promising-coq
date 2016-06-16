@@ -105,7 +105,7 @@ Proof.
     i. des.
     exploit reorder_read_promise; try apply x0; try apply STEP1; eauto. i. des.
     i. des.
-    eexists _, _, _, _, _, _, _. splits; eauto.
+    esplits; eauto.
     + econs. econs 1; eauto.
     + eauto.
     + right. econs; try apply STEP3; try apply STEP_SRC0; eauto.
@@ -120,7 +120,7 @@ Proof.
     i. des.
     exploit reorder_read_read; try apply x0; try apply STEP1; eauto. i. des.
     apply RegSet.disjoint_add in REGS. des.
-    eexists _, _, _, _, _, _, _. splits.
+    esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 2; eauto. econs. econs.
       * eauto.
@@ -147,7 +147,7 @@ Proof.
     exploit reorder_read_write; try apply x0; try apply STEP1; eauto.
     { i. destruct or1; inv ORDR1; inv H0. }
     i. des.
-    eexists _, _, _, _, _, _, _. splits.
+    esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 3; eauto. econs.
         erewrite <- RegFile.eq_except_value; eauto.
@@ -191,7 +191,7 @@ Proof.
     { i. destruct or1; inv ORDR1; inv H0. }
     { eapply Local.read_step_future; eauto. }
     i. des.
-    eexists _, _, _, _, _, _, _. splits.
+    esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 4; eauto. econs. econs.
         erewrite <- RegFile.eq_except_rmw; eauto; try apply RegFile.eq_except_singleton.
@@ -245,13 +245,13 @@ Proof.
       exploit Thread.program_step_future; eauto. s. i. des.
       punfold SIM. exploit SIM; eauto; try refl. i. des.
       exploit PROMISES; eauto. i. des.
-      eexists _, _, _. splits; [|eauto].
+      esplits; [|eauto].
       etrans; eauto. etrans; [|eauto].
       econs 2; eauto. econs; eauto. etrans; eauto.
       destruct e; by inv STEP; inv STATE; inv INSTR; inv REORDER.
     + inv SIM. inv STEP; inv STATE.
   - ii. exploit sim_update_step; eauto. i. des.
-    + eexists _, _, _, _, _, _, _. splits; eauto.
+    + esplits; eauto.
       left. eapply paco7_mon; eauto. ss.
-    + eexists _, _, _, _, _, _, _. splits; eauto.
+    + esplits; eauto.
 Qed.
