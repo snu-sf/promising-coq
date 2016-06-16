@@ -23,20 +23,20 @@ Require Import Semantics.
 
 Set Implicit Arguments.
 
-Lemma sim_local_memory_bot
-      lc_src lc_tgt
-      (SIM: sim_local lc_src lc_tgt)
-      (BOT: lc_tgt.(Local.promises) = Memory.bot):
-  lc_src.(Local.promises) = Memory.bot.
-Proof.
-  inv SIM. eapply MemInv.sem_bot_inv in PROMISES. rewrite PROMISES. auto.
-Qed.
-
 Lemma sim_local_cell_bot
       loc lc_src lc_tgt
       (SIM: sim_local lc_src lc_tgt)
       (BOT: lc_tgt.(Local.promises) loc = Cell.bot):
   lc_src.(Local.promises) loc = Cell.bot.
+Proof.
+  inv SIM. eapply MemInv.sem_bot_inv in PROMISES. rewrite PROMISES. auto.
+Qed.
+
+Lemma sim_local_memory_bot
+      lc_src lc_tgt
+      (SIM: sim_local lc_src lc_tgt)
+      (BOT: lc_tgt.(Local.promises) = Memory.bot):
+  lc_src.(Local.promises) = Memory.bot.
 Proof.
   inv SIM. eapply MemInv.sem_bot_inv in PROMISES. rewrite PROMISES. auto.
 Qed.
@@ -88,115 +88,186 @@ Lemma sim_local_promise
 Proof.
   inv LOCAL1. inv STEP_TGT.
   exploit MemInv.promise; eauto.
+  { refl. }
   { apply WF1_SRC. }
   { apply WF1_TGT. }
   i. des.
-  exploit Memory.promise_future; try apply PROMISES_SRC; eauto.
+  exploit Memory.promise_future; try apply PROMISE_SRC; eauto.
   { apply WF1_SRC. }
   i. des.
-  eexists _, _. splits; s; eauto.
-  - econs; try apply PROMISES_SRC.
-    + refl.
-    + apply WF1_SRC.
-    + eapply Commit.future_closed; [|eauto]. apply WF1_SRC.
-  - econs; s; eauto. etrans; eauto.
-Qed.
-
-Lemma sim_local_strengthen
-      lc1_src mem1_src
-      lc1_tgt mem1_tgt
-      lc2_tgt mem2_tgt
-      loc from to val released1 released2
-      (STEP_TGT: Local.strengthen_step lc1_tgt mem1_tgt loc from to val released1 released2 lc2_tgt mem2_tgt)
-      (LOCAL1: sim_local lc1_src lc1_tgt)
-      (MEM1: Memory.sim mem1_tgt mem1_src)
-      (WF1_SRC: Local.wf lc1_src mem1_src)
-      (WF1_TGT: Local.wf lc1_tgt mem1_tgt)
-      (MEM1_SRC: Memory.closed mem1_src)
-      (MEM1_TGT: Memory.closed mem1_tgt):
-  exists lc2_src mem2_src,
-    <<STEP_SRC: Local.strengthen_step lc1_src mem1_src loc from to val released1 released2 lc2_src mem2_src>> /\
-    <<LOCAL2: sim_local lc2_src lc2_tgt>> /\
-    <<MEM2: Memory.sim mem2_tgt mem2_src>>.
-Proof.
-Admitted.
-
-Lemma sim_local_silent
-      lc1_src mem1_src
-      lc1_tgt mem1_tgt
-      lc2_tgt
-      (STEP_TGT: Local.silent_step lc1_tgt mem1_tgt lc2_tgt)
-      (LOCAL1: sim_local lc1_src lc1_tgt)
-      (MEM1: Memory.sim mem1_tgt mem1_src)
-      (WF1_SRC: Local.wf lc1_src mem1_src)
-      (WF1_TGT: Local.wf lc1_tgt mem1_tgt):
-  exists lc2_src,
-    <<STEP_SRC: Local.silent_step lc1_src mem1_src lc2_src>> /\
-    <<LOCAL2: sim_local lc2_src lc2_tgt>>.
-Proof.
-  inv LOCAL1. inv STEP_TGT.
-  eexists. splits; eauto.
-  - econs.
-    + etrans; eauto.
-    + auto.
-    + eapply Commit.future_closed; eauto.
-      apply Memory.sim_future. apply MEM1.
-  - econs; eauto. s. refl.
+  esplits; eauto.
+  - econs. apply PROMISE_SRC.
+  - econs; eauto.
 Qed.
 
 Lemma sim_local_read
       lc1_src mem1_src
       lc1_tgt mem1_tgt
       lc2_tgt
-      loc ts val released ord
-      (STEP_TGT: Local.read_step lc1_tgt mem1_tgt loc ts val released ord lc2_tgt)
+      loc ts val released_tgt ord
+      (STEP_TGT: Local.read_step lc1_tgt mem1_tgt loc ts val released_tgt ord lc2_tgt)
       (LOCAL1: sim_local lc1_src lc1_tgt)
       (MEM1: Memory.sim mem1_tgt mem1_src)
       (WF1_SRC: Local.wf lc1_src mem1_src)
       (WF1_TGT: Local.wf lc1_tgt mem1_tgt):
-  exists lc2_src,
-    <<STEP_SRC: Local.read_step lc1_src mem1_src loc ts val released ord lc2_src>> /\
+  exists released_src lc2_src,
+    <<REL: Capability.le released_src released_tgt>> /\
+    <<STEP_SRC: Local.read_step lc1_src mem1_src loc ts val released_src ord lc2_src>> /\
     <<LOCAL2: sim_local lc2_src lc2_tgt>>.
 Proof.
   inv LOCAL1. inv STEP_TGT.
   exploit Memory.sim_get; try apply MEM1; eauto. i. des.
-  eexists. splits; eauto.
+  eexists _, _. splits; eauto.
   - econs; eauto.
-    + etrans; eauto.
-    + eapply CommitFacts.read_mon1; eauto.
-    + eapply Commit.future_closed; eauto.
-      apply Memory.sim_future. apply MEM1.
-  - econs; eauto. s. refl.
+  - econs; eauto. s. admit. (* Commit.read_commit_mon *)
+Admitted.
+
+Lemma sim_local_write
+      lc1_src sc1_src mem1_src
+      lc1_tgt sc1_tgt mem1_tgt
+      lc2_tgt sc2_tgt mem2_tgt
+      loc from to val releasedm_src releasedm_tgt ord
+      (RELM: Capability.le releasedm_src releasedm_tgt)
+      (WF_RELM_TGT: Capability.wf releasedm_tgt)
+      (STEP_TGT: Local.write_step lc1_tgt sc1_tgt mem1_tgt loc from to val releasedm_tgt ord lc2_tgt sc2_tgt mem2_tgt)
+      (LOCAL1: sim_local lc1_src lc1_tgt)
+      (SC1: TimeMap.le sc1_src sc1_tgt)
+      (MEM1: Memory.sim mem1_tgt mem1_src)
+      (WF1_SRC: Local.wf lc1_src mem1_src)
+      (WF1_TGT: Local.wf lc1_tgt mem1_tgt)
+      (MEM1_SRC: Memory.closed mem1_src)
+      (MEM1_TGT: Memory.closed mem1_tgt):
+  exists lc2_src sc2_src mem2_src,
+    <<STEP_SRC: Local.write_step lc1_src sc1_src mem1_src loc from to val releasedm_src ord lc2_src sc2_src mem2_src>> /\
+    <<LOCAL2: sim_local lc2_src lc2_tgt>> /\
+    <<MEM2: Memory.sim mem2_tgt mem2_src>>.
+Proof.
+  inv STEP_TGT.
+  assert (REL:
+   Capability.le
+     (Capability.join releasedm_src
+        (Commit.rel
+           (Commit.write_commit (Local.commit lc1_src) sc1_src loc to
+              ord) loc))
+     (Capability.join releasedm_tgt
+        (Commit.rel
+           (Commit.write_commit (Local.commit lc1_tgt) sc1_tgt loc to
+              ord) loc))).
+  { committac.
+    { etrans; eauto. committac. }
+    unfold LocFun.add. condtac; [|congr]. committac.
+    - rewrite <- Capability.join_r.
+      rewrite <- Capability.join_l.
+      apply LOCAL1.
+    - condtac; committac; try apply WF1_TGT.
+      + rewrite <- Capability.join_r.
+        rewrite <- Capability.join_r.
+        rewrite <- Capability.join_l.
+        rewrite <- Capability.join_l.
+        apply LOCAL1.
+      + condtac; committac.
+        econs; apply TimeMap.bot_spec.
+      + etrans; [|apply TimeMap.join_r].
+        etrans; [|apply TimeMap.join_r].
+        etrans; [|apply TimeMap.join_l].
+        etrans; [|apply TimeMap.join_r].
+        unfold TimeMap.singleton, LocFun.add. condtac; [refl|congr].
+      + condtac; committac.
+        rewrite <- Capability.join_r.
+        rewrite <- Capability.join_r.
+        rewrite <- Capability.join_r.
+        econs; try refl. ss.
+  }
+  exploit MemInv.write; try apply WRITE; eauto.
+  { apply LOCAL1. }
+  { apply WF1_SRC. }
+  { apply WF1_TGT. }
+  i. des. esplits; eauto.
+  - econs; eauto. admit.
+  - 
+  - 
+  { 
+  - exploit sim_local_fulfill; eauto. i. des.
+    eexists _, _, _. splits; eauto. econs 1; eauto.
+    i. eapply sim_local_cell_bot; eauto.
+  - exploit sim_local_promise; eauto. i. des.
+    exploit sim_local_fulfill; eauto.
+    { eapply Local.promise_step_future; eauto. }
+    { eapply Local.promise_step_future; eauto. }
+    i. des.
+    eexists _, _, _. splits; eauto. econs 2; eauto.
+    i. eapply sim_local_cell_bot; eauto.
 Qed.
 
 Lemma sim_local_fulfill
-      lc1_src mem1_src
-      lc1_tgt mem1_tgt
-      lc2_tgt
-      loc from to val releasedc releasedm ord
-      (STEP_TGT: Local.fulfill_step lc1_tgt mem1_tgt loc from to val releasedc releasedm ord lc2_tgt)
+      lc1_src sc1_src mem1_src
+      lc1_tgt sc1_tgt mem1_tgt
+      lc3_tgt sc3_tgt
+      loc from to val releasedm_src releasedm_tgt released_tgt ord
+      (RELM: Capability.le releasedm_src releasedm_tgt)
+      (WF_RELM_TGT: Capability.wf releasedm_tgt)
+      (STEP_TGT: Local.fulfill_step lc1_tgt sc1_tgt mem1_tgt loc from to val releasedm_tgt released_tgt ord lc3_tgt sc3_tgt)
       (LOCAL1: sim_local lc1_src lc1_tgt)
+      (SC1: TimeMap.le sc1_src sc1_tgt)
       (MEM1: Memory.sim mem1_tgt mem1_src)
       (WF1_SRC: Local.wf lc1_src mem1_src)
-      (WF1_TGT: Local.wf lc1_tgt mem1_tgt):
-  exists lc2_src,
-    <<STEP_SRC: Local.fulfill_step lc1_src mem1_src loc from to val releasedc releasedm ord lc2_src>> /\
-    <<LOCAL2: sim_local lc2_src lc2_tgt>>.
+      (WF1_TGT: Local.wf lc1_tgt mem1_tgt)
+      (MEM1_SRC: Memory.closed mem1_src)
+      (MEM1_TGT: Memory.closed mem1_tgt):
+    exists released_src lc2_src mem2_src lc3_src sc3_src,
+    <<REL: Capability.le released_src released_tgt>> /\
+    <<STEP1_SRC: Local.promise_step lc1_src mem1_src loc from to val released_src lc2_src mem2_src Memory.promise_kind_lower>> /\
+    <<STEP2_SRC: Local.fulfill_step lc2_src sc1_src mem1_src loc from to val releasedm_src released_src ord lc3_src sc3_src>> /\
+    <<LOCAL3: sim_local lc3_src lc3_tgt>> /\
+    <<SC3: TimeMap.le sc3_src sc3_tgt>> /\
+    <<MEM3: Memory.sim mem1_tgt mem2_src>>.
 Proof.
   inv LOCAL1. inv STEP_TGT.
+  assert (REL:
+   Capability.le
+     (Capability.join releasedm_src
+        (Commit.rel
+           (Commit.write_commit (Local.commit lc1_src) sc1_src loc to
+              ord) loc))
+     (Capability.join releasedm_tgt
+        (Commit.rel
+           (Commit.write_commit (Local.commit lc1_tgt) sc1_tgt loc to
+              ord) loc))).
+  { committac.
+    { etrans; eauto. committac. }
+    unfold LocFun.add. condtac; [|congr]. committac.
+    - rewrite <- Capability.join_r.
+      rewrite <- Capability.join_l.
+      apply COMMIT.
+    - condtac; committac; try apply WF1_TGT.
+      + rewrite <- Capability.join_r.
+        rewrite <- Capability.join_r.
+        rewrite <- Capability.join_l.
+        rewrite <- Capability.join_l.
+        apply COMMIT.
+      + condtac; committac.
+        econs; apply TimeMap.bot_spec.
+      + etrans; [|apply TimeMap.join_r].
+        etrans; [|apply TimeMap.join_r].
+        etrans; [|apply TimeMap.join_l].
+        etrans; [|apply TimeMap.join_r].
+        unfold TimeMap.singleton, LocFun.add. condtac; [refl|congr].
+      + condtac; committac.
+        rewrite <- Capability.join_r.
+        rewrite <- Capability.join_r.
+        rewrite <- Capability.join_r.
+        econs; try refl. ss.
+  }
   exploit MemInv.fulfill; eauto.
   { apply WF1_SRC. }
   { apply WF1_TGT. }
   i. des.
-  eexists. splits; eauto.
+  esplits; eauto.
   - econs; eauto.
-    + eapply CommitFacts.write_mon1; eauto.
-    + eapply Commit.future_closed; eauto.
-      apply Memory.sim_future. apply MEM1.
-    + eapply Memory.future_closed_capability; eauto.
-      apply Memory.sim_future. apply MEM1.
-  - econs; eauto. s. refl.
-Qed.
+  - econs; eauto.
+  - s. econs; eauto. s. admit. (* Commit.write_commit_mon *)
+Admitted.
+
 
 Lemma sim_local_write
       lc1_src mem1_src

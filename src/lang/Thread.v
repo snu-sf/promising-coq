@@ -82,21 +82,9 @@ Module Local.
 
   Inductive promise_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:Capability.t): forall (lc2:t) (mem2:Memory.t) (kind:Memory.promise_kind), Prop :=
   | step_promise
-      commit2 promises2 mem2 kind
-      (PROMISE: Memory.promise lc1.(promises) mem1 loc from to val released promises2 mem2 kind)
-      (COMMIT: Commit.le lc1.(commit) commit2)
-      (COMMIT_WF: Commit.wf commit2)
-      (COMMIT_CLOSED: Commit.closed commit2 mem2):
-      promise_step lc1 mem1 loc from to val released (mk commit2 promises2) mem2 kind
-  .
-
-  Inductive silent_step (lc1:t) (mem1:Memory.t): forall (lc2:t), Prop :=
-  | step_silent
-      commit2
-      (COMMIT: Commit.le lc1.(commit) commit2)
-      (COMMIT_WF: Commit.wf commit2)
-      (COMMIT_CLOSED: Commit.closed commit2 mem1):
-      silent_step lc1 mem1 (mk commit2 lc1.(promises))
+      promises2 mem2 kind
+      (PROMISE: Memory.promise lc1.(promises) mem1 loc from to val released promises2 mem2 kind):
+      promise_step lc1 mem1 loc from to val released (mk lc1.(commit) promises2) mem2 kind
   .
 
   Inductive read_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (to:Time.t) (val:Const.t) (released:Capability.t) (ord:Ordering.t): forall (lc2:t), Prop :=
@@ -108,33 +96,17 @@ Module Local.
       read_step lc1 mem1 loc to val released ord (mk commit2 lc1.(promises))
   .
 
-  Inductive fulfill_step (lc1:t) (sc1:TimeMap.t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (releasedm released:Capability.t) (ord:Ordering.t): forall (lc2:t) (sc2:TimeMap.t), Prop :=
-  | step_fulfill
-      promises2
-      (FULFILL: Memory.fulfill lc1.(promises) loc from to val released promises2)
-      (RELEASED: Capability.join releasedm ((Commit.write_commit lc1.(commit) sc1 loc to ord).(Commit.rel) loc) = released):
-      fulfill_step lc1 sc1 mem1 loc from to val releasedm released ord
-                   (mk (Commit.write_commit lc1.(commit) sc1 loc to ord) promises2)
-                   (Commit.write_sc sc1 loc to ord)
-  .
-
-  Inductive write_kind :=
-  | write_kind_fulfill
-  | write_kind_promise_fulfill
-  .
-
-  Inductive write_step (lc1:t) (sc1:TimeMap.t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (releasedm released:Capability.t) (ord:Ordering.t): forall (lc2:t) (sc2:TimeMap.t) (mem2:Memory.t) (kind:write_kind), Prop :=
-  | step_write_fulfill
-      lc2 sc2
-      (FULFILL: fulfill_step lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2)
-      (RELEASE: Ordering.le Ordering.acqrel ord -> lc1.(promises) loc = Cell.bot):
-      write_step lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem1 write_kind_fulfill
-  | step_write_promise_fulfill
-      lc2 mem2 lc3 sc3
-      (PROMISE: promise_step lc1 mem1 loc from to val released lc2 mem2 Memory.promise_kind_add)
-      (FULFILL: fulfill_step lc2 sc1 mem2 loc from to val releasedm released ord lc3 sc3)
-      (RELEASE: Ordering.le Ordering.acqrel ord -> lc1.(promises) loc = Cell.bot):
-      write_step lc1 sc1 mem1 loc from to val releasedm released ord lc3 sc3 mem2 write_kind_promise_fulfill
+  Inductive write_step (lc1:t) (sc1:TimeMap.t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (releasedm:Capability.t) (ord:Ordering.t): forall (lc2:t) (sc2:TimeMap.t) (mem2:Memory.t), Prop :=
+  | step_write_intro
+      promises2 mem2 kind
+      (WRITE: Memory.write lc1.(promises) mem1 loc from to val (Capability.join releasedm ((Commit.write_commit lc1.(commit) sc1 loc to ord).(Commit.rel) loc)) promises2 mem2 kind)
+      (RELEASE: Ordering.le Ordering.acqrel ord ->
+                lc1.(promises) loc = Cell.bot /\
+                kind = Memory.promise_kind_add):
+      write_step lc1 sc1 mem1 loc from to val releasedm ord
+                 (mk (Commit.write_commit lc1.(commit) sc1 loc to ord) promises2)
+                 (Commit.write_sc sc1 loc to ord)
+                 mem2
   .
 
   Inductive fence_step (lc1:t) (sc1:TimeMap.t) (mem1:Memory.t) (ordr ordw:Ordering.t): forall (lc2:t) (sc2:TimeMap.t), Prop :=
@@ -144,23 +116,6 @@ Module Local.
       (RELEASE: Ordering.le Ordering.acqrel ordw -> lc1.(promises) = Memory.bot):
       fence_step lc1 sc1 mem1 ordr ordw (mk (Commit.write_fence_commit commit2 sc1 ordw) lc1.(promises)) (Commit.write_fence_sc commit2 sc1 ordw)
   .
-
-  (* Lemma future_read_step lc1 mem1 mem1' loc ts val released ord lc2 *)
-  (*       (FUTURE: Memory.future mem1 mem1') *)
-  (*       (STEP: read_step lc1 mem1 loc ts val released ord lc2): *)
-  (*   read_step lc1 mem1' loc ts val released ord lc2. *)
-  (* Proof. *)
-  (*   inv STEP. exploit Memory.future_get; eauto. i. des. *)
-  (*   econs; eauto. *)
-  (* Qed. *)
-
-  Lemma future_fulfill_step lc1 sc1 mem1 mem1' loc from to val releasedm released ord lc2 sc2
-        (FUTURE: Memory.future mem1 mem1')
-        (STEP: fulfill_step lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2):
-    fulfill_step lc1 sc1 mem1' loc from to val releasedm released ord lc2 sc2.
-  Proof.
-    inv STEP. econs; eauto.
-  Qed.
 
   Lemma future_fence_step lc1 sc1 mem1 mem1' ordr ordw lc2 sc2
         (FUTURE: Memory.future mem1 mem1')
@@ -182,17 +137,9 @@ Module Local.
   Proof.
     inv WF1. inv STEP.
     exploit Memory.promise_future; eauto. i. des.
-    splits; ss. eapply Memory.future_closed_timemap; eauto.
-  Qed.
-
-  Lemma silent_step_future lc1 sc1 mem1 lc2
-        (STEP: silent_step lc1 mem1 lc2)
-        (WF1: wf lc1 mem1)
-        (SC1: Memory.closed_timemap sc1 mem1)
-        (CLOSED1: Memory.closed mem1):
-    wf lc2 mem1.
-  Proof.
-    inv WF1. inv STEP. ss.
+    splits; ss.
+    - econs; ss. eapply Commit.future_closed; eauto.
+    - eapply Memory.future_closed_timemap; eauto.
   Qed.
 
   Lemma read_step_future lc1 sc1 mem1 loc ts val released ord lc2
@@ -208,26 +155,8 @@ Module Local.
     i. des. econs; eauto.
   Qed.
 
-  Lemma fulfill_step_future lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2
-        (STEP: fulfill_step lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2)
-        (WF1: wf lc1 mem1)
-        (SC1: Memory.closed_timemap sc1 mem1)
-        (CLOSED1: Memory.closed mem1):
-    <<WF2: wf lc2 mem1>> /\
-    <<SC2: Memory.closed_timemap sc2 mem1>> /\
-    <<SC_FUTURE: TimeMap.le sc1 sc2>>.
-  Proof.
-    inv WF1. inv STEP.
-    exploit CommitFacts.write_future; eauto.
-    { apply PROMISES. eapply Memory.remove_disjoint. apply FULFILL. }
-    i. des. splits; eauto.
-    - econs; eauto.
-      s. eapply Memory.fulfill_future; eauto.
-    - apply CommitFacts.write_sc_incr.
-  Qed.
-
-  Lemma write_step_future lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind
-        (STEP: write_step lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind)
+  Lemma write_step_future lc1 sc1 mem1 loc from to val releasedm ord lc2 sc2 mem2
+        (STEP: write_step lc1 sc1 mem1 loc from to val releasedm ord lc2 sc2 mem2)
         (WF1: wf lc1 mem1)
         (SC1: Memory.closed_timemap sc1 mem1)
         (CLOSED1: Memory.closed mem1):
@@ -237,11 +166,16 @@ Module Local.
     <<SC_FUTURE: TimeMap.le sc1 sc2>> /\
     <<MEM_FUTURE: Memory.future mem1 mem2>>.
   Proof.
-    inv STEP.
-    - exploit fulfill_step_future; eauto. i. des. splits; ss. refl.
-    - exploit promise_step_future; eauto. i. des.
-      exploit fulfill_step_future; eauto. i. des. auto.
-  Qed.
+    inv WF1. inv STEP. 
+    exploit Memory.write_future; eauto. i. des.
+    exploit CommitFacts.write_future; eauto.
+    { eapply Commit.future_closed; eauto. }
+    { eapply Memory.future_closed_timemap; eauto. }
+    { admit. }
+    i. des. splits; eauto.
+    - econs; ss.
+    - apply CommitFacts.write_sc_incr.
+  Admitted.
 
   Lemma fence_step_future lc1 sc1 mem1 ordr ordw lc2 sc2
         (STEP: fence_step lc1 sc1 mem1 ordr ordw lc2 sc2)
@@ -278,18 +212,6 @@ Module Local.
     eapply Commit.future_closed; eauto.
   Qed.
 
-  Lemma silent_step_disjoint
-        lc1 sc1 mem1 lc2 lc
-        (STEP: silent_step lc1 mem1 lc2)
-        (WF1: wf lc1 mem1)
-        (SC1: Memory.closed_timemap sc1 mem1)
-        (DISJOINT1: disjoint lc1 lc)
-        (WF: wf lc mem1):
-    disjoint lc2 lc.
-  Proof.
-    inv WF1. inv DISJOINT1. inv WF. inv STEP. ss.
-  Qed.
-
   Lemma read_step_disjoint
         lc1 sc1 mem1 lc2 loc ts val released ord lc
         (STEP: read_step lc1 mem1 loc ts val released ord lc2)
@@ -302,25 +224,9 @@ Module Local.
     inv WF1. inv DISJOINT1. inv WF. inv STEP. ss.
   Qed.
 
-  Lemma fulfill_step_disjoint
-        lc1 sc1 mem1 lc2 sc2 loc from to val releasedm released ord lc
-        (STEP: fulfill_step lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2)
-        (WF1: wf lc1 mem1)
-        (SC1: Memory.closed_timemap sc1 mem1)
-        (CLOSED1: Memory.closed mem1)
-        (DISJOINT1: disjoint lc1 lc)
-        (WF: wf lc mem1):
-    disjoint lc2 lc.
-  Proof.
-    inv WF1. inv DISJOINT1. inversion WF. inv STEP.
-    hexploit Memory.fulfill_future; try apply FULFILL; eauto. i. des.
-    hexploit Memory.fulfill_disjoint; try apply FULFILL; try apply DISJOINT; eauto. i. des.
-    econs. auto.
-  Qed.
-
   Lemma write_step_disjoint
-        lc1 sc1 mem1 lc2 sc2 loc from to val releasedm released ord mem2 lc kind
-        (STEP: write_step lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind)
+        lc1 sc1 mem1 lc2 sc2 loc from to val releasedm ord mem2 lc
+        (STEP: write_step lc1 sc1 mem1 loc from to val releasedm ord lc2 sc2 mem2)
         (WF1: wf lc1 mem1)
         (SC1: Memory.closed_timemap sc1 mem1)
         (CLOSED1: Memory.closed mem1)
@@ -329,13 +235,10 @@ Module Local.
     <<DISJOINT2: disjoint lc2 lc>> /\
     <<WF: wf lc mem2>>.
   Proof.
-    inv STEP.
-    - exploit fulfill_step_future; eauto. i. des.
-      exploit fulfill_step_disjoint; eauto.
-    - exploit promise_step_future; eauto. i. des.
-      exploit promise_step_disjoint; eauto. i. des.
-      exploit fulfill_step_future; eauto. i.
-      exploit fulfill_step_disjoint; eauto.
+    inv WF1. inv DISJOINT1. inversion WF. inv STEP.
+    exploit Memory.write_future; try apply WRITE; eauto. i. des.
+    exploit Memory.write_disjoint; try apply WRITE; eauto. i. des.
+    splits; ss. econs ;eauto. eapply Commit.future_closed; eauto.
   Qed.
 
   Lemma fence_step_disjoint
@@ -384,10 +287,9 @@ Module Thread.
     Inductive program_step: forall (e:ThreadEvent.t) (e1 e2:t), Prop :=
     | step_silent
         st1 lc1 sc1 mem1
-        st2 lc2
-        (STATE: lang.(Language.step) None st1 st2)
-        (LOCAL: Local.silent_step lc1 mem1 lc2):
-        program_step ThreadEvent.silent (mk st1 lc1 sc1 mem1) (mk st2 lc2 sc1 mem1)
+        st2
+        (STATE: lang.(Language.step) None st1 st2):
+        program_step ThreadEvent.silent (mk st1 lc1 sc1 mem1) (mk st2 lc1 sc1 mem1)
     | step_read
         st1 lc1 sc1 mem1
         st2 loc ts val released ord lc2
@@ -396,18 +298,18 @@ Module Thread.
         program_step (ThreadEvent.read loc ts val ord) (mk st1 lc1 sc1 mem1) (mk st2 lc2 sc1 mem1)
     | step_write
         st1 lc1 sc1 mem1
-        st2 loc from to val released ord lc2 sc2 mem2 kind
+        st2 loc from to val ord lc2 sc2 mem2
         (STATE: lang.(Language.step) (Some (ProgramEvent.write loc val ord)) st1 st2)
-        (LOCAL: Local.write_step lc1 sc1 mem1 loc from to val Capability.bot released ord lc2 sc2 mem2 kind):
+        (LOCAL: Local.write_step lc1 sc1 mem1 loc from to val Capability.bot ord lc2 sc2 mem2):
         program_step (ThreadEvent.write loc to val ord) (mk st1 lc1 sc1 mem1) (mk st2 lc2 sc2 mem2)
     | step_update
         st1 lc1 sc1 mem1
         st3 loc ordr ordw
         tsr valr releasedr lc2
-        tsw valw releasedw lc3 sc3 mem3 kind
+        tsw valw lc3 sc3 mem3
         (STATE: lang.(Language.step) (Some (ProgramEvent.update loc valr valw ordr ordw)) st1 st3)
         (LOCAL1: Local.read_step lc1 mem1 loc tsr valr releasedr ordr lc2)
-        (LOCAL2: Local.write_step lc2 sc1 mem1 loc tsr tsw valw releasedr releasedw ordw lc3 sc3 mem3 kind):
+        (LOCAL2: Local.write_step lc2 sc1 mem1 loc tsr tsw valw releasedr ordw lc3 sc3 mem3):
         program_step (ThreadEvent.update loc tsr tsw valr valw ordr ordw) (mk st1 lc1 sc1 mem1) (mk st3 lc3 sc3 mem3)
     | step_fence
         st1 lc1 sc1 mem1
@@ -476,7 +378,7 @@ Module Thread.
       <<MEM_FUTURE: Memory.future e1.(memory) e2.(memory)>>.
     Proof.
       inv STEP; ss.
-      - exploit Local.silent_step_future; eauto. i. splits; ss; refl.
+      - splits; eauto; refl.
       - exploit Local.read_step_future; eauto. i. splits; ss; refl.
       - exploit Local.write_step_future; eauto.
       - exploit Local.read_step_future; eauto. i.
@@ -548,8 +450,7 @@ Module Thread.
       <<WF: Local.wf lc e2.(memory)>>.
     Proof.
       inv STEP.
-      - exploit Local.silent_step_future; eauto. i.
-        exploit Local.silent_step_disjoint; eauto.
+      - ss.
       - exploit Local.read_step_future; eauto. i.
         exploit Local.read_step_disjoint; eauto.
       - exploit Local.write_step_future; eauto. i. des.

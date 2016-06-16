@@ -943,12 +943,14 @@ Module Memory.
       promise promises1 mem1 loc from1 to1 val1 released1 promises2 mem2 promise_kind_split
   .
 
-  Inductive fulfill
-            (promises1:t)
-            (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:Capability.t)
-            (promises2:t): Prop :=
-  | fulfill_intro
-      (REMOVE: remove promises1 loc from to val released promises2)
+  Inductive write
+            (promises1 mem1:t)
+            (loc:Loc.t) (from1 to1:Time.t) (val1:Const.t) (released1:Capability.t)
+            (promises3 mem2:t) (kind:promise_kind): Prop :=
+  | write_intro
+      promises2
+      (PROMISE: Memory.promise promises1 mem1 loc from1 to1 val1 released1 promises2 mem2 kind)
+      (REMOVE: Memory.remove promises2 loc from1 to1 val1 released1 promises3)
   .
 
 
@@ -1099,7 +1101,7 @@ Module Memory.
     exploit split_get_inv; eauto. i. des; eauto.
   Qed.
 
-  Lemma remove_disjoint
+  Lemma remove_get0
         mem1 loc from1 to1 val1 released1 mem2
         (REMOVE: remove mem1 loc from1 to1 val1 released1 mem2):
     get loc to1 mem1 = Some (from1, Message.mk val1 released1).
@@ -1114,7 +1116,7 @@ Module Memory.
         (GET: get l t mem1 = Some (f, m)):
     (l = loc /\ t = to1 /\ f = from1 /\ m = Message.mk val1 released1) \/ get l t mem2 = Some (f, m).
   Proof.
-    exploit remove_disjoint; eauto. i.
+    exploit remove_get0; eauto. i.
     unfold get, Cell.get in *. inv REMOVE. inv REMOVE0.
     unfold LocFun.add, LocFun.find. condtac; auto. subst.
     rewrite <- H0. rewrite DOMap.grspec. condtac; auto. subst.
@@ -1151,7 +1153,7 @@ Module Memory.
         (LOWER: lower mem1 loc from1 to1 val1 released1 released2 mem2):
     get loc to1 mem1 = Some (from1, Message.mk val1 released1).
   Proof.
-    inv LOWER. eapply remove_disjoint. eauto.
+    inv LOWER. eapply remove_get0. eauto.
   Qed.
 
   Lemma lower_get1
@@ -1335,7 +1337,7 @@ Module Memory.
   Qed.
 
 
-  (* Lemmas on promise & fulfill *)
+  (* Lemmas on promise & remove *)
 
   Lemma promise_get1
         promises1 mem1 loc from to val released promises2 mem2 kind
@@ -1484,28 +1486,59 @@ Module Memory.
     - admit.
   Admitted.
 
-  Lemma fulfill_future
+  Lemma remove_future
         promises1 mem1 loc from to val released promises2
         (LE_PROMISES1: le promises1 mem1)
         (CLOSED1: closed mem1)
-        (FULFILL: fulfill promises1 loc from to val released promises2):
+        (REMOVE: remove promises1 loc from to val released promises2):
     <<LE_PROMISES2: le promises2 mem1>>.
   Proof.
-    inv FULFILL. ii. eapply remove_get_inv in LHS; eauto. des. auto.
+    ii. eapply remove_get_inv in LHS; eauto. des. auto.
   Qed.
 
-  Lemma fulfill_disjoint
+  Lemma remove_disjoint
         promises1 mem1 loc from to val released promises2 ctx
         (LE_PROMISES1: le promises1 mem1)
         (CLOSED1: closed mem1)
-        (FULFILL: fulfill promises1 loc from to val released promises2)
+        (REMOVE: remove promises1 loc from to val released promises2)
         (LE_PROMISES: le ctx mem1)
         (DISJOINT: disjoint promises1 ctx):
     <<DISJOINT: disjoint promises2 ctx>>.
   Proof.
-    inv FULFILL. econs. i. econs. i.
+    econs. i. econs. i.
     eapply remove_get_inv in GET1; eauto. des.
     eapply DISJOINT; eauto.
+  Qed.
+
+  Lemma write_future
+        promises1 mem1 loc from to val released promises2 mem2 kind
+        (LE_PROMISES1: le promises1 mem1)
+        (CLOSED1: closed mem1)
+        (PROMISE: write promises1 mem1 loc from to val released promises2 mem2 kind):
+    <<LE_PROMISES2: le promises2 mem2>> /\
+    <<CLOSED2: closed mem2>> /\
+    <<FUTURE: future mem1 mem2>>.
+  Proof.
+    inv PROMISE.
+    hexploit promise_future; eauto. i. des.
+    hexploit remove_future; eauto.
+  Qed.
+
+  Lemma write_disjoint
+        promises1 mem1 loc from to val released promises2 mem2 ctx kind
+        (LE_PROMISES1: le promises1 mem1)
+        (CLOSED1: closed mem1)
+        (PROMISE: write promises1 mem1 loc from to val released promises2 mem2 kind)
+        (LE_PROMISES: le ctx mem1)
+        (DISJOINT: Memory.disjoint promises1 ctx):
+    <<DISJOINT: Memory.disjoint promises2 ctx>> /\
+    <<LE_PROMISES: le ctx mem2>>.
+  Proof.
+    inv PROMISE.
+    hexploit promise_future; try apply PROMISE0; eauto. i. des.
+    hexploit remove_future; try apply REMOVE; eauto. i. des.
+    hexploit promise_disjoint; try apply PROMISE0; eauto. i. des.
+    hexploit remove_disjoint; try apply REMOVE; eauto.
   Qed.
 
   Definition max_ts (loc:Loc.t) (mem:t): Time.t :=
