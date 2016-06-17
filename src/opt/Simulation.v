@@ -31,6 +31,17 @@ Section SimulationLocal.
       (PROMISES_LE: Memory.le lc_tgt.(Local.promises) lc_src.(Local.promises))
   .
 
+  Global Program Instance sim_local_PreOrder: PreOrder sim_local.
+  Next Obligation.
+    econs; try refl. apply MemInv.sem_bot.
+  Qed.
+  Next Obligation.
+    ii. inv H. inv H0. econs; try etrans; eauto.
+    apply MemInv.sem_bot_inv in PROMISES; auto.
+    apply MemInv.sem_bot_inv in PROMISES0; auto.
+    rewrite PROMISES, PROMISES0. apply MemInv.sem_bot.
+  Qed.
+
   Definition SIM_THREAD :=
     forall (sim_terminal: SIM_TERMINAL)
       (st1_src:lang_src.(Language.state)) (lc1_src:Local.t) (sc_k_src:TimeMap.t) (mem_k_src:Memory.t)

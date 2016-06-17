@@ -123,7 +123,7 @@ Proof.
   inv LOCAL1. inv STEP_TGT.
   exploit Memory.sim_get; try apply MEM1; eauto. i. des.
   esplits; eauto.
-  - econs; eauto.
+  - econs; eauto. admit.
   - econs; eauto. s. admit. (* Commit.read_commit_mon *)
 Admitted.
 
@@ -190,8 +190,10 @@ Proof.
   { apply WF1_SRC. }
   { apply WF1_TGT. }
   i. des. esplits; eauto.
-  - econs; eauto. i. exploit RELEASE; eauto. i. des.
-    splits; auto. eapply sim_local_cell_bot; eauto.
+  - econs; eauto.
+    + admit.
+    + i. exploit RELEASE; eauto. i. des.
+      splits; auto. eapply sim_local_cell_bot; eauto.
   - econs; eauto. s. admit. (* CommitFacts.write_commit_mon *)
 Admitted.
 
@@ -214,6 +216,33 @@ Proof.
   - econs; eauto. i. eapply sim_local_memory_bot; eauto.
   - econs; try apply LOCAL1. s. admit. (* CommitFacts.fence_commit_mon *)
 Admitted.
+
+Lemma future_read_step lc1 mem1 mem1' loc ts val released ord lc2
+      (FUTURE: Memory.future mem1 mem1')
+      (STEP: Local.read_step lc1 mem1 loc ts val released ord lc2):
+  exists released' lc2',
+    <<STEP: Local.read_step lc1 mem1' loc ts val released' ord lc2'>> /\
+    <<REL: Capability.le released' released>> /\
+    <<LOCAL: sim_local lc2' lc2>>.
+Proof.
+  inv STEP. exploit Memory.future_get; eauto. i. des.
+  esplits.
+  - econs; eauto. admit.
+  - auto.
+  - econs; s.
+    + admit.
+    + apply MemInv.sem_bot.
+    + refl.
+Admitted.
+
+Lemma future_fence_step lc1 sc1 mem1 mem1' ordr ordw lc2 sc2
+      (FUTURE: Memory.future mem1 mem1')
+      (STEP: Local.fence_step lc1 sc1 mem1 ordr ordw lc2 sc2):
+  Local.fence_step lc1 sc1 mem1' ordr ordw lc2 sc2.
+Proof.
+  inv STEP. econs; eauto.
+Qed.
+
 
 Definition SIM_REGS := forall (rs_src rs_tgt:RegFile.t), Prop.
 

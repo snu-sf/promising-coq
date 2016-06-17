@@ -116,8 +116,8 @@ Lemma progress_read_step
 Proof.
   inversion MEM1. specialize (ELT loc). des.
   exploit (Memory.max_ts_spec loc); eauto. i. des.
-  eexists _, _, _. econs; eauto.
-Qed.
+  esplits; eauto. econs; eauto. admit.
+Admitted.
 
 Lemma progress_write_step
       lc1 sc1 mem1
@@ -155,9 +155,10 @@ Proof.
       + rewrite PROMISES1, Memory.bot_get in *. congr.
   }
   esplits. econs; eauto.
+  - admit.
   - econs; eauto. subst promises2. apply Memory.remove_singleton.
   - rewrite PROMISES1. auto.
-Qed.
+Admitted.
 
 Lemma progress_fence_step
       lc1 sc1 mem1

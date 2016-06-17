@@ -92,6 +92,7 @@ Module Local.
       from
       commit2
       (GET: Memory.get loc to mem1 = Some (from, Message.mk val released))
+      (READABLE: Commit.readable lc1.(commit) loc to released ord)
       (COMMIT: Commit.read_commit lc1.(commit) loc to released ord = commit2):
       read_step lc1 mem1 loc to val released ord (mk commit2 lc1.(promises))
   .
@@ -99,6 +100,7 @@ Module Local.
   Inductive write_step (lc1:t) (sc1:TimeMap.t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (releasedm:Capability.t) (ord:Ordering.t): forall (lc2:t) (sc2:TimeMap.t) (mem2:Memory.t), Prop :=
   | step_write_intro
       promises2 mem2 kind
+      (WRITABLE: Commit.writable lc1.(commit) sc1 loc to ord)
       (WRITE: Memory.write lc1.(promises) mem1 loc from to val (Capability.join releasedm ((Commit.write_commit lc1.(commit) sc1 loc to ord).(Commit.rel) loc)) promises2 mem2 kind)
       (RELEASE: Ordering.le Ordering.acqrel ord ->
                 lc1.(promises) loc = Cell.bot /\
@@ -116,14 +118,6 @@ Module Local.
       (RELEASE: Ordering.le Ordering.acqrel ordw -> lc1.(promises) = Memory.bot):
       fence_step lc1 sc1 mem1 ordr ordw (mk (Commit.write_fence_commit commit2 sc1 ordw) lc1.(promises)) (Commit.write_fence_sc commit2 sc1 ordw)
   .
-
-  Lemma future_fence_step lc1 sc1 mem1 mem1' ordr ordw lc2 sc2
-        (FUTURE: Memory.future mem1 mem1')
-        (STEP: fence_step lc1 sc1 mem1 ordr ordw lc2 sc2):
-    fence_step lc1 sc1 mem1' ordr ordw lc2 sc2.
-  Proof.
-    inv STEP. econs; eauto.
-  Qed.
 
   Lemma promise_step_future lc1 sc1 mem1 loc from to val released lc2 mem2 kind
         (STEP: promise_step lc1 mem1 loc from to val released lc2 mem2 kind)

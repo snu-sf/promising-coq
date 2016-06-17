@@ -217,10 +217,9 @@ Qed.
 Lemma write_write_sc
       loc1 ts1 ord1
       loc2 ts2 ord2
-      commit0 sc0
+      sc0
       (LOC: loc1 <> loc2)
-      (ORD1: Ordering.le ord1 Ordering.relaxed)
-      (WF0: Commit.wf commit0):
+      (ORD1: Ordering.le ord1 Ordering.relaxed):
   TimeMap.le
     (Commit.write_sc
        (Commit.write_sc sc0 loc2 ts2 ord2)
