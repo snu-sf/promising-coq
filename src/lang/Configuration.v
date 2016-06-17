@@ -253,14 +253,15 @@ Module Configuration.
         (CONSISTENT1: consistent c1):
     <<WF2: wf c2>> /\
     <<CONSISTENT2: consistent c2>> /\
-    <<FUTURE: Memory.future c1.(memory) c2.(memory)>>.
+    <<SC_FUTURE: TimeMap.le c1.(sc) c2.(sc)>> /\
+    <<MEM_FUTURE: Memory.future c1.(memory) c2.(memory)>>.
   Proof.
     revert CONSISTENT1. induction STEPS; i.
-    - splits; auto. refl.
+    - splits; auto; refl.
     - inv H.
       exploit step_future; eauto. i. des.
       exploit IHSTEPS; eauto. i. des.
-      splits; eauto. etrans; eauto.
+      splits; eauto; etrans; eauto.
   Qed.
 
   Lemma rtc_step_disjoint

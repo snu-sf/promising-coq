@@ -140,6 +140,7 @@ Lemma sim_local_write
   exists lc2_src sc2_src mem2_src,
     <<STEP_SRC: Local.write_step lc1_src sc1_src mem1_src loc from to val releasedm_src ord lc2_src sc2_src mem2_src>> /\
     <<LOCAL2: sim_local lc2_src lc2_tgt>> /\
+    <<SC2: TimeMap.le sc2_src sc2_tgt>> /\
     <<MEM2: Memory.sim mem2_tgt mem2_src>>.
 Proof.
   inv STEP_TGT.
@@ -200,7 +201,8 @@ Lemma sim_local_fence
       (WF1_TGT: Local.wf lc1_tgt mem1_tgt):
   exists lc2_src sc2_src,
     <<STEP_SRC: Local.fence_step lc1_src sc1_src mem1_src ordr ordw lc2_src sc2_src>> /\
-    <<LOCAL2: sim_local lc2_src lc2_tgt>>.
+    <<LOCAL2: sim_local lc2_src lc2_tgt>> /\
+    <<SC2: TimeMap.le sc2_src sc2_tgt>>.
 Proof.
   inv STEP_TGT. esplits; eauto.
   - econs; eauto. i. eapply sim_local_memory_bot; eauto.
@@ -494,21 +496,21 @@ Proof.
     destruct lc_src, lc_tgt. ss. subst.
     splits; s; ii.
     { inv TERMINAL_TGT. ss. esplits; eauto; ss. }
-    { esplits.
-      - ; try refl; eauto.
-      - etrans; eauto. apply Memory.sim_future. apply MEMORY.
-      - inv WF_SRC0. inv WF_TGT. ss. econs; ss.
-        eapply Commit.future_closed; eauto.
-        etransitivity; eauto.
-        apply Memory.sim_future. apply MEMORY.
-      - admit.
+    { exploit sim_local_future; try apply LOCAL; eauto. i. des.
+      esplits; try apply TimeMap.join_l; try apply TimeMap.join_r; eauto.
+      apply Memory.join_closed_timemap.
+      - admit. (* future sc should be chosen more carefully *)
+      - eapply Memory.future_closed_timemap; eauto.
     }
     { subst. esplits; eauto. }
     inv STEP_TGT; try by inv STEP; inv STATE.
     inv STEP; ss.
     exploit sim_local_promise; eauto. i. des.
-    esplits; eauto.
-    + econs 1. econs 1. s. eauto.
+    esplits.
+    + eauto.
+    + econs 1. econs. eauto.
+    + eauto.
+    + eauto.
     + eauto.
     + apply rclo9_step. apply ctx_nil; auto.
   - (* instr *)
@@ -517,54 +519,53 @@ Proof.
     destruct lc_src, lc_tgt. ss. subst.
     splits; s; ii.
     { inv TERMINAL_TGT. }
-    { ss. esplits; try refl; eauto.
-      - etrans; eauto. apply Memory.sim_future. apply MEMORY.
-      - inv WF_SRC0. inv WF_TGT. ss. econs; ss.
-        eapply Commit.future_closed; eauto.
-        etransitivity; eauto.
-        apply Memory.sim_future. apply MEMORY.
-      - admit.
+    { exploit sim_local_future; try apply LOCAL; eauto. i. des.
+      esplits; try apply TimeMap.join_l; try apply TimeMap.join_r; eauto.
+      apply Memory.join_closed_timemap.
+      - admit. (* future sc should be chosen more carefully *)
+      - eapply Memory.future_closed_timemap; eauto.
     }
     { ss. subst. esplits; eauto. }
     inv STEP_TGT; ss.
     + (* promise *)
       inv STEP; ss.
       exploit sim_local_promise; eauto. i. des.
-      esplits; eauto.
-      { econs 1. econs 1. s. eauto. }
+      esplits; try apply SC; eauto.
+      { econs 1. econs. eauto. }
       { eauto. }
       { apply rclo9_step. apply ctx_instr; auto. }
     + inv STEP; ss.
       * (* silent *)
         inv STATE.
         exploit RegFile.eq_except_instr; eauto. i. des.
-        esplits; eauto.
-        { econs 2. econs 1; eauto. s. econs. eauto. }
+        esplits; try apply SC; eauto.
+        { econs 2. econs; eauto. econs. eauto. }
         { eauto. }
         { apply rclo9_step. apply ctx_nil; auto. }
       * (* read *)
         inv STATE.
         exploit sim_local_read; eauto. i. des.
         exploit RegFile.eq_except_instr; eauto. i. des.
-        esplits; eauto.
+        esplits; try apply SC; eauto.
         { econs 2. econs 2; eauto. s. econs. eauto. }
         { eauto. }
         { apply rclo9_step. apply ctx_nil; auto. }
       * (* write *)
         inv STATE.
-        exploit sim_local_write; try apply LOCAL0; eauto.
+        exploit sim_local_write; try apply LOCAL0; try apply SC; eauto.
         { refl. }
         { apply Capability.bot_wf. }
         i. des.
         exploit RegFile.eq_except_instr; eauto. i. des.
         esplits; eauto.
-        { econs 2. econs 3; eauto. s. econs. eauto. }
+        { econs 2. econs 3; eauto. econs. eauto. }
         { eauto. }
         { apply rclo9_step. apply ctx_nil; auto. }
       * (* update *)
         inv STATE.
         exploit sim_local_read; eauto. i. des.
-        exploit sim_local_write; eauto.
+        exploit sim_local_write; try apply SC; eauto.
+        { admit. }
         { eapply Local.read_step_future; eauto. }
         { eapply Local.read_step_future; eauto. }
         i. des.
@@ -577,7 +578,7 @@ Proof.
         inv STATE.
         exploit sim_local_fence; eauto. i. des.
         exploit RegFile.eq_except_instr; eauto. i. des.
-        esplits; eauto.
+        esplits; try apply SC; eauto.
         { econs 2. econs 5; eauto. econs. eauto. }
         { eauto. }
         { apply rclo9_step. apply ctx_nil; auto. }
@@ -591,7 +592,7 @@ Proof.
         { apply rclo9_step. apply ctx_nil; auto. }
   - (* seq *)
     ii. ss.
-    exploit GF; eauto. s. i. des.
+    exploit GF; try apply SIM1; try apply SC; eauto. i. des.
     splits; s; ii.
     { inv TERMINAL_TGT. destruct stmts1_tgt, stmts2_tgt; inv H0.
       exploit TERMINAL; try by econs. i. des.
@@ -601,13 +602,13 @@ Proof.
       exploit Thread.rtc_step_future; eauto. s. i. des.
       inv TERMINAL0. ss. subst.
       exploit SIM2; eauto. intro LC2.
-      exploit GF; eauto. s. i. des.
+      exploit GF; try apply LC2; try apply SC0; eauto. s. i. des.
       exploit TERMINAL0; try by econs. i. des.
       destruct st2_src, lc2_src. inv TERMINAL_SRC. ss. subst.
-      esplits; [|eauto| |eauto|eauto].
+      esplits; cycle 1; eauto.
+      + econs.
       + etrans; [|eauto].
         eapply rtc_internal_step_seq in STEPS. eauto.
-      + econs.
     }
     { eapply FUTURE; eauto. }
     { exploit PROMISES; eauto. i. des.
@@ -623,17 +624,17 @@ Proof.
       exploit Thread.rtc_step_future; eauto. s. i. des.
       inv TERMINAL0. ss. subst.
       exploit SIM2; eauto. intro LC2.
-      exploit GF; eauto. s. i. des.
+      exploit GF; try apply SC0; eauto. i. des.
       exploit STEP0; eauto. i. des.
-      esplits; [|eauto|eauto|eauto|].
+      esplits; cycle 1; eauto.
+      * apply rclo9_incl. auto.
       * eapply rtc_internal_step_seq in STEPS.
         etrans; [apply STEPS|eauto].
-      * apply rclo9_incl. auto.
     + destruct st3_tgt, lc3_tgt.
       exploit thread_step_deseq; eauto. i. des. ss. subst.
       exploit STEP; eauto. i. des.
       destruct st2_src, lc2_src. destruct st3_src, lc3_src.
-      esplits; [| |eauto|eauto|].
+      esplits; [M|M| | | |]; Mskip eauto.
       * eapply rtc_internal_step_seq. eauto.
       * eapply step_seq. eauto.
       * apply rclo9_step. eapply ctx_seq; eauto.
@@ -647,47 +648,31 @@ Proof.
     destruct lc_src, lc_tgt. ss. subst.
     splits; s; ii.
     { inv TERMINAL_TGT. }
-    { ss. esplits; try refl; eauto.
-      - etrans; eauto. apply Memory.sim_future. apply MEMORY.
-      - inv WF_SRC0. inv WF_TGT. ss.
-        econs; ss. eapply Commit.future_closed; eauto.
-        etransitivity; eauto.
-        apply Memory.sim_future. apply MEMORY.
+    { exploit sim_local_future; try apply LOCAL; eauto. i. des.
+      esplits; try apply TimeMap.join_l; try apply TimeMap.join_r; eauto.
+      apply Memory.join_closed_timemap.
+      - admit. (* future sc should be chosen more carefully *)
+      - eapply Memory.future_closed_timemap; eauto.
     }
     { ss. subst. esplits; eauto. }
     inv STEP_TGT; ss.
-    + inv STEP; ss.
-      * (* promise *)
-        exploit sim_local_promise; eauto. i. des.
-        esplits; eauto.
-        { econs 1. econs 1. s. eauto. }
-        { eauto. }
-        { apply rclo9_step. eapply ctx_ite; eauto.
-          - eapply _sim_stmts_mon; try apply rclo9_incl; eauto.
-            eapply _sim_stmts_mon; try apply LE; eauto.
-          - eapply _sim_stmts_mon; try apply rclo9_incl; eauto.
-            eapply _sim_stmts_mon; try apply LE; eauto.
-        }
-      * (* strengthen *)
-        exploit sim_local_strengthen; eauto. i. des.
-        esplits; eauto.
-        { econs 1. econs 2. s. eauto. }
-        { eauto. }
-        { apply rclo9_step. eapply ctx_ite; eauto.
-          - eapply _sim_stmts_mon; try apply rclo9_incl; eauto.
-            eapply _sim_stmts_mon; try apply LE; eauto.
-          - eapply _sim_stmts_mon; try apply rclo9_incl; eauto.
-            eapply _sim_stmts_mon; try apply LE; eauto.
-        }
+    + (* promise *)
+      inv STEP; ss.
+      exploit sim_local_promise; eauto. i. des.
+      esplits; try apply SC; eauto.
+      { econs 1. econs. s. eauto. }
+      { eauto. }
+      { apply rclo9_step. eapply ctx_ite; eauto.
+        - eapply _sim_stmts_mon; try apply rclo9_incl; eauto.
+          eapply _sim_stmts_mon; try apply LE; eauto.
+        - eapply _sim_stmts_mon; try apply rclo9_incl; eauto.
+          eapply _sim_stmts_mon; try apply LE; eauto.
+      }
     + (* ite *)
       inv STEP; inv STATE; ss.
-      inv LOCAL0. ss.
-      esplits; try apply MEMORY; eauto.
-      { econs 2. econs 1. econs; eauto. s. econs; eauto.
-        - apply WF_TGT.
-        - eapply Commit.future_closed; try apply WF_TGT; eauto.
-          apply Memory.sim_future. apply MEMORY.
-      }
+      inv LOCAL. ss.
+      esplits; try apply MEMORY; try apply SC; eauto.
+      { econs 2. econs 1. econs; eauto. }
       { eauto. }
       { s. rewrite ? app_nil_r.
         exploit COND; eauto. intro C. rewrite C.
@@ -701,43 +686,29 @@ Proof.
     destruct lc_src, lc_tgt. ss. subst.
     splits; s; ii.
     { inv TERMINAL_TGT. }
-    { ss. esplits; try refl; eauto.
-      - etrans; eauto. apply Memory.sim_future. apply MEMORY.
-      - inv WF_SRC0. inv WF_TGT. ss.
-        econs; ss. eapply Commit.future_closed; eauto.
-        etransitivity; eauto.
-        apply Memory.sim_future. apply MEMORY.
+    { exploit sim_local_future; try apply LOCAL; eauto. i. des.
+      esplits; try apply TimeMap.join_l; try apply TimeMap.join_r; eauto.
+      apply Memory.join_closed_timemap.
+      - admit. (* future sc should be chosen more carefully *)
+      - eapply Memory.future_closed_timemap; eauto.
     }
     { ss. subst. esplits; eauto. }
     inv STEP_TGT; ss.
-    + inv STEP; ss.
-      * (* promise *)
-        exploit sim_local_promise; eauto. i. des.
-        esplits; eauto.
-        { econs 1. econs 1. s. eauto. }
-        { eauto. }
-        { apply rclo9_step. apply ctx_dowhile; auto.
-          - eapply _sim_stmts_mon; try apply rclo9_incl; eauto.
-            eapply _sim_stmts_mon; try apply LE; eauto.
-        }
-      * (* strengthen *)
-        exploit sim_local_strengthen; eauto. i. des.
-        esplits; eauto.
-        { econs 1. econs 2. s. eauto. }
-        { eauto. }
-        { apply rclo9_step. apply ctx_dowhile; auto.
-          - eapply _sim_stmts_mon; try apply rclo9_incl; eauto.
-            eapply _sim_stmts_mon; try apply LE; eauto.
-        }
+    + (* promise *)
+      inv STEP; ss.
+      exploit sim_local_promise; eauto. i. des.
+      esplits; try apply SC; eauto.
+      { econs 1. econs. eauto. }
+      { eauto. }
+      { apply rclo9_step. apply ctx_dowhile; auto.
+        - eapply _sim_stmts_mon; try apply rclo9_incl; eauto.
+          eapply _sim_stmts_mon; try apply LE; eauto.
+      }
     + (* dowhile *)
       inv STEP; inv STATE; ss.
-      inv LOCAL0. ss.
-      esplits; eauto.
-      { econs 2. econs 1. econs; eauto. s. econs; eauto.
-        - apply WF_TGT.
-        - eapply Commit.future_closed; try apply WF_TGT; eauto.
-          apply Memory.sim_future. apply MEMORY.
-      }
+      inv LOCAL. ss.
+      esplits; try apply SC; eauto.
+      { econs 2. econs 1. econs; eauto. }
       { eauto. }
       { apply rclo9_step. eapply ctx_seq.
         { apply rclo9_incl. apply LE. apply SIM; ss. }
@@ -747,7 +718,7 @@ Proof.
           eapply _sim_stmts_mon; try apply LE; eauto.
         - ii. apply rclo9_base; auto.
       }
-Qed.
+Admitted.
 
 Definition sim_stmts := @_sim_stmts (@sim_thread lang lang).
 
