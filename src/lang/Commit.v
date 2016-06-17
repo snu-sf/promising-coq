@@ -245,6 +245,8 @@ Module CommitFacts.
              apply Capability.singleton_sc_spec
            | [|- TimeMap.le (TimeMap.singleton _ _) _] =>
              apply TimeMap.singleton_spec
+           | [|- TimeMap.le (TimeMap.join _ _) _] =>
+             apply TimeMap.join_spec
            | [|- Time.le (TimeMap.join _ _ _) _] =>
              apply Time.join_spec
 
@@ -345,6 +347,7 @@ Module CommitFacts.
   Proof.
     unfold Commit.write_fence_sc. condtac; tac.
   Qed.
+
 
   (* CHECK: monotonicity? min_spec? min_min? *)
 

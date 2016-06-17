@@ -220,13 +220,8 @@ Module MemInv.
 
   Inductive sem (inv:t) (promises_src promises_tgt:Memory.t): Prop :=
   | sem_intro
-      (LE: Memory.le promises_tgt promises_src)
-      (GET: forall loc ts (MEM: mem loc ts inv),
-          Memory.get loc ts promises_src <> None /\ Memory.get loc ts promises_tgt = None)
-      (MEM: forall loc ts
-              (SRC: Memory.get loc ts promises_src <> None)
-              (TGT: Memory.get loc ts promises_tgt = None),
-          mem loc ts inv)
+      (JOIN: forall loc ts, Memory.mem loc ts promises_src = orb (mem loc ts inv) (Memory.mem loc ts promises_tgt))
+      (DISJOINT: forall loc ts (INV:mem loc ts inv) (TGT:Memory.mem loc ts promises_tgt), False)
   .
 
   Lemma promise
@@ -238,6 +233,7 @@ Module MemInv.
         (REL: Capability.le released_src released_tgt)
         (PROMISE_TGT: Memory.promise promises1_tgt mem1_tgt loc from to val released_tgt promises2_tgt mem2_tgt kind)
         (INV1: sem inv promises1_src promises1_tgt)
+        (LE1: Memory.le promises1_tgt promises1_src)
         (SIM1: Memory.sim mem1_tgt mem1_src)
         (LE1_SRC: Memory.le promises1_src mem1_src)
         (LE1_TGT: Memory.le promises1_tgt mem1_tgt)
@@ -246,6 +242,10 @@ Module MemInv.
     exists promises2_src mem2_src,
       <<PROMISE_SRC: Memory.promise promises1_src mem1_src loc from to val released_src promises2_src mem2_src kind>> /\
       <<INV2: sem inv promises2_src promises2_tgt>> /\
+      <<LE2: forall l t f m
+               (LT: (l, t) <> (loc, to))
+               (MSG: Memory.get l t promises2_tgt = Some (f, m)),
+          Memory.get l t promises2_src = Some (f, m)>> /\
       <<SIM2: Memory.sim mem2_tgt mem2_src>>.
   Proof.
     inv PROMISE_TGT.
@@ -319,6 +319,7 @@ Module MemInv.
         (REL: Capability.le released_src released_tgt)
         (WRITE_TGT: Memory.write promises1_tgt mem1_tgt loc from to val released_tgt promises2_tgt mem2_tgt kind)
         (INV1: sem inv promises1_src promises1_tgt)
+        (LE1: Memory.le promises1_tgt promises1_src)
         (SIM1: Memory.sim mem1_tgt mem1_src)
         (LE1_SRC: Memory.le promises1_src mem1_src)
         (LE1_TGT: Memory.le promises1_tgt mem1_tgt)
@@ -327,11 +328,15 @@ Module MemInv.
     exists promises2_src mem2_src,
       <<PROMISE_SRC: Memory.promise promises1_src mem1_src loc from to val released_src promises2_src mem2_src kind>> /\
       <<INV2: sem (set loc to inv) promises2_src promises2_tgt>> /\
+      <<LE2: Memory.le promises2_tgt promises2_src>> /\
       <<SIM2: Memory.sim mem2_tgt mem2_src>>.
   Proof.
     inv WRITE_TGT. exploit promise; eauto. i. des.
     esplits; eauto.
-    admit.
+    - admit.
+    - ii. apply LE2; eauto.
+      + ii. inv H. exploit Memory.remove_get2; eauto. i. congr.
+      + eapply Memory.remove_get_inv; eauto.
   Admitted.
 
   Lemma write
@@ -343,6 +348,7 @@ Module MemInv.
         (REL: Capability.le released_src released_tgt)
         (WRITE_TGT: Memory.write promises1_tgt mem1_tgt loc from to val released_tgt promises2_tgt mem2_tgt kind)
         (INV1: sem inv promises1_src promises1_tgt)
+        (LE1: Memory.le promises1_tgt promises1_src)
         (SIM1: Memory.sim mem1_tgt mem1_src)
         (LE1_SRC: Memory.le promises1_src mem1_src)
         (LE1_TGT: Memory.le promises1_tgt mem1_tgt)
@@ -351,14 +357,27 @@ Module MemInv.
     exists promises2_src mem2_src,
       <<WRITE_SRC: Memory.write promises1_src mem1_src loc from to val released_src promises2_src mem2_src kind>> /\
       <<INV2: sem inv promises2_src promises2_tgt>> /\
+      <<LE2: Memory.le promises2_tgt promises2_src>> /\
       <<SIM2: Memory.sim mem2_tgt mem2_src>>.
   Proof.
     exploit write_promise; eauto. i. des.
     exploit Memory.promise_get2; eauto. i.
     exploit Memory.remove_exists; eauto. i. des.
-    esplits; eauto.
-    { econs; eauto. }
-    admit.
+    esplits.
+    - econs; eauto.
+    - inv INV2. econs.
+      + i. erewrite Memory.remove_mem; [|eauto].
+        rewrite JOIN. rewrite set_o.
+        repeat condtac; subst; s; try by apply Bool.andb_true_r.
+        admit.
+      + i. eapply DISJOINT; eauto.
+        rewrite set_o. repeat condtac; auto.
+    - ii. exploit LE2; eauto. i.
+      exploit Memory.remove_get1; eauto. i. des; auto.
+      subst. inv INV2. exfalso. eapply DISJOINT.
+      + apply set_eq.
+      + unfold Memory.mem. rewrite LHS. auto.
+    - auto.
   Admitted.
 
   Lemma future
@@ -367,6 +386,7 @@ Module MemInv.
         promises_tgt mem1_tgt
         (FUTURE_SRC: Memory.future mem1_src mem2_src)
         (INV1: sem inv promises_src promises_tgt)
+        (LE1: Memory.le promises_tgt promises_src)
         (SIM1: Memory.sim mem1_tgt mem1_src)
         (LE1_SRC: Memory.le promises_src mem1_src)
         (LE1_TGT: Memory.le promises_tgt mem1_tgt)
@@ -376,7 +396,7 @@ Module MemInv.
   Proof.
     splits.
     - etrans; eauto. apply Memory.sim_future. apply SIM1.
-    - etrans; [apply INV1|]. eauto.
+    - etrans; try apply LE1; eauto.
   Qed.
 
   Lemma sem_bot promises:
@@ -384,22 +404,20 @@ Module MemInv.
   Proof.
     econs.
     - refl.
-    - i. rewrite bot_spec in MEM. done.
-    - congr.
+    - i. inv INV.
   Qed.
 
   Lemma sem_bot_inv
         promises_src promises_tgt
-        (SEM: sem bot promises_src promises_tgt):
+        (SEM: sem bot promises_src promises_tgt)
+        (LE: Memory.le promises_tgt promises_src):
     promises_src = promises_tgt.
   Proof.
-    apply LocFun.ext. unfold LocFun.find. i.
-    apply Cell.ext. i. unfold Cell.get.
-    destruct (DOMap.find ts (Cell.raw (promises_tgt i))) as [[]|] eqn:X.
-    - inv SEM. exploit LE; eauto.
-    - destruct (DOMap.find ts (Cell.raw (promises_src i))) eqn:Y; auto.
-      inv SEM. exploit MEM; eauto.
-      + unfold Memory.get, Cell.get. rewrite Y. congr.
-      + i. rewrite bot_spec in x. congr.
+    apply Memory.ext. i.
+    destruct (Memory.get loc ts promises_tgt) as [[]|] eqn:X.
+    - exploit LE; eauto.
+    - destruct (Memory.get loc ts promises_src) as [[]|] eqn:Y; auto.
+      inv SEM. exploit JOIN; eauto. unfold Memory.mem.
+      rewrite X, Y. ss.
   Qed.
 End MemInv.

@@ -29,7 +29,7 @@ Lemma sim_local_cell_bot
       (BOT: lc_tgt.(Local.promises) loc = Cell.bot):
   lc_src.(Local.promises) loc = Cell.bot.
 Proof.
-  inv SIM. eapply MemInv.sem_bot_inv in PROMISES. rewrite PROMISES. auto.
+  inv SIM. eapply MemInv.sem_bot_inv in PROMISES; auto. rewrite PROMISES. auto.
 Qed.
 
 Lemma sim_local_memory_bot
@@ -38,7 +38,7 @@ Lemma sim_local_memory_bot
       (BOT: lc_tgt.(Local.promises) = Memory.bot):
   lc_src.(Local.promises) = Memory.bot.
 Proof.
-  inv SIM. eapply MemInv.sem_bot_inv in PROMISES. rewrite PROMISES. auto.
+  inv SIM. eapply MemInv.sem_bot_inv in PROMISES; auto. rewrite PROMISES. auto.
 Qed.
 
 Lemma sim_local_future
@@ -46,6 +46,7 @@ Lemma sim_local_future
       lc_src mem1_src mem2_src
       lc_tgt mem1_tgt
       (INV1: MemInv.sem inv lc_src.(Local.promises) lc_tgt.(Local.promises))
+      (LE1: Memory.le lc_tgt.(Local.promises) lc_src.(Local.promises))
       (MEM1: Memory.sim mem1_tgt mem1_src)
       (FUTURE_SRC: Memory.future mem1_src mem2_src)
       (WF1_SRC: Local.wf lc_src mem1_src)
@@ -65,7 +66,7 @@ Proof.
     + apply WF1_TGT.
     + eapply Commit.future_closed; try apply WF1_TGT; eauto.
       etrans; eauto. apply Memory.sim_future. apply MEM1.
-    + etrans. apply INV1. apply WF2_SRC.
+    + etrans; eauto. apply WF2_SRC.
   - auto.
 Qed.
 
@@ -97,7 +98,11 @@ Proof.
   i. des.
   esplits; eauto.
   - econs. apply PROMISE_SRC.
-  - econs; eauto.
+  - econs; eauto. s. ii.
+    destruct (classic ((loc0, to0) = (loc, to))).
+    + inv H. erewrite Memory.promise_get2 in LHS; eauto. inv LHS.
+      eapply Memory.promise_get2. eauto.
+    + apply LE2; auto.
 Qed.
 
 Lemma sim_local_read
@@ -180,6 +185,7 @@ Proof.
         econs; try refl. ss.
   }
   exploit MemInv.write; try apply WRITE; eauto.
+  { apply LOCAL1. }
   { apply LOCAL1. }
   { apply WF1_SRC. }
   { apply WF1_TGT. }
@@ -492,7 +498,7 @@ Proof.
     apply rclo9_incl.
   - (* nil *)
     ii.
-    inversion LOCAL. apply MemInv.sem_bot_inv in PROMISES.
+    inversion LOCAL. apply MemInv.sem_bot_inv in PROMISES; auto.
     destruct lc_src, lc_tgt. ss. subst.
     splits; s; ii.
     { inv TERMINAL_TGT. ss. esplits; eauto; ss. }
@@ -515,7 +521,7 @@ Proof.
     + apply rclo9_step. apply ctx_nil; auto.
   - (* instr *)
     ii.
-    inversion LOCAL. apply MemInv.sem_bot_inv in PROMISES.
+    inversion LOCAL. apply MemInv.sem_bot_inv in PROMISES; auto.
     destruct lc_src, lc_tgt. ss. subst.
     splits; s; ii.
     { inv TERMINAL_TGT. }

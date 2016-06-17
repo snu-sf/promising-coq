@@ -742,6 +742,9 @@ Module Memory.
   Definition get (loc:Loc.t) (ts:Time.t) (mem:t): option (Time.t * Message.t) :=
     Cell.get ts (mem loc).
 
+  Definition mem (loc:Loc.t) (ts:Time.t) (mem:t): bool :=
+    if get loc ts mem then true else false.
+
   Lemma ext
         lhs rhs
         (EXT: forall loc ts, get loc ts lhs = get loc ts rhs):
@@ -1000,6 +1003,31 @@ Module Memory.
     - right. splits; auto. clear COND. contradict n. des. auto.
   Qed.
 
+  Lemma add_mem
+        mem1 loc from1 to1 val1 released1 mem2
+        (ADD: add mem1 loc from1 to1 val1 released1 mem2)
+        l t:
+    mem l t mem2 =
+    orb (mem l t mem1)
+        (andb (if Loc.eq_dec l loc then true else false) (if Time.eq_dec t to1 then true else false)).
+  Proof.
+    match goal with
+    | [|- context[andb ?a ?b]] =>
+      destruct (andb a b) eqn:C
+    end.
+    - revert C. repeat condtac; ss. subst. rewrite Bool.orb_true_r.
+      unfold mem. erewrite add_get2; eauto.
+    - rewrite Bool.orb_false_r.
+      unfold mem.
+      destruct (get l t mem1) as [[]|] eqn:X1.
+      { erewrite add_get1; eauto. }
+      destruct (get l t mem2) as [[]|] eqn:X2.
+      { exploit add_get_inv; eauto. i. des; [|congr].
+        subst. revert C. repeat condtac; try congr. auto.
+      }
+      auto.
+  Qed.
+
   Lemma split_disjoint
         mem1 loc from1 to1 to2 val1 released1 mem2
         (SPLIT: split mem1 loc from1 to1 to2 val1 released1 mem2):
@@ -1101,6 +1129,34 @@ Module Memory.
     exploit split_get_inv; eauto. i. des; eauto.
   Qed.
 
+  Lemma split_mem
+        mem1 loc from1 to1 to2 val1 released1 mem2
+        (SPLIT: split mem1 loc from1 to1 to2 val1 released1 mem2)
+        l t:
+    mem l t mem2 =
+    orb (mem l t mem1)
+        (andb (if Loc.eq_dec l loc then true else false) (if Time.eq_dec t to1 then true else false)).
+  Proof.
+    match goal with
+    | [|- context[andb ?a ?b]] =>
+      destruct (andb a b) eqn:C
+    end.
+    - revert C. repeat condtac; ss. subst. rewrite Bool.orb_true_r.
+      unfold mem. erewrite split_get2; eauto.
+    - rewrite Bool.orb_false_r.
+      unfold mem.
+      destruct (get l t mem1) as [[]|] eqn:X1.
+      { exploit split_get1; eauto. i. des.
+        - subst. rewrite x3. auto.
+        - rewrite x1. auto.
+      }
+      destruct (get l t mem2) as [[]|] eqn:X2.
+      { exploit split_get_inv; eauto. i. des; try congr.
+        subst. revert C. repeat condtac; try congr. auto.
+      }
+      auto.
+  Qed.
+
   Lemma remove_get0
         mem1 loc from1 to1 val1 released1 mem2
         (REMOVE: remove mem1 loc from1 to1 val1 released1 mem2):
@@ -1146,6 +1202,33 @@ Module Memory.
     - subst. rewrite <- H0, DOMap.grspec. condtac; [congr|].
       i. splits; auto. ii. des. congr.
     - i. splits; auto. ii. des. congr.
+  Qed.
+
+  Lemma remove_mem
+        mem1 loc from1 to1 val1 released1 mem2
+        (REMOVE: remove mem1 loc from1 to1 val1 released1 mem2)
+        l t:
+    mem l t mem2 =
+    andb (mem l t mem1)
+         (negb (andb (if Loc.eq_dec l loc then true else false) (if Time.eq_dec t to1 then true else false))).
+  Proof.
+    match goal with
+    | [|- context[andb ?a ?b]] =>
+      destruct (andb a b) eqn:C
+    end.
+    - apply Bool.andb_true_iff in C. des.
+      unfold mem in *.
+      destruct (get l t mem1) as [[]|] eqn:X1; [|congr].
+      exploit remove_get1; eauto. i. des.
+      + subst. revert C0. repeat condtac; ss; congr.
+      + rewrite x0. auto.
+    - unfold mem in *. apply Bool.andb_false_iff in C. des.
+      + destruct (get l t mem2) as [[]|] eqn:X2; [|congr].
+        exploit remove_get_inv; eauto. i. des. rewrite x1 in *. congr.
+      + apply Bool.negb_false_iff in C.
+        apply Bool.andb_true_iff in C. revert C.
+        repeat condtac; ss; i; des; try congr.
+        subst. exploit remove_get2. eauto. i. congr.
   Qed.
 
   Lemma lower_disjoint
@@ -1205,6 +1288,20 @@ Module Memory.
     - erewrite <- lower_get1; eauto.
       + eexists. splits; eauto. refl.
       + contradict n. des. auto.
+  Qed.
+
+  Lemma lower_mem
+        mem1 loc from1 to1 val1 released1 released2 mem2
+        (REMOVE: lower mem1 loc from1 to1 val1 released1 released2 mem2)
+        l t:
+    mem l t mem2 = mem l t mem1.
+  Proof.
+    inv REMOVE.
+    erewrite add_mem; [|eauto].
+    erewrite remove_mem; [|eauto].
+    repeat condtac; subst; rewrite ? Bool.andb_true_r, ? Bool.orb_false_r; ss.
+    unfold mem. destruct (get loc to1 mem1) eqn:X; auto.
+    exploit remove_get0. eauto. i. congr.
   Qed.
 
   Lemma future_get
