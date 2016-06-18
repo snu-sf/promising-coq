@@ -54,8 +54,7 @@ Lemma closed_timemap_max_ts
   Time.le (tm loc) (Memory.max_ts loc mem).
 Proof.
   specialize (CLOSED loc). des.
-  - rewrite CLOSED. apply Time.bot_spec.
-  - eapply Memory.max_ts_spec. eauto.
+  eapply Memory.max_ts_spec. eauto.
 Qed.
 
 Lemma progress_promise_step
@@ -83,7 +82,8 @@ Proof.
   exploit Memory.add_exists_le; try apply WF1; eauto. i. des.
   assert (FUTURE: Memory.future mem1 mem2).
   { econs 2; [|econs 1]. econs 1. eauto. }
-  eexists _, _. econs.
+  hexploit Memory.add_inhabited; try apply x0; committac.
+  esplits. econs.
   - econs; eauto.
     + committac.
       * eapply Memory.future_closed_capability; eauto.
@@ -92,7 +92,7 @@ Proof.
           (try eapply Memory.future_closed_capability; eauto);
           (try apply WF1).
         { eapply Memory.add_get2. eauto. }
-        { econs; try apply Memory.closed_timemap_bot. s. auto. }
+        { econs; try apply Memory.closed_timemap_bot; committac. }
         { eapply Memory.add_get2. eauto. }
     + committac.
       * left. eapply TimeFacts.le_lt_lt; [|eauto].
@@ -114,8 +114,7 @@ Lemma progress_read_step
   exists val released lc2,
     Local.read_step lc1 mem1 loc (Memory.max_ts loc mem1) val released ord lc2.
 Proof.
-  inversion MEM1. specialize (ELT loc). des.
-  exploit (Memory.max_ts_spec loc); eauto. i. des.
+  exploit (Memory.max_ts_spec loc); try apply MEM1; eauto. i. des.
   esplits; eauto. econs; eauto. admit.
 Admitted.
 
@@ -169,5 +168,5 @@ Lemma progress_fence_step
   exists lc2 sc2,
     Local.fence_step lc1 sc1 mem1 ordr ordw lc2 sc2.
 Proof.
-  eexists _, _. econs; eauto.
+  esplits. econs; eauto.
 Qed.

@@ -210,12 +210,25 @@ Module Commit <: JoinableType.
                     (if Ordering.le Ordering.acqrel ord then cur2 else Capability.bot)
     in
     Commit.mk rel2 cur2 acq2.
+
+  Lemma antisym l r
+        (LR: le l r)
+        (RL: le r l):
+    l = r.
+  Proof.
+    destruct l, r. inv LR. inv RL. ss. f_equal.
+    - apply LocFun.ext. i. apply Capability.antisym; auto.
+    - apply Capability.antisym; auto.
+    - apply Capability.antisym; auto.
+  Qed.
 End Commit.
 
 Module CommitFacts.
   Ltac tac :=
     repeat
       (try match goal with
+           | [H: Memory.closed ?mem |- Memory.inhabited ?mem] =>
+             apply H
            | [|- Capability.le ?s ?s] =>
              refl
            | [|- TimeMap.le ?s ?s] =>
@@ -398,9 +411,9 @@ Module CommitFacts.
       + repeat condtac; tac; rewrite <- ? Capability.join_l; apply WF_COMMIT.
       + condtac; tac. econs; apply TimeMap.bot_spec.
       + apply TimeMap.singleton_inv. rewrite <- TimeMap.join_l. tac.
-    - econs; tac; try by apply CLOSED_COMMIT.
-      + unfold LocFun.add. repeat condtac; tac; try by apply CLOSED_COMMIT.
-        econs; tac.
+    - econs; tac; (try by apply CLOSED_COMMIT).
+      + unfold LocFun.add. repeat condtac; tac; (try by apply CLOSED_COMMIT).
+        econs; tac; apply MEM.
       + condtac; tac. econs; tac.
       + condtac; tac. econs; tac.
     - unfold Commit.write_sc. condtac; tac.
@@ -425,6 +438,7 @@ Module CommitFacts.
 
   Lemma write_fence_future
         ord commit sc mem
+        (MEM: Memory.closed mem)
         (WF_COMMIT: Commit.wf commit)
         (CLOSED_COMMIT: Commit.closed commit mem)
         (CLOSED_SC: Memory.closed_timemap sc mem):

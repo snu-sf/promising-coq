@@ -50,8 +50,7 @@ Lemma memory_sim_closed_timemap
   Memory.closed_timemap tm mem_src.
 Proof.
   ii. exploit TGT; eauto. i. des.
-  - left. eauto.
-  - right. exploit Memory.sim_get; eauto. i. des. eauto.
+  exploit Memory.sim_get; eauto. i. des. eauto.
 Qed.
 
 Lemma memory_sim_closed_capability
