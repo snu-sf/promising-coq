@@ -129,7 +129,7 @@ Qed.
 
 Lemma reorder_read_write
       loc1 ts1 val1 released1 ord1
-      loc2 from2 to2 val2 released2 ord2
+      loc2 from2 to2 val2 releasedm2 released2 ord2
       lc0 sc0 mem0
       lc1
       lc2 sc2 mem2
@@ -138,9 +138,9 @@ Lemma reorder_read_write
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
       (STEP1: Local.read_step lc0 mem0 loc1 ts1 val1 released1 ord1 lc1)
-      (STEP2: Local.write_step lc1 sc0 mem0 loc2 from2 to2 val2 released2 ord2 lc2 sc2 mem2):
+      (STEP2: Local.write_step lc1 sc0 mem0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc2 sc2 mem2):
   exists mem2' lc1' lc2',
-    <<STEP1: Local.write_step lc0 sc0 mem0 loc2 from2 to2 val2 released2 ord2 lc1' sc2 mem2'>> /\
+    <<STEP1: Local.write_step lc0 sc0 mem0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc1' sc2 mem2'>> /\
     <<STEP2: Local.read_step lc1' mem2' loc1 ts1 val1 released1 ord1 lc2'>> /\
     <<LOCAL: sim_local lc2' lc2>> /\
     <<MEM: Memory.sim mem2 mem2'>>.
@@ -150,11 +150,13 @@ Proof.
   - econs; eauto.
     + admit. (* writable_mon *)
     + admit. (* Memory.write w/ lower released *)
-  - econs; eauto. s. unfold Commit.write_commit.
-    econs; repeat (try condtac; try splits; aggrtac; eauto; try apply READABLE;
-                   unfold TimeMap.singleton, LocFun.add in *).
-    + exfalso. apply ORD; auto.
-    + exfalso. apply ORD; auto.
+  - econs; eauto.
+    + admit. (* Memory.write_get *)
+    + s. unfold Commit.write_commit.
+      econs; repeat (try condtac; try splits; aggrtac; eauto; try apply READABLE;
+                     unfold TimeMap.singleton, LocFun.add in *).
+      * exfalso. apply ORD; auto.
+      * exfalso. apply ORD; auto.
   - s. econs; s.
     + apply ReorderCommit.read_write_commit; auto.
       * apply WF0.
@@ -203,7 +205,7 @@ Proof.
 Admitted.
 
 Lemma reorder_write_read
-      loc1 from1 to1 val1 released1 ord1
+      loc1 from1 to1 val1 releasedm1 released1 ord1
       loc2 ts2 val2 released2 ord2
       lc0 sc0 mem0
       lc1 sc1 mem1
@@ -213,11 +215,11 @@ Lemma reorder_write_read
       (ORD2: Ordering.le ord2 Ordering.relaxed)
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
-      (STEP1: Local.write_step lc0 sc0 mem0 loc1 from1 to1 val1 released1 ord1 lc1 sc1 mem1)
+      (STEP1: Local.write_step lc0 sc0 mem0 loc1 from1 to1 val1 releasedm1 released1 ord1 lc1 sc1 mem1)
       (STEP2: Local.read_step lc1 mem1 loc2 ts2 val2 released2 ord2 lc2):
   exists lc1' lc2',
     <<STEP1: Local.read_step lc0 mem0 loc2 ts2 val2 released2 ord2 lc1'>> /\
-    <<STEP2: Local.write_step lc1' sc0 mem0 loc1 from1 to1 val1 released1 ord1 lc2' sc1 mem1>> /\
+    <<STEP2: Local.write_step lc1' sc0 mem0 loc1 from1 to1 val1 releasedm1 released1 ord1 lc2' sc1 mem1>> /\
     <<LOCAL: sim_local lc2' lc2>>.
 Proof.
   inv STEP1. inv STEP2. ss.
@@ -227,11 +229,11 @@ Proof.
     + admit. (* memory.write_get_inv *)
     + admit. (* Commit.readable mon *)
   - econs; eauto.
+    + s. repeat condtac; aggrtac.
     + s. unfold Commit.read_commit.
       econs; repeat (try condtac; try splits; aggrtac; eauto; try apply WRITABLE;
                      unfold TimeMap.singleton, LocFun.add in *);
         (try by inv WRITABLE; eapply TimeFacts.le_lt_lt; eauto; aggrtac).
-    + revert WRITE. unfold Commit.write_commit. repeat (condtac; committac). eauto.
   - s. econs; s.
     + apply ReorderCommit.write_read_commit; auto.
       * apply WF0.
@@ -241,7 +243,7 @@ Proof.
 Admitted.
 
 Lemma reorder_write_promise
-      loc1 from1 to1 val1 released1 ord1
+      loc1 from1 to1 val1 releasedm1 released1 ord1
       loc2 from2 to2 val2 released2
       lc0 sc0 mem0
       lc1 sc1 mem1
@@ -249,11 +251,11 @@ Lemma reorder_write_promise
       kind
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
-      (STEP1: Local.write_step lc0 sc0 mem0 loc1 from1 to1 val1 released1 ord1 lc1 sc1 mem1)
+      (STEP1: Local.write_step lc0 sc0 mem0 loc1 from1 to1 val1 releasedm1 released1 ord1 lc1 sc1 mem1)
       (STEP2: Local.promise_step lc1 mem1 loc2 from2 to2 val2 released2 lc2 mem2 kind):
   exists lc1' lc2' mem1',
     <<STEP1: Local.promise_step lc0 mem0 loc2 from2 to2 val2 released2 lc1' mem1' kind>> /\
-    <<STEP2: Local.write_step lc1' sc0 mem1' loc1 from1 to1 val1 released1 ord1 lc2' sc1 mem2>> /\
+    <<STEP2: Local.write_step lc1' sc0 mem1' loc1 from1 to1 val1 releasedm1 released1 ord1 lc2' sc1 mem2>> /\
     <<LOCAL: sim_local lc2' lc2>>.
 Proof.
   inv STEP1. inv STEP2. ss. inv WRITE.
@@ -266,8 +268,8 @@ Proof.
 Admitted.
 
 Lemma reorder_write_write
-      loc1 from1 to1 val1 released1 ord1
-      loc2 from2 to2 val2 released2 ord2
+      loc1 from1 to1 val1 releasedm1 released1 ord1
+      loc2 from2 to2 val2 releasedm2 released2 ord2
       lc0 sc0 mem0
       lc1 sc1 mem1
       lc2 sc2 mem2
@@ -275,21 +277,25 @@ Lemma reorder_write_write
       (ORD1: Ordering.le ord1 Ordering.relaxed)
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
-      (STEP1: Local.write_step lc0 sc0 mem0 loc1 from1 to1 val1 released1 ord1 lc1 sc1 mem1)
-      (STEP2: Local.write_step lc1 sc1 mem1 loc2 from2 to2 val2 released2 ord2 lc2 sc2 mem2):
+      (STEP1: Local.write_step lc0 sc0 mem0 loc1 from1 to1 val1 releasedm1 released1 ord1 lc1 sc1 mem1)
+      (STEP2: Local.write_step lc1 sc1 mem1 loc2 from2 to2 val2 releasedm2 released2 ord2 lc2 sc2 mem2):
   exists lc1' lc2' sc1' sc2' mem1',
-    <<STEP1: Local.write_step lc0 sc0 mem0 loc2 from2 to2 val2 released2 ord2 lc1' sc1' mem1'>> /\
-    <<STEP2: Local.write_step lc1' sc1' mem1' loc1 from1 to1 val1 released1 ord1 lc2' sc2' mem2>> /\
+    <<STEP1: Local.write_step lc0 sc0 mem0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc1' sc1' mem1'>> /\
+    <<STEP2: Local.write_step lc1' sc1' mem1' loc1 from1 to1 val1 releasedm1 released1 ord1 lc2' sc2' mem2>> /\
     <<LOCAL: sim_local lc2' lc2>> /\
     <<SC: TimeMap.le sc2' sc2>>.
 Proof.
   inv STEP1. inv STEP2. ss.
   esplits.
   - econs; eauto.
+    + s. repeat (condtac; aggrtac).
+      * admit.
+      * admit.
     + admit. (* Commit.writable mon *)
     + admit. (* Memory.write *)
     + i. splits; eauto. admit. (* promise = bot? *)
   - econs; eauto.
+    + admit. (* eq released *)
     + s. unfold Commit.write_commit, Commit.write_sc.
       econs; repeat (try condtac; try splits; aggrtac; eauto; try apply WRITABLE;
                      unfold TimeMap.singleton, LocFun.add in *);
@@ -327,7 +333,7 @@ Qed.
 
 Lemma reorder_fence_write
       ordr1 ordw1
-      loc2 from2 to2 val2 releasedm2 ord2
+      loc2 from2 to2 val2 releasedm2 released2 ord2
       lc0 sc0 mem0
       lc1 sc1
       lc2 sc2 mem2
@@ -336,9 +342,9 @@ Lemma reorder_fence_write
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
       (STEP1: Local.fence_step lc0 sc0 mem0 ordr1 ordw1 lc1 sc1)
-      (STEP2: Local.write_step lc1 sc1 mem0 loc2 from2 to2 val2 releasedm2 ord2 lc2 sc2 mem2):
+      (STEP2: Local.write_step lc1 sc1 mem0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc2 sc2 mem2):
   exists lc1' lc2' sc1' sc2',
-    <<STEP1: Local.write_step lc0 sc0 mem0 loc2 from2 to2 val2 releasedm2 ord2 lc1' sc1' mem2>> /\
+    <<STEP1: Local.write_step lc0 sc0 mem0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc1' sc1' mem2>> /\
     <<STEP2: Local.fence_step lc1' sc1' mem2 ordr1 ordw1 lc2' sc2'>> /\
     <<LOCAL: sim_local lc2' lc2>> /\
     <<SC: TimeMap.le sc2' sc2>>.
@@ -346,13 +352,10 @@ Proof.
   inv STEP1. inv STEP2. ss.
   esplits.
   - econs; eauto.
+    + admit. (* eq released *)
     + admit. (* Commit.writable mon *)
-    + admit. (* Memory.write *)
-  - econs; eauto.
-  - s. econs; s.
-    + admit. (* Commit.le *)
-    + admit. (* promises equal: lc0, promises2 *)
-    + admit. (* promises le: lc0, promises2 *)
+  - econs; ss. admit. (* promises bot *)
+  - econs; ss. admit. (* Commit.le *)
   - etrans.
     + s. admit. (* TImeMap.le *)
     + eapply ReorderCommit.write_fence_write_sc; eauto.

@@ -19,8 +19,8 @@ Set Implicit Arguments.
 
 
 Lemma write_step_promise
-      lc1 sc1 mem1 loc from to val releasedm ord lc2 sc2 mem2
-      (STEP: Local.write_step lc1 sc1 mem1 loc from to val releasedm ord lc2 sc2 mem2)
+      lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2
+      (STEP: Local.write_step lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2)
       (PROMISES: lc1.(Local.promises) = Memory.bot):
   lc2.(Local.promises) = Memory.bot.
 Proof.
@@ -121,8 +121,8 @@ Lemma progress_write_step
       (WF_REL: Capability.wf releasedm)
       (CLOSED_REL: Memory.closed_capability releasedm mem1)
       (PROMISES1: lc1.(Local.promises) = Memory.bot):
-  exists lc2 sc2 mem2,
-    Local.write_step lc1 sc1 mem1 loc (Memory.max_ts loc mem1) to val releasedm ord lc2 sc2 mem2.
+  exists released lc2 sc2 mem2,
+    Local.write_step lc1 sc1 mem1 loc (Memory.max_ts loc mem1) to val releasedm released ord lc2 sc2 mem2.
 Proof.
   exploit progress_promise_step; eauto. i. des.
   exploit Local.promise_step_future; eauto. i. des. inv x0.
