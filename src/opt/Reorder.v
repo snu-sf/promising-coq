@@ -52,7 +52,7 @@ Inductive reorder: forall (i1 i2:Instr.t), Prop :=
 Lemma reorder_sim_stmts
       i1 i2 (REORDER: reorder i1 i2):
   sim_stmts eq
-            [Stmt.instr Instr.skip; Stmt.instr i2; Stmt.instr i1]
+            [Stmt.instr i2; Stmt.instr i1]
             [Stmt.instr i1; Stmt.instr i2]
             eq.
 Proof.

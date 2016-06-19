@@ -372,6 +372,22 @@ Proof.
   - econs 2. apply program_step_seq. eauto.
 Qed.
 
+Lemma opt_step_seq
+      stmts e
+      rs1 stmts1 lc1 sc1 mem1
+      rs2 stmts2 lc2 sc2 mem2
+      (STEP: Thread.opt_step e
+                             (Thread.mk lang (State.mk rs1 stmts1) lc1 sc1 mem1)
+                             (Thread.mk lang (State.mk rs2 stmts2) lc2 sc2 mem2)):
+  Thread.opt_step e
+                  (Thread.mk lang (State.mk rs1 (stmts1 ++ stmts)) lc1 sc1 mem1)
+                  (Thread.mk lang (State.mk rs2 (stmts2 ++ stmts)) lc2 sc2 mem2).
+Proof.
+  inv STEP.
+  - econs 1.
+  - econs 2. apply step_seq. auto.
+Qed.
+
 Lemma thread_step_deseq
       stmts e
       rs1 stmt1 stmts1 lc1 sc1 mem1
@@ -571,7 +587,7 @@ Proof.
     exploit sim_local_promise; eauto. i. des.
     esplits.
     + eauto.
-    + econs 1. econs. eauto.
+    + econs 2. econs 1. econs. eauto.
     + eauto.
     + eauto.
     + eauto.
@@ -598,7 +614,7 @@ Proof.
       inv STEP; ss.
       exploit sim_local_promise; eauto. i. des.
       esplits; try apply SC; eauto.
-      { econs 1. econs. eauto. }
+      { econs 2. econs 1. econs. eauto. }
       { eauto. }
       { apply rclo9_step. apply ctx_instr; auto. }
     + inv STEP; ss.
@@ -606,7 +622,7 @@ Proof.
         inv STATE.
         exploit RegFile.eq_except_instr; eauto. i. des.
         esplits; try apply SC; eauto.
-        { econs 2. econs; eauto. econs. eauto. }
+        { econs 2. econs 2. econs; eauto. econs. eauto. }
         { eauto. }
         { apply rclo9_step. apply ctx_nil; auto. }
       * (* read *)
@@ -614,7 +630,7 @@ Proof.
         exploit sim_local_read; eauto; try refl. i. des.
         exploit RegFile.eq_except_instr; eauto. i. des.
         esplits; try apply SC; eauto.
-        { econs 2. econs 2; eauto. s. econs. eauto. }
+        { econs 2. econs 2. econs 2; eauto. s. econs. eauto. }
         { eauto. }
         { apply rclo9_step. apply ctx_nil; auto. }
       * (* write *)
@@ -625,7 +641,7 @@ Proof.
         i. des.
         exploit RegFile.eq_except_instr; eauto. i. des.
         esplits; eauto.
-        { econs 2. econs 3; eauto. econs. eauto. }
+        { econs 2. econs 2. econs 3; eauto. econs. eauto. }
         { eauto. }
         { apply rclo9_step. apply ctx_nil; auto. }
       * (* update *)
@@ -638,7 +654,7 @@ Proof.
         i. des.
         exploit RegFile.eq_except_instr; eauto. i. des.
         esplits; eauto.
-        { econs 2. econs 4; eauto. s. econs. eauto. }
+        { econs 2. econs 2. econs 4; eauto. s. econs. eauto. }
         { eauto. }
         { apply rclo9_step. apply ctx_nil; auto. }
       * (* fence *)
@@ -646,7 +662,7 @@ Proof.
         exploit sim_local_fence; try apply SC; eauto; try refl. i. des.
         exploit RegFile.eq_except_instr; eauto. i. des.
         esplits; eauto.
-        { econs 2. econs 5; eauto. econs. eauto. }
+        { econs 2. econs 2. econs 5; eauto. econs. eauto. }
         { eauto. }
         { apply rclo9_step. apply ctx_nil; auto. }
       * (* syscall *)
@@ -654,7 +670,7 @@ Proof.
         exploit sim_local_fence; try apply SC; eauto; try refl. i. des.
         exploit RegFile.eq_except_instr; eauto. i. des.
         esplits; eauto.
-        { econs 2. econs 6; eauto. econs. eauto. }
+        { econs 2. econs 2. econs 6; eauto. econs. eauto. }
         { eauto. }
         { apply rclo9_step. apply ctx_nil; auto. }
   - (* seq *)
@@ -703,7 +719,7 @@ Proof.
       destruct st2_src, lc2_src. destruct st3_src, lc3_src.
       esplits; [M|M| | | |]; Mskip eauto.
       * eapply rtc_internal_step_seq. eauto.
-      * eapply step_seq. eauto.
+      * eapply opt_step_seq. eauto.
       * apply rclo9_step. eapply ctx_seq; eauto.
         { apply rclo9_incl. eauto. }
         { eapply _sim_stmts_mon; try apply rclo9_incl; eauto.
@@ -731,7 +747,7 @@ Proof.
       inv STEP; ss.
       exploit sim_local_promise; eauto. i. des.
       esplits; try apply SC; eauto.
-      { econs 1. econs. s. eauto. }
+      { econs 2. econs 1. econs. s. eauto. }
       { eauto. }
       { apply rclo9_step. eapply ctx_ite; eauto.
         - eapply _sim_stmts_mon; try apply rclo9_incl; eauto.
@@ -743,7 +759,7 @@ Proof.
       inv STEP; inv STATE; ss.
       inv LOCAL. ss.
       esplits; try apply MEMORY; try apply SC; eauto.
-      { econs 2. econs 1. econs; eauto. }
+      { econs 2. econs 2. econs 1. econs; eauto. }
       { eauto. }
       { s. rewrite ? app_nil_r.
         exploit COND; eauto. intro C. rewrite C.
@@ -773,7 +789,7 @@ Proof.
       inv STEP; ss.
       exploit sim_local_promise; eauto. i. des.
       esplits; try apply SC; eauto.
-      { econs 1. econs. eauto. }
+      { econs 2. econs 1. econs. eauto. }
       { eauto. }
       { apply rclo9_step. apply ctx_dowhile; auto.
         - eapply _sim_stmts_mon; try apply rclo9_incl; eauto.
@@ -783,7 +799,7 @@ Proof.
       inv STEP; inv STATE; ss.
       inv LOCAL. ss.
       esplits; try apply SC; eauto.
-      { econs 2. econs 1. econs; eauto. }
+      { econs 2. econs 2. econs 1. econs; eauto. }
       { eauto. }
       { apply rclo9_step. eapply ctx_seq.
         { apply rclo9_incl. apply LE. apply SIM; ss. }

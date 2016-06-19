@@ -72,11 +72,22 @@ Lemma unused_load_sim_stmts
       (ORD: Ordering.le ord Ordering.unordered):
   sim_stmts (RegFile.eq_except (RegSet.singleton r))
             [Stmt.instr (Instr.load r loc ord)]
-            [Stmt.instr Instr.skip]
+            []
             (RegFile.eq_except (RegSet.singleton r)).
 Proof.
   pcofix CIH. ii. subst. pfold. ii. splits.
-  { i. inv TERMINAL_TGT. }
+  { exploit unused_read; eauto. i. des.
+    exploit sim_local_read; eauto; try refl. i. des.
+    esplits.
+    - econs 2; eauto. econs. econs 2. econs 2; eauto.
+      + econs. econs.
+      + eauto.
+    - auto.
+    - auto.
+    - auto.
+    - auto.
+    - econs. s. etrans; eauto. apply RegFile.eq_except_singleton.
+  }
   { i. exploit sim_local_future; try apply LOCAL; eauto. i. des.
     esplits; eauto.
     - etrans.
@@ -91,15 +102,8 @@ Proof.
     eapply sim_local_memory_bot; eauto.
   }
   ii. inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR); ss.
-  - (* promise *)
-    exploit sim_local_promise; eauto. i. des.
-    esplits; try apply SC; eauto.
-    econs 1; eauto. econs; eauto. eauto.
-  - (* silent *)
-    exploit unused_read; try apply WF_SRC; eauto. i. des.
-    esplits; try apply SC; eauto.
-    + econs 2. econs 2; eauto. econs. econs.
-    + auto.
-    + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
-      etrans; eauto. apply RegFile.eq_except_singleton.
+  (* promise *)
+  exploit sim_local_promise; eauto. i. des.
+  esplits; try apply SC; eauto.
+  econs 2. econs 1; eauto. econs; eauto. eauto.
 Qed.

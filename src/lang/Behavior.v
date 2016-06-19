@@ -28,11 +28,15 @@ Set Implicit Arguments.
  * be the case.  The *NIX kernels are re-entrant: system calls may
  * race.
  *)
-Inductive behavior :=
-| behvaior_nil
-| behavior_event (e:Event.t) (b:behavior)
-.
 
-(* TODO *)
-Definition behaviors (conf:Configuration.t) (b:behavior): Prop :=
-  False.
+Inductive behaviors: forall (conf:Configuration.t) (b:list Event.t), Prop :=
+| behaviors_nil
+    c
+    (TERMINAL: Configuration.is_terminal c):
+    behaviors c nil
+| behaviors_event
+    e tid c1 c2 beh
+    (STEP: Configuration.step e tid c1 c2)
+    (NEXT: behaviors c2 beh):
+    behaviors c1 (match e with | Some e => (e::beh) | None => beh end)
+.

@@ -119,7 +119,7 @@ Module Configuration.
       e tid c1 lang st1 lc1 e2 st3 lc3 sc3 memory3
       (TID: IdentMap.find tid c1.(threads) = Some (existT _ lang st1, lc1))
       (STEPS: rtc (@Thread.tau_step _) (Thread.mk _ st1 lc1 c1.(sc) c1.(memory)) e2)
-      (STEP: Thread.step e e2 (Thread.mk _ st3 lc3 sc3 memory3))
+      (STEP: Thread.opt_step e e2 (Thread.mk _ st3 lc3 sc3 memory3))
       (CONSISTENT: Thread.consistent (Thread.mk lang st3 lc3 sc3 memory3)):
       step (ThreadEvent.get_event e) tid c1 (mk (IdentMap.add tid (existT _ _ st3, lc3) c1.(threads)) sc3 memory3)
   .
@@ -161,24 +161,24 @@ Module Configuration.
     inv WF1. inv WF. inv STEP. s.
     exploit THREADS; ss; eauto. i.
     exploit Thread.rtc_step_future; eauto. s. i. des.
-    exploit Thread.step_future; eauto. s. i. des.
+    exploit Thread.opt_step_future; eauto. s. i. des.
     splits; [| |by etrans; eauto|by etrans; eauto].
     - econs; ss. econs.
       + i. simplify.
         * congr.
         * exploit THREADS; try apply TH1; eauto. i. des.
           exploit Thread.rtc_step_disjoint; eauto. i. des.
-          exploit Thread.step_disjoint; eauto. s. i. des.
+          exploit Thread.opt_step_disjoint; eauto. s. i. des.
           symmetry. auto.
         * exploit THREADS; try apply TH2; eauto. i. des.
           exploit Thread.rtc_step_disjoint; eauto. i. des.
-          exploit Thread.step_disjoint; eauto. i. des.
+          exploit Thread.opt_step_disjoint; eauto. i. des.
           auto.
         * eapply DISJOINT; [|eauto|eauto]. auto.
       + i. simplify.
         exploit THREADS; try apply TH; eauto. i.
         exploit Thread.rtc_step_disjoint; eauto. i. des.
-        exploit Thread.step_disjoint; eauto. s. i. des.
+        exploit Thread.opt_step_disjoint; eauto. s. i. des.
         auto.
     - ii. simplify; eauto.
       eapply CONSISTENT1; eauto.
@@ -204,7 +204,7 @@ Module Configuration.
     { apply WF1. }
     { apply WF1. }
     s. i. des.
-    exploit Thread.step_future; eauto. s. i. des.
+    exploit Thread.opt_step_future; eauto. s. i. des.
     splits.
     - econs; s; ii; simplify.
       + inv DISJOINT. eapply THREAD; eauto.
@@ -216,7 +216,7 @@ Module Configuration.
         { eapply DISJOINT; eauto. }
         { eapply WF; eauto. }
         i. des.
-        exploit Thread.step_disjoint; eauto. s. i. des.
+        exploit Thread.opt_step_disjoint; eauto. s. i. des.
         auto.
       + inv DISJOINT. eapply MEMORY; eauto.
     - econs; s; eauto.
@@ -230,7 +230,7 @@ Module Configuration.
           { eapply DISJOINT; eauto. }
           { eapply WF; eauto. }
           i. des.
-          exploit Thread.step_disjoint; eauto. s. i. des.
+          exploit Thread.opt_step_disjoint; eauto. s. i. des.
           splits; ss.
     - ii. ss.
       exploit Thread.rtc_step_disjoint; eauto.
@@ -240,7 +240,7 @@ Module Configuration.
       { eapply DISJOINT; eauto. }
       { eapply WF; eauto. }
       i. des.
-      exploit Thread.step_disjoint; eauto. s. i. des.
+      exploit Thread.opt_step_disjoint; eauto. s. i. des.
       eapply CONSISTENT; eauto.
       + s. etrans; eauto. etrans; eauto.
       + s. etrans; eauto. etrans; eauto.

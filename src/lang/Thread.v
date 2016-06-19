@@ -334,6 +334,16 @@ Module Thread.
         (TAU: ThreadEvent.get_event e = None)
     .
 
+    Inductive opt_step: forall (e:ThreadEvent.t) (e1 e2:t), Prop :=
+    | step_none
+        e:
+        opt_step ThreadEvent.silent e e
+    | step_some
+        e e1 e2
+        (STEP: step e e1 e2):
+        opt_step e e1 e2
+    .
+
     Definition consistent (e:t): Prop :=
       forall sc1 mem1
         (FUTURE: Memory.future e.(memory) mem1)
@@ -397,6 +407,22 @@ Module Thread.
       - exploit promise_step_future; eauto. i. des. splits; ss.
         inv STEP0. ss. refl.
       - eapply program_step_future; eauto.
+    Qed.
+
+    Lemma opt_step_future e e1 e2
+          (STEP: opt_step e e1 e2)
+          (WF1: Local.wf e1.(local) e1.(memory))
+          (SC1: Memory.closed_timemap e1.(sc) e1.(memory))
+          (CLOSED1: Memory.closed e1.(memory)):
+      <<WF2: Local.wf e2.(local) e2.(memory)>> /\
+      <<SC2: Memory.closed_timemap e2.(sc) e2.(memory)>> /\
+      <<CLOSED2: Memory.closed e2.(memory)>> /\
+      <<SC_FUTURE: TimeMap.le e1.(sc) e2.(sc)>> /\
+      <<MEM_FUTURE: Memory.future e1.(memory) e2.(memory)>>.
+    Proof.
+      inv STEP.
+      - esplits; eauto; refl.
+      - eapply step_future; eauto.
     Qed.
 
     Lemma rtc_step_future e1 e2
@@ -473,6 +499,21 @@ Module Thread.
       inv STEP.
       - eapply promise_step_disjoint; eauto.
       - eapply program_step_disjoint; eauto.
+    Qed.
+
+    Lemma opt_step_disjoint e e1 e2 lc
+        (STEP: opt_step e e1 e2)
+        (WF1: Local.wf e1.(local) e1.(memory))
+        (SC1: Memory.closed_timemap e1.(sc) e1.(memory))
+        (CLOSED1: Memory.closed e1.(memory))
+        (DISJOINT1: Local.disjoint e1.(local) lc)
+        (WF: Local.wf lc e1.(memory)):
+      <<DISJOINT2: Local.disjoint e2.(local) lc>> /\
+      <<WF: Local.wf lc e2.(memory)>>.
+    Proof.
+      inv STEP.
+      - esplits; eauto.
+      - eapply step_disjoint; eauto.
     Qed.
 
     Lemma rtc_step_disjoint e1 e2 lc

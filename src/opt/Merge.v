@@ -32,7 +32,7 @@ Lemma assign_sim_thread:
     (LOCAL: sim_local lc_src lc_tgt),
     sim_thread
       (sim_terminal eq)
-      (State.mk rs_src [Stmt.instr Instr.skip]) lc_src sc_k_src mem_k_src
+      (State.mk rs_src []) lc_src sc_k_src mem_k_src
       (State.mk rs_tgt [Stmt.instr (Instr.assign r2 (Instr.expr_val v1))]) lc_tgt sc_k_tgt mem_k_tgt.
 Proof.
   pcofix CIH. i. pfold. ii. splits.
@@ -54,11 +54,11 @@ Proof.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
     esplits; try apply SC; eauto.
-    + econs 1. econs. eauto.
+    + econs 2. econs 1. econs. eauto.
     + auto.
   - (* load *)
     esplits; try apply SC; eauto.
-    + econs 2. econs 1. econs. econs.
+    + econs 1.
     + auto.
     + left. eapply paco9_mon.
       * apply sim_stmts_nil; eauto.
@@ -73,7 +73,7 @@ Lemma merge_load_load_sim_stmts
       (O1: Ordering.le o1 o)
       (O2: Ordering.le o2 o):
   sim_stmts eq
-            [Stmt.instr (Instr.load r1 l o1); Stmt.instr (Instr.load r2 l o2); Stmt.instr Instr.skip]
+            [Stmt.instr (Instr.load r1 l o1); Stmt.instr (Instr.load r2 l o2)]
             [Stmt.instr (Instr.load r1 l o); Stmt.instr (Instr.assign r2 (Instr.expr_val (Value.reg r1)))]
             eq.
 Proof.
@@ -96,7 +96,7 @@ Proof.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
     esplits; try apply SC; eauto.
-    + econs 1. econs. eauto.
+    + econs 2. econs 1. econs. eauto.
     + auto.
   - (* load *)
     exploit Local.read_step_future; eauto. i. des.
@@ -108,7 +108,7 @@ Proof.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 2; eauto. econs. econs.
       * eauto.
-    + econs 2. econs 2; eauto. econs. econs.
+    + econs 2. econs 2. econs 2; eauto. econs. econs.
     + auto.
     + auto.
     + auto.
@@ -123,7 +123,7 @@ Lemma merge_store_load_sim_stmts
       r2 o2
       (O: Ordering.le Ordering.seqcst o2 -> Ordering.le Ordering.seqcst o1):
   sim_stmts eq
-            [Stmt.instr (Instr.store l v1 o1); Stmt.instr (Instr.load r2 l o2); Stmt.instr Instr.skip]
+            [Stmt.instr (Instr.store l v1 o1); Stmt.instr (Instr.load r2 l o2)]
             [Stmt.instr (Instr.store l v1 o1); Stmt.instr (Instr.assign r2 v1)]
             eq.
 Proof.
@@ -146,7 +146,7 @@ Proof.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
     esplits; try apply SC; eauto.
-    + econs 1. econs. eauto.
+    + econs 2. econs 1. econs. eauto.
     + auto.
   - (* store *)
     exploit merge_write_read1; eauto. i. des.
@@ -158,7 +158,7 @@ Proof.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 3; eauto. econs. econs.
       * eauto.
-    + econs 2. econs 2; eauto. econs. econs.
+    + econs 2. econs 2. econs 2; eauto. econs. econs.
     + auto.
     + auto.
     + auto.
@@ -198,7 +198,7 @@ Proof.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
     esplits; try apply SC; eauto.
-    econs 1; eauto. econs; eauto. eauto.
+    econs 2. econs 1; eauto. econs; eauto. eauto.
   - (* store *)
     admit.
     (* exploit merge_write_write; try apply LOCAL0; [apply O1|apply O2| | |]; eauto. i. des. *)
@@ -233,7 +233,7 @@ Lemma merge_store_update_sim_stmts
       (OW2: Ordering.le ow2 o)
       (OR2: Ordering.le or2 Ordering.acqrel):
   sim_stmts eq
-            [Stmt.instr (Instr.store l v1 o1); Stmt.instr (Instr.update r2 l (Instr.fetch_add (Value.const 0)) or2 ow2); Stmt.instr Instr.skip]
+            [Stmt.instr (Instr.store l v1 o1); Stmt.instr (Instr.update r2 l (Instr.fetch_add (Value.const 0)) or2 ow2)]
             [Stmt.instr (Instr.store l v1 o); Stmt.instr (Instr.assign r2 v1)]
             eq.
 Proof.
@@ -256,7 +256,7 @@ Proof.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
     esplits; try apply SC; eauto.
-    econs 1; eauto. econs; eauto. eauto.
+    econs 2. econs 1; eauto. econs; eauto. eauto.
   - (* store *)
     admit.
 (*     exploit merge_write_write; try apply LOCAL0; [apply O1|apply OW2| | |]; eauto. i. des. *)
@@ -294,7 +294,7 @@ Lemma merge_update_load_sim_stmts
       (OR1: Ordering.le or1 or)
       (OR2: Ordering.le or2 or):
   sim_stmts eq
-            [Stmt.instr (Instr.update r1 l (Instr.fetch_add v1) or1 ow1); Stmt.instr (Instr.load r2 l or2); Stmt.instr Instr.skip]
+            [Stmt.instr (Instr.update r1 l (Instr.fetch_add v1) or1 ow1); Stmt.instr (Instr.load r2 l or2)]
             [Stmt.instr (Instr.update r1 l (Instr.fetch_add v1) or ow1); Stmt.instr (Instr.assign r2 r1)]
             eq.
 Proof.
@@ -317,7 +317,7 @@ Proof.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
     esplits; try apply SC; eauto.
-    econs 1; eauto. econs; eauto. eauto.
+    econs 2. econs 1; eauto. econs; eauto. eauto.
   - (* update *)
     exploit Local.read_step_future; eauto. i. des.
     exploit merge_write_read2; try apply LOCAL2; eauto.
@@ -338,7 +338,7 @@ Proof.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 4; eauto. econs. econs. eauto.
       * eauto.
-    + econs 2. econs 2; eauto. econs. econs.
+    + econs 2. econs 2. econs 2; eauto. econs. econs.
     + auto.
     + auto.
     + auto.
@@ -359,7 +359,7 @@ Lemma merge_update_update_sim_stmts
       (OR1: Ordering.le or1 or)
       (OR2: Ordering.le or2 or):
   sim_stmts eq
-            [Stmt.instr (Instr.update r1 l (Instr.fetch_add v1) or1 ow1); Stmt.instr (Instr.update r2 l (Instr.fetch_add 0) or2 ow2); Stmt.instr Instr.skip]
+            [Stmt.instr (Instr.update r1 l (Instr.fetch_add v1) or1 ow1); Stmt.instr (Instr.update r2 l (Instr.fetch_add 0) or2 ow2)]
             [Stmt.instr (Instr.update r1 l (Instr.fetch_add v1) or ow); Stmt.instr (Instr.assign r2 r1)]
             eq.
 Proof.
@@ -382,7 +382,7 @@ Proof.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
     esplits; try apply SC; eauto.
-    econs 1; eauto. econs; eauto. eauto.
+    econs 2. econs 1; eauto. econs; eauto. eauto.
   - (* update *)
     admit.
 Admitted.
@@ -419,7 +419,7 @@ Proof.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
     esplits; try apply SC; eauto.
-    econs 1; eauto. econs; eauto. eauto.
+    econs 2. econs 1; eauto. econs; eauto. eauto.
   - (* fence *)
     exploit merge_fence_fence; try apply LOCAL0; eauto. i. des.
     exploit sim_local_fence; try apply SC; try apply STEP1; try apply ORDR1; try apply ORDW1; eauto. i. des.
@@ -431,7 +431,7 @@ Proof.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 5; eauto. econs. econs.
       * eauto.
-    + econs 2. econs 5; eauto. econs. econs.
+    + econs 2. econs 2. econs 5; eauto. econs. econs.
     + auto.
     + etrans; eauto.
     + auto.
