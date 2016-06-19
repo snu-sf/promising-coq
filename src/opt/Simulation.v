@@ -28,7 +28,19 @@ Section SimulationLocal.
   | sim_local_intro
       (COMMIT: Commit.le lc_src.(Local.commit) lc_tgt.(Local.commit))
       (PROMISES: MemInv.sem MemInv.bot lc_src.(Local.promises) lc_tgt.(Local.promises))
+      (PROMISES_LE: Memory.le lc_tgt.(Local.promises) lc_src.(Local.promises))
   .
+
+  Global Program Instance sim_local_PreOrder: PreOrder sim_local.
+  Next Obligation.
+    econs; try refl. apply MemInv.sem_bot.
+  Qed.
+  Next Obligation.
+    ii. inv H. inv H0. econs; try etrans; eauto.
+    apply MemInv.sem_bot_inv in PROMISES; auto.
+    apply MemInv.sem_bot_inv in PROMISES0; auto.
+    rewrite PROMISES, PROMISES0. apply MemInv.sem_bot.
+  Qed.
 
   Definition SIM_THREAD :=
     forall (sim_terminal: SIM_TERMINAL)
@@ -419,14 +431,16 @@ Proof.
         { eapply IdentMap.singleton_eq. }
         { ii. eexists. splits; eauto. ss.
           eapply MemInv.sem_bot_inv.
-          inv THREAD. rewrite <- PROMISES0. apply LOCAL.
+          - inv THREAD. rewrite <- PROMISES0. apply LOCAL.
+          - apply Memory.bot_le.
         }
       * inv X. s. erewrite IdentMap.singleton_add. econs.
     + ii. ss. rewrite IdentMap.singleton_add in *.
       apply IdentMap.singleton_find_inv in FIND. des. subst.
       splits; Configuration.simplify. econs; eauto.
       eapply MemInv.sem_bot_inv.
-      inv THREAD. rewrite <- PROMISES0. apply LOCAL.
+      * inv THREAD. rewrite <- PROMISES0. apply LOCAL.
+      * apply Memory.bot_le.
   - i. inv STEP_TGT. ss.
     apply IdentMap.singleton_find_inv in TID. des.
     Configuration.simplify.

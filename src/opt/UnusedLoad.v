@@ -54,28 +54,22 @@ Lemma unused_read
     Local.read_step lc0 mem0 loc ts val released ord lc0.
 Proof.
   destruct lc0.
-  assert (exists from val released, Memory.get loc (Capability.ur (Commit.cur commit) loc) mem0 = Some (from, Message.mk val released)) by apply WF.
+  assert (exists from msg, Memory.get loc (Capability.ur (Commit.cur commit) loc) mem0 = Some (from, msg)).
+  { inv WF. ss. inv COMMIT_CLOSED. inv CUR.
+    exploit UR; eauto. i. des. eauto.
+  }
   i. des.
   inv MEM. exploit CLOSED; eauto. i. des.
-  exploit (CommitFacts.read_min_spec loc); eauto.
-  { refl. }
-  { i. instantiate (1 := ord) in H0. destruct ord; inv ORD; inv H0. }
-  { apply WF. }
-  s. i. eexists _, _, _. refine (Local.step_read _ _ _ _ _ ); eauto. s.
-  replace (CommitFacts.read_min
-             loc
-             (Capability.ur (Commit.cur commit) loc) released ord
-             commit)
-  with commit in x0; auto.
-  destruct commit. unfold CommitFacts.read_min. ss. f_equal.
-  - destruct (Ordering.le Ordering.acqrel ord) eqn:X; s.
-    { destruct ord; inv ORD; inv X. }
-    rewrite Capability.incr_rw_nop; auto; apply WF.
-  - destruct (Ordering.le Ordering.relaxed ord) eqn:X; s.
-    { destruct ord; inv ORD; inv X. }
-    rewrite Capability.incr_rw_nop; auto; try apply WF. etrans; apply WF.
-  - apply WF.
-Qed.
+  esplits. econs; eauto.
+  - admit.
+  - s. apply Commit.antisym.
+    + unfold Commit.read_commit. econs; s; committac; try apply WF.
+      * apply Time.bot_spec.
+      * condtac; committac.
+      * apply Time.bot_spec.
+      * condtac; committac.
+    + admit.
+Admitted.
 
 Lemma unused_load_sim_stmts
       r loc ord
@@ -87,21 +81,25 @@ Lemma unused_load_sim_stmts
 Proof.
   pcofix CIH. ii. subst. pfold. ii. splits.
   { i. inv TERMINAL_TGT. }
-  { i. eapply sim_local_future; try apply MEMORY; eauto. apply LOCAL. }
+  { i. exploit sim_local_future; try apply LOCAL; eauto. i. des.
+    esplits; try apply TimeMap.join_l; try apply TimeMap.join_r; eauto.
+    apply Memory.join_closed_timemap.
+    - admit. (* future sc should be chosen more carefully *)
+    - eapply Memory.future_closed_timemap; eauto.
+  }
   { i. esplits; eauto.
-    inv LOCAL. apply MemInv.sem_bot_inv in PROMISES. rewrite PROMISES. auto.
+    eapply sim_local_memory_bot; eauto.
   }
   ii. inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR); ss.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
-    esplits; eauto.
+    esplits; try apply SC; eauto.
     econs 1; eauto. econs; eauto. eauto.
   - (* silent *)
     exploit unused_read; try apply WF_SRC; eauto. i. des.
-    esplits; eauto.
+    esplits; try apply SC; eauto.
     + econs 2. econs 2; eauto. econs. econs.
     + auto.
-    + left. eapply paco7_mon; [apply sim_stmts_nil|]; ss.
-      * etrans; eauto. apply RegFile.eq_except_singleton.
-      * inv LOCAL. inv LOCAL0. econs; ss. etrans; eauto.
-Qed.
+    + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
+      etrans; eauto. apply RegFile.eq_except_singleton.
+Admitted.

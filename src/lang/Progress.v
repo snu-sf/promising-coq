@@ -19,8 +19,8 @@ Set Implicit Arguments.
 
 
 Lemma write_step_promise
-      lc1 sc1 mem1 loc from to val releasedm ord lc2 sc2 mem2
-      (STEP: Local.write_step lc1 sc1 mem1 loc from to val releasedm ord lc2 sc2 mem2)
+      lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2
+      (STEP: Local.write_step lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2)
       (PROMISES: lc1.(Local.promises) = Memory.bot):
   lc2.(Local.promises) = Memory.bot.
 Proof.
@@ -54,8 +54,7 @@ Lemma closed_timemap_max_ts
   Time.le (tm loc) (Memory.max_ts loc mem).
 Proof.
   specialize (CLOSED loc). des.
-  - rewrite CLOSED. apply Time.bot_spec.
-  - eapply Memory.max_ts_spec. eauto.
+  eapply Memory.max_ts_spec. eauto.
 Qed.
 
 Lemma progress_promise_step
@@ -76,33 +75,27 @@ Lemma progress_promise_step
                        (Local.mk lc1.(Local.commit) promises2) mem2 Memory.promise_kind_add.
 Proof.
   exploit (@Memory.add_exists_max_ts mem1 loc to val (Capability.join releasedm (Commit.rel (Commit.write_commit (Local.commit lc1) sc1 loc to ord) loc))); eauto.
-  { committac. unfold LocFun.add. repeat condtac; committac; try apply WF1.
-    econs; apply TimeMap.bot_spec.
-  }
+  { committac; try apply WF1. repeat condtac; committac; try apply WF1. }
   i. des.
   exploit Memory.add_exists_le; try apply WF1; eauto. i. des.
   assert (FUTURE: Memory.future mem1 mem2).
   { econs 2; [|econs 1]. econs 1. eauto. }
-  eexists _, _. econs.
-  - econs; eauto.
-    + committac.
-      * eapply Memory.future_closed_capability; eauto.
-      * unfold LocFun.add.
-        repeat condtac; committac;
-          (try eapply Memory.future_closed_capability; eauto);
-          (try apply WF1).
-        { eapply Memory.add_get2. eauto. }
-        { econs; try apply Memory.closed_timemap_bot. s. auto. }
-        { eapply Memory.add_get2. eauto. }
-    + committac.
-      * left. eapply TimeFacts.le_lt_lt; [|eauto].
-        eapply closed_timemap_max_ts. apply CLOSED_REL.
-      * unfold LocFun.add. condtac; [|congr].
-        repeat condtac; committac;
-          (try by apply Time.bot_spec);
-          (try by unfold TimeMap.singleton, LocFun.add; condtac; [refl|congr]);
-          (try by left; eapply TimeFacts.le_lt_lt; [|eauto];
-           eapply closed_timemap_max_ts; apply WF1).
+  hexploit Memory.add_inhabited; try apply x0; [committac|].
+  esplits. econs. econs; eauto.
+  - committac;
+      repeat condtac; committac;
+        (try eapply Memory.future_closed_capability; eauto);
+        (try apply WF1).
+    + eapply Memory.add_get2. eauto.
+    + econs; try apply Memory.closed_timemap_bot; committac.
+    + eapply Memory.add_get2. eauto.
+  - committac; repeat (condtac; committac);
+      (try by apply Time.bot_spec);
+      (try by unfold TimeMap.singleton, LocFun.add; condtac; [refl|congr]);
+      (try by left; eapply TimeFacts.le_lt_lt; [|eauto];
+       eapply closed_timemap_max_ts; apply WF1).
+    left. eapply TimeFacts.le_lt_lt; [|eauto].
+    eapply closed_timemap_max_ts. apply CLOSED_REL.
 Qed.
 
 Lemma progress_read_step
@@ -114,10 +107,9 @@ Lemma progress_read_step
   exists val released lc2,
     Local.read_step lc1 mem1 loc (Memory.max_ts loc mem1) val released ord lc2.
 Proof.
-  inversion MEM1. specialize (ELT loc). des.
-  exploit (Memory.max_ts_spec loc); eauto. i. des.
-  eexists _, _, _. econs; eauto.
-Qed.
+  exploit (Memory.max_ts_spec loc); try apply MEM1; eauto. i. des.
+  esplits; eauto. econs; eauto. admit.
+Admitted.
 
 Lemma progress_write_step
       lc1 sc1 mem1
@@ -129,8 +121,8 @@ Lemma progress_write_step
       (WF_REL: Capability.wf releasedm)
       (CLOSED_REL: Memory.closed_capability releasedm mem1)
       (PROMISES1: lc1.(Local.promises) = Memory.bot):
-  exists lc2 sc2 mem2,
-    Local.write_step lc1 sc1 mem1 loc (Memory.max_ts loc mem1) to val releasedm ord lc2 sc2 mem2.
+  exists released lc2 sc2 mem2,
+    Local.write_step lc1 sc1 mem1 loc (Memory.max_ts loc mem1) to val releasedm released ord lc2 sc2 mem2.
 Proof.
   exploit progress_promise_step; eauto. i. des.
   exploit Local.promise_step_future; eauto. i. des. inv x0.
@@ -155,9 +147,10 @@ Proof.
       + rewrite PROMISES1, Memory.bot_get in *. congr.
   }
   esplits. econs; eauto.
+  - admit.
   - econs; eauto. subst promises2. apply Memory.remove_singleton.
   - rewrite PROMISES1. auto.
-Qed.
+Admitted.
 
 Lemma progress_fence_step
       lc1 sc1 mem1
@@ -168,5 +161,5 @@ Lemma progress_fence_step
   exists lc2 sc2,
     Local.fence_step lc1 sc1 mem1 ordr ordw lc2 sc2.
 Proof.
-  eexists _, _. econs; eauto.
+  esplits. econs; eauto.
 Qed.

@@ -26,405 +26,266 @@ Require Import Semantics.
 Set Implicit Arguments.
 
 
-Lemma read_read
+Lemma read_read_commit
       loc1 ts1 released1 ord1
       loc2 ts2 released2 ord2
-      commit0 commit1 commit2
-      (COMMIT1: Commit.read commit0 loc1 ts1 released1 ord1 commit1)
-      (COMMIT2: Commit.read commit1 loc2 ts2 released2 ord2 commit2)
+      commit0
       (LOC: loc1 <> loc2)
       (ORD2: Ordering.le ord2 Ordering.relaxed)
-      (WF0: Commit.wf commit0):
-  <<COMMIT1': Commit.read commit0 loc2 ts2 released2 ord2 (CommitFacts.read_min loc2 ts2 released2 ord2 commit0)>> /\
-  <<COMMIT2': Commit.read (CommitFacts.read_min loc2 ts2 released2 ord2 commit0) loc1 ts1 released1 ord1 commit2>>.
+      (WF0: Commit.wf commit0)
+      (WF1: Capability.wf released1)
+      (WF2: Capability.wf released2):
+  Commit.le
+    (Commit.read_commit
+       (Commit.read_commit commit0 loc2 ts2 released2 ord2)
+       loc1 ts1 released1 ord1)
+    (Commit.read_commit
+       (Commit.read_commit commit0 loc1 ts1 released1 ord1)
+       loc2 ts2 released2 ord2).
 Proof.
-  exploit CommitFacts.read_min_spec.
-  { etrans. inv COMMIT1. apply MON. apply COMMIT2. }
-  { etrans. inv COMMIT1. apply MON. apply COMMIT2. eauto. }
-  { auto. }
-  { inv COMMIT2. apply WF_REL. }
-  i.
-  exploit CommitFacts.read_min_spec.
-  { instantiate (3 := (CommitFacts.read_min loc2 ts2 released2 ord2 commit0)).
-    ss. unfold Capability.join_if. condtac; committac; try apply COMMIT1.
-    destruct ord2; inv ORD2; inv COND.
-  }
-  { i. ss. unfold Capability.join_if. condtac; committac.
-    - destruct ord2; inv ORD2; inv COND.
-    - destruct ord2; inv ORD2; inv COND.
-    - unfold TimeMap.incr, LocFun.add. condtac; committac; try congr.
-      apply COMMIT1. eauto.
-  }
-  { apply x0. }
-  { inv COMMIT1. apply WF_REL. }
-  i.
-  splits; eauto. eapply CommitFacts.read_mon2; eauto; try refl; try apply COMMIT2.
-  inv COMMIT1. inv COMMIT2. inv MON. inv MON0.
-  econs; committac; try by etrans; eauto.
-  - etrans; eauto. apply WF1.
-  - etrans; eauto. apply CUR0.
-  - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
-  - etrans; eauto. apply WF1.
-  - etrans; eauto. etrans; [apply WF1|]. apply WF1.
-  - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
-  - etrans; eauto. etrans; [apply CUR0|]. etrans; [apply WF1|]. apply WF1.
+  econs; aggrtac;
+    (try by apply WF0);
+    (try by condtac; aggrtac).
 Qed.
 
-Lemma read_write
+Lemma read_write_commit
       loc1 ts1 released1 ord1
-      loc2 ts2 released2 ord2
-      commit0 commit1 commit2
-      (COMMIT1: Commit.read commit0 loc1 ts1 released1 ord1 commit1)
-      (COMMIT2: Commit.write commit1 loc2 ts2 released2 ord2 commit2)
+      loc2 ts2 ord2
+      commit0 sc0
       (LOC: loc1 <> loc2)
       (ORD: Ordering.le Ordering.seqcst ord2 -> Ordering.le Ordering.seqcst ord1 -> False)
-      (WF0: Commit.wf commit0):
-  <<COMMIT1': Commit.write commit0 loc2 ts2 released2 ord2 (CommitFacts.write_min loc2 ts2 released2 commit0)>> /\
-  <<COMMIT2': Commit.read (CommitFacts.write_min loc2 ts2 released2 commit0) loc1 ts1 released1 ord1 commit2>>.
+      (WF0: Commit.wf commit0)
+      (WF1: Capability.wf released1):
+  Commit.le
+    (Commit.read_commit
+       (Commit.write_commit commit0 sc0 loc2 ts2 ord2)
+       loc1 ts1 released1 ord1)
+    (Commit.write_commit
+       (Commit.read_commit commit0 loc1 ts1 released1 ord1)
+       sc0 loc2 ts2 ord2).
 Proof.
-  exploit CommitFacts.write_min_spec.
-  { inv COMMIT2. apply REL. }
-  { eapply TimeFacts.le_lt_lt. inv COMMIT1. apply MON. apply COMMIT2. }
-  { etrans. inv COMMIT1. apply MON. apply COMMIT2. }
-  { i. splits.
-    - etrans. inv COMMIT1. apply MON. apply COMMIT2. eauto.
-    - apply COMMIT2. auto.
-  }
-  { auto. }
-  { apply COMMIT2. }
-  i.
-  exploit CommitFacts.read_min_spec.
-  { instantiate (3 := (CommitFacts.write_min loc2 ts2 released2 commit0)).
-    ss. committac.
-    - admit.
-    - unfold TimeMap.incr, LocFun.add. condtac; try apply COMMIT1. congr.
-  }
-  { i. committac.
-    - admit.
-    - unfold TimeMap.incr, LocFun.add. condtac; committac; try congr.
-      apply COMMIT1. eauto.
-  }
-  { apply x0. }
-  { inv COMMIT1. apply WF_REL. }
-  i.
-  splits; eauto. eapply CommitFacts.read_mon2; eauto; try refl; try apply COMMIT2.
-  inv COMMIT1. inv COMMIT2. inv MON. inv MON0.
-  econs; committac; try by etrans; eauto.
-  - unfold LocFun.add, LocFun.find. condtac; committac.
-    etrans; eauto.
-  - etrans; eauto. apply WF1.
-  - etrans; eauto. apply WF1.
-  - etrans; eauto. inv WF1. etrans; apply CUR1.
-  - etrans; eauto. apply CUR0.
-  - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
-  - etrans; eauto. etrans; apply WF1.
-  - etrans; eauto. apply WF1.
-  - etrans; eauto. etrans; apply WF1.
-  - etrans; eauto. etrans; try apply WF1. etrans; apply WF1.
-  - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
-  - etrans; eauto. etrans; [apply CUR0|]. etrans; apply WF1.
-Admitted.
+  econs; aggrtac;
+    (try by apply WF0);
+    (try by condtac; aggrtac).
+  repeat condtac; aggrtac; try apply WF0.
+Qed.
 
-Lemma read_read_fence
+Lemma read_read_fence_commit
       loc1 ts1 released1 ord1
       ord2
-      commit0 commit1 commit2
-      (COMMIT1: Commit.read commit0 loc1 ts1 released1 ord1 commit1)
-      (COMMIT2: Commit.read_fence commit1 ord2 commit2)
+      commit0
       (ORD2: Ordering.le ord2 Ordering.relaxed)
-      (WF0: Commit.wf commit0):
-  <<COMMIT1': Commit.read_fence commit0 ord2 (CommitFacts.read_fence_min ord2 commit0)>> /\
-  <<COMMIT2': Commit.read (CommitFacts.read_fence_min ord2 commit0) loc1 ts1 released1 ord1 commit2>>.
+      (WF0: Commit.wf commit0)
+      (WF1: Capability.wf released1):
+  Commit.le
+    (Commit.read_commit
+       (Commit.read_fence_commit commit0 ord2)
+       loc1 ts1 released1 ord1)
+    (Commit.read_fence_commit
+       (Commit.read_commit commit0 loc1 ts1 released1 ord1)
+       ord2).
 Proof.
-  exploit CommitFacts.read_fence_min_spec; eauto. i.
-  exploit CommitFacts.read_min_spec.
-  { instantiate (3 := (CommitFacts.read_fence_min ord2 commit0)).
-    ss. condtac; committac.
-    - destruct ord2; inv ORD2; inv COND.
-    - apply COMMIT1.
-  }
-  { i. ss. condtac; committac.
-    - destruct ord2; inv ORD2; inv COND.
-    - apply COMMIT1. eauto.
-  }
-  { apply x0. }
-  { inv COMMIT1. apply WF_REL. }
-  i.
-  splits; eauto. eapply CommitFacts.read_mon2; eauto; try refl; try apply COMMIT2.
-  inv COMMIT1. inv COMMIT2. inv MON. inv MON0.
-  econs; committac; try by etrans; eauto.
-  - condtac; etrans; eauto.
-  - etrans; eauto. apply CUR0.
-  - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
-  - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
-  - etrans; eauto. etrans; [apply CUR0|]. etrans; [apply WF1|]. apply WF1.
+  econs; aggrtac;
+    (try by apply WF0);
+    (try by condtac; aggrtac).
+  - repeat condtac; aggrtac; try apply WF0.
+  - repeat condtac; aggrtac; try apply WF0.
 Qed.
 
-Lemma read_write_fence
+Lemma read_write_fence_commit
       loc1 ts1 released1 ord1
       ord2
-      commit0 commit1 commit2
-      (COMMIT1: Commit.read commit0 loc1 ts1 released1 ord1 commit1)
-      (COMMIT2: Commit.write_fence commit1 ord2 commit2)
-      (WF0: Commit.wf commit0):
-  <<COMMIT1': Commit.write_fence commit0 ord2 (CommitFacts.write_fence_min ord2 commit0)>> /\
-  <<COMMIT2': Commit.read (CommitFacts.write_fence_min ord2 commit0) loc1 ts1 released1 ord1 commit2>>.
+      commit0 sc0
+      (WF0: Commit.wf commit0)
+      (WF1: Capability.wf released1):
+  Commit.le
+    (Commit.read_commit
+       (Commit.write_fence_commit commit0 sc0 ord2)
+       loc1 ts1 released1 ord1)
+    (Commit.write_fence_commit
+       (Commit.read_commit commit0 loc1 ts1 released1 ord1)
+       sc0 ord2).
 Proof.
-  exploit CommitFacts.write_fence_min_spec; eauto. i.
-  exploit CommitFacts.read_min_spec.
-  { instantiate (3 := (CommitFacts.write_fence_min ord2 commit0)).
-    apply COMMIT1.
-  }
-  { apply COMMIT1. }
-  { apply x0. }
-  { inv COMMIT1. apply WF_REL. }
-  i.
-  splits; eauto. eapply CommitFacts.read_mon2; eauto; try refl; try apply COMMIT2.
-  inv COMMIT1. inv COMMIT2. inv MON. inv MON0.
-  econs; committac; try by etrans; eauto.
-  - unfold LocFun.find. condtac; committac.
-    + etrans; eauto.
-    + etrans; eauto.
-  - etrans; eauto. apply CUR0.
-  - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
-  - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
-  - etrans; eauto. etrans; [apply CUR0|]. etrans; [apply WF1|]. apply WF1.
+  econs; aggrtac;
+    (try by apply WF0);
+    (try by condtac; aggrtac).
+  - unfold Commit.write_fence_sc;
+    repeat (condtac; aggrtac).
+  - unfold Commit.write_fence_sc.
+    repeat (condtac; aggrtac).
+  - unfold Commit.write_fence_sc.
+    repeat (condtac; aggrtac).
 Qed.
 
-Lemma write_read
-      loc1 ts1 released1 ord1
+Lemma write_read_commit
+      loc1 ts1 ord1
       loc2 ts2 released2 ord2
-      commit0 commit1 commit2
-      (COMMIT1: Commit.write commit0 loc1 ts1 released1 ord1 commit1)
-      (COMMIT2: Commit.read commit1 loc2 ts2 released2 ord2 commit2)
+      commit0 sc0
       (LOC: loc1 <> loc2)
       (ORD1: Ordering.le ord1 Ordering.relaxed)
       (ORD2: Ordering.le ord2 Ordering.relaxed)
-      (WF0: Commit.wf commit0):
-  <<COMMIT1': Commit.read commit0 loc2 ts2 released2 ord2 (CommitFacts.read_min loc2 ts2 released2 ord2 commit0)>> /\
-  <<COMMIT2': Commit.write (CommitFacts.read_min loc2 ts2 released2 ord2 commit0) loc1 ts1 released1 ord1 commit2>>.
+      (WF0: Commit.wf commit0)
+      (WF2: Capability.wf released2):
+  Commit.le
+    (Commit.write_commit
+       (Commit.read_commit commit0 loc2 ts2 released2 ord2)
+       sc0 loc1 ts1 ord1)
+    (Commit.read_commit
+       (Commit.write_commit commit0 sc0 loc1 ts1 ord1)
+       loc2 ts2 released2 ord2).
 Proof.
-  exploit CommitFacts.read_min_spec.
-  { inv COMMIT1. etrans. apply MON. apply COMMIT2. }
-  { inv COMMIT1. etrans. apply MON. apply COMMIT2. eauto. }
-  { apply WF0. }
-  { inv COMMIT2. apply WF_REL. }
-  i.
-  exploit CommitFacts.write_min_spec.
-  { inv COMMIT1. apply REL. }
-  { instantiate (1 := CommitFacts.read_min loc2 ts2 released2 ord2 commit0).
-    ss. unfold Capability.join_if. condtac; committac.
-    - destruct ord2; inv ORD2; inv COND.
-    - unfold TimeMap.incr, LocFun.add, LocFun.find. condtac; try apply COMMIT1. congr.
-  }
-  { ss. apply COMMIT1. }
-  { s. i. unfold Capability.join_if. condtac; committac.
-    - destruct ord2; inv ORD2; inv COND.
-    - splits.
-      + admit.
-      + apply COMMIT1. eauto.
-  }
-  { apply x0. }
-  { inv COMMIT1. apply WF_REL. }
-  i.
-  splits; eauto. eapply CommitFacts.write_mon2; eauto; try refl; try apply COMMIT2.
-  inv COMMIT1. inv COMMIT2. inv MON. inv MON0.
-  econs; committac; try by etrans; eauto.
-  - unfold LocFun.add, LocFun.find. condtac; committac.
-    + etrans; eauto.
-    + etrans; eauto.
-  - etrans; eauto. etrans; [apply REL3|]. apply WF1.
-  - etrans; eauto. apply WF1.
-  - etrans; eauto. apply CUR0.
-  - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
-  - etrans; eauto. etrans; [apply CUR0|]. inv WF1. etrans; apply CUR1.
-  - etrans; eauto. etrans; [apply REL3|]. etrans; apply WF1.
-  - etrans; eauto. apply WF1.
-  - etrans; eauto. etrans; apply WF1.
-  - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
-  - etrans; eauto. etrans; [apply CUR0|]. etrans; apply WF1.
-  - etrans; eauto. etrans; [apply CUR0|]. etrans; [apply WF1|]. etrans; apply WF1.
-Admitted.
+  econs; aggrtac;
+    (try by apply WF0);
+    (try by condtac; aggrtac).
+  - condtac; aggrtac. condtac.
+    + destruct ord1; inv ORD1; inv COND0.
+    + aggrtac; try apply WF0.
+Qed.
 
-Lemma write_write
-      loc1 ts1 released1 ord1
-      loc2 ts2 released2 ord2
-      commit0 commit1 commit2
-      (COMMIT1: Commit.write commit0 loc1 ts1 released1 ord1 commit1)
-      (COMMIT2: Commit.write commit1 loc2 ts2 released2 ord2 commit2)
+Lemma write_write_commit
+      loc1 ts1 ord1
+      loc2 ts2 ord2
+      commit0 sc0
       (LOC: loc1 <> loc2)
       (ORD1: Ordering.le ord1 Ordering.relaxed)
       (WF0: Commit.wf commit0):
-  <<COMMIT1': Commit.write commit0 loc2 ts2 released2 ord2 (CommitFacts.write_min loc2 ts2 released2 commit0)>> /\
-  <<COMMIT2': Commit.write (CommitFacts.write_min loc2 ts2 released2 commit0) loc1 ts1 released1 ord1 commit2>>.
+  Commit.le
+    (Commit.write_commit
+       (Commit.write_commit commit0 sc0 loc2 ts2 ord2)
+       (Commit.write_sc sc0 loc2 ts2 ord2)
+       loc1 ts1 ord1)
+    (Commit.write_commit
+       (Commit.write_commit commit0 sc0 loc1 ts1 ord1)
+       (Commit.write_sc sc0 loc1 ts1 ord1)
+       loc2 ts2 ord2).
 Proof.
-  exploit CommitFacts.write_min_spec.
-  { inv COMMIT2. apply REL. }
-  { eapply TimeFacts.le_lt_lt. inv COMMIT1. apply MON. apply COMMIT2. }
-  { etrans. inv COMMIT1. apply MON. apply COMMIT2. }
-  { i. splits.
-    - etrans. inv COMMIT1. apply MON. apply COMMIT2. eauto.
-    - apply COMMIT2. auto.
-  }
-  { auto. }
-  { apply COMMIT2. }
-  i.
-  exploit CommitFacts.write_min_spec.
-  { inv COMMIT1. apply REL. }
-  { instantiate (1 := CommitFacts.write_min loc2 ts2 released2 commit0).
-    ss. admit.
-  }
-  { ss. unfold LocFun.add, LocFun.find. condtac; [congr|]. apply COMMIT1. }
-  { s. i. splits.
-    - committac.
-      + admit.
-      + apply COMMIT1. eauto.
-      + destruct ord1; inv ORD1; inv H.
-      + destruct ord1; inv ORD1; inv H.
-      + destruct ord1; inv ORD1; inv H.
-    - destruct ord1; inv ORD1; inv H.
-  }
-  { apply x0. }
-  { inv COMMIT1. apply WF_REL. }
-  i.
-  splits; eauto. eapply CommitFacts.write_mon2; eauto; try refl; try apply COMMIT2.
-  inv COMMIT1. inv COMMIT2. inv MON. inv MON0.
-  econs; committac; try by etrans; eauto.
-  - unfold LocFun.add, LocFun.find. repeat condtac; committac.
-    + etrans; eauto.
-    + etrans; eauto.
-  - etrans; eauto. etrans; [apply REL6|]. apply WF1.
-  - etrans; eauto. apply WF1.
-  - etrans; eauto. apply WF1.
-  - etrans; eauto. inv WF1. etrans; [apply CUR1|]. apply CUR1.
-  - etrans; eauto. apply CUR0.
-  - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
-  - etrans; eauto. etrans; [apply CUR0|]. inv WF1. etrans; [apply CUR1|]. apply CUR1.
-  - etrans; eauto. etrans; eauto. etrans; [apply WF1|]. apply WF1.
-  - etrans; eauto. etrans; [apply WF1|]. apply WF1.
-  - etrans; eauto. apply WF1.
-  - etrans; eauto. etrans; [apply WF1|]. apply WF1.
-  - etrans; eauto. etrans; [apply WF1|]. etrans; [apply WF1|]. apply WF1.
-  - etrans; eauto. etrans; [apply CUR0|]. apply WF1.
-  - etrans; eauto. etrans; [apply CUR0|]. etrans; [apply WF1|]. apply WF1.
-  - etrans; eauto. etrans; [apply CUR0|]. etrans; [apply WF1|]. etrans; [apply WF1|]. apply WF1.
-Admitted.
+  econs; aggrtac;
+    (try by apply WF0);
+    (repeat (condtac; aggrtac; try apply WF0)).
+  - rewrite <- ? Capability.join_r.
+    econs; aggrtac. apply CommitFacts.write_sc_incr.
+  - rewrite <- ? Capability.join_r.
+    econs; aggrtac. apply CommitFacts.write_sc_incr.
+  - rewrite <- ? Capability.join_r.
+    econs; aggrtac. apply CommitFacts.write_sc_incr.
+Qed.
 
-Lemma read_fence_write
+Lemma write_write_sc
+      loc1 ts1 ord1
+      loc2 ts2 ord2
+      sc0
+      (LOC: loc1 <> loc2)
+      (ORD1: Ordering.le ord1 Ordering.relaxed):
+  TimeMap.le
+    (Commit.write_sc
+       (Commit.write_sc sc0 loc2 ts2 ord2)
+       loc1 ts1 ord1)
+    (Commit.write_sc
+       (Commit.write_sc sc0 loc1 ts1 ord1)
+       loc2 ts2 ord2).
+Proof.
+  ii. unfold Commit.write_sc. aggrtac.
+Qed.
+
+Lemma read_fence_write_commit
       ord1
-      loc2 ts2 released2 ord2
-      commit0 commit1 commit2
-      (COMMIT1: Commit.read_fence commit0 ord1 commit1)
-      (COMMIT2: Commit.write commit1 loc2 ts2 released2 ord2 commit2)
+      loc2 ts2 ord2
+      commit0 sc0
       (ORD1: Ordering.le ord1 Ordering.acqrel)
       (WF0: Commit.wf commit0):
-  <<COMMIT1': Commit.write commit0 loc2 ts2 released2 ord2 (CommitFacts.write_min loc2 ts2 released2 commit0)>> /\
-  <<COMMIT2': Commit.read_fence (CommitFacts.write_min loc2 ts2 released2 commit0) ord1 commit2>>.
+  Commit.le
+    (Commit.read_fence_commit
+       (Commit.write_commit commit0 sc0 loc2 ts2 ord2)
+       ord1)
+    (Commit.write_commit
+       (Commit.read_fence_commit commit0 ord1)
+       sc0 loc2 ts2 ord2).
 Proof.
-  exploit CommitFacts.write_min_spec.
-  { inv COMMIT2. apply REL. }
-  { eapply TimeFacts.le_lt_lt. inv COMMIT1. apply MON. apply COMMIT2. }
-  { etrans. inv COMMIT1. apply MON. apply COMMIT2. }
-  { i. splits.
-    - etrans. inv COMMIT1. apply MON. apply COMMIT2. eauto.
-    - apply COMMIT2. auto.
-  }
-  { auto. }
-  { apply COMMIT2. }
-  i.
-  exploit CommitFacts.read_fence_min_spec.
-  { apply x0. }
-  i.
-  splits; eauto. eapply CommitFacts.read_fence_mon2;
-                   try match goal with
-                       | [|- is_true (Ordering.le _ _)] => refl
-                       end;
-                   eauto; try apply COMMIT2.
-  inv COMMIT1. inv COMMIT2. inv MON. inv MON0.
-  econs; committac; try by etrans; eauto.
-  - unfold LocFun.add, LocFun.find. condtac; committac. etrans; eauto.
-  - condtac; committac; try by etrans; eauto.
-    + etrans; eauto. apply WF1.
-    + rewrite RA; auto.
-    + etrans; eauto. apply WF1.
-    + etrans; eauto. inv WF1. etrans; [apply CUR1|]. apply CUR1.
-    + etrans; eauto. apply WF1.
-    + etrans; eauto. apply WF1.
-    + etrans; eauto. inv WF1. etrans; [apply CUR1|]. apply CUR1.
-  - etrans; eauto. etrans; [apply WF1|]. apply WF1.
-  - etrans; eauto. apply WF1.
-  - etrans; eauto. etrans; [apply WF1|]. apply WF1.
-  - etrans; eauto. etrans; [apply WF1|]. etrans; [apply WF1|]. apply WF1.
+  econs; aggrtac;
+    (try by apply WF0);
+    (repeat (condtac; aggrtac; try apply WF0)).
+  - rewrite <- Capability.join_r.
+    rewrite <- ? Capability.join_l.
+    apply WF0.
+  - rewrite <- Capability.join_r.
+    rewrite <- ? Capability.join_l.
+    apply WF0.
 Qed.
 
-Lemma write_fence_write
+Lemma write_fence_write_commit
       ord1
-      loc2 ts2 released2 ord2
-      commit0 commit1 commit2
-      (COMMIT1: Commit.write_fence commit0 ord1 commit1)
-      (COMMIT2: Commit.write commit1 loc2 ts2 released2 ord2 commit2)
+      loc2 ts2 ord2
+      commit0 sc0
       (ORD1: Ordering.le ord1 Ordering.relaxed)
       (WF0: Commit.wf commit0):
-  <<COMMIT1': Commit.write commit0 loc2 ts2 released2 ord2 (CommitFacts.write_min loc2 ts2 released2 commit0)>> /\
-  <<COMMIT2': Commit.write_fence (CommitFacts.write_min loc2 ts2 released2 commit0) ord1 commit2>>.
+  Commit.le
+    (Commit.write_fence_commit
+       (Commit.write_commit commit0 sc0 loc2 ts2 ord2)
+       (Commit.write_sc sc0 loc2 ts2 ord2)
+       ord1)
+    (Commit.write_commit
+       (Commit.write_fence_commit commit0 sc0 ord1)
+       sc0 loc2 ts2 ord2).
 Proof.
-  exploit CommitFacts.write_min_spec.
-  { inv COMMIT2. apply REL. }
-  { eapply TimeFacts.le_lt_lt. inv COMMIT1. apply MON. apply COMMIT2. }
-  { etrans. inv COMMIT1. apply MON. apply COMMIT2. }
-  { i. splits.
-    - etrans. inv COMMIT1. apply MON. apply COMMIT2. eauto.
-    - apply COMMIT2. auto.
-  }
-  { auto. }
-  { apply COMMIT2. }
-  i.
-  exploit CommitFacts.write_fence_min_spec.
-  { apply x0. }
-  i.
-  splits; eauto. eapply CommitFacts.write_fence_mon2;
-                   try match goal with
-                       | [|- is_true (Ordering.le _ _)] => refl
-                       end;
-                   eauto; try apply COMMIT2.
-  inv COMMIT1. inv COMMIT2. inv MON. inv MON0.
-  econs; committac; try by etrans; eauto.
-  - unfold LocFun.add, LocFun.find.
-    repeat condtac; committac;
-      try by destruct ord1; inv ORD1; inv COND.
-    etrans; [apply REL0|]. eauto.
-  - etrans; eauto. apply WF1.
-  - etrans; eauto. apply WF1.
-  - etrans; eauto. inv WF1. etrans; [apply CUR1|]. apply CUR1.
-  - etrans; eauto. etrans; [apply WF1|]. apply WF1.
-  - etrans; eauto. apply WF1.
-  - etrans; eauto. etrans; [apply WF1|]. apply WF1.
-  - etrans; eauto. etrans; [apply WF1|]. etrans; [apply WF1|]. apply WF1.
+  econs; aggrtac;
+    (try by apply WF0);
+    (repeat (condtac; aggrtac; try apply WF0)).
 Qed.
 
-Lemma read_fence_write_fence
+Lemma write_fence_write_sc
+      ord1
+      loc2 ts2 ord2
+      commit0 sc0
+      (ORD1: Ordering.le ord1 Ordering.relaxed)
+      (WF0: Commit.wf commit0):
+  TimeMap.le
+    (Commit.write_fence_sc
+       (Commit.write_commit commit0 sc0 loc2 ts2 ord2)
+       (Commit.write_sc sc0 loc2 ts2 ord2)
+       ord1)
+    (Commit.write_sc
+       (Commit.write_fence_sc commit0 sc0 ord1)
+       loc2 ts2 ord2).
+Proof.
+  ii. unfold Commit.write_sc, Commit.write_fence_sc.
+  repeat condtac; aggrtac.
+Qed.
+
+Lemma read_fence_write_fence_commit
       ord1
       ord2
-      commit0 commit1 commit2
-      (COMMIT1: Commit.read_fence commit0 ord1 commit1)
-      (COMMIT2: Commit.write_fence commit1 ord2 commit2)
+      commit0 sc0
       (WF0: Commit.wf commit0):
-  <<COMMIT1': Commit.write_fence commit0 ord2 (CommitFacts.write_fence_min ord2 commit0)>> /\
-  <<COMMIT2': Commit.read_fence (CommitFacts.write_fence_min ord2 commit0) ord1 commit2>>.
+  Commit.le
+    (Commit.read_fence_commit
+       (Commit.write_fence_commit commit0 sc0 ord2)
+       ord1)
+    (Commit.write_fence_commit
+       (Commit.read_fence_commit commit0 ord1)
+       sc0 ord2).
 Proof.
-  exploit CommitFacts.write_fence_min_spec; eauto. i.
-  exploit CommitFacts.read_fence_min_spec; try apply x0; eauto. i.
-  splits; eauto. eapply CommitFacts.read_fence_mon2;
-                   try match goal with
-                       | [|- is_true (Ordering.le _ _)] => refl
-                       end;
-                   eauto; try apply COMMIT2.
-  inv COMMIT1. inv COMMIT2. inv MON. inv MON0.
-  econs; committac; try by etrans; eauto.
-  - unfold LocFun.find. condtac; committac.
-    + etrans; eauto.
-    + etrans; eauto.
-  - condtac; committac.
-    + rewrite RA; auto.
-    + etrans; eauto.
+  econs; aggrtac;
+    (try by apply WF0);
+    (try by condtac; aggrtac).
+  - condtac; aggrtac.
+    + condtac; aggrtac.
+      rewrite <- Capability.join_r.
+      rewrite <- Capability.join_l.
+      apply WF0.
+    + condtac; aggrtac.
+      rewrite <- ? Capability.join_r.
+      unfold Commit.write_fence_sc. repeat (condtac; aggrtac).
+      rewrite <- TimeMap.join_r. apply WF0.
+  - condtac; aggrtac.
+    + condtac; aggrtac.
+      rewrite <- ? Capability.join_r.
+      unfold Commit.write_fence_sc. repeat (condtac; aggrtac).
+      rewrite <- TimeMap.join_r. apply WF0.
+    + condtac; aggrtac.
+      rewrite <- Capability.join_r.
+      unfold Commit.write_fence_sc. repeat (condtac; aggrtac).
+  - condtac; aggrtac.
+    rewrite <- ? Capability.join_r.
+    unfold Commit.write_fence_sc. repeat (condtac; aggrtac).
+    rewrite <- TimeMap.join_r. apply WF0.
 Qed.

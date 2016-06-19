@@ -51,7 +51,7 @@ Proof.
     esplits; eauto.
     + econs 2. econs 1; eauto. econs. econs.
     + eauto.
-    + left. eapply paco7_mon.
+    + left. eapply paco9_mon.
       * apply sim_stmts_nil; eauto.
       * ii. inv PR.
 Qed.
@@ -93,7 +93,7 @@ Proof.
     + econs 2. econs 2; eauto. econs. econs.
     + eauto.
     + eauto.
-    + left. eapply paco7_mon.
+    + left. eapply paco9_mon.
       * apply assign_sim_thread; eauto. s. rewrite RegFun.add_spec_eq. auto.
       * i. inv PR.
 Qed.
@@ -133,7 +133,7 @@ Proof.
     + econs 2. econs 2; eauto. econs. econs.
     + eauto.
     + eauto.
-    + left. eapply paco7_mon.
+    + left. eapply paco9_mon.
       * apply assign_sim_thread; auto.
       * i. inv PR.
 Qed.
@@ -177,7 +177,7 @@ Proof.
     + econs 2. econs 3; eauto. econs. econs.
     + eauto.
     + etrans; eauto.
-    + left. eapply paco7_mon.
+    + left. eapply paco9_mon.
       * apply sim_stmts_nil; eauto.
       * ii. inv PR.
 Grab Existential Variables.
@@ -229,7 +229,7 @@ Proof.
       * rewrite Const.add_0_r. rewrite Capability.le_join_r; eauto. refl.
     + eauto.
     + etrans; eauto.
-    + left. eapply paco7_mon.
+    + left. eapply paco9_mon.
       * apply assign_sim_thread; eauto. ss. rewrite Const.add_0_r. auto.
       * ii. inv PR.
 Grab Existential Variables.
@@ -283,7 +283,7 @@ Proof.
     + econs 2. econs 2; eauto. econs. econs.
     + eauto.
     + eauto.
-    + left. eapply paco7_mon.
+    + left. eapply paco9_mon.
       * apply assign_sim_thread; auto. s. rewrite RegFun.add_spec_eq. inv RMW. auto.
       * i. inv PR.
 Qed.
@@ -357,7 +357,7 @@ Proof.
     + econs 2. econs 5; eauto. econs. econs.
     + eauto.
     + eauto.
-    + left. eapply paco7_mon.
+    + left. eapply paco9_mon.
       * apply sim_stmts_nil; eauto.
       * ii. inv PR.
 Qed.
