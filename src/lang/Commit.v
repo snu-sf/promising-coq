@@ -227,6 +227,7 @@ Module CommitFacts.
   Ltac tac :=
     repeat
       (try match goal with
+           | [H: ?a <> ?a |- _] => congr
            | [H: Memory.closed ?mem |- Memory.inhabited ?mem] =>
              apply H
            | [|- Capability.le ?s ?s] =>
@@ -237,6 +238,10 @@ Module CommitFacts.
              apply Capability.bot_spec
            | [|- TimeMap.le TimeMap.bot _] =>
              apply TimeMap.bot_spec
+           | [|- Time.le (TimeMap.bot _) _] =>
+             apply Time.bot_spec
+           | [|- Time.le (LocFun.init Time.bot _) _] =>
+             apply Time.bot_spec
            | [|- Capability.le ?s (Capability.join _ ?s)] =>
              apply Capability.join_r
            | [|- Capability.le ?s (Capability.join ?s _)] =>
@@ -264,6 +269,8 @@ Module CommitFacts.
              apply TimeMap.join_spec
            | [|- Time.le (TimeMap.join _ _ _) _] =>
              apply Time.join_spec
+           | [|- Time.lt (TimeMap.join _ _ _) _] =>
+             apply TimeFacts.join_spec_lt
 
            | [|- Memory.closed_capability (Capability.join _ _) _] =>
              eapply Memory.join_closed_capability; eauto
@@ -319,6 +326,9 @@ Module CommitFacts.
               H2: Ordering.le Ordering.acqrel ?o = true |- _] =>
                by destruct o; inv H1; inv H2
            | [H1: is_true (Ordering.le ?o Ordering.relaxed),
+              H2: Ordering.le Ordering.seqcst ?o = true |- _] =>
+               by destruct o; inv H1; inv H2
+           | [H1: is_true (Ordering.le ?o Ordering.acqrel),
               H2: Ordering.le Ordering.seqcst ?o = true |- _] =>
                by destruct o; inv H1; inv H2
            | [H1: is_true (Ordering.le ?o1 ?o2),

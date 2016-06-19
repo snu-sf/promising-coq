@@ -13,13 +13,13 @@ Require Import Simulation.
 Require Import Behavior.
 
 Lemma sim_adequacy
-      ths_src mem_src
-      ths_tgt mem_tgt
-      (SRC: Configuration.consistent (Configuration.mk ths_src mem_src))
-      (TGT: Configuration.consistent (Configuration.mk ths_tgt mem_tgt))
-      (MEMORY: sim_memory mem_src mem_tgt)
-      (SIM: sim ths_src mem_src ths_tgt mem_tgt):
-  behaviors (Configuration.mk ths_src mem_src) <1=
-  behaviors (Configuration.mk ths_tgt mem_tgt).
+      ths_src sc_src mem_src
+      ths_tgt sc_tgt mem_tgt
+      (SRC: Configuration.consistent (Configuration.mk ths_src sc_src mem_src))
+      (TGT: Configuration.consistent (Configuration.mk ths_tgt sc_tgt mem_tgt))
+      (MEMORY: Memory.sim mem_tgt mem_src)
+      (SIM: sim ths_src sc_src mem_src ths_tgt sc_tgt mem_tgt):
+  behaviors (Configuration.mk ths_src sc_src mem_src) <1=
+  behaviors (Configuration.mk ths_tgt sc_tgt mem_tgt).
 Proof.
 Admitted.

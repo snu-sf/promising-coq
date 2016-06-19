@@ -225,12 +225,11 @@ Module MemInv.
 
   Lemma promise
         inv
-        loc from to val released_src released_tgt
+        loc from to val released
         promises1_src mem1_src
         promises1_tgt mem1_tgt promises2_tgt mem2_tgt
         kind
-        (REL: Capability.le released_src released_tgt)
-        (PROMISE_TGT: Memory.promise promises1_tgt mem1_tgt loc from to val released_tgt promises2_tgt mem2_tgt kind)
+        (PROMISE_TGT: Memory.promise promises1_tgt mem1_tgt loc from to val released promises2_tgt mem2_tgt kind)
         (INV1: sem inv promises1_src promises1_tgt)
         (LE1: Memory.le promises1_tgt promises1_src)
         (SIM1: Memory.sim mem1_tgt mem1_src)
@@ -239,12 +238,9 @@ Module MemInv.
         (CLOSED1_SEC: Memory.closed mem1_src)
         (CLOSED1_TGT: Memory.closed mem1_tgt):
     exists promises2_src mem2_src,
-      <<PROMISE_SRC: Memory.promise promises1_src mem1_src loc from to val released_src promises2_src mem2_src kind>> /\
+      <<PROMISE_SRC: Memory.promise promises1_src mem1_src loc from to val released promises2_src mem2_src kind>> /\
       <<INV2: sem inv promises2_src promises2_tgt>> /\
-      <<LE2: forall l t f m
-               (LT: (l, t) <> (loc, to))
-               (MSG: Memory.get l t promises2_tgt = Some (f, m)),
-          Memory.get l t promises2_src = Some (f, m)>> /\
+      <<LE2: Memory.le promises2_tgt promises2_src>> /\
       <<SIM2: Memory.sim mem2_tgt mem2_src>>.
   Proof.
     inv PROMISE_TGT.
@@ -331,11 +327,6 @@ Module MemInv.
       <<SIM2: Memory.sim mem2_tgt mem2_src>>.
   Proof.
     inv WRITE_TGT. exploit promise; eauto. i. des.
-    esplits; eauto.
-    - admit.
-    - ii. apply LE2; eauto.
-      + ii. inv H. exploit Memory.remove_get2; eauto. i. congr.
-      + eapply Memory.remove_get_inv; eauto.
   Admitted.
 
   Lemma write

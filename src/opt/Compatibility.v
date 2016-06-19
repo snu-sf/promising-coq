@@ -89,7 +89,6 @@ Lemma sim_local_promise
 Proof.
   inv LOCAL1. inv STEP_TGT.
   exploit MemInv.promise; eauto.
-  { refl. }
   { apply WF1_SRC. }
   { apply WF1_TGT. }
   i. des.
@@ -98,11 +97,7 @@ Proof.
   i. des.
   esplits; eauto.
   - econs. apply PROMISE_SRC.
-  - econs; eauto. s. ii.
-    destruct (classic ((loc0, to0) = (loc, to))).
-    + inv H. erewrite Memory.promise_get2 in LHS; eauto. inv LHS.
-      eapply Memory.promise_get2. eauto.
-    + apply LE2; auto.
+  - econs; eauto.
 Qed.
 
 Lemma sim_local_read
