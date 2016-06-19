@@ -32,8 +32,7 @@ Inductive small_step (e:ThreadEvent.t) (tid:Ident.t) (c1:Configuration.t): foral
 .
 
 Inductive tau_small_step (tid:Ident.t) (c1 c2:Configuration.t): Prop :=
-| tau_small_step_intro
-    e
+| tau_small_step_intro e
     (STEP: small_step e tid c1 c2)
     (TAU: ThreadEvent.get_event e = None)
 .
@@ -51,14 +50,12 @@ Inductive pf_step (e:ThreadEvent.t) (tid:Ident.t) (c1:Configuration.t): forall (
 .
 
 Inductive pf_step_all_evt tid (c1 c2:Configuration.t): Prop :=
-| pf_step_all_evt_intro
-    e
+| pf_step_all_evt_intro e
     (PI_STEP: pf_step e tid c1 c2)
 .
 
 Inductive pf_step_all (c1 c2:Configuration.t): Prop :=
-| pf_step_all_intro
-    tid
+| pf_step_all_intro tid
     (PI_STEP: pf_step_all_evt tid c1 c2)
 .
 
@@ -98,7 +95,7 @@ Definition pf_racefree (c1:Configuration.t): Prop :=
     <<ORDR: Ordering.le Ordering.acqrel ordr>> /\
     <<ORDW: Ordering.le Ordering.acqrel ordw>>.
 
-Inductive pi_step: Ident.t -> Configuration.t*Configuration.t -> Configuration.t*Configuration.t -> Prop :=
+Inductive pi_step: ThreadEvent.t -> Ident.t -> Configuration.t*Configuration.t -> Configuration.t*Configuration.t -> Prop :=
 | pi_step_step
     e tid cS1 cT1 cS2 cT2
     (STEPT: small_step e tid cT1 cT2)
@@ -108,20 +105,23 @@ Inductive pi_step: Ident.t -> Configuration.t*Configuration.t -> Configuration.t
     (LANGMATCH: 
      option_map fst (IdentMap.find tid cS2.(Configuration.threads)) =
      option_map fst (IdentMap.find tid cT2.(Configuration.threads))):
-  pi_step tid (cS1,cT1) (cS2,cT2)
+  pi_step e tid (cS1,cT1) (cS2,cT2)
 .
 
-Inductive pi_step_except (tid_except:Ident.t) cST1 cST2: Prop :=
-| pi_step_except_intro
-    tid
-    (PI_STEP: pi_step tid cST1 cST2)
-    (TID: tid <> tid_except)
+Inductive pi_step_all_evt tid cST1 cST2: Prop :=
+| pi_step_all_evt_intro e
+    (PI_STEP: pi_step e tid cST1 cST2)
 .
 
 Inductive pi_step_all cST1 cST2: Prop :=
-| pi_step_all_intro
-    tid
-    (PI_STEP: pi_step tid cST1 cST2)
+| pi_step_all_intro tid
+    (PI_STEP: pi_step_all_evt tid cST1 cST2)
+.
+
+Inductive pi_step_except (tid_except:Ident.t) cST1 cST2: Prop :=
+| pi_step_except_intro tid
+    (PI_STEP: pi_step_all_evt tid cST1 cST2)
+    (TID: tid <> tid_except)
 .
 
 Definition Threads_remove_promise (ths: Threads.t) : Threads.t :=
@@ -149,7 +149,6 @@ Inductive pi_consistent: Configuration.t*Configuration.t -> Prop :=
 | pi_consistent_intro cS1 cT1
   (CONSIS:
     forall tid cS2 cT2 lst2 lc2 loc ts from msg
-    (* (TID: IdentMap.find tid cT1.(Configuration.threads) <> None) *)
     (STEPS: rtc (pi_step_except tid) (cS1,cT1) (cS2,cT2))
     (THREAD: IdentMap.find tid cT2.(Configuration.threads) = Some (lst2, lc2))
     (PROMISE: Memory.get loc ts lc2.(Local.promises) = Some (from, msg)),
@@ -268,12 +267,12 @@ Qed.
 Lemma pi_step_future
       tid cST1 cST2
       (WF1: pi_wf cST1)
-      (STEP: pi_step tid cST1 cST2):
+      (STEP: pi_step_all_evt tid cST1 cST2):
   <<WF2: pi_wf cST2>> /\
   <<FUTURES: Memory.future cST1.(fst).(Configuration.memory) cST2.(fst).(Configuration.memory)>> /\
   <<FUTURET: Memory.future cST1.(snd).(Configuration.memory) cST2.(snd).(Configuration.memory)>>.
 Proof.
-  inv WF1. inv STEP. splits; cycle 1. 
+  inv WF1. inv STEP. inv PI_STEP. splits; cycle 1. 
   - destruct (ThreadEvent_is_promising e).
     + subst. ss. econs.
     + eapply small_step_future in STEPS; eauto; des; ss.
@@ -316,7 +315,7 @@ Admitted.
 Lemma rtc_pi_step_future
       tid cST1 cST2
       (WF1: pi_wf cST1)
-      (STEPS: rtc (pi_step tid) cST1 cST2):
+      (STEPS: rtc (pi_step_all_evt tid) cST1 cST2):
   <<WF2: pi_wf cST2>> /\
   <<FUTURES: Memory.future cST1.(fst).(Configuration.memory) cST2.(fst).(Configuration.memory)>> /\
   <<FUTURET: Memory.future cST1.(snd).(Configuration.memory) cST2.(snd).(Configuration.memory)>>.
@@ -358,30 +357,30 @@ Lemma consistent_small_step_pi
       (CONSISTENT: Configuration.consistent c1)
       (STEPS: rtc (small_step_all_evt tid) c1 c2)
       (STEP: small_step e tid c2 c3):
-   forall loc to ord
-     (RW: ThreadEvent.is_reading e = Some (loc, to, ord)),
+   forall loc to val ord
+     (RW: ThreadEvent.is_reading e = Some (loc, to, val, ord)),
   ~Threads.is_promised tid loc to c2.(Configuration.threads).
 Proof.
 Admitted.
 
 Lemma pi_steps_pf_steps
       tid cST1 cST2
-      (PI_STEPS: rtc (pi_step tid) cST1 cST2):
+      (PI_STEPS: rtc (pi_step_all_evt tid) cST1 cST2):
   rtc (pf_step_all_evt tid) (fst cST1) (fst cST2).
 Proof.
   induction PI_STEPS; eauto.
-  inv H. destruct (ThreadEvent_is_promising e) eqn: PROM.
+  inv H. inv PI_STEP. destruct (ThreadEvent_is_promising e) eqn: PROM.
   + subst. eauto.
   + econs; eauto. econs. econs; eauto.
 Qed.
 
 Lemma pi_steps_small_steps
       tid cST1 cST2
-      (PI_STEPS: rtc (pi_step tid) cST1 cST2):
+      (PI_STEPS: rtc (pi_step_all_evt tid) cST1 cST2):
   rtc (small_step_all_evt tid) (snd cST1) (snd cST2).
 Proof.
   induction PI_STEPS; eauto.
-  inv H. econs; eauto. econs; eauto.
+  inv H. inv PI_STEP. econs; eauto. econs; eauto.
 Qed.
 
 Lemma pi_consistent_small_step_pi_rw
@@ -390,12 +389,12 @@ Lemma pi_consistent_small_step_pi_rw
       (PI_CONSISTENT: pi_consistent cST1)
       (CONSISTENT: Configuration.consistent cST1.(snd))
       (PI_RACEFREE: pf_racefree cST1.(fst))
-      (PI_STEPS: rtc (pi_step tid) cST1 cST2)
+      (PI_STEPS: rtc (pi_step_all_evt tid) cST1 cST2)
       (STEP: small_step e tid cST2.(snd) cT3):
-  forall loc to ord tid' ts
+  forall loc from to val ord rel tid' ts
     (NEQ: tid <> tid')
-    (RW: ThreadEvent.is_reading e = Some (loc, to, ord) \/
-         ThreadEvent.is_writing e = Some (loc, to, ord)),
+    (RW: ThreadEvent.is_reading e = Some (loc, to, val, ord) \/
+         ThreadEvent.is_writing e = Some (loc, from, to, val, ord, rel)),
   ~Threads.is_promised tid' loc ts cST2.(snd).(Configuration.threads).
 Proof.
   ii. inv H.
@@ -412,8 +411,7 @@ Proof.
       by eapply pi_steps_pf_steps in PI_STEPS; eauto.
     - eapply rtc_implies, STEPS. by econs; eauto.
   }
-  { (* TODO: is ThreadEvent.is_reading/writing neccessary? *)
-    ss. inv STEP. inv STEP0; [by inv STEP; inv RW; inv H|].
+  { ss. inv STEP. inv STEP0; [by inv STEP; inv RW; inv H|].
     exploit rtc_pi_step_future; eauto.
     i; des. clear FUTURES FUTURET.
     assert (LC1: exists lc1', IdentMap.find tid (Configuration.threads cS3) = Some (existT _ lang0 st1, lc1')).
@@ -435,21 +433,21 @@ Lemma pi_consistent_small_step_pi
       (PI_CONSISTENT: pi_consistent cST1)
       (CONSISTENT: Configuration.consistent cST1.(snd))
       (PI_RACEFREE: pf_racefree cST1.(fst))
-      (PI_STEPS: rtc (pi_step tid) cST1 cST2)
+      (PI_STEPS: rtc (pi_step_all_evt tid) cST1 cST2)
       (STEP: small_step e tid cST2.(snd) cT3):
-  exists cS3, pi_step tid cST2 (cS3,cT3).
+  exists cS3, pi_step_all_evt tid cST2 (cS3,cT3).
 Proof.
   destruct cST1 as [cS1 cT1], cST2 as [cS2 cT2].
   assert (RW:= pi_consistent_small_step_pi_rw WF PI_CONSISTENT CONSISTENT PI_RACEFREE PI_STEPS STEP).
   assert (R:= consistent_small_step_pi CONSISTENT (pi_steps_small_steps PI_STEPS) STEP).
   exploit rtc_pi_step_future; eauto. 
   i; des. inv WF2. ss. inv STEP. inv STEP0.
-  - eexists. econs; [by eauto|by inv STEP; s; eauto|].
+  - eexists. econs; econs; [by eauto|by inv STEP; s; eauto|].
     inv STEP. ss. rewrite IdentMap.gss.
     setoid_rewrite IdentMap.Properties.F.map_o.
     by rewrite TID.
   - inv STEP.
-    { eexists. econs.
+    { eexists. econs. econs.
       - econs; eauto.
       - econs.
         + ss. setoid_rewrite IdentMap.Properties.F.map_o.
@@ -457,7 +455,7 @@ Proof.
         + econs 2; econs 1; eauto.
       - s. by rewrite !IdentMap.gss.
     }
-    { inv LOCAL. eexists. econs.
+    { inv LOCAL. eexists. econs. econs.
       - econs; eauto. econs 2. econs 2; eauto. econs; eauto.
       - econs.
         + ss. setoid_rewrite IdentMap.Properties.F.map_o.
@@ -470,19 +468,18 @@ Proof.
           * eapply RW; s; eauto.
       - s. by rewrite !IdentMap.gss.
     }
-    { inv LOCAL. inv WRITE. eexists. econs.
+    { inv LOCAL. inv WRITE. eexists. econs. econs.
       - econs; eauto. econs 2. econs 3; eauto. econs; eauto. econs; eauto.
       - econs.
         + ss. setoid_rewrite IdentMap.Properties.F.map_o.
           by rewrite TID. 
         + econs 2; econs 3; eauto. 
-          econs; [|by esplits; [|apply RELEASE]].
           admit.
       - s. by rewrite !IdentMap.gss.
     }
     { admit.
     }
-    { inv LOCAL. eexists. econs.
+    { inv LOCAL. eexists. econs. econs.
       - econs; eauto. econs 2. econs 5; eauto. econs; eauto.
       - econs.
         + ss. setoid_rewrite IdentMap.Properties.F.map_o.
@@ -491,7 +488,7 @@ Proof.
           econs; eauto.
       - s. by rewrite !IdentMap.gss.
     }
-    { inv LOCAL. eexists. econs.
+    { inv LOCAL. eexists. econs. econs.
       - econs; eauto. econs 2. econs 6; eauto. econs; eauto.
       - econs.
         + ss. setoid_rewrite IdentMap.Properties.F.map_o.
@@ -508,9 +505,9 @@ Lemma pi_consistent_rtc_tau_small_step_pi
       (PI_CONSISTENT: pi_consistent cST1)
       (CONSISTENT: Configuration.consistent cST1.(snd))
       (PI_RACEFREE: pf_racefree cST1.(fst))
-      (PI_STEPS: rtc (pi_step tid) cST1 cST2)
+      (PI_STEPS: rtc (pi_step_all_evt tid) cST1 cST2)
       (STEP: rtc (tau_small_step tid) cST2.(snd) cT3):
-  exists cS3, rtc (pi_step tid) cST2 (cS3,cT3).
+  exists cS3, rtc (pi_step_all_evt tid) cST2 (cS3,cT3).
 Proof.
   apply Operators_Properties.clos_rt_rt1n_iff in STEP.
   apply Operators_Properties.clos_rt_rtn1_iff in STEP.
@@ -528,7 +525,7 @@ Lemma pi_consistent_step_pi
       (CONSISTENT: Configuration.consistent cST1.(snd))
       (PI_RACEFREE: pf_racefree cST1.(fst))
       (STEP: Configuration.step e tid cST1.(snd) cT2):
-  exists cS2, rtc (pi_step tid) cST1 (cS2,cT2).
+  exists cS2, rtc (pi_step_all_evt tid) cST1 (cS2,cT2).
 Proof.
   exploit step_small_steps; eauto; [by inv WF|].
   i. des. subst.
@@ -626,35 +623,55 @@ Proof.
     i; des; esplits; eauto.
 Qed.
 
+Inductive pi_step_lift: Ident.t -> (Configuration.t*Configuration.t)*Memory.t -> (Configuration.t*Configuration.t)*Memory.t -> Prop :=
+| pi_step_lift_intro e tid cST1 cST2 m1 m2
+    (PI_STEP: pi_step e tid cST1 cST2)
+    (MEM: match ThreadEvent.is_writing e with
+          | Some (loc,from,to,val,ord,rel) => 
+            Memory.add m1 loc from to val rel m2
+          | None => m1 = m2
+          end):
+  pi_step_lift tid (cST1,m1) (cST2,m2)
+.
 
+Lemma pi_step_lifting
+      tid cST1 cST2
+      (PI_STEPS: rtc (pi_step_all_evt tid) cST1 cST2):
+  exists m2, rtc (pi_step_lift tid) (cST1,cST1.(snd).(Configuration.memory)) (cST2,m2).
+Proof.
+  admit.
+Admitted.
 
+Lemma pi_step_lift_future
+      tid cSTm1 cSTm2
+      (PI_STEPS: rtc (pi_step_lift tid) cSTm1 cSTm2):
+  Memory.future cSTm1.(snd) cSTm2.(snd).
+Proof.
+  admit.
+Admitted.
 
+Lemma pi_consistent_pi_step_pi_consistent
+      cST1 cST2 tid
+      (PI_CONSISTENT: pi_consistent cST1)
+      (CONSISTENT1: Configuration.consistent cST1.(snd))
+      (PI_RACEFREE: pf_racefree cST1.(fst))
+      (WF: pi_wf cST1)
+      (STEP: rtc (pi_step_all_evt tid) cST1 cST2)
+      (CONSISTENT2: Configuration.consistent cST2.(snd)):
+  pi_consistent cST2.
+Proof.
+  destruct cST1 as [cS1 cT1], cST2 as [cS2 cT2].
+  econs. i. inv PI_CONSISTENT.
+  destruct (Ident.eq_dec tid0 tid); cycle 1.
+  { exploit CONSIS; cycle 1; eauto.
+    etrans; cycle 1; eauto.
+    eapply rtc_implies, STEP.
+    i. econs; eauto.
+  }
 
-
-
-
-
-
-(* Lemma pi_consistent_pi_step_pi_consistent *)
-(*       c1 c2 *)
-(*       tid *)
-(*       (PI_CONSISTENT: pi_consistent c1) *)
-(*       (PI_RACEFREE: pi_racefree c1) *)
-(*       (WF1: Configuration.wf c1) *)
-(*       (WF2: Configuration.wf c2) *)
-(*       (CONSISTENT1: Configuration.consistent c1) *)
-(*       (CONSISTENT2: Configuration.consistent c2) *)
-(*       (STEP: rtc (pi_step tid) c1 c2): *)
-(*   pi_consistent c2. *)
-(* Proof. *)
-(*   ii. destruct (Ident.eq_dec tid tid0). *)
-(*   - subst tid0. *)
-(*     (* TODO: sketch the proof *) *)
-(*     admit. *)
-(*   - eapply PI_CONSISTENT. *)
-(*     + erewrite <- rtc_pi_step_find; eauto. *)
-(*     + etrans; [|eauto]. eapply rtc_implies; [|apply STEP]. econs; eauto. *)
-(* Admitted. *)
+  subst.
+  admit.
+Admitted.
 
 
 (* Lemma memory_lower_get1: *)
