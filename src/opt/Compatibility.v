@@ -160,8 +160,7 @@ Proof.
            (Commit.write_commit (Local.commit lc1_tgt) sc1_tgt loc to
               ord) loc))).
   { committac.
-    { etrans; eauto. committac. }
-    unfold LocFun.add. condtac; [|congr]. committac.
+    - etrans; eauto. committac.
     - rewrite <- Capability.join_r.
       rewrite <- Capability.join_l.
       apply LOCAL1.
@@ -172,7 +171,6 @@ Proof.
         rewrite <- Capability.join_l.
         apply LOCAL1.
       + condtac; committac.
-        econs; apply TimeMap.bot_spec.
       + etrans; [|apply TimeMap.join_r].
         etrans; [|apply TimeMap.join_r].
         etrans; [|apply TimeMap.join_l].

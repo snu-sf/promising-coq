@@ -235,6 +235,8 @@ Module CommitFacts.
              refl
            | [|- Capability.le Capability.bot ?s] =>
              apply Capability.bot_spec
+           | [|- TimeMap.le TimeMap.bot _] =>
+             apply TimeMap.bot_spec
            | [|- Capability.le ?s (Capability.join _ ?s)] =>
              apply Capability.join_r
            | [|- Capability.le ?s (Capability.join ?s _)] =>
@@ -287,6 +289,42 @@ Module CommitFacts.
            | [|- Capability.wf Capability.bot] =>
              apply Capability.bot_wf
 
+           | [H: Time.lt ?a ?b |- Time.le ?a ?b] =>
+             left; apply H
+           | [|- Time.le ?a ?a] =>
+             refl
+           | [|- Capability.le (Capability.mk ?tm1 ?tm1 ?tm1) (Capability.mk ?tm2 ?tm2 ?tm2)] =>
+             apply Capability.timemap_le_le
+           | [|- context[LocFun.find _ (LocFun.add _ _ _)]] =>
+             rewrite LocFun.add_spec
+           | [|- context[TimeMap.singleton ?l _ ?l]] =>
+             unfold TimeMap.singleton
+           | [|- context[LocFun.add ?l _ _ ?l]] =>
+             unfold LocFun.add;
+             match goal with
+             | [|- context[Loc.eq_dec ?l ?l]] =>
+               destruct (Loc.eq_dec l l); [|congr]
+             end
+           | [|- context[LocFun.find _ _]] =>
+             unfold LocFun.find
+           | [|- context[LocFun.add _ _ _]] =>
+             unfold LocFun.add
+
+           | [|- Capability.wf (Capability.mk TimeMap.bot TimeMap.bot _)] =>
+             econs; apply TimeMap.bot_spec
+           | [|- Capability.wf (Capability.mk ?tm ?tm ?tm)] =>
+             econs; refl
+           | [H: _ <> _ |- _] => inv H
+           | [H1: is_true (Ordering.le ?o Ordering.relaxed),
+              H2: Ordering.le Ordering.acqrel ?o = true |- _] =>
+               by destruct o; inv H1; inv H2
+           | [H1: is_true (Ordering.le ?o Ordering.relaxed),
+              H2: Ordering.le Ordering.seqcst ?o = true |- _] =>
+               by destruct o; inv H1; inv H2
+           | [H1: is_true (Ordering.le ?o1 ?o2),
+              H2: Ordering.le ?o0 ?o1 = true,
+              H3: Ordering.le ?o0 ?o2 = false |- _] =>
+               by destruct o1, o2; inv H1; inv H2; inv H3
            end; subst; ss; i).
 
   Lemma readable_mon
@@ -326,8 +364,7 @@ Module CommitFacts.
     Commit.le commit1 (Commit.write_commit commit1 sc1 loc ts ord).
   Proof.
     econs; tac.
-    - rewrite LocFun.add_spec. condtac; tac.
-      subst. rewrite <- Capability.join_l. refl.
+    - condtac; tac.
     - rewrite <- ? Capability.join_l. refl.
     - rewrite <- ? Capability.join_l. refl.
   Qed.
@@ -351,7 +388,7 @@ Module CommitFacts.
         commit1 sc1 ord:
     Commit.le commit1 (Commit.write_fence_commit commit1 sc1 ord).
   Proof.
-    econs; tac. unfold LocFun.find. repeat condtac; tac.
+    econs; tac.
   Qed.
 
   Lemma write_fence_sc_incr
@@ -402,14 +439,12 @@ Module CommitFacts.
     splits; tac.
     - econs; tac; try apply WF_COMMIT.
       + unfold LocFun.add, LocFun.find. repeat condtac; tac; try apply WF_COMMIT.
-        econs; try apply TimeMap.bot_spec.
       + condtac; tac; try apply WF_COMMIT.
-        econs; try apply TimeMap.bot_spec.
-      + condtac; tac. econs; apply TimeMap.bot_spec.
+      + condtac; tac.
       + unfold LocFun.add, LocFun.find.
         repeat condtac; tac; rewrite <- ? Capability.join_l; apply WF_COMMIT.
       + repeat condtac; tac; rewrite <- ? Capability.join_l; apply WF_COMMIT.
-      + condtac; tac. econs; apply TimeMap.bot_spec.
+      + condtac; tac.
       + apply TimeMap.singleton_inv. rewrite <- TimeMap.join_l. tac.
     - econs; tac; (try by apply CLOSED_COMMIT).
       + unfold LocFun.add. repeat condtac; tac; (try by apply CLOSED_COMMIT).
@@ -449,10 +484,8 @@ Module CommitFacts.
     splits; tac.
     - econs; tac; try apply WF_COMMIT.
       + repeat condtac; tac; try apply WF_COMMIT.
-        econs; tac.
       + repeat condtac; tac; try apply WF_COMMIT.
-        econs; tac.
-      + repeat condtac; tac. econs; tac.
+      + repeat condtac; tac.
       + repeat condtac; tac; rewrite <- Capability.join_l; apply WF_COMMIT.
       + repeat condtac; tac.
       + repeat condtac; tac; rewrite <- Capability.join_l; apply WF_COMMIT.
@@ -472,3 +505,20 @@ Module CommitFacts.
 End CommitFacts.
 
 Ltac committac := CommitFacts.tac.
+
+Ltac aggrtac :=
+  repeat
+    (committac;
+     try match goal with
+         | [|- Time.le ?t1 (TimeMap.singleton ?l ?t2 ?l)] =>
+           unfold TimeMap.singleton, LocFun.add; condtac; [|congr]
+         | [|- Capability.le _ (Capability.join _ _)] =>
+           try (by rewrite <- Capability.join_l; aggrtac);
+           try (by rewrite <- Capability.join_r; aggrtac)
+         | [|- TimeMap.le _ (TimeMap.join _ _)] =>
+           try (by rewrite <- TimeMap.join_l; aggrtac);
+           try (by rewrite <- TimeMap.join_r; aggrtac)
+         | [|- Time.le _ (TimeMap.join _ _ _)] =>
+           try (by etrans; [|by apply Time.join_l]; aggrtac);
+           try (by etrans; [|by apply Time.join_r]; aggrtac)
+         end).

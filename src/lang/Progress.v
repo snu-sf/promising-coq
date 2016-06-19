@@ -75,34 +75,27 @@ Lemma progress_promise_step
                        (Local.mk lc1.(Local.commit) promises2) mem2 Memory.promise_kind_add.
 Proof.
   exploit (@Memory.add_exists_max_ts mem1 loc to val (Capability.join releasedm (Commit.rel (Commit.write_commit (Local.commit lc1) sc1 loc to ord) loc))); eauto.
-  { committac. unfold LocFun.add. repeat condtac; committac; try apply WF1.
-    econs; apply TimeMap.bot_spec.
-  }
+  { committac; try apply WF1. repeat condtac; committac; try apply WF1. }
   i. des.
   exploit Memory.add_exists_le; try apply WF1; eauto. i. des.
   assert (FUTURE: Memory.future mem1 mem2).
   { econs 2; [|econs 1]. econs 1. eauto. }
-  hexploit Memory.add_inhabited; try apply x0; committac.
-  esplits. econs.
-  - econs; eauto.
-    + committac.
-      * eapply Memory.future_closed_capability; eauto.
-      * unfold LocFun.add.
-        repeat condtac; committac;
-          (try eapply Memory.future_closed_capability; eauto);
-          (try apply WF1).
-        { eapply Memory.add_get2. eauto. }
-        { econs; try apply Memory.closed_timemap_bot; committac. }
-        { eapply Memory.add_get2. eauto. }
-    + committac.
-      * left. eapply TimeFacts.le_lt_lt; [|eauto].
-        eapply closed_timemap_max_ts. apply CLOSED_REL.
-      * unfold LocFun.add. condtac; [|congr].
-        repeat condtac; committac;
-          (try by apply Time.bot_spec);
-          (try by unfold TimeMap.singleton, LocFun.add; condtac; [refl|congr]);
-          (try by left; eapply TimeFacts.le_lt_lt; [|eauto];
-           eapply closed_timemap_max_ts; apply WF1).
+  hexploit Memory.add_inhabited; try apply x0; [committac|].
+  esplits. econs. econs; eauto.
+  - committac;
+      repeat condtac; committac;
+        (try eapply Memory.future_closed_capability; eauto);
+        (try apply WF1).
+    + eapply Memory.add_get2. eauto.
+    + econs; try apply Memory.closed_timemap_bot; committac.
+    + eapply Memory.add_get2. eauto.
+  - committac; repeat (condtac; committac);
+      (try by apply Time.bot_spec);
+      (try by unfold TimeMap.singleton, LocFun.add; condtac; [refl|congr]);
+      (try by left; eapply TimeFacts.le_lt_lt; [|eauto];
+       eapply closed_timemap_max_ts; apply WF1).
+    left. eapply TimeFacts.le_lt_lt; [|eauto].
+    eapply closed_timemap_max_ts. apply CLOSED_REL.
 Qed.
 
 Lemma progress_read_step

@@ -324,6 +324,11 @@ Module Capability <: JoinableType.
     - apply TimeMap.antisym; auto.
     - apply TimeMap.antisym; auto.
   Qed.
+
+  Lemma timemap_le_le tm1 tm2
+        (LE: TimeMap.le tm1 tm2):
+    le (mk tm1 tm1 tm1) (mk tm2 tm2 tm2).
+  Proof. econs; eauto. Qed.
 End Capability.
 
 Module Message.
