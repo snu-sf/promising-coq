@@ -69,7 +69,6 @@ Section SimulationLocal.
       <<MEMORY3: Memory.sim mem3_tgt mem3_src>> /\
       <<SIM: sim_thread st3_src lc3_src sc3_src mem3_src st3_tgt lc3_tgt sc3_tgt mem3_tgt>>.
 
-  (* TODO: inftau & liveness *)
   Definition _sim_thread
              (sim_thread: SIM_THREAD)
              (sim_terminal: SIM_TERMINAL)
@@ -159,7 +158,6 @@ Section Simulation.
     forall (ths1_src:Threads.t) (sc_k_src:TimeMap.t) (mem_k_src:Memory.t)
       (ths1_tgt:Threads.t) (sc_k_tgt:TimeMap.t) (mem_k_tgt:Memory.t), Prop.
 
-  (* TODO: inftau & liveness *)
   Definition _sim
              (sim: SIM)
              (ths1_src:Threads.t) (sc_k_src:TimeMap.t) (mem_k_src:Memory.t)

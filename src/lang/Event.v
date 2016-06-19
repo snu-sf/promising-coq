@@ -37,7 +37,6 @@ Module Ordering.
      - Plain accesses to pointers are compiled to unordered accesses.
      - Plain accesses to numbers are compiled to nonatomic accesses.
    *)
-  (* TODO: support the SC atomics (#40). *)
   Inductive t :=
   | unordered
   | relaxed
