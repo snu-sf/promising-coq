@@ -88,8 +88,8 @@ Proof.
   inv STEP1. inv STEP2. ss.
   esplits.
   - econs; eauto.
-    eapply CommitFacts.readable_mon; eauto.
-    apply CommitFacts.read_commit_incr. refl.
+    eapply CommitFacts.readable_mon; try apply READABLE0; eauto; try refl.
+    apply CommitFacts.read_commit_incr.
   - econs; eauto. s. unfold Commit.read_commit.
     econs; repeat (try condtac; try splits; aggrtac; eauto; try apply READABLE;
                    unfold TimeMap.singleton, LocFun.add in *).
@@ -151,9 +151,8 @@ Proof.
   esplits.
   - econs; eauto.
     + admit. (* eq released *)
-    + eapply CommitFacts.writable_mon; eauto.
-      * apply CommitFacts.read_commit_incr.
-      * refl.
+    + eapply CommitFacts.writable_mon; eauto; try refl.
+      apply CommitFacts.read_commit_incr.
   - econs; eauto.
     + admit. (* Memory.write_get *)
     + s. unfold Commit.write_commit.
@@ -201,10 +200,9 @@ Proof.
       * apply ReorderCommit.read_write_fence_commit; auto.
         { eapply CommitFacts.read_fence_future; apply WF0. }
         { eapply MEM0. eauto. }
-      * apply CommitFacts.write_fence_commit_mon.
+      * apply CommitFacts.write_fence_commit_mon; try refl.
         apply ReorderCommit.read_read_fence_commit; try apply WF0; auto.
-        { eapply MEM0. eauto. }
-        { refl. }
+        eapply MEM0. eauto.
     + apply MemInv.sem_bot.
     + refl.
   - unfold Commit.write_fence_sc, Commit.read_fence_commit.
@@ -234,8 +232,8 @@ Proof.
   esplits.
   - econs; eauto.
     + admit. (* memory.write_get_inv *)
-    + eapply CommitFacts.readable_mon; eauto.
-      apply CommitFacts.write_commit_incr. refl.
+    + eapply CommitFacts.readable_mon; try apply READABLE; eauto; try refl.
+      apply CommitFacts.write_commit_incr.
   - econs; eauto.
     + s. repeat condtac; aggrtac.
     + s. unfold Commit.read_commit.
@@ -299,7 +297,7 @@ Proof.
     + s. repeat (condtac; aggrtac).
       * admit. (* eq released *)
       * admit. (* eq released *)
-    + eapply CommitFacts.writable_mon; eauto.
+    + eapply CommitFacts.writable_mon; eauto; try refl.
       * apply CommitFacts.write_commit_incr.
       * apply CommitFacts.write_sc_incr.
     + admit. (* Memory.write *)
@@ -364,27 +362,24 @@ Proof.
   esplits.
   - econs; eauto.
     + admit. (* eq released *)
-    + eapply CommitFacts.writable_mon; eauto.
+    + eapply CommitFacts.writable_mon; eauto; try refl.
       * etrans.
         { apply CommitFacts.read_fence_commit_incr. apply WF0. }
         { apply CommitFacts.write_fence_commit_incr. }
       * apply CommitFacts.write_fence_sc_incr.
   - econs; ss. admit. (* promises bot *)
   - econs; ss. etrans; [|etrans].
-    + apply CommitFacts.write_fence_commit_mon.
-      * apply ReorderCommit.read_fence_write_commit; auto. apply WF0.
-      * refl.
+    + apply CommitFacts.write_fence_commit_mon; [|refl|refl].
+      apply ReorderCommit.read_fence_write_commit; auto. apply WF0.
     + apply ReorderCommit.write_fence_write_commit; auto.
       eapply CommitFacts.read_fence_future; apply WF0.
-    + apply CommitFacts.write_commit_mon.
-      * refl.
+    + apply CommitFacts.write_commit_mon; try refl.
       * apply CommitFacts.write_fence_sc_incr.
       * exploit CommitFacts.read_fence_future; try apply WF0; eauto. i. des.
         eapply CommitFacts.write_fence_future; eauto.
   - etrans.
-    + apply CommitFacts.write_fence_sc_mon.
-      * apply ReorderCommit.read_fence_write_commit; auto. apply WF0.
-      * refl.
+    + apply CommitFacts.write_fence_sc_mon; [|refl|refl].
+      apply ReorderCommit.read_fence_write_commit; auto. apply WF0.
     + eapply ReorderCommit.write_fence_write_sc; eauto.
       eapply CommitFacts.read_fence_future; apply WF0.
 Admitted.

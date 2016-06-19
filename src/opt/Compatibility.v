@@ -104,17 +104,18 @@ Lemma sim_local_read
       lc1_src mem1_src
       lc1_tgt mem1_tgt
       lc2_tgt
-      loc ts val released_tgt ord
-      (STEP_TGT: Local.read_step lc1_tgt mem1_tgt loc ts val released_tgt ord lc2_tgt)
+      loc ts val released_tgt ord_src ord_tgt
+      (STEP_TGT: Local.read_step lc1_tgt mem1_tgt loc ts val released_tgt ord_tgt lc2_tgt)
       (LOCAL1: sim_local lc1_src lc1_tgt)
       (MEM1: Memory.sim mem1_tgt mem1_src)
       (WF1_SRC: Local.wf lc1_src mem1_src)
       (WF1_TGT: Local.wf lc1_tgt mem1_tgt)
       (MEM1_SRC: Memory.closed mem1_src)
-      (MEM1_TGT: Memory.closed mem1_tgt):
+      (MEM1_TGT: Memory.closed mem1_tgt)
+      (ORD: Ordering.le ord_src ord_tgt):
   exists released_src lc2_src,
     <<REL: Capability.le released_src released_tgt>> /\
-    <<STEP_SRC: Local.read_step lc1_src mem1_src loc ts val released_src ord lc2_src>> /\
+    <<STEP_SRC: Local.read_step lc1_src mem1_src loc ts val released_src ord_src lc2_src>> /\
     <<LOCAL2: sim_local lc2_src lc2_tgt>>.
 Proof.
   inv LOCAL1. inv STEP_TGT.
@@ -189,40 +190,47 @@ Proof.
   { apply WF1_TGT. }
   i. des. esplits; eauto.
   - econs; eauto.
-    + eapply CommitFacts.writable_mon; eauto. apply LOCAL1.
+    + eapply CommitFacts.writable_mon; eauto. apply LOCAL1. refl.
     + i. exploit RELEASE; eauto. i. des.
       splits; auto. eapply sim_local_cell_bot; eauto.
   - econs; eauto. s. apply CommitFacts.write_commit_mon; auto.
     + apply LOCAL1.
     + apply WF1_TGT.
-  - apply CommitFacts.write_sc_mon; auto.
+    + refl.
+  - apply CommitFacts.write_sc_mon; auto. refl.
 Qed.
 
 Lemma sim_local_fence
       lc1_src sc1_src mem1_src
       lc1_tgt sc1_tgt mem1_tgt
       lc2_tgt sc2_tgt
-      ordr ordw
-      (STEP_TGT: Local.fence_step lc1_tgt sc1_tgt mem1_tgt ordr ordw lc2_tgt sc2_tgt)
+      ordr_src ordw_src
+      ordr_tgt ordw_tgt
+      (STEP_TGT: Local.fence_step lc1_tgt sc1_tgt mem1_tgt ordr_tgt ordw_tgt lc2_tgt sc2_tgt)
       (LOCAL1: sim_local lc1_src lc1_tgt)
       (SC1: TimeMap.le sc1_src sc1_tgt)
       (MEM1: Memory.sim mem1_tgt mem1_src)
       (WF1_SRC: Local.wf lc1_src mem1_src)
-      (WF1_TGT: Local.wf lc1_tgt mem1_tgt):
+      (WF1_TGT: Local.wf lc1_tgt mem1_tgt)
+      (ORDR: Ordering.le ordr_src ordr_tgt)
+      (ORDW: Ordering.le ordw_src ordw_tgt):
   exists lc2_src sc2_src,
-    <<STEP_SRC: Local.fence_step lc1_src sc1_src mem1_src ordr ordw lc2_src sc2_src>> /\
+    <<STEP_SRC: Local.fence_step lc1_src sc1_src mem1_src ordr_src ordw_src lc2_src sc2_src>> /\
     <<LOCAL2: sim_local lc2_src lc2_tgt>> /\
     <<SC2: TimeMap.le sc2_src sc2_tgt>>.
 Proof.
   inv STEP_TGT. esplits; eauto.
   - econs; eauto. i. eapply sim_local_memory_bot; eauto.
+    apply RELEASE. etrans; eauto.
   - econs; try apply LOCAL1. s.
-    apply CommitFacts.write_fence_commit_mon; auto.
-    apply CommitFacts.read_fence_commit_mon; auto.
-    apply LOCAL1.
-  - apply CommitFacts.write_fence_sc_mon; auto.
-    apply CommitFacts.read_fence_commit_mon; auto.
-    apply LOCAL1.
+    apply CommitFacts.write_fence_commit_mon; auto; try refl.
+    apply CommitFacts.read_fence_commit_mon; auto; try refl.
+    + apply LOCAL1.
+    + apply WF1_TGT.
+  - apply CommitFacts.write_fence_sc_mon; auto; try refl.
+    apply CommitFacts.read_fence_commit_mon; auto; try refl.
+    + apply LOCAL1.
+    + apply WF1_TGT.
 Qed.
 
 Lemma future_read_step
@@ -238,13 +246,14 @@ Lemma future_read_step
 Proof.
   inv STEP. exploit Memory.future_get; eauto. i. des.
   esplits.
-  - econs; eauto. eapply CommitFacts.readable_mon; eauto. refl.
+  - econs; eauto. eapply CommitFacts.readable_mon; eauto; refl.
   - auto.
   - econs; s.
     + apply CommitFacts.read_commit_mon; auto.
       * refl.
       * apply WF.
       * eapply MEM. eauto.
+      * refl.
     + apply MemInv.sem_bot.
     + refl.
 Qed.
@@ -602,7 +611,7 @@ Proof.
         { apply rclo9_step. apply ctx_nil; auto. }
       * (* read *)
         inv STATE.
-        exploit sim_local_read; eauto. i. des.
+        exploit sim_local_read; eauto; try refl. i. des.
         exploit RegFile.eq_except_instr; eauto. i. des.
         esplits; try apply SC; eauto.
         { econs 2. econs 2; eauto. s. econs. eauto. }
@@ -621,7 +630,7 @@ Proof.
         { apply rclo9_step. apply ctx_nil; auto. }
       * (* update *)
         inv STATE.
-        exploit sim_local_read; eauto. i. des.
+        exploit sim_local_read; eauto; try refl. i. des.
         exploit sim_local_write; try apply SC; eauto.
         { inv LOCAL1. ss. eapply MEM_TGT. eauto. }
         { eapply Local.read_step_future; eauto. }
@@ -634,7 +643,7 @@ Proof.
         { apply rclo9_step. apply ctx_nil; auto. }
       * (* fence *)
         inv STATE.
-        exploit sim_local_fence; try apply SC; eauto. i. des.
+        exploit sim_local_fence; try apply SC; eauto; try refl. i. des.
         exploit RegFile.eq_except_instr; eauto. i. des.
         esplits; eauto.
         { econs 2. econs 5; eauto. econs. eauto. }
@@ -642,7 +651,7 @@ Proof.
         { apply rclo9_step. apply ctx_nil; auto. }
       * (* syscall *)
         inv STATE.
-        exploit sim_local_fence; try apply SC; eauto. i. des.
+        exploit sim_local_fence; try apply SC; eauto; try refl. i. des.
         exploit RegFile.eq_except_instr; eauto. i. des.
         esplits; eauto.
         { econs 2. econs 6; eauto. econs. eauto. }

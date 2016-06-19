@@ -341,6 +341,12 @@ Module CommitFacts.
            | [H1: is_true (Ordering.le ?o Ordering.unordered),
               H2: is_true (Ordering.le Ordering.seqcst ?o) |- _] =>
                by destruct o; inv H1; inv H2
+           | [H1: is_true (Ordering.le ?o Ordering.acqrel),
+              H2: is_true (Ordering.le Ordering.seqcst ?o) |- _] =>
+               by destruct o; inv H1; inv H2
+           | [H1: is_true (Ordering.le ?o Ordering.relaxed),
+              H2: is_true (Ordering.le Ordering.seqcst ?o) |- _] =>
+               by destruct o; inv H1; inv H2
            | [H1: is_true (Ordering.le ?o1 ?o2),
               H2: Ordering.le ?o0 ?o1 = true,
               H3: Ordering.le ?o0 ?o2 = false |- _] =>
@@ -413,41 +419,44 @@ Module CommitFacts.
   Qed.
 
   Lemma readable_mon
-        commit1 commit2 loc ts released1 released2 ord
+        commit1 commit2 loc ts released1 released2 ord1 ord2
         (COMMIT: Commit.le commit1 commit2)
         (REL: Capability.le released1 released2)
-        (READABLE: Commit.readable commit2 loc ts released2 ord):
-    Commit.readable commit1 loc ts released1 ord.
+        (ORD: Ordering.le ord1 ord2)
+        (READABLE: Commit.readable commit2 loc ts released2 ord2):
+    Commit.readable commit1 loc ts released1 ord1.
   Proof.
     inv READABLE. econs; eauto.
     - etrans; try apply COMMIT; auto.
-    - etrans; try apply COMMIT; auto.
-    - etrans; try apply COMMIT; auto.
-    - etrans; try apply REL; auto.
+    - etrans; [apply COMMIT|]. apply RW. etrans; eauto.
+    - etrans; [apply COMMIT|]. apply SC1. etrans; eauto.
+    - etrans; [apply REL|]. apply SC2. etrans; eauto.
   Qed.
 
   Lemma writable_mon
-        commit1 commit2 sc1 sc2 loc ts ord
+        commit1 commit2 sc1 sc2 loc ts ord1 ord2
         (COMMIT: Commit.le commit1 commit2)
         (SC: TimeMap.le sc1 sc2)
-        (WRITABLE: Commit.writable commit2 sc2 loc ts ord):
-    Commit.writable commit1 sc1 loc ts ord.
+        (ORD: Ordering.le ord1 ord2)
+        (WRITABLE: Commit.writable commit2 sc2 loc ts ord2):
+    Commit.writable commit1 sc1 loc ts ord1.
   Proof.
     inv WRITABLE. econs; eauto.
     - eapply TimeFacts.le_lt_lt; try apply COMMIT; auto.
-    - i. eapply TimeFacts.le_lt_lt; try apply COMMIT; auto.
-    - i. eapply TimeFacts.le_lt_lt; eauto.
+    - i. eapply TimeFacts.le_lt_lt; [apply COMMIT|]. apply SC1. etrans; eauto.
+    - i. eapply TimeFacts.le_lt_lt; eauto. apply SC2. etrans; eauto.
   Qed.
 
   Lemma read_commit_mon
-        commit1 commit2 loc ts released1 released2 ord
+        commit1 commit2 loc ts released1 released2 ord1 ord2
         (COMMIT: Commit.le commit1 commit2)
         (REL: Capability.le released1 released2)
         (WF2: Commit.wf commit2)
-        (WF_REL2: Capability.wf released2):
+        (WF_REL2: Capability.wf released2)
+        (ORD: Ordering.le ord1 ord2):
     Commit.le
-      (Commit.read_commit commit1 loc ts released1 ord)
-      (Commit.read_commit commit2 loc ts released2 ord).
+      (Commit.read_commit commit1 loc ts released1 ord1)
+      (Commit.read_commit commit2 loc ts released2 ord2).
   Proof.
     unfold Commit.read_commit.
     econs; repeat (condtac; aggrtac);
@@ -457,13 +466,14 @@ Module CommitFacts.
   Qed.
 
   Lemma write_commit_mon
-        commit1 commit2 sc1 sc2 loc ts ord
+        commit1 commit2 sc1 sc2 loc ts ord1 ord2
         (COMMIT: Commit.le commit1 commit2)
         (SC: TimeMap.le sc1 sc2)
-        (WF2: Commit.wf commit2):
+        (WF2: Commit.wf commit2)
+        (ORD: Ordering.le ord1 ord2):
     Commit.le
-      (Commit.write_commit commit1 sc1 loc ts ord)
-      (Commit.write_commit commit2 sc2 loc ts ord).
+      (Commit.write_commit commit1 sc1 loc ts ord1)
+      (Commit.write_commit commit2 sc2 loc ts ord2).
   Proof.
     unfold Commit.write_commit.
     econs; repeat (condtac; aggrtac);
@@ -473,51 +483,57 @@ Module CommitFacts.
   Qed.
 
   Lemma write_sc_mon
-        sc1 sc2 loc ts ord
-        (SC: TimeMap.le sc1 sc2):
+        sc1 sc2 loc ts ord1 ord2
+        (SC: TimeMap.le sc1 sc2)
+        (ORD: Ordering.le ord1 ord2):
     TimeMap.le
-      (Commit.write_sc sc1 loc ts ord)
-      (Commit.write_sc sc2 loc ts ord).
+      (Commit.write_sc sc1 loc ts ord1)
+      (Commit.write_sc sc2 loc ts ord2).
   Proof.
-    unfold Commit.write_sc. condtac; aggrtac.
+    unfold Commit.write_sc. repeat condtac; aggrtac.
   Qed.
 
   Lemma read_fence_commit_mon
-        commit1 commit2 ord
-        (COMMIT: Commit.le commit1 commit2):
+        commit1 commit2 ord1 ord2
+        (COMMIT: Commit.le commit1 commit2)
+        (WF2: Commit.wf commit2)
+        (ORD: Ordering.le ord1 ord2):
     Commit.le
-      (Commit.read_fence_commit commit1 ord)
-      (Commit.read_fence_commit commit2 ord).
+      (Commit.read_fence_commit commit1 ord1)
+      (Commit.read_fence_commit commit2 ord2).
   Proof.
     unfold Commit.read_fence_commit.
     econs; repeat (condtac; aggrtac);
       (try by etrans; [apply COMMIT|aggrtac]);
-      (try rewrite <- ? Capability.join_r; aggrtac;
+      (try by rewrite <- ? Capability.join_r; aggrtac;
        rewrite <- ? TimeMap.join_r; apply COMMIT).
+    etrans; [apply COMMIT|apply WF2].
   Qed.
 
   Lemma write_fence_commit_mon
-        commit1 commit2 sc1 sc2 ord
+        commit1 commit2 sc1 sc2 ord1 ord2
         (COMMIT: Commit.le commit1 commit2)
-        (SC: TimeMap.le sc1 sc2):
+        (SC: TimeMap.le sc1 sc2)
+        (ORD: Ordering.le ord1 ord2):
     Commit.le
-      (Commit.write_fence_commit commit1 sc1 ord)
-      (Commit.write_fence_commit commit2 sc2 ord).
+      (Commit.write_fence_commit commit1 sc1 ord1)
+      (Commit.write_fence_commit commit2 sc2 ord2).
   Proof.
     unfold Commit.write_fence_commit, Commit.write_fence_sc.
     econs; repeat (condtac; aggrtac);
       (try by etrans; [apply COMMIT|aggrtac]);
-      (try rewrite <- ? Capability.join_r; aggrtac;
+      (try by rewrite <- ? Capability.join_r; aggrtac;
        rewrite <- ? TimeMap.join_r; apply COMMIT).
   Qed.
 
   Lemma write_fence_sc_mon
-        commit1 commit2 sc1 sc2 ord
+        commit1 commit2 sc1 sc2 ord1 ord2
         (COMMIT: Commit.le commit1 commit2)
-        (SC: TimeMap.le sc1 sc2):
+        (SC: TimeMap.le sc1 sc2)
+        (ORD: Ordering.le ord1 ord2):
     TimeMap.le
-      (Commit.write_fence_sc commit1 sc1 ord)
-      (Commit.write_fence_sc commit2 sc2 ord).
+      (Commit.write_fence_sc commit1 sc1 ord1)
+      (Commit.write_fence_sc commit2 sc2 ord2).
   Proof.
     unfold Commit.write_fence_sc.
     repeat (condtac; aggrtac);
