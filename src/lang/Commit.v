@@ -122,9 +122,8 @@ Module Commit <: JoinableType.
       (UR: Time.le (commit1.(cur).(Capability.ur) loc) ts)
       (RW: Ordering.le Ordering.relaxed ord ->
            Time.le (commit1.(cur).(Capability.rw) loc) ts)
-      (SC: Ordering.le Ordering.seqcst ord ->
-           Time.le (commit1.(cur).(Capability.sc) loc) ts /\
-           Time.le (released.(Capability.sc) loc) ts)
+      (SC1: Ordering.le Ordering.seqcst ord -> Time.le (commit1.(cur).(Capability.sc) loc) ts)
+      (SC2: Ordering.le Ordering.seqcst ord -> Time.le (released.(Capability.sc) loc) ts)
   .
 
   Definition read_commit
@@ -145,9 +144,8 @@ Module Commit <: JoinableType.
             (commit1:t) (sc1:TimeMap.t) (loc:Loc.t) (ts:Time.t) (ord:Ordering.t): Prop :=
   | writable_intro
       (TS: Time.lt (commit1.(cur).(Capability.rw) loc) ts)
-      (SC: Ordering.le Ordering.seqcst ord ->
-           Time.lt (commit1.(cur).(Capability.sc) loc) ts /\
-           Time.lt (sc1 loc) ts)
+      (SC1: Ordering.le Ordering.seqcst ord -> Time.lt (commit1.(cur).(Capability.sc) loc) ts)
+      (SC2: Ordering.le Ordering.seqcst ord -> Time.lt (sc1 loc) ts)
   .
 
   Definition write_commit
@@ -337,28 +335,22 @@ Module CommitFacts.
                by destruct o1, o2; inv H1; inv H2; inv H3
            end; subst; ss; i).
 
-  Lemma readable_mon
-        commit1 commit2
-        (LE: Commit.le commit1 commit2):
-    Commit.readable commit2 <4= Commit.readable commit1.
-  Proof.
-    s. i. inv PR. econs.
-    - etrans; [apply LE|]. auto.
-    - etrans; [apply LE|]. auto.
-    - i. specialize (SC H). des. splits; auto.
-      etrans; [apply LE|]. auto.
-  Qed.
-
-  Lemma writable_mon
-        commit1 commit2
-        (LE: Commit.le commit1 commit2):
-    Commit.writable commit2 <4= Commit.writable commit1.
-  Proof.
-    s. i. inv PR. econs.
-    - eapply TimeFacts.le_lt_lt; [apply LE|]. auto.
-    - i. specialize (SC H). des. splits; auto.
-      eapply TimeFacts.le_lt_lt; [apply LE|]. auto.
-  Qed.
+  Ltac aggrtac :=
+    repeat
+      (tac;
+       try match goal with
+           | [|- Time.le ?t1 (TimeMap.singleton ?l ?t2 ?l)] =>
+             unfold TimeMap.singleton, LocFun.add; condtac; [|congr]
+           | [|- Capability.le _ (Capability.join _ _)] =>
+             try (by rewrite <- Capability.join_l; aggrtac);
+             try (by rewrite <- Capability.join_r; aggrtac)
+           | [|- TimeMap.le _ (TimeMap.join _ _)] =>
+             try (by rewrite <- TimeMap.join_l; aggrtac);
+             try (by rewrite <- TimeMap.join_r; aggrtac)
+           | [|- Time.le _ (TimeMap.join _ _ _)] =>
+             try (by etrans; [|by apply Time.join_l]; aggrtac);
+             try (by etrans; [|by apply Time.join_r]; aggrtac)
+           end).
 
   Lemma read_commit_incr
         commit1 loc ts released ord:
@@ -408,6 +400,119 @@ Module CommitFacts.
     unfold Commit.write_fence_sc. condtac; tac.
   Qed.
 
+  Lemma readable_mon
+        commit1 commit2 loc ts released1 released2 ord
+        (COMMIT: Commit.le commit1 commit2)
+        (REL: Capability.le released1 released2)
+        (READABLE: Commit.readable commit2 loc ts released2 ord):
+    Commit.readable commit1 loc ts released1 ord.
+  Proof.
+    inv READABLE. econs; eauto.
+    - etrans; try apply COMMIT; auto.
+    - etrans; try apply COMMIT; auto.
+    - etrans; try apply COMMIT; auto.
+    - etrans; try apply REL; auto.
+  Qed.
+
+  Lemma writable_mon
+        commit1 commit2 sc1 sc2 loc ts ord
+        (COMMIT: Commit.le commit1 commit2)
+        (SC: TimeMap.le sc1 sc2)
+        (WRITABLE: Commit.writable commit2 sc2 loc ts ord):
+    Commit.writable commit1 sc1 loc ts ord.
+  Proof.
+    inv WRITABLE. econs; eauto.
+    - eapply TimeFacts.le_lt_lt; try apply COMMIT; auto.
+    - i. eapply TimeFacts.le_lt_lt; try apply COMMIT; auto.
+    - i. eapply TimeFacts.le_lt_lt; eauto.
+  Qed.
+
+  Lemma read_commit_mon
+        commit1 commit2 loc ts released1 released2 ord
+        (COMMIT: Commit.le commit1 commit2)
+        (REL: Capability.le released1 released2)
+        (WF2: Commit.wf commit2)
+        (WF_REL2: Capability.wf released2):
+    Commit.le
+      (Commit.read_commit commit1 loc ts released1 ord)
+      (Commit.read_commit commit2 loc ts released2 ord).
+  Proof.
+    unfold Commit.read_commit.
+    econs; repeat (condtac; aggrtac);
+      (try by etrans; [apply COMMIT|aggrtac]);
+      (try by rewrite <- ? Capability.join_r; econs; aggrtac);
+      (try apply WF2).
+  Qed.
+
+  Lemma write_commit_mon
+        commit1 commit2 sc1 sc2 loc ts ord
+        (COMMIT: Commit.le commit1 commit2)
+        (SC: TimeMap.le sc1 sc2)
+        (WF2: Commit.wf commit2):
+    Commit.le
+      (Commit.write_commit commit1 sc1 loc ts ord)
+      (Commit.write_commit commit2 sc2 loc ts ord).
+  Proof.
+    unfold Commit.write_commit.
+    econs; repeat (condtac; aggrtac);
+      (try by etrans; [apply COMMIT|aggrtac]);
+      (try by rewrite <- ? Capability.join_r; econs; aggrtac);
+      (try apply WF2).
+  Qed.
+
+  Lemma write_sc_mon
+        sc1 sc2 loc ts ord
+        (SC: TimeMap.le sc1 sc2):
+    TimeMap.le
+      (Commit.write_sc sc1 loc ts ord)
+      (Commit.write_sc sc2 loc ts ord).
+  Proof.
+    unfold Commit.write_sc. condtac; aggrtac.
+  Qed.
+
+  Lemma read_fence_commit_mon
+        commit1 commit2 ord
+        (COMMIT: Commit.le commit1 commit2):
+    Commit.le
+      (Commit.read_fence_commit commit1 ord)
+      (Commit.read_fence_commit commit2 ord).
+  Proof.
+    unfold Commit.read_fence_commit.
+    econs; repeat (condtac; aggrtac);
+      (try by etrans; [apply COMMIT|aggrtac]);
+      (try rewrite <- ? Capability.join_r; aggrtac;
+       rewrite <- ? TimeMap.join_r; apply COMMIT).
+  Qed.
+
+  Lemma write_fence_commit_mon
+        commit1 commit2 sc1 sc2 ord
+        (COMMIT: Commit.le commit1 commit2)
+        (SC: TimeMap.le sc1 sc2):
+    Commit.le
+      (Commit.write_fence_commit commit1 sc1 ord)
+      (Commit.write_fence_commit commit2 sc2 ord).
+  Proof.
+    unfold Commit.write_fence_commit, Commit.write_fence_sc.
+    econs; repeat (condtac; aggrtac);
+      (try by etrans; [apply COMMIT|aggrtac]);
+      (try rewrite <- ? Capability.join_r; aggrtac;
+       rewrite <- ? TimeMap.join_r; apply COMMIT).
+  Qed.
+
+  Lemma write_fence_sc_mon
+        commit1 commit2 sc1 sc2 ord
+        (COMMIT: Commit.le commit1 commit2)
+        (SC: TimeMap.le sc1 sc2):
+    TimeMap.le
+      (Commit.write_fence_sc commit1 sc1 ord)
+      (Commit.write_fence_sc commit2 sc2 ord).
+  Proof.
+    unfold Commit.write_fence_sc.
+    repeat (condtac; aggrtac);
+      (try by etrans; [apply COMMIT|aggrtac]);
+      (try rewrite <- ? Capability.join_r; aggrtac;
+       rewrite <- ? TimeMap.join_r; apply COMMIT).
+  Qed.
 
   (* CHECK: monotonicity? min_spec? min_min? *)
 
@@ -515,20 +620,4 @@ Module CommitFacts.
 End CommitFacts.
 
 Ltac committac := CommitFacts.tac.
-
-Ltac aggrtac :=
-  repeat
-    (committac;
-     try match goal with
-         | [|- Time.le ?t1 (TimeMap.singleton ?l ?t2 ?l)] =>
-           unfold TimeMap.singleton, LocFun.add; condtac; [|congr]
-         | [|- Capability.le _ (Capability.join _ _)] =>
-           try (by rewrite <- Capability.join_l; aggrtac);
-           try (by rewrite <- Capability.join_r; aggrtac)
-         | [|- TimeMap.le _ (TimeMap.join _ _)] =>
-           try (by rewrite <- TimeMap.join_l; aggrtac);
-           try (by rewrite <- TimeMap.join_r; aggrtac)
-         | [|- Time.le _ (TimeMap.join _ _ _)] =>
-           try (by etrans; [|by apply Time.join_l]; aggrtac);
-           try (by etrans; [|by apply Time.join_r]; aggrtac)
-         end).
+Ltac aggrtac := CommitFacts.aggrtac.

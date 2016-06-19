@@ -109,7 +109,9 @@ Lemma sim_local_read
       (LOCAL1: sim_local lc1_src lc1_tgt)
       (MEM1: Memory.sim mem1_tgt mem1_src)
       (WF1_SRC: Local.wf lc1_src mem1_src)
-      (WF1_TGT: Local.wf lc1_tgt mem1_tgt):
+      (WF1_TGT: Local.wf lc1_tgt mem1_tgt)
+      (MEM1_SRC: Memory.closed mem1_src)
+      (MEM1_TGT: Memory.closed mem1_tgt):
   exists released_src lc2_src,
     <<REL: Capability.le released_src released_tgt>> /\
     <<STEP_SRC: Local.read_step lc1_src mem1_src loc ts val released_src ord lc2_src>> /\
@@ -118,9 +120,11 @@ Proof.
   inv LOCAL1. inv STEP_TGT.
   exploit Memory.sim_get; try apply MEM1; eauto. i. des.
   esplits; eauto.
-  - econs; eauto. admit.
-  - econs; eauto. s. admit. (* Commit.read_commit_mon *)
-Admitted.
+  - econs; eauto. eapply CommitFacts.readable_mon; eauto.
+  - econs; eauto. s. apply CommitFacts.read_commit_mon; auto.
+    + apply WF1_TGT.
+    + eapply MEM1_TGT. eauto.
+Qed.
 
 Lemma sim_local_write
       lc1_src sc1_src mem1_src
@@ -185,11 +189,14 @@ Proof.
   { apply WF1_TGT. }
   i. des. esplits; eauto.
   - econs; eauto.
-    + admit.
+    + eapply CommitFacts.writable_mon; eauto. apply LOCAL1.
     + i. exploit RELEASE; eauto. i. des.
       splits; auto. eapply sim_local_cell_bot; eauto.
-  - econs; eauto. s. admit. (* CommitFacts.write_commit_mon *)
-Admitted.
+  - econs; eauto. s. apply CommitFacts.write_commit_mon; auto.
+    + apply LOCAL1.
+    + apply WF1_TGT.
+  - apply CommitFacts.write_sc_mon; auto.
+Qed.
 
 Lemma sim_local_fence
       lc1_src sc1_src mem1_src
@@ -198,6 +205,7 @@ Lemma sim_local_fence
       ordr ordw
       (STEP_TGT: Local.fence_step lc1_tgt sc1_tgt mem1_tgt ordr ordw lc2_tgt sc2_tgt)
       (LOCAL1: sim_local lc1_src lc1_tgt)
+      (SC1: TimeMap.le sc1_src sc1_tgt)
       (MEM1: Memory.sim mem1_tgt mem1_src)
       (WF1_SRC: Local.wf lc1_src mem1_src)
       (WF1_TGT: Local.wf lc1_tgt mem1_tgt):
@@ -208,10 +216,19 @@ Lemma sim_local_fence
 Proof.
   inv STEP_TGT. esplits; eauto.
   - econs; eauto. i. eapply sim_local_memory_bot; eauto.
-  - econs; try apply LOCAL1. s. admit. (* CommitFacts.fence_commit_mon *)
-Admitted.
+  - econs; try apply LOCAL1. s.
+    apply CommitFacts.write_fence_commit_mon; auto.
+    apply CommitFacts.read_fence_commit_mon; auto.
+    apply LOCAL1.
+  - apply CommitFacts.write_fence_sc_mon; auto.
+    apply CommitFacts.read_fence_commit_mon; auto.
+    apply LOCAL1.
+Qed.
 
-Lemma future_read_step lc1 mem1 mem1' loc ts val released ord lc2
+Lemma future_read_step
+      lc1 mem1 mem1' loc ts val released ord lc2
+      (WF: Local.wf lc1 mem1)
+      (MEM: Memory.closed mem1)
       (FUTURE: Memory.future mem1 mem1')
       (STEP: Local.read_step lc1 mem1 loc ts val released ord lc2):
   exists released' lc2',
@@ -221,13 +238,16 @@ Lemma future_read_step lc1 mem1 mem1' loc ts val released ord lc2
 Proof.
   inv STEP. exploit Memory.future_get; eauto. i. des.
   esplits.
-  - econs; eauto. admit.
+  - econs; eauto. eapply CommitFacts.readable_mon; eauto. refl.
   - auto.
   - econs; s.
-    + admit.
+    + apply CommitFacts.read_commit_mon; auto.
+      * refl.
+      * apply WF.
+      * eapply MEM. eauto.
     + apply MemInv.sem_bot.
     + refl.
-Admitted.
+Qed.
 
 Lemma future_fence_step lc1 sc1 mem1 mem1' ordr ordw lc2 sc2
       (FUTURE: Memory.future mem1 mem1')
@@ -594,7 +614,7 @@ Proof.
         inv STATE.
         exploit sim_local_read; eauto. i. des.
         exploit sim_local_write; try apply SC; eauto.
-        { admit. }
+        { inv LOCAL1. ss. eapply MEM_TGT. eauto. }
         { eapply Local.read_step_future; eauto. }
         { eapply Local.read_step_future; eauto. }
         i. des.
@@ -605,15 +625,15 @@ Proof.
         { apply rclo9_step. apply ctx_nil; auto. }
       * (* fence *)
         inv STATE.
-        exploit sim_local_fence; eauto. i. des.
+        exploit sim_local_fence; try apply SC; eauto. i. des.
         exploit RegFile.eq_except_instr; eauto. i. des.
-        esplits; try apply SC; eauto.
+        esplits; eauto.
         { econs 2. econs 5; eauto. econs. eauto. }
         { eauto. }
         { apply rclo9_step. apply ctx_nil; auto. }
       * (* syscall *)
         inv STATE.
-        exploit sim_local_fence; eauto. i. des.
+        exploit sim_local_fence; try apply SC; eauto. i. des.
         exploit RegFile.eq_except_instr; eauto. i. des.
         esplits; eauto.
         { econs 2. econs 6; eauto. econs. eauto. }
