@@ -533,6 +533,7 @@ Proof.
 Qed.
 Hint Resolve ctx_mon.
 
+
 Lemma ctx_weak_respectful: weak_respectful9 (@_sim_thread lang lang) ctx.
 Proof.
   econs; auto. i. destruct PR.
@@ -546,10 +547,14 @@ Proof.
     splits; s; ii.
     { inv TERMINAL_TGT. ss. esplits; eauto; ss. }
     { exploit sim_local_future; try apply LOCAL; eauto. i. des.
-      esplits; try apply TimeMap.join_l; try apply TimeMap.join_r; eauto.
-      apply Memory.join_closed_timemap.
-      - admit. (* future sc should be chosen more carefully *)
-      - eapply Memory.future_closed_timemap; eauto.
+      esplits; eauto.
+      - etrans.
+        + apply Memory.max_timemap_spec; eauto. committac.
+        + apply Memory.sim_max_timemap; eauto.
+      - etrans.
+        + apply Memory.max_timemap_spec; eauto. committac.
+        + apply Memory.future_max_timemap; eauto.
+      - apply Memory.max_timemap_closed. committac.
     }
     { subst. esplits; eauto. }
     inv STEP_TGT; try by inv STEP; inv STATE.
@@ -569,10 +574,14 @@ Proof.
     splits; s; ii.
     { inv TERMINAL_TGT. }
     { exploit sim_local_future; try apply LOCAL; eauto. i. des.
-      esplits; try apply TimeMap.join_l; try apply TimeMap.join_r; eauto.
-      apply Memory.join_closed_timemap.
-      - admit. (* future sc should be chosen more carefully *)
-      - eapply Memory.future_closed_timemap; eauto.
+      esplits; eauto.
+      - etrans.
+        + apply Memory.max_timemap_spec; eauto. committac.
+        + apply Memory.sim_max_timemap; eauto.
+      - etrans.
+        + apply Memory.max_timemap_spec; eauto. committac.
+        + apply Memory.future_max_timemap; eauto.
+      - apply Memory.max_timemap_closed. committac.
     }
     { ss. subst. esplits; eauto. }
     inv STEP_TGT; ss.
@@ -698,10 +707,14 @@ Proof.
     splits; s; ii.
     { inv TERMINAL_TGT. }
     { exploit sim_local_future; try apply LOCAL; eauto. i. des.
-      esplits; try apply TimeMap.join_l; try apply TimeMap.join_r; eauto.
-      apply Memory.join_closed_timemap.
-      - admit. (* future sc should be chosen more carefully *)
-      - eapply Memory.future_closed_timemap; eauto.
+      esplits; eauto.
+      - etrans.
+        + apply Memory.max_timemap_spec; eauto. committac.
+        + apply Memory.sim_max_timemap; eauto.
+      - etrans.
+        + apply Memory.max_timemap_spec; eauto. committac.
+        + apply Memory.future_max_timemap; eauto.
+      - apply Memory.max_timemap_closed. committac.
     }
     { ss. subst. esplits; eauto. }
     inv STEP_TGT; ss.
@@ -736,10 +749,14 @@ Proof.
     splits; s; ii.
     { inv TERMINAL_TGT. }
     { exploit sim_local_future; try apply LOCAL; eauto. i. des.
-      esplits; try apply TimeMap.join_l; try apply TimeMap.join_r; eauto.
-      apply Memory.join_closed_timemap.
-      - admit. (* future sc should be chosen more carefully *)
-      - eapply Memory.future_closed_timemap; eauto.
+      esplits; eauto.
+      - etrans.
+        + apply Memory.max_timemap_spec; eauto. committac.
+        + apply Memory.sim_max_timemap; eauto.
+      - etrans.
+        + apply Memory.max_timemap_spec; eauto. committac.
+        + apply Memory.future_max_timemap; eauto.
+      - apply Memory.max_timemap_closed. committac.
     }
     { ss. subst. esplits; eauto. }
     inv STEP_TGT; ss.
@@ -767,7 +784,7 @@ Proof.
           eapply _sim_stmts_mon; try apply LE; eauto.
         - ii. apply rclo9_base; auto.
       }
-Admitted.
+Qed.
 
 Definition sim_stmts := @_sim_stmts (@sim_thread lang lang).
 

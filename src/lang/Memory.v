@@ -1849,6 +1849,28 @@ Module Memory.
     eapply max_ts_spec; eauto.
   Qed.
 
+  Lemma future_max_timemap
+        mem1 mem2
+        (CLOSED1: closed mem1)
+        (CLOSED2: closed mem2)
+        (FUTURE: future mem1 mem2):
+    TimeMap.le (max_timemap mem1) (max_timemap mem2).
+  Proof.
+    apply Memory.max_timemap_spec; try apply CLOSED2.
+    ii. exploit Memory.max_timemap_closed; try apply CLOSED1; eauto. i. des.
+    exploit Memory.future_get; eauto. i. des.
+    eauto.
+  Qed.
+
+  Lemma sim_max_timemap
+        mem1 mem2
+        (CLOSED1: closed mem1)
+        (CLOSED2: closed mem2)
+        (FUTURE: sim mem1 mem2):
+    TimeMap.le (max_timemap mem2) (max_timemap mem1).
+  Proof.
+  Admitted.
+
   Definition max_capability (mem:t): Capability.t :=
     Capability.mk (max_timemap mem) (max_timemap mem) (max_timemap mem).
 

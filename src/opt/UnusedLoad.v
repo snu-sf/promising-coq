@@ -54,22 +54,18 @@ Lemma unused_read
     Local.read_step lc0 mem0 loc ts val released ord lc0.
 Proof.
   destruct lc0.
-  assert (exists from msg, Memory.get loc (Capability.ur (Commit.cur commit) loc) mem0 = Some (from, msg)).
+  assert (exists from val released, Memory.get loc (Capability.ur (Commit.cur commit) loc) mem0 = Some (from, Message.mk val released)).
   { inv WF. ss. inv COMMIT_CLOSED. inv CUR.
-    exploit UR; eauto. i. des. eauto.
+    exploit UR; eauto.
   }
-  i. des.
-  inv MEM. exploit CLOSED; eauto. i. des.
-  esplits. econs; eauto.
-  - admit.
-  - s. apply Commit.antisym.
-    + unfold Commit.read_commit. econs; s; committac; try apply WF.
-      * apply Time.bot_spec.
-      * condtac; committac.
-      * apply Time.bot_spec.
-      * condtac; committac.
-    + admit.
-Admitted.
+  des. inv MEM. exploit CLOSED; eauto. i. des.
+  esplits. econs; s; eauto.
+  - econs; committac.
+  - apply Commit.antisym.
+    + unfold Commit.read_commit. econs; repeat (condtac; aggrtac; try apply WF).
+      etrans; apply WF.
+    + apply CommitFacts.read_commit_incr.
+Qed.
 
 Lemma unused_load_sim_stmts
       r loc ord
@@ -82,10 +78,14 @@ Proof.
   pcofix CIH. ii. subst. pfold. ii. splits.
   { i. inv TERMINAL_TGT. }
   { i. exploit sim_local_future; try apply LOCAL; eauto. i. des.
-    esplits; try apply TimeMap.join_l; try apply TimeMap.join_r; eauto.
-    apply Memory.join_closed_timemap.
-    - admit. (* future sc should be chosen more carefully *)
-    - eapply Memory.future_closed_timemap; eauto.
+    esplits; eauto.
+    - etrans.
+      + apply Memory.max_timemap_spec; eauto. committac.
+      + apply Memory.sim_max_timemap; eauto.
+    - etrans.
+      + apply Memory.max_timemap_spec; eauto. committac.
+      + apply Memory.future_max_timemap; eauto.
+    - apply Memory.max_timemap_closed. committac.
   }
   { i. esplits; eauto.
     eapply sim_local_memory_bot; eauto.
@@ -102,4 +102,4 @@ Proof.
     + auto.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
       etrans; eauto. apply RegFile.eq_except_singleton.
-Admitted.
+Qed.
