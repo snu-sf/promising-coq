@@ -258,14 +258,6 @@ Proof.
     + refl.
 Qed.
 
-Lemma future_fence_step lc1 sc1 mem1 mem1' ordr ordw lc2 sc2
-      (FUTURE: Memory.future mem1 mem1')
-      (STEP: Local.fence_step lc1 sc1 mem1 ordr ordw lc2 sc2):
-  Local.fence_step lc1 sc1 mem1' ordr ordw lc2 sc2.
-Proof.
-  inv STEP. econs; eauto.
-Qed.
-
 
 Definition SIM_REGS := forall (rs_src rs_tgt:RegFile.t), Prop.
 
