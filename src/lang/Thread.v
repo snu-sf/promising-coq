@@ -97,7 +97,7 @@ Module Local.
       read_step lc1 mem1 loc to val released ord (mk commit2 lc1.(promises))
   .
 
-  Inductive write_step (lc1:t) (sc1:TimeMap.t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (releasedm released:Capability.t) (ord:Ordering.t): forall (lc2:t) (sc2:TimeMap.t) (mem2:Memory.t), Prop :=
+  Inductive write_step (lc1:t) (sc1:TimeMap.t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (releasedm released:Capability.t) (ord:Ordering.t): forall (lc2:t) (sc2:TimeMap.t) (mem2:Memory.t) (kind:Memory.promise_kind), Prop :=
   | step_write_intro
       promises2 mem2 kind
       (RELEASED: released = Capability.join releasedm ((Commit.write_commit lc1.(commit) sc1 loc to ord).(Commit.rel) loc))
@@ -109,7 +109,7 @@ Module Local.
       write_step lc1 sc1 mem1 loc from to val releasedm released ord
                  (mk (Commit.write_commit lc1.(commit) sc1 loc to ord) promises2)
                  (Commit.write_sc sc1 loc to ord)
-                 mem2
+                 mem2 kind
   .
 
   Inductive fence_step (lc1:t) (sc1:TimeMap.t) (mem1:Memory.t) (ordr ordw:Ordering.t): forall (lc2:t) (sc2:TimeMap.t), Prop :=
@@ -150,8 +150,8 @@ Module Local.
     i. des. econs; eauto.
   Qed.
 
-  Lemma write_step_future lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2
-        (STEP: write_step lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2)
+  Lemma write_step_future lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind
+        (STEP: write_step lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind)
         (WF1: wf lc1 mem1)
         (SC1: Memory.closed_timemap sc1 mem1)
         (CLOSED1: Memory.closed mem1):
@@ -220,8 +220,8 @@ Module Local.
   Qed.
 
   Lemma write_step_disjoint
-        lc1 sc1 mem1 lc2 sc2 loc from to val releasedm released ord mem2 lc
-        (STEP: write_step lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2)
+        lc1 sc1 mem1 lc2 sc2 loc from to val releasedm released ord mem2 kind lc
+        (STEP: write_step lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind)
         (WF1: wf lc1 mem1)
         (SC1: Memory.closed_timemap sc1 mem1)
         (CLOSED1: Memory.closed mem1)
@@ -293,18 +293,18 @@ Module Thread.
         program_step (ThreadEvent.read loc ts val ord) (mk st1 lc1 sc1 mem1) (mk st2 lc2 sc1 mem1)
     | step_write
         st1 lc1 sc1 mem1
-        st2 loc from to val released ord lc2 sc2 mem2
+        st2 loc from to val released ord lc2 sc2 mem2 kind
         (STATE: lang.(Language.step) (Some (ProgramEvent.write loc val ord)) st1 st2)
-        (LOCAL: Local.write_step lc1 sc1 mem1 loc from to val Capability.bot released ord lc2 sc2 mem2):
+        (LOCAL: Local.write_step lc1 sc1 mem1 loc from to val Capability.bot released ord lc2 sc2 mem2 kind):
         program_step (ThreadEvent.write loc from to val released ord) (mk st1 lc1 sc1 mem1) (mk st2 lc2 sc2 mem2)
     | step_update
         st1 lc1 sc1 mem1
         st3 loc ordr ordw
         tsr valr releasedr releasedw lc2
-        tsw valw lc3 sc3 mem3
+        tsw valw lc3 sc3 mem3 kind
         (STATE: lang.(Language.step) (Some (ProgramEvent.update loc valr valw ordr ordw)) st1 st3)
         (LOCAL1: Local.read_step lc1 mem1 loc tsr valr releasedr ordr lc2)
-        (LOCAL2: Local.write_step lc2 sc1 mem1 loc tsr tsw valw releasedr releasedw ordw lc3 sc3 mem3):
+        (LOCAL2: Local.write_step lc2 sc1 mem1 loc tsr tsw valw releasedr releasedw ordw lc3 sc3 mem3 kind):
         program_step (ThreadEvent.update loc tsr tsw valr valw releasedr releasedw ordr ordw) (mk st1 lc1 sc1 mem1) (mk st3 lc3 sc3 mem3)
     | step_fence
         st1 lc1 sc1 mem1

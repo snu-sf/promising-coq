@@ -104,17 +104,16 @@ Qed.
 
 Lemma reorder_read_promise
       loc1 ts1 val1 released1 ord1
-      loc2 from2 to2 val2 released2
+      loc2 from2 to2 val2 released2 kind2
       lc0 mem0
       lc1
       lc2 mem2
-      kind
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
       (STEP1: Local.read_step lc0 mem0 loc1 ts1 val1 released1 ord1 lc1)
-      (STEP2: Local.promise_step lc1 mem0 loc2 from2 to2 val2 released2 lc2 mem2 kind):
+      (STEP2: Local.promise_step lc1 mem0 loc2 from2 to2 val2 released2 lc2 mem2 kind2):
   exists lc1' lc2',
-    <<STEP1: Local.promise_step lc0 mem0 loc2 from2 to2 val2 released2 lc1' mem2 kind>> /\
+    <<STEP1: Local.promise_step lc0 mem0 loc2 from2 to2 val2 released2 lc1' mem2 kind2>> /\
     <<STEP2: Local.read_step lc1' mem2 loc1 ts1 val1 released1 ord1 lc2'>> /\
     <<LOCAL: sim_local lc2' lc2>>.
 Proof.
@@ -135,14 +134,15 @@ Lemma reorder_read_write
       lc0 sc0 mem0
       lc1
       lc2 sc2 mem2
+      kind
       (LOC: loc1 <> loc2)
       (ORD: Ordering.le Ordering.seqcst ord2 -> Ordering.le Ordering.seqcst ord1 -> False)
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
       (STEP1: Local.read_step lc0 mem0 loc1 ts1 val1 released1 ord1 lc1)
-      (STEP2: Local.write_step lc1 sc0 mem0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc2 sc2 mem2):
+      (STEP2: Local.write_step lc1 sc0 mem0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc2 sc2 mem2 kind):
   exists mem2' lc1' lc2',
-    <<STEP1: Local.write_step lc0 sc0 mem0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc1' sc2 mem2'>> /\
+    <<STEP1: Local.write_step lc0 sc0 mem0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc1' sc2 mem2' kind>> /\
     <<STEP2: Local.read_step lc1' mem2' loc1 ts1 val1 released1 ord1 lc2'>> /\
     <<LOCAL: sim_local lc2' lc2>> /\
     <<MEM: Memory.sim mem2 mem2'>>.
@@ -210,7 +210,7 @@ Proof.
 Qed.
 
 Lemma reorder_write_read
-      loc1 from1 to1 val1 releasedm1 released1 ord1
+      loc1 from1 to1 val1 releasedm1 released1 ord1 kind1
       loc2 ts2 val2 released2 ord2
       lc0 sc0 mem0
       lc1 sc1 mem1
@@ -220,11 +220,11 @@ Lemma reorder_write_read
       (ORD2: Ordering.le ord2 Ordering.relaxed)
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
-      (STEP1: Local.write_step lc0 sc0 mem0 loc1 from1 to1 val1 releasedm1 released1 ord1 lc1 sc1 mem1)
+      (STEP1: Local.write_step lc0 sc0 mem0 loc1 from1 to1 val1 releasedm1 released1 ord1 lc1 sc1 mem1 kind1)
       (STEP2: Local.read_step lc1 mem1 loc2 ts2 val2 released2 ord2 lc2):
   exists lc1' lc2',
     <<STEP1: Local.read_step lc0 mem0 loc2 ts2 val2 released2 ord2 lc1'>> /\
-    <<STEP2: Local.write_step lc1' sc0 mem0 loc1 from1 to1 val1 releasedm1 released1 ord1 lc2' sc1 mem1>> /\
+    <<STEP2: Local.write_step lc1' sc0 mem0 loc1 from1 to1 val1 releasedm1 released1 ord1 lc2' sc1 mem1 kind1>> /\
     <<LOCAL: sim_local lc2' lc2>>.
 Proof.
   inv STEP1. inv STEP2. ss.
@@ -249,19 +249,18 @@ Proof.
 Admitted.
 
 Lemma reorder_write_promise
-      loc1 from1 to1 val1 releasedm1 released1 ord1
-      loc2 from2 to2 val2 released2
+      loc1 from1 to1 val1 releasedm1 released1 ord1 kind1
+      loc2 from2 to2 val2 released2 kind2
       lc0 sc0 mem0
       lc1 sc1 mem1
       lc2 mem2
-      kind
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
-      (STEP1: Local.write_step lc0 sc0 mem0 loc1 from1 to1 val1 releasedm1 released1 ord1 lc1 sc1 mem1)
-      (STEP2: Local.promise_step lc1 mem1 loc2 from2 to2 val2 released2 lc2 mem2 kind):
+      (STEP1: Local.write_step lc0 sc0 mem0 loc1 from1 to1 val1 releasedm1 released1 ord1 lc1 sc1 mem1 kind1)
+      (STEP2: Local.promise_step lc1 mem1 loc2 from2 to2 val2 released2 lc2 mem2 kind2):
   exists lc1' lc2' mem1',
-    <<STEP1: Local.promise_step lc0 mem0 loc2 from2 to2 val2 released2 lc1' mem1' kind>> /\
-    <<STEP2: Local.write_step lc1' sc0 mem1' loc1 from1 to1 val1 releasedm1 released1 ord1 lc2' sc1 mem2>> /\
+    <<STEP1: Local.promise_step lc0 mem0 loc2 from2 to2 val2 released2 lc1' mem1' kind2>> /\
+    <<STEP2: Local.write_step lc1' sc0 mem1' loc1 from1 to1 val1 releasedm1 released1 ord1 lc2' sc1 mem2 kind1>> /\
     <<LOCAL: sim_local lc2' lc2>>.
 Proof.
   inv STEP1. inv STEP2. ss. inv WRITE.
@@ -274,8 +273,8 @@ Proof.
 Admitted.
 
 Lemma reorder_write_write
-      loc1 from1 to1 val1 releasedm1 released1 ord1
-      loc2 from2 to2 val2 releasedm2 released2 ord2
+      loc1 from1 to1 val1 releasedm1 released1 ord1 kind1
+      loc2 from2 to2 val2 releasedm2 released2 ord2 kind2
       lc0 sc0 mem0
       lc1 sc1 mem1
       lc2 sc2 mem2
@@ -283,11 +282,11 @@ Lemma reorder_write_write
       (ORD1: Ordering.le ord1 Ordering.relaxed)
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
-      (STEP1: Local.write_step lc0 sc0 mem0 loc1 from1 to1 val1 releasedm1 released1 ord1 lc1 sc1 mem1)
-      (STEP2: Local.write_step lc1 sc1 mem1 loc2 from2 to2 val2 releasedm2 released2 ord2 lc2 sc2 mem2):
+      (STEP1: Local.write_step lc0 sc0 mem0 loc1 from1 to1 val1 releasedm1 released1 ord1 lc1 sc1 mem1 kind1)
+      (STEP2: Local.write_step lc1 sc1 mem1 loc2 from2 to2 val2 releasedm2 released2 ord2 lc2 sc2 mem2 kind2):
   exists lc1' lc2' sc1' sc2' mem1',
-    <<STEP1: Local.write_step lc0 sc0 mem0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc1' sc1' mem1'>> /\
-    <<STEP2: Local.write_step lc1' sc1' mem1' loc1 from1 to1 val1 releasedm1 released1 ord1 lc2' sc2' mem2>> /\
+    <<STEP1: Local.write_step lc0 sc0 mem0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc1' sc1' mem1' kind2>> /\
+    <<STEP2: Local.write_step lc1' sc1' mem1' loc1 from1 to1 val1 releasedm1 released1 ord1 lc2' sc2' mem2 kind1>> /\
     <<LOCAL: sim_local lc2' lc2>> /\
     <<SC: TimeMap.le sc2' sc2>>.
 Proof.
@@ -301,7 +300,8 @@ Proof.
       * apply CommitFacts.write_commit_incr.
       * apply CommitFacts.write_sc_incr.
     + admit. (* Memory.write *)
-    + i. splits; eauto. admit. (* promise = bot? *)
+    + i. exploit RELEASE0; eauto. i. des. splits; auto.
+      admit. (* promise = bot? *)
   - econs; eauto.
     + admit. (* eq released *)
     + s. unfold Commit.write_commit, Commit.write_sc.
@@ -341,7 +341,7 @@ Qed.
 
 Lemma reorder_fence_write
       ordr1 ordw1
-      loc2 from2 to2 val2 releasedm2 released2 ord2
+      loc2 from2 to2 val2 releasedm2 released2 ord2 kind2
       lc0 sc0 mem0
       lc1 sc1
       lc2 sc2 mem2
@@ -351,9 +351,9 @@ Lemma reorder_fence_write
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
       (STEP1: Local.fence_step lc0 sc0 mem0 ordr1 ordw1 lc1 sc1)
-      (STEP2: Local.write_step lc1 sc1 mem0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc2 sc2 mem2):
+      (STEP2: Local.write_step lc1 sc1 mem0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc2 sc2 mem2 kind2):
   exists lc1' lc2' sc1' sc2',
-    <<STEP1: Local.write_step lc0 sc0 mem0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc1' sc1' mem2>> /\
+    <<STEP1: Local.write_step lc0 sc0 mem0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc1' sc1' mem2 kind2>> /\
     <<STEP2: Local.fence_step lc1' sc1' mem2 ordr1 ordw1 lc2' sc2'>> /\
     <<LOCAL: sim_local lc2' lc2>> /\
     <<SC: TimeMap.le sc2' sc2>>.
