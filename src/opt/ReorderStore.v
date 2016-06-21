@@ -54,10 +54,12 @@ Inductive sim_store: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (sc0
                        (st_tgt:lang.(Language.state)) (lc_tgt:Local.t) (sc0_tgt:TimeMap.t) (mem0_tgt:Memory.t), Prop :=
 | sim_store_intro
     l1 f1 t1 v1 released1 o1 i2
-    rs lc1_src lc1_tgt lc2_src
+    rs lc1_src lc1_tgt lc2_src sc2_src
+    sc0_src sc0_tgt
     mem0_src mem0_tgt
+    mem2_src
     (REORDER: reorder_store l1 v1 o1 i2)
-    (FULFILL: Local.fulfill_step lc1_src sc0_src mem0_src l1 f1 t1 (RegFile.eval_value rs v1) released1 released1 o1 lc2_src)
+    (FULFILL: Local.write_step lc1_src sc0_src mem0_src l1 f1 t1 (RegFile.eval_value rs v1) released1 released1 o1 lc2_src sc2_src mem2_src Memory.promise_kind_lower)
     (LOCAL: sim_local lc2_src lc1_tgt):
     sim_store
       (State.mk rs [Stmt.instr i2; Stmt.instr (Instr.store l1 v1 o1)]) lc1_src sc0_src mem0_src
@@ -69,17 +71,18 @@ Lemma sim_store_step
       st1_tgt lc1_tgt sc0_tgt mem0_tgt
       (SIM: sim_store st1_src lc1_src sc0_src mem0_src
                       st1_tgt lc1_tgt sc0_tgt mem0_tgt):
-  forall mem1_src mem1_tgt
-    (MEMORY: sim_memory mem1_src mem1_tgt)
+  forall sc1_src sc1_tgt
+    mem1_src mem1_tgt
+    (MEMORY: Memory.sim mem1_tgt mem1_src)
     (FUTURE_SRC: Memory.future mem0_src mem1_src)
     (FUTURE_TGT: Memory.future mem0_tgt mem1_tgt)
     (WF_SRC: Local.wf lc1_src mem1_src)
     (WF_TGT: Local.wf lc1_tgt mem1_tgt)
     (MEM_SRC: Memory.closed mem1_src)
     (MEM_TGT: Memory.closed mem1_tgt),
-    _sim_thread_step lang lang ((sim_thread (sim_terminal eq)) \6/ sim_store)
-                     st1_src lc1_src mem1_src
-                     st1_tgt lc1_tgt mem1_tgt.
+    _sim_thread_step lang lang ((sim_thread (sim_terminal eq)) \8/ sim_store)
+                     st1_src lc1_src sc1_src mem1_src
+                     st1_tgt lc1_tgt sc1_tgt mem1_tgt.
 Proof.
   inv SIM. ii.
   exploit Local.future_fulfill_step; try apply FULFILL; eauto. i.

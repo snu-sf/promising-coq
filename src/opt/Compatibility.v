@@ -131,10 +131,10 @@ Lemma sim_local_write
       lc1_src sc1_src mem1_src
       lc1_tgt sc1_tgt mem1_tgt
       lc2_tgt sc2_tgt mem2_tgt
-      loc from to val releasedm_src releasedm_tgt released_tgt ord
+      loc from to val releasedm_src releasedm_tgt released_tgt ord kind
       (RELM: Capability.le releasedm_src releasedm_tgt)
       (WF_RELM_TGT: Capability.wf releasedm_tgt)
-      (STEP_TGT: Local.write_step lc1_tgt sc1_tgt mem1_tgt loc from to val releasedm_tgt released_tgt ord lc2_tgt sc2_tgt mem2_tgt)
+      (STEP_TGT: Local.write_step lc1_tgt sc1_tgt mem1_tgt loc from to val releasedm_tgt released_tgt ord lc2_tgt sc2_tgt mem2_tgt kind)
       (LOCAL1: sim_local lc1_src lc1_tgt)
       (SC1: TimeMap.le sc1_src sc1_tgt)
       (MEM1: Memory.sim mem1_tgt mem1_src)
@@ -143,7 +143,7 @@ Lemma sim_local_write
       (MEM1_SRC: Memory.closed mem1_src)
       (MEM1_TGT: Memory.closed mem1_tgt):
   exists released_src lc2_src sc2_src mem2_src,
-    <<STEP_SRC: Local.write_step lc1_src sc1_src mem1_src loc from to val releasedm_src released_src ord lc2_src sc2_src mem2_src>> /\
+    <<STEP_SRC: Local.write_step lc1_src sc1_src mem1_src loc from to val releasedm_src released_src ord lc2_src sc2_src mem2_src kind>> /\
     <<REL2: Capability.le released_src released_tgt>> /\
     <<LOCAL2: sim_local lc2_src lc2_tgt>> /\
     <<SC2: TimeMap.le sc2_src sc2_tgt>> /\

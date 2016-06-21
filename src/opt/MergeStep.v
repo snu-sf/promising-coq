@@ -49,13 +49,13 @@ Proof.
 Qed.
 
 Lemma merge_write_read1
-      loc from to val released ord1 ord2
+      loc from to val released ord1 ord2 kind
       lc0 sc0 mem0
       lc1 sc1 mem1
       (ORD: Ordering.le Ordering.seqcst ord2 -> Ordering.le Ordering.seqcst ord1)
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
-      (STEP: Local.write_step lc0 sc0 mem0 loc from to val Capability.bot released ord1 lc1 sc1 mem1):
+      (STEP: Local.write_step lc0 sc0 mem0 loc from to val Capability.bot released ord1 lc1 sc1 mem1 kind):
   Local.read_step lc1 mem1 loc to val released ord2 lc1.
 Proof.
   inv STEP. econs; eauto.
@@ -71,7 +71,7 @@ Proof.
 Admitted.
 
 Lemma merge_write_read2
-      loc from to val releasedm released ord1 ord2
+      loc from to val releasedm released ord1 ord2 kind
       lc0 sc0 mem0
       lc1 sc1 mem1
       (ORD2: Ordering.le ord2 Ordering.relaxed)
@@ -79,7 +79,7 @@ Lemma merge_write_read2
       (MEM0: Memory.closed mem0)
       (WF_RELEASED: Capability.wf releasedm)
       (RELEASED: Ordering.le Ordering.relaxed ord2 -> Capability.le releasedm lc0.(Local.commit).(Commit.acq))
-      (STEP: Local.write_step lc0 sc0 mem0 loc from to val releasedm released ord1 lc1 sc1 mem1):
+      (STEP: Local.write_step lc0 sc0 mem0 loc from to val releasedm released ord1 lc1 sc1 mem1 kind):
   Local.read_step lc1 mem1 loc to val released ord2 lc1.
 Proof.
   inv STEP. econs; eauto.
