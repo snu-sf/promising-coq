@@ -281,6 +281,56 @@ Proof.
   - symmetry. auto.
 Qed.
 
+Lemma compose_opt_step1
+      ths1 ths2
+      e tid sc mem ths1' sc' mem'
+      (STEP: Configuration.opt_step
+               e tid
+               (Configuration.mk ths1 sc mem)
+               (Configuration.mk ths1' sc' mem'))
+      (DISJOINT: Threads.disjoint ths1 ths2)
+      (WF1: Configuration.wf (Configuration.mk ths1 sc mem))
+      (WF2: Configuration.wf (Configuration.mk ths2 sc mem))
+      (CONSISTENT1: Configuration.consistent (Configuration.mk ths1 sc mem))
+      (CONSISTENT2: Configuration.consistent (Configuration.mk ths2 sc mem)):
+  <<STEP: Configuration.opt_step
+            e tid
+            (Configuration.mk (Threads.compose ths1 ths2) sc mem)
+            (Configuration.mk (Threads.compose ths1' ths2) sc' mem')>> /\
+  <<DISJOINT': Threads.disjoint ths1' ths2>> /\
+  <<WF2': Configuration.wf (Configuration.mk ths2 sc' mem')>> /\
+  <<CONSISTENT2': Configuration.consistent (Configuration.mk ths2 sc' mem')>>.
+Proof.
+  inv STEP.
+  - splits; eauto. econs 1.
+  - exploit compose_step1; eauto. i. des. splits; eauto. econs 2. auto.
+Qed.
+
+Lemma compose_opt_step2
+      ths1 ths2
+      e tid sc mem ths2' sc' mem'
+      (STEP: Configuration.opt_step
+               e tid
+               (Configuration.mk ths2 sc mem)
+               (Configuration.mk ths2' sc' mem'))
+      (DISJOINT: Threads.disjoint ths1 ths2)
+      (WF1: Configuration.wf (Configuration.mk ths1 sc mem))
+      (WF2: Configuration.wf (Configuration.mk ths2 sc mem))
+      (CONSISTENT1: Configuration.consistent (Configuration.mk ths1 sc mem))
+      (CONSISTENT2: Configuration.consistent (Configuration.mk ths2 sc mem)):
+  <<STEP: Configuration.opt_step
+            e tid
+            (Configuration.mk (Threads.compose ths1 ths2) sc mem)
+            (Configuration.mk (Threads.compose ths1 ths2') sc' mem')>> /\
+  <<DISJOINT': Threads.disjoint ths1 ths2'>> /\
+  <<WF1': Configuration.wf (Configuration.mk ths1 sc' mem')>> /\
+  <<CONSISTENT1': Configuration.consistent (Configuration.mk ths1 sc' mem')>>.
+Proof.
+  inv STEP.
+  - splits; eauto. econs 1.
+  - exploit compose_step2; eauto. i. des. splits; eauto. econs 2. auto.
+Qed.
+
 Lemma compose_rtc_step1
       c1 c2 ths
       (STEPS: rtc Configuration.tau_step c1 c2)
@@ -370,7 +420,7 @@ Proof.
     + eauto.
     + eauto.
     + apply compose_is_terminal; auto.
-  - i. apply compose_step in STEP_TGT; auto. des; subst.
+  - apply compose_step in STEP_TGT; auto. des; subst.
     + exploit Configuration.step_future; eauto. s. i. des.
       exploit Configuration.step_disjoint; eauto. s. i. des.
       punfold SIM1. exploit SIM1; try apply SC1; eauto. i. des.
@@ -378,9 +428,9 @@ Proof.
       exploit Configuration.rtc_step_future; eauto. s. i. des.
       exploit Configuration.rtc_step_disjoint; eauto. s. i. des.
       exploit compose_rtc_step1; eauto. s. i. des.
-      exploit Configuration.step_future; eauto. s. i. des.
-      exploit Configuration.step_disjoint; eauto. s. i. des.
-      exploit compose_step1; eauto. i. des.
+      exploit Configuration.opt_step_future; eauto. s. i. des.
+      exploit Configuration.opt_step_disjoint; eauto. s. i. des.
+      exploit compose_opt_step1; eauto. i. des.
       esplits; eauto.
       right. apply CIH; auto.
       eapply sim_future; eauto.
@@ -395,9 +445,9 @@ Proof.
       exploit Configuration.rtc_step_future; eauto. s. i. des.
       exploit Configuration.rtc_step_disjoint; try symmetry; eauto. s. i. des.
       exploit compose_rtc_step2; eauto. s. i. des.
-      exploit Configuration.step_future; eauto. s. i. des.
-      exploit Configuration.step_disjoint; eauto. s. i. des.
-      exploit compose_step2; eauto. i. des.
+      exploit Configuration.opt_step_future; eauto. s. i. des.
+      exploit Configuration.opt_step_disjoint; eauto. s. i. des.
+      exploit compose_opt_step2; eauto. i. des.
       esplits; eauto.
       right. apply CIH; auto.
       { symmetry. auto. }

@@ -186,7 +186,7 @@ Section Simulation.
           (STEP_TGT: Configuration.step e tid_tgt (Configuration.mk ths1_tgt sc1_tgt mem1_tgt) (Configuration.mk ths3_tgt sc3_tgt mem3_tgt)),
         exists e tid_src ths2_src sc2_src mem2_src ths3_src sc3_src mem3_src,
           <<STEPS: rtc Configuration.tau_step (Configuration.mk ths1_src sc1_src mem1_src) (Configuration.mk ths2_src sc2_src mem2_src)>> /\
-          <<STEP_SRC: Configuration.step e tid_src (Configuration.mk ths2_src sc2_src mem2_src) (Configuration.mk ths3_src sc3_src mem3_src)>> /\
+          <<STEP_SRC: Configuration.opt_step e tid_src (Configuration.mk ths2_src sc2_src mem2_src) (Configuration.mk ths3_src sc3_src mem3_src)>> /\
           <<SC3: TimeMap.le sc3_src sc3_tgt>> /\
           <<MEMORY3: Memory.sim mem3_tgt mem3_src>> /\
           <<SIM: sim ths3_src sc3_src mem3_src ths3_tgt sc3_tgt mem3_tgt>>>>.
@@ -470,7 +470,6 @@ Proof.
       * inv X0. destruct a2. econs 2; [|econs 1].
         econs. rewrite <- TAU. econs; ss; eauto.
         { eapply IdentMap.singleton_eq. }
-        { econs 2. eauto. }
         { ii. eexists. splits; eauto. ss.
           eapply MemInv.sem_bot_inv.
           - inv THREAD. rewrite <- PROMISES0. apply LOCAL.
@@ -489,9 +488,25 @@ Proof.
     exploit sim_rtc_step; try apply STEPS; try apply SC1; eauto.
     { eapply sim_thread_future; eauto. }
     i. des. destruct e2. ss.
-    exploit sim_opt_step; try apply MEMORY; eauto. i. des.
+    exploit sim_opt_step; try apply MEMORY; eauto.
+    { econs 2. eauto. }
+    i. des. rewrite STEPS1 in STEPS0. inv STEP0.
+    { generalize (rtc_tail STEPS0). intro X. des.
+      - inv X0. esplits; eauto.
+        + econs 2. econs; s.
+          * apply IdentMap.singleton_eq.
+          * etrans; eauto.
+          * eauto.
+          * eapply sim_thread_consistent; eauto.
+        + right. s. rewrite ? IdentMap.singleton_add.
+          apply CIH. ss.
+      - inv X. esplits; eauto.
+        + instantiate (2 := tid). econs 1.
+        + right. s. rewrite ? IdentMap.singleton_add.
+          apply CIH. eauto.
+    }
     esplits; eauto.
-    + econs; s.
+    + econs 2. econs; s.
       * apply IdentMap.singleton_eq.
       * etrans; eauto.
       * eauto.

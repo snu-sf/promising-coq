@@ -67,12 +67,14 @@ Inductive sim_load: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (sc0_
     mem0_src mem0_tgt
     (REORDER: reorder_load r1 l1 o1 i2)
     (READ: Local.read_step lc1_src mem0_src l1 ts1 v1 released1 o1 lc2_src)
+    (SC: TimeMap.le sc0_src sc0_tgt)
+    (MEMORY: Memory.sim mem0_tgt mem0_src)
     (WF_SRC: Local.wf lc1_src mem0_src)
     (WF_TGT: Local.wf lc1_tgt mem0_tgt)
     (SC_SRC: Memory.closed_timemap sc0_src mem0_src)
     (SC_TGT: Memory.closed_timemap sc0_tgt mem0_tgt)
-    (CLOSED_SRC: Memory.closed mem0_src)
-    (CLOSED_TGT: Memory.closed mem0_tgt)
+    (MEM_SRC: Memory.closed mem0_src)
+    (MEM_TGT: Memory.closed mem0_tgt)
     (LOCAL: sim_local lc2_src lc1_tgt):
     sim_load
       (State.mk rs [Stmt.instr i2; Stmt.instr (Instr.load r1 l1 o1)]) lc1_src sc0_src mem0_src
@@ -121,6 +123,9 @@ Proof.
     + apply Memory.future_max_timemap; eauto.
   - apply Memory.max_timemap_closed. committac.
   - econs; eauto.
+    + etrans.
+      * apply Memory.max_timemap_spec; eauto. committac.
+      * apply Memory.sim_max_timemap; eauto.
     + apply Memory.max_timemap_closed. committac.
     + etrans; eauto.
 Qed.
@@ -147,11 +152,11 @@ Lemma sim_load_step
                      st1_src lc1_src sc1_src mem1_src
                      st1_tgt lc1_tgt sc1_tgt mem1_tgt.
 Proof.
-  ii. exploit sim_load_future; try apply SIM; eauto.
-  inv SIM. ii.
-  exploit future_read_step; try apply READ; eauto. i. des.
+  ii. exploit sim_load_future; try apply SIM; (try by inv SIM); eauto. i. des.
+  inv SIM. exploit future_read_step; try apply READ; eauto. i. des.
   inv STEP_TGT; inv STEP0; try (inv STATE; inv INSTR; inv REORDER); ss.
   - (* promise *)
+    exploit Local.promise_step_future; eauto. i. des.
     exploit sim_local_promise; (try by etrans; eauto); eauto.
     { eapply Local.read_step_future; eauto. }
     i. des.
@@ -246,6 +251,114 @@ Proof.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
       etrans; eauto.
 Qed.
+
+Lemma sim_load_sim_thread:
+  sim_load <8= (sim_thread (sim_terminal eq)).
+Proof.
+  pcofix CIH. i. pfold. ii. ss. splits; ss.
+  - i. inv TERMINAL_TGT. inv PR; ss.
+  - i. exploit sim_load_future; try apply PR; (try by inv PR); eauto. i. des.
+    exploit sim_load_future; try apply SIM2; auto. ; try apply SC2; eauto.
+    { admit. }
+    { admit. }
+    i. des. esplits. ; eauto.
+    ; (try by inv SIM2); eauto. i. des.
+    esplits; eauto.
+    + eapply Local.read_step_future; eauto.
+      eapply Local.future_read_step; eauto.
+    + eapply Local.read_step_future; eauto.
+      eapply Local.future_read_step; eauto.
+      eapply Local.future_read_step; eauto.
+
+
+  pcofix CIH. i. pfold. ii. ss. splits; ss.
+  - i. inv TERMINAL_TGT. inv PR; ss.
+  - i.
+    exploit future_read_step; try apply READ; eauto. i. des.
+    exploit sim_load_future; try apply PR. ; (try by inv PR); eauto. i. des.
+    esplits. ; eauto.
+    
+    exploit sim_local_future; try apply MEM1; eauto.
+    { inv LOCAL. apply MemInv.sem_bot_inv in PROMISES; auto. rewrite <- PROMISES.
+      inv READ. ss. apply MemInv.sem_bot.
+    }
+    { inv LOCAL. rewrite PROMISES_LE.
+      inv READ. ss.
+    }
+    {i. des. esplits; eauto.
+  - etrans.
+    + apply Memory.max_timemap_spec; eauto. committac.
+    + apply Memory.sim_max_timemap; eauto. 
+  - etrans.
+    + apply Memory.max_timemap_spec; eauto. committac.
+    + apply Memory.future_max_timemap; eauto.
+  - apply Memory.max_timemap_closed. committac.
+  - econs; eauto.
+    + etrans.
+      * apply Memory.max_timemap_spec; eauto. committac.
+      * apply Memory.sim_max_timemap; eauto.
+    + apply Memory.max_timemap_closed. committac.
+    + etrans; eauto.
+}
+
+    exploit sim_local_future; try apply LOCAL; eauto.
+    { eapply Local.read_step_future; eauto. }
+    { admit. }
+    i. des. esplits; eauto.
+  - i. esplits; eauto.
+    inv PR. inv READ. inv LOCAL. ss.
+    apply MemInv.sem_bot_inv in PROMISES. rewrite PROMISES. auto.
+  - ii. exploit sim_load_step; eauto. i. des.
+    + esplits; eauto.
+      left. eapply paco7_mon; eauto. ss.
+    + esplits; eauto.
+Qed.
+
+
+Lemma sim_load_sim_thread:
+  sim_load <8= (sim_thread (sim_terminal eq)).
+Proof.
+  pcofix CIH. i. pfold. ii. ss. splits; ss.
+  - i. inv TERMINAL_TGT. inv PR; ss.
+  - i. inv PR.
+    exploit future_read_step; try apply MEM_FUTURE_SRC; eauto. i. des.
+    rewrite LOCAL in LOCAL0.
+    exploit sim_local_future; try apply LOCAL0; eauto.
+    { eapply Local.read_step_future; eauto. }
+    { exploit future_read_step; try apply STEP; eauto. i. des.
+      exploit Local.read_step_future; eauto. i. des.
+      
+  }
+    
+    exploit Local.read_step_future; eauto. i. des.
+    exploit sim_local_future; try apply LOCAL0; try apply x0; eauto.
+    { 
+    etrans. eauto. eauto.
+    ; (try by etrans; eauto); eauto. try apply STEP; eauto.
+      esplits; eauto.
+      - etrans.
+        + apply Memory.max_timemap_spec; eauto. committac.
+        + apply Memory.sim_max_timemap; eauto.
+      - etrans.
+        + apply Memory.max_timemap_spec; eauto. committac.
+        + apply Memory.future_max_timemap; eauto.
+      - apply Memory.max_timemap_closed. committac.
+    }
+    exploit sim_local_future; try apply LOCAL; eauto.
+    + eapply Local.read_step_future; eauto.
+      eapply Local.future_read_step; eauto.
+    + eapply Local.read_step_future; eauto.
+      eapply Local.future_read_step; eauto.
+      eapply Local.future_read_step; eauto.
+  - i. esplits; eauto.
+    inv PR. inv READ. inv LOCAL. ss.
+    apply MemInv.sem_bot_inv in PROMISES. rewrite PROMISES. auto.
+  - ii. exploit sim_load_step; eauto. i. des.
+    + esplits; eauto.
+      left. eapply paco9_mon; eauto. ss.
+    + esplits; eauto.
+Qed.
+
 
 Lemma sim_load_sim_thread:
   sim_load <8= (sim_thread (sim_terminal eq)).
