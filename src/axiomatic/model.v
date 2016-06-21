@@ -3,7 +3,7 @@
 (******************************************************************************)
 
 Require Import Classical List Relations Peano_dec.
-Require Import Vbase ExtraRelations.
+Require Import Hahn.
 
 Require Import sflib.
 Require Import paco.
@@ -21,44 +21,39 @@ Remove Hints plus_n_O.
 Ltac cdes H := 
   let H' := fresh H in assert (H' := H); red in H'; desc. 
 
-Lemma seq_eqv_l A (dom : A -> Prop) (rel : relation A) (x y : A) 
-  (H : dom x) (R: rel x y) : (eqv_rel dom ;; rel) x y.
-Proof. unfold seq, eqv_rel; eauto. Qed.
-Lemma seq_eqv_r A (dom : A -> Prop) (rel : relation A) (x y : A) 
-  (H : dom y) (R: rel x y) : (rel ;; eqv_rel dom) x y.
-Proof. unfold seq, eqv_rel; eauto. Qed.
-
-Hint Resolve seq_eqv_l seq_eqv_r.
-
 Section Consistency.
 
-Variable acts : list event.  
-Variable sb : event -> event -> Prop. 
-Variable rmw : event -> event -> Prop. 
-Variable rf : event -> event -> Prop. 
-Variable mo : event -> event -> Prop. 
-Variable sc : event -> event -> Prop. 
+  Variable acts : list event.  
+  Variable sb : event -> event -> Prop. 
+  Variable rmw : event -> event -> Prop. 
+  Variable rf : event -> event -> Prop. 
+  Variable mo : event -> event -> Prop. 
+  Variable sc : event -> event -> Prop. 
 
 (******************************************************************************)
 (** ** Derived relations  *)
 (******************************************************************************)
 
-Definition useq := clos_trans (rf ;; rmw).
-
-Definition rseq :=
-eqv_rel (fun a => In a acts) ;; eqv_rel is_write ;;
-(clos_refl (restr_eq_rel loc sb)) ;;
-eqv_rel is_write ;;
-(clos_refl useq).
-
-Definition rel :=
-eqv_rel is_ra ;; ((eqv_rel is_write) +++ (eqv_rel is_wfence ;; sb)) ;; rseq.
-
-Definition sw :=
-  rel ;; rf ;; (clos_refl (eqv_rel is_rlx ;; sb ;; eqv_rel is_rfence)) ;; eqv_rel (is_ra).
-
-Definition hb :=
-  clos_trans (sb +++ sw).
+  Definition useq := clos_trans (rf ;; rmw).
+   
+  Definition rseq :=
+    <| fun a => In a acts |> ;; 
+    <| is_write |> ;;
+    clos_refl (restr_eq_rel loc sb) ;;
+    <| is_write |> ;;
+    clos_refl useq.
+   
+  Definition rel :=
+    <| is_ra |> ;; 
+    (<| is_write |> +++ <| is_wfence |> ;; sb) ;; 
+    rseq.
+   
+  Definition sw :=
+    rel ;; rf ;; clos_refl (<| is_rlx |> ;; sb ;; <| is_rfence |>) ;; 
+    <| is_ra |>.
+   
+  Definition hb :=
+    clos_trans (sb +++ sw).
 
 (******************************************************************************)
 (** ** Additional derived relations for simulation *)
@@ -67,14 +62,15 @@ Definition hb :=
   Definition hbsc := (clos_refl (hb ;; (eqv_rel is_wfence))) ;; sc.
 
   Definition ur_relation := 
-    (eqv_rel (fun a => In a acts)) ;; 
-    ((clos_refl (clos_refl rf ;; hbsc ;; (eqv_rel is_wfence))) ;; (clos_refl hb)).
+    <| fun a => In a acts |> ;; 
+    clos_refl (clos_refl rf ;; hbsc ;; <| is_wfence |>) ;; 
+    clos_refl hb.
   Definition rw_relation := 
     ur_relation +++ 
-    (eqv_rel (fun a => In a acts)) ;; rf ;; (clos_refl hb).
+    <| fun a => In a acts |> ;; rf ;; clos_refl hb.
   Definition sc_relation := 
     rw_relation +++ 
-    (eqv_rel (fun a => In a acts)) ;; (clos_refl rf) ;; hbsc ;; (clos_refl hb).
+    <| fun a => In a acts |> ;; clos_refl rf ;; hbsc ;; clos_refl hb.
 
   Definition m_rel l tm_relation := 
     eqv_rel (fun a => is_write a /\ loc a = Some l) ;; 
@@ -122,17 +118,11 @@ Definition hb :=
 (** ** Basic properties *)
 (******************************************************************************)
 
-Lemma sb_in_hb : 
-  forall x y, sb x y -> hb x y.
-Proof.
-  vauto.
-Qed.
+Lemma sb_in_hb : inclusion sb hb.
+Proof. vauto. Qed.
 
-Lemma sw_in_hb : 
-  forall x y, sw x y -> hb x y.
-Proof.
-  vauto.
-Qed.
+Lemma sw_in_hb : inclusion sw hb.
+Proof. vauto. Qed.
 
 Lemma hb_trans : 
   forall x y z, hb x y -> hb y z -> hb x z.
@@ -140,8 +130,9 @@ Proof.
   vauto.
 Qed.
 
-Hint Resolve hb_trans sb_in_hb sw_in_hb : hb. 
+(*Hint Resolve hb_trans sb_in_hb sw_in_hb : hb. *)
 
+(*
 Lemma eqv_rel_seq_eqv_rel f1 f2 (a b: event): 
   ((eqv_rel f1) ;; (eqv_rel f2)) a b <-> (eqv_rel (f1 /1\ f2)) a b.
 Proof.
@@ -155,87 +146,20 @@ unfold eqv_rel, seq; split; ins; desf; eauto.
 Qed.
 
 Hint Resolve eqv_rel_seq_eqv_rel eqv_rel_seq_eqv_rel_id : eqv_rel. 
+*)
 
-Lemma rseq_alt a b: 
-rseq a b <-> 
-((eqv_rel (fun a => In a acts) ;; eqv_rel is_write) +++
-(eqv_rel (fun a => In a acts) ;; eqv_rel is_write ;; useq) +++
-(eqv_rel (fun a => In a acts) ;; eqv_rel is_write ;; restr_eq_rel loc sb ;; eqv_rel is_write) +++
-(eqv_rel (fun a => In a acts) ;; eqv_rel is_write ;; restr_eq_rel loc sb ;; eqv_rel is_write ;; useq)) a b.
+Lemma rseq_alt : 
+  rseq <--> 
+  <|fun a => In a acts|> ;; <|is_write|> +++
+  <|fun a => In a acts|> ;; <|is_write|> ;; useq +++
+  <|fun a => In a acts|> ;; <|is_write|> ;; restr_eq_rel loc sb ;; <|is_write|> +++
+  <|fun a => In a acts|> ;; <|is_write|> ;; restr_eq_rel loc sb ;; 
+  eqv_rel is_write ;; useq.
 Proof.
-unfold rseq, union, clos_refl, seq, eqv_rel; split.
-- ins; desf.
-all: try by (left;left;left; repeat (eexists; eauto)).
-all: try by (left;left;right; repeat (eexists; eauto)).
-all: try by (left;right; repeat (eexists; eauto)).
-all: try by (right; repeat (eexists; eauto)).
-- ins; desf.
-all: try by (repeat (eexists; eauto)).
-Qed.
-(*
-Lemma rel_alt a b : 
-rel a b <->
-((eqv_rel (is_ra /1\ is_write);; eqv_rel (fun a => In a acts)) +++ 
-(eqv_rel (is_ra /1\ is_write);; eqv_rel (fun a => In a acts) ;; useq) +++
-(eqv_rel (is_ra /1\ is_write);; eqv_rel (fun a => In a acts) ;; restr_eq_rel loc sb ;; eqv_rel is_write) +++
-(eqv_rel (is_ra /1\ is_write);; eqv_rel (fun a => In a acts) ;; restr_eq_rel loc sb ;; eqv_rel is_write ;; useq) +++
-(eqv_rel (is_ra /1\ is_wfence) ;; sb ;; eqv_rel (fun a => In a acts) ;; eqv_rel is_write) +++
-(eqv_rel (is_ra /1\ is_wfence) ;; sb ;; eqv_rel (fun a => In a acts) ;; eqv_rel is_write ;; useq) +++
-(eqv_rel (is_ra /1\ is_wfence) ;; sb ;; eqv_rel (fun a => In a acts) ;; eqv_rel is_write ;; restr_eq_rel loc sb ;; eqv_rel is_write) +++
-(eqv_rel (is_ra /1\ is_wfence) ;; sb ;; eqv_rel (fun a => In a acts) ;; eqv_rel is_write ;; restr_eq_rel loc sb ;; eqv_rel is_write ;; useq)) a b.
-Proof.
-unfold rel, rseq, union, clos_refl, seq, eqv_rel ; split.
-- ins; desf.
-all: try by (left;left;left;left;left;left;left; repeat (eexists; eauto)).
-all: try by (left;left;left;left;left;left;right; repeat (eexists; eauto)).
-all: try by (left;left;left;left;left;right; repeat (eexists; eauto)).
-all: try by (left;left;left;left;right; repeat (eexists; eauto)).
-all: try by (left;left;left;right; repeat (eexists; eauto)).
-all: try by (left;left;right; repeat (eexists; eauto)).
-all: try by (left;right; repeat (eexists; eauto)).
-all: try by (right; repeat (eexists; eauto)).
-- ins; desf; try by (repeat (eexists; eauto)).
+unfold rseq; rewrite !crE; rel_simpl; rewrite !seq_eqvK, !(seq2 (seq_eqvK _)).
+unfold same_relation, inclusion, union; split; ins; desf; eauto. 
 Qed.
 
-
-Lemma sw_alt a b :
-sw a b <->
-(rel ;; rf ;; eqv_rel is_rlx ;; sb ;; eqv_rel is_rfence ;; eqv_rel (is_ra) +++
-rel ;; rf ;; eqv_rel (is_ra)) a b.
-Proof.
-unfold sw, union, clos_refl, seq ; split.
-- ins; desf.
-all: try by (right; repeat (eexists; eauto)).
-all: try by (left; repeat (eexists; eauto)).
-- ins; desf.
-all: try by (repeat (eexists; eauto)).
-(eexists; eauto);  (eexists; eauto);  (eexists; eauto);  (eexists; eauto);  (eexists; eauto); split; try edone.
-right; eexists; eauto.
-Qed.
-
-Lemma sw_alt1 a b :
-sw a b <->
-((eqv_rel is_ra;; rf ;; eqv_rel is_rlx ;; sb ;; eqv_rel is_rfence ;; eqv_rel is_ra) +++ 
-(eqv_rel is_ra;; rf ;; eqv_rel is_ra) +++ 
-(eqv_rel is_ra;; clos_trans (rf ;; rmw) ;; rf ;; eqv_rel is_rlx ;; sb ;; eqv_rel is_rfence ;; eqv_rel is_ra) +++
-(eqv_rel is_ra;; clos_trans (rf ;; rmw) ;; rf ;; eqv_rel is_ra) +++
-(eqv_rel (is_ra /1\ is_write);; restr_eq_rel loc sb ;; rf ;; eqv_rel is_rlx ;; sb ;; eqv_rel is_rfence ;; eqv_rel is_ra) +++
-(eqv_rel (is_ra /1\ is_write);; restr_eq_rel loc sb ;; rf ;; eqv_rel is_ra) +++
-(eqv_rel (is_ra /1\ is_write);; restr_eq_rel loc sb ;; clos_trans (rf ;; rmw) ;; rf ;; eqv_rel is_rlx ;; sb ;; eqv_rel is_rfence ;; eqv_rel is_ra) +++
-(eqv_rel (is_ra /1\ is_write);; restr_eq_rel loc sb ;; clos_trans (rf ;; rmw) ;; rf ;; eqv_rel is_ra) +++
-(eqv_rel (is_ra /1\ is_wfence) ;; sb ;; rf ;; eqv_rel is_rlx ;; sb ;; eqv_rel is_rfence ;; eqv_rel is_ra) +++
-(eqv_rel (is_ra /1\ is_wfence) ;; sb ;; rf ;; eqv_rel is_ra) +++
-(eqv_rel (is_ra /1\ is_wfence) ;; sb ;; clos_trans (rf ;; rmw) ;; rf ;; eqv_rel is_rlx ;; sb ;; eqv_rel is_rfence ;; eqv_rel is_ra) +++
-(eqv_rel (is_ra /1\ is_wfence) ;; sb ;; clos_trans (rf ;; rmw) ;; rf ;; eqv_rel is_ra) +++
-(eqv_rel (is_ra /1\ is_wfence) ;; sb ;; eqv_rel is_write ;; restr_eq_rel loc sb ;; rf ;; eqv_rel is_rlx ;; sb ;; eqv_rel is_rfence ;; eqv_rel is_ra) +++
-(eqv_rel (is_ra /1\ is_wfence) ;; sb ;; eqv_rel is_write ;; restr_eq_rel loc sb ;; rf ;; eqv_rel is_ra) +++
-(eqv_rel (is_ra /1\ is_wfence) ;; sb ;; eqv_rel is_write ;; restr_eq_rel loc sb ;; clos_trans (rf ;; rmw) ;; rf ;; eqv_rel is_rlx ;; sb ;; eqv_rel is_rfence ;; eqv_rel is_ra) +++
-(eqv_rel (is_ra /1\ is_wfence) ;; sb ;; eqv_rel is_write ;; restr_eq_rel loc sb ;; clos_trans (rf ;; rmw) ;; rf ;; eqv_rel is_ra)) a b.
-Proof.
-unfold sw, rel, rseq, useq, union, clos_refl, seq ; split; ins; desf.
-Admitted.
-
- *)
 (******************************************************************************)
 (** ** Well-formed relations *)
 (******************************************************************************)
@@ -249,7 +173,7 @@ Definition WfSB :=
 Definition WfRMW := 
   << RMW_DOMa: forall a b (RMW: rmw a b), is_read a >> /\
   << RMW_DOMb: forall a b (RMW: rmw a b), is_write b >> /\
-  << RMW_LOC: forall a b (RMW: rmw a b), exists l, (loc a = some l) /\ (loc b = Some l) >> /\
+  << RMW_LOC: forall a b (RMW: rmw a b), exists l, (loc a = Some l) /\ (loc b = Some l) >> /\
   << RMW_SB: forall a b (RMW: rmw a b), sb a b >> /\
   << RMW_SBI: forall a b (RMW: rmw a b) c (SB: sb c b)(NEQ: c <> a), sb c a >> /\
   << RMW_SBI': forall a b (RMW: rmw a b) c (SB: sb a c) (NEQ: c <> b), sb b c >>.
@@ -259,7 +183,7 @@ Definition WfRF :=
   << RF_ACTb: forall a b (RF: rf a b), In b acts >> /\
   << RF_DOMa: forall a b (RF: rf a b), is_write a >> /\
   << RF_DOMb: forall a b (RF: rf a b), is_read b >> /\
-  << RF_LOC: forall a b (RF: rf a b), exists l, (loc a = some l) /\ (loc b = Some l) >> /\
+  << RF_LOC: forall a b (RF: rf a b), exists l, (loc a = Some l) /\ (loc b = Some l) >> /\
   << RF_VAL: forall a b (RF: rf a b), (val a = val b) >> /\
   << RF_FUN: forall a b c (RF1: rf a c) (RF2: rf b c), a=b >> /\
   << RF_TOT: forall b (IN: In b acts) (READ: is_read b), exists a, rf a b >>.
@@ -269,10 +193,10 @@ Definition WfMO :=
   << MO_ACTb: forall a b (MO: mo a b), In b acts >> /\
   << MO_DOMa: forall a b (MO: mo a b), is_write a >> /\
   << MO_DOMb: forall a b (MO: mo a b), is_write b >> /\
-  << MO_LOC: forall a b (MO: mo a b), exists l, (loc a = some l) /\ (loc b = Some l) >> /\
+  << MO_LOC: forall a b (MO: mo a b), exists l, (loc a = Some l) /\ (loc b = Some l) >> /\
   << MO_IRR: irreflexive mo >> /\
   << MO_T: transitive mo >> /\
-  << MO_TOT: forall l, is_total (fun a => In a acts /\ is_write a /\ (loc a = some l)) mo >>.
+  << MO_TOT: forall l, is_total (fun a => In a acts /\ is_write a /\ (loc a = Some l)) mo >>.
 
 Definition WfSC :=
   << SC_ACTa: forall a b (SC: sc a b), In a acts >> /\
@@ -877,84 +801,66 @@ Hint Resolve coh_wf.
 (******************************************************************************)
 (** ** Basic properties *)
 (******************************************************************************)
-Lemma useq_in_sb_rf (COH: Coherent) a b (USEQ: useq a b): (clos_trans (sb +++ rf)) a b.
+
+Lemma inclusion_eqv_rt A dom (rel : relation A) :
+  inclusion <| dom |> (clos_refl_trans rel).
 Proof.
-red in USEQ; desf.
-eapply clos_trans_of_clos_trans.
-eapply clos_trans_monotonic; try exact USEQ.
-red; ins.
-red in H; desf.
-eapply t_trans.
-apply t_step; right; edone.
-apply t_step; left.
-red in COH; desc. 
-red in WF; desc.
-red in WF_RMW; desf; eauto.
+  unfold eqv_rel; red; ins; desf; vauto.
 Qed.
 
-Lemma rseq_in_sb_rf (COH: Coherent) a b (RSEQ: rseq a b): (clos_refl_trans (sb +++ rf)) a b.
+Hint Immediate inclusion_eqv_rt : rel.
+
+Lemma rmw_in_sb (COH: Coherent) : inclusion rmw sb.
+Proof. apply COH. Qed.
+
+
+Lemma useq_in_sb_rf (COH: Coherent) :
+  inclusion useq (clos_trans (sb +++ rf)).
 Proof.
-red in RSEQ.
-unfold seq, eqv_rel,restr_eq_rel, clos_refl in *; desc; subst.
-desf; subst.
-apply rt_refl.
-apply clos_trans_in_rt; eapply useq_in_sb_rf; edone.
-apply rt_step; left; done.
-apply rt_trans with (y:=z2); apply clos_trans_in_rt.
-apply t_step; left; done. 
-by apply useq_in_sb_rf.
+  unfold useq; rewrite rmw_in_sb;
+  eauto using inclusion_t_t2, inclusion_step2_ct with rel.
 Qed.
 
-Lemma rel_in_sb_rf (COH: Coherent) a b (REL: rel a b): (clos_refl_trans (sb +++ rf)) a b.
+Lemma rseq_in_sb_rf (COH: Coherent) :
+  inclusion rseq (clos_refl_trans (sb +++ rf)).
 Proof.
-red in REL.
-unfold seq, eqv_rel, clos_refl in *; desc; subst.
-destruct REL0; desf; subst.
-eapply rseq_in_sb_rf; done.
-eapply rt_trans with (y:=z0).
-apply rt_step; left; done. 
-by apply rseq_in_sb_rf.
+  unfold rseq.
+  rewrite !inclusion_seq_eqv_l, useq_in_sb_rf, inclusion_restr_eq, cr_of_t; ins.
+  eapply inclusion_seq_rt; eauto with rel. 
 Qed.
 
-Lemma sw_in_sb_rf (COH: Coherent) a b (SW: sw a b): (clos_trans (sb +++ rf)) a b.
+
+Lemma rel_in_sb_rf (COH: Coherent) :
+  inclusion rel (clos_refl_trans (sb +++ rf)).
 Proof.
-red in SW.
-unfold seq, eqv_rel, clos_refl in *; desc; subst.
-apply rel_in_sb_rf in SW; try done.
-apply clos_refl_transE in SW.
-destruct SW1; desf.
-all: try eby eapply t_step; right.
-all: try eby eapply t_trans; try edone; apply t_step; econstructor.
-all: try eby eapply t_trans; try edone; eapply t_trans; try edone; apply t_step; econstructor.
+  unfold rel.
+  rewrite !inclusion_seq_eqv_l, rseq_in_sb_rf; ins.
+  eapply inclusion_seq_rt; eauto with rel. 
 Qed.
 
-Lemma hb_in_sb_rf (COH: Coherent) a b (HB: hb a b): (clos_trans (sb +++ rf)) a b.
+Lemma sw_in_sb_rf (COH: Coherent) :
+  inclusion sw (clos_trans (sb +++ rf)).
 Proof.
-red in HB; desf.
-eapply clos_trans_of_clos_trans.
-eapply clos_trans_monotonic.
-Focus 2. edone.
-eapply inclusion_union_l; unfold inclusion; ins; eauto using sw_in_sb_rf.
-eapply t_step; left; done.
+  unfold sw; rewrite !inclusion_seq_eqv_l, !inclusion_seq_eqv_r, rel_in_sb_rf; ins.
+  rewrite <- rt_ct; apply inclusion_seq_mon; ins. 
+  rewrite crE; rel_simpl; eauto using inclusion_step2_ct with rel. 
 Qed.
 
-Lemma hb_in_sb_rf_sc (COH: Coherent) a b (HB: hb a b): (clos_trans (sb +++ rf +++ sc)) a b.
+Lemma hb_in_sb_rf (COH: Coherent) : 
+  inclusion hb (clos_trans (sb +++ rf)).
 Proof.
-assert (COH' := COH).
-red in COH; desf.
-eapply clos_trans_monotonic with (r := (sb +++ rf)).
-apply inclusion_union_r with (r := (sb +++ rf)); left; unfold inclusion; desf.
-eapply hb_in_sb_rf; eauto.
+  unfold hb; rewrite sw_in_sb_rf; ins; eauto using inclusion_t_t2 with rel.
 Qed.
 
-Lemma irr_hb (COH: Coherent) a (HB: hb a a): False.
+Lemma hb_in_sb_rf_sc (COH: Coherent) :
+  inclusion hb (clos_trans (sb +++ rf +++ sc)).
 Proof.
-assert (COH' := COH).
-red in COH; desf.
-apply (Cnp a).
-eapply clos_trans_monotonic.
-apply inclusion_union_r with (r := (sb +++ rf)); left; unfold inclusion; desf.
-eapply hb_in_sb_rf; eauto.
+  rewrite hb_in_sb_rf; eauto with rel.
+Qed.
+
+Lemma irr_hb (COH: Coherent) : irreflexive hb.
+Proof.
+  rewrite hb_in_sb_rf_sc; ins; apply COH.
 Qed.
 
 Lemma hb_mo (COH: Coherent) a b (HB : hb a b) l
@@ -975,15 +881,19 @@ Proof.
   eapply hb_actb; eauto.
 Qed.
 
-Lemma hb_in_sc (COH: Coherent) a b (HB: hb a b) 
-  (IS_SCa: is_sc a)
-  (IS_SCb: is_sc b) : sc a b.
+Lemma hb_in_sc (COH: Coherent) x y (HB: hb x y) (A: is_sc x) (B : is_sc y) : sc x y.
 Proof.
-  cdes COH. cdes WF. unfold WfSC in *; desc.
-  destruct (classic (a=b)) as [|N]; desf.
-    by eapply irr_hb in HB.
-  eapply SC_TOT in N; splits; desf; eauto using hb_acta, hb_actb.
-  edestruct Cnp; eapply t_trans; eauto using hb_in_sb_rf_sc; vauto. 
+  destruct (classic (x=y)) as [|N]; desf.
+    by apply irr_hb in HB; eauto.
+  cdes COH; cdes WF; apply WF_SC in N; desf;
+  eauto using hb_acta, hb_actb.
+  exfalso; cdes COH; eapply Cnp, t_trans, hb_in_sb_rf_sc; vauto.
+Qed.
+
+Lemma hb_in_sc2 (COH: Coherent) :
+  inclusion (<| is_sc |> ;; hb ;; <| is_sc |>) sc.
+Proof.
+  rewrite seq_eqv_r, seq_eqv_l; red; ins; desf; eauto using hb_in_sc.
 Qed.
 
 Lemma sc_hb (COH: Coherent) a b c (SC: sc a b) (HB: hb b c) (IS_SC: is_sc c) : sc a c.
@@ -998,7 +908,8 @@ Proof.
   apply hb_in_sc in HB; eauto.
 Qed.
 
-Lemma mo_sc (COH: Coherent) a b (MO: mo a b) (IS_SCa: is_sc a) (IS_SCb: is_sc b) : sc a b.
+Lemma mo_sc (COH: Coherent) a b 
+      (MO: mo a b) (IS_SCa: is_sc a) (IS_SCb: is_sc b) : sc a b.
 Proof.
 assert (COH' := COH).
 red in COH; desf.
@@ -1010,9 +921,10 @@ apply SC_TOT in N; desf; eauto.
 exfalso; eapply Csc; eauto.
 Qed.
 
-Lemma rf_rmw_mo (COH: Coherent) a b (A: (rf ;; rmw) a b) : mo a b.
+Lemma rf_rmw_mo (COH: Coherent) :
+  inclusion (rf ;; rmw) mo.
 Proof.
-cdes COH.
+intros a b A; cdes COH.
 red in WF; desc. 
 red in WF_SB, WF_RMW, WF_RF, WF_MO; desc.
 unfold seq in *; desf.
@@ -1028,55 +940,47 @@ destruct (classic (a=b)) as [|N].
   exfalso; eapply Crmw; eauto.
 Qed.
 
-Lemma useq_mo (COH: Coherent) a b (USEQ: (tc (rf ;; rmw)) a b) : mo a b.
+Lemma useq_mo (COH: Coherent) : inclusion useq mo.
 Proof.
-cdes COH.
-red in WF; desf. 
-red in WF_MO; desf. 
-apply clos_trans_tn1_iff in USEQ.
-induction USEQ; eauto using rf_rmw_mo.
+ eapply inclusion_t_ind, COH; eauto using rf_rmw_mo. 
 Qed.
 
-Lemma rseq_mo (COH: Coherent) a b (RSEQ: rseq a b) (NEQ: ~a=b) : mo a b.
+Lemma transitive_r A (rel : relation A) :
+  transitive rel ->
+  transitive (clos_refl rel).
 Proof.
-cdes COH; cdes WF; desf; red in  WF_MO; desf; cdes RSEQ.
-unfold rseq, seq, eqv_rel, restr_eq_rel, clos_refl in RSEQ0; desc.
-subst.
-assert (WRITEa' := RSEQ6).
-  apply write_has_location in RSEQ6; desc.
-assert (LOCb: loc z0 = loc b).
-  eapply loceq_rseq; eauto.
-subst; desf.
-- exfalso; auto.
-- eapply useq_mo; eauto.
-- eapply hb_mo; eauto with hb.
-  by rewrite <- RSEQ0.
-- eapply MO_T with (y:=z2). eapply hb_mo; eauto with hb.
-  by rewrite <- RSEQ0.
-  eby eapply useq_mo.
+  unfold clos_refl, transitive; ins; desf; eauto.
 Qed.
 
-Lemma rel_mo (COH: Coherent) a b (WRITE: is_write a) 
-  (REL: rel a b) (NEQ: ~a=b) : mo a b.
+Lemma rseq_mo (COH: Coherent) : inclusion rseq (clos_refl mo).
 Proof.
-red in REL; unfold seq,eqv_rel, union in *; desf.
-eapply rseq_mo; eauto.
-exfalso; unfold is_write, is_wfence in *; destruct (lab z1); ins.
+  unfold rseq.
+  rewrite useq_mo, inclusion_seq_eqv_l, crE; rel_simpl.
+  apply inclusion_union_l; [by rewrite !inclusion_seq_eqv_l|]. 
+  rewrite <- !seqA; apply inclusion_seq_trans; ins.
+    by apply transitive_r, COH.
+  rewrite seq_eqv_l, seq_eqv_r; unfold restr_eq_rel in *; red; ins; desf.
+  cdes COH; cdes WF; cdes WF_MO.
+  assert (X: exists l, loc x = Some l); desc; try rewrite X in *.
+    by unfold is_write, loc in *; destruct (lab x); ins; eauto.
+  destruct (classic (x = y)) as [|N]; desf; vauto.
+  eapply MO_TOT in N; desf; eauto using sb_acta, sb_actb.
+  edestruct Cww; eauto using sb_in_hb.
 Qed.
 
-Lemma rel_hb_mo (COH: Coherent) a b (REL: rel a b) : 
-  exists c, (c=a \/ hb a c) /\ (c=b \/ mo c b).
+Lemma rel_mo (COH: Coherent) : 
+  inclusion (<| is_write |> ;; rel) (clos_refl mo).
 Proof.
-cdes REL.
-red in REL0; desc.
-red in REL1; desc.
-unfold eqv_rel in *; desc; subst.
-exists z0.
-split.
-destruct REL1; desc; auto.
-destruct H; desc; subst; auto with hb.
-destruct (classic (z0=b)) as [|N]; subst; auto.
-right; apply rseq_mo; edone.
+  unfold rel; rewrite rseq_mo; rel_simpl.
+  apply inclusion_union_l; [by rewrite !inclusion_seq_eqv_l|]. 
+  unfold seq, eqv_rel; red; ins; desf; destruct z2 as [? ? []]; ins. 
+Qed.
+
+Lemma rel_hb_mo (COH: Coherent) :
+  inclusion rel (clos_refl hb ;; clos_refl mo).
+Proof.
+  unfold rel; rewrite rseq_mo, !inclusion_seq_eqv_l; rel_simpl.
+  rewrite (crE hb), inclusion_seq_eqv_l; rel_simpl.
 Qed.
 
 Lemma basic_coherence_lemma (COH: Coherent) a b (MO: mo a b) c 
@@ -1246,10 +1150,9 @@ Lemma Coherent_m_rel_rw (COH: Coherent) a b x (LOC: loc b = Some x)
 Proof.
 cdes COH. cdes WF. unfold WfMO in *; desc.
 unfold m_rel_rw, m_rel_rw, m_rel, seq, eqv_rel in *; desc; subst.
-assert (X: exists d, (d = z0 \/ hb z0 d) /\ (d = b \/ mo d b)).
-  apply rel_hb_mo; eauto.
-clear - COH X MO RW0 RW2 RW3 MO_T LOC.
-desf; eauto using Coherent_rw, rw_hb.
+  apply rel_hb_mo in RW1; ins.
+clear - COH MO RW0 RW1 RW2 RW3 MO_T LOC.
+by unfold clos_refl, seq in *; desf; eauto using Coherent_rw, rw_hb.
 Qed.
 
 End Consistency.
@@ -1389,11 +1292,21 @@ Qed.
 Add Parametric Morphism : (CoherentSC) with signature 
   eq ==> same_relation ==> same_relation ==> same_relation ==> same_relation ==> same_relation ==> iff as CoherentSC_more.
 Proof.
-  intros; unfold CoherentSC; cdes H; cdes H0; cdes H1; cdes H2; cdes H3.
-  split; ins; eapply (H14 a b c d e f);
-  desc; eauto; try (by  eapply clos_refl_mori; edone);
-  desf; eauto; right; splits; try done.
-  all: try by eapply hb_more; eauto using Permutation_in, Permutation_sym.
+  intros; unfold CoherentSC, same_relation, clos_refl in *; split; ins; desc. 
+  apply (H4 a b c d e f); eauto. 
+    by clear HBF FHB RF'; desf; eauto.
+    by clear RF FHB RF'; desf; eauto;
+    right; splits; eauto; eapply hb_more; try eassumption; try edone.
+    by clear RF HBF RF'; desf; eauto;
+    right; splits; eauto; eapply hb_more; try eassumption; try edone.
+    by clear RF HBF FHB; desf; eauto.
+  apply (H4 a b c d e f); eauto. 
+    by clear HBF FHB RF'; desf; eauto.
+    by clear RF FHB RF'; desf; eauto;
+    right; splits; eauto; eapply hb_more; try eassumption; try edone.
+    by clear RF HBF RF'; desf; eauto;
+    right; splits; eauto; eapply hb_more; try eassumption; try edone.
+    by clear RF HBF FHB; desf; eauto.
 Qed.
 
 Add Parametric Morphism : (NoPromises) with signature 

@@ -3,10 +3,9 @@
 (******************************************************************************)
 
 Require Import Classical List Relations Peano_dec.
-Require Import Vbase ExtraRelations.
-
 Require Import sflib.
 Require Import paco.
+Require Import Hahn.
 
 Require Import Axioms.
 Require Import Basic.

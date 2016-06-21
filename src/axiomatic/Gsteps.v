@@ -3,7 +3,7 @@
 (******************************************************************************)
 
 Require Import Classical List Relations Peano_dec.
-Require Import Vbase ExtraRelations.
+Require Import Hahn.
 
 Require Import sflib.
 Require Import paco.
@@ -86,11 +86,7 @@ Qed.
 
 Lemma tc_mon R R' (A: relation_mon R R'): relation_mon (tc R) (tc R'). 
 Proof.
-red; ins.
-eapply clos_trans_monotonic.
-red in A.
-red; intros; apply A; edone.
-done.
+red; ins; eapply clos_trans_mon; eauto.
 Qed.
 
 Lemma clos_refl_mon R R' (A: relation_mon R R'): relation_mon (clos_refl R) (clos_refl R'). 
@@ -692,44 +688,18 @@ Qed.
 
 Lemma gstep_rf
   a (COH: Coherent acts sb rmw rf mo sc) (GSTEP: gstep a) b (RFb: rf' b a) :
-  rf' <--> rf +++ (fun x y => x = b /\ y = a).
+  rf' <--> rf +++ singl_rel b a.
 Proof.
-split; unfold union; red; ins.
+split; unfold union, singl_rel; red; ins.
   destruct (classic (y = a)); subst.
     by cdes GSTEP; cdes INC; cdes COH0; cdes WF; cdes WF_RF; eauto.
   by eapply gstep_rf_a in H; vauto.
 desf; eauto using rf_mon.
 Qed.
 
-Lemma restr_eq_union:
-  forall (X : Type) (rel rel' : relation X) (B : Type) (f : X -> B),
-  restr_eq_rel f (rel +++ rel') <--> 
-  restr_eq_rel f rel +++
-  restr_eq_rel f rel'.
-Admitted.
-
-Lemma restr_eq_seq_eqv_rel:
-  forall (X : Type) (rel : relation X) (B : Type) (f : X -> B) dom,
-  restr_eq_rel f (rel ;; eqv_rel dom) <--> 
-  restr_eq_rel f rel ;; eqv_rel dom.
-Admitted.
-
-Lemma clos_refl_union1:
-  forall (X : Type) (rel rel' : relation X),
-  clos_refl (rel +++ rel') <--> 
-  clos_refl rel +++ rel'.
-Admitted.
-
-Lemma seq2:
-  forall (X : Type) (rel rel' rel'' : relation X) (EQ: rel ;; rel' <--> rel'') r,
-  rel ;; rel' ;; r <--> rel'' ;; r.
-Proof.
-  ins; rewrite <- EQ, seqA; vauto.
-Qed.
-
 Lemma gstep_in_acts   a (COH: Coherent acts sb rmw rf mo sc) (GSTEP: gstep a) : 
-  eqv_rel ((In (A:=event))^~ acts') <--> 
-  eqv_rel ((In (A:=event))^~ acts) +++ eqv_rel (eq a).
+  eqv_rel (fun x => In x acts') <--> 
+  eqv_rel (fun x => In x acts) +++ eqv_rel (eq a).
 Admitted.
 
 Lemma gstep_a_acts 
@@ -742,12 +712,14 @@ Qed.
 
 Ltac relsimp := 
   repeat first 
-  [rewrite unionFr | rewrite unionrF | rewrite seqFr | rewrite seqrF 
-  | rewrite restr_eq_seq_eqv_rel 
-  | rewrite restr_eq_union 
-  | rewrite clos_refl_union1 
-  | rewrite seqA
-  | rewrite seq_union_l | rewrite seq_union_r ]; try done; try reflexivity.
+         [rewrite seq_id_l | rewrite seq_id_r 
+          | rewrite unionFr | rewrite unionrF 
+          | rewrite seqFr | rewrite seqrF 
+          | rewrite seqA
+          | rewrite restr_eq_seq_eqv_rel 
+          | rewrite restr_eq_union 
+          | rewrite clos_refl_union1 
+          | rewrite seq_union_l | rewrite seq_union_r ]; try done.
 
 Lemma gstep_a_write 
   a (COH: Coherent acts sb rmw rf mo sc) (GSTEP: gstep a) b (RFb: rf' b a) :
@@ -755,7 +727,7 @@ Lemma gstep_a_write
 Proof.
   unfold seq, eqv_rel; split; red; ins; desf.
   eapply rf_to_non_read with (acts:=acts'); eauto.
-intro; unfold is_read,is_write in *; destruct (lab y); ins.
+  intro; unfold is_read,is_write in *; destruct (lab y); ins.
 Qed.
 
 Lemma seq_eq_contra A (dom: A -> Prop) a (GOAL: ~ dom a) :
@@ -769,7 +741,6 @@ Lemma seq_eq_contra2 A (dom: A -> Prop) a (GOAL: ~ dom a) r :
 Proof.
   unfold seq, eqv_rel; split; red; ins; desf.
 Qed.
-
 
 Lemma gstep_rseq
   a (COH: Coherent acts sb rmw rf mo sc) (GSTEP: gstep a) b (RFb: rf' b a) :
@@ -792,45 +763,49 @@ Qed.
 Lemma gstep_sw
   a (COH: Coherent acts sb rmw rf mo sc) (GSTEP: gstep a) b (RFb: rf' b a) :
   sw acts' sb' rmw' rf' <--> 
-  sw acts sb rmw rf +++ rel acts sb rmw rf ;; (fun x y => x = b /\ y = a) ;; eqv_rel is_ra.
+  sw acts sb rmw rf +++ 
+  rel acts sb rmw rf ;; singl_rel b a ;; eqv_rel is_ra.
 Proof.
-unfold sw; rewrite gstep_rel, gstep_rf, gstep_sb; eauto; relsimp.
-rewrite seq_eq_contra2; relsimp.
-Admitted.
+unfold sw; rewrite gstep_rel, gstep_rf; try edone. 
+relsimp; rewrite gstep_sb at 1; try edone; relsimp.
+rewrite seq_eq_contra2; relsimp; cycle 1.
+  assert (is_read a) by (cdes GSTEP; eapply COH0; eauto).
+  by unfold is_read, is_rfence in *; destruct (lab a).
+apply union_more; try reflexivity.
+rewrite crE; relsimp.
+split; try apply inclusion_union_l; eauto with rel. 
+rewrite !inclusion_seq_eqv_l; unfold seq, singl_rel; red; ins; desf.
+by apply gstep_sb_de in H1; eauto.
+Qed.
+
+
+
+Lemma gstep_hb
+  a (COH: Coherent acts sb rmw rf mo sc) (GSTEP: gstep a) b (RFb: rf' b a) :
+  hb acts' sb' rmw' rf' <--> 
+  hb acts sb rmw rf +++ 
+  clos_refl (hb acts sb rmw rf) ;; 
+  ((fun x y => In x acts /\ thread x = thread y);; <| eq a |> +++
+   rel acts sb rmw rf ;; singl_rel b a ;; eqv_rel is_ra).
+Proof.
+  unfold hb; rewrite gstep_sw, gstep_sb; try edone.
+  rewrite unionAC, unionA, unionAC, <- unionA.
+  rewrite path_decomp_u_3, cr_of_t; ins;
+  unfold seq, union, eqv_rel, singl_rel; red; ins; desc.
+  {
+    assert (z = a); [by clear H0; desf|clear H; desf]. 
+      by apply GSTEP; cdes COH; cdes WF; cdes WF_SB; eauto.
+    by apply GSTEP; eapply sw_acta; eauto.
+  }
+  {
+    assert (y = a); [by clear H0; desf|clear H; desf]. 
+      by red in GSTEP; desf. 
+      by exfalso; apply GSTEP; eapply rel_acta in H0; eauto.
+  }
+Qed.
+
 
 (*
-Lemma gstep_sw_b
-  a (COH: Coherent acts sb rmw rf mo sc) (GSTEP: gstep a) 
-  b (RFb: (rf' b a)) x (SW: sw acts' sb' rmw' rf' x a): rel acts sb rmw rf x b /\ is_ra a.
-Proof.
-unfold sw, seq, eqv_rel in *; desc.
-subst.
-destruct SW1; desc; subst.
-- assert (z=b). eapply gstep_rf_b; edone.
-  subst; split; try done.
-  eapply gstep_rel_a; try edone.
-  intro; subst; eapply irr_rf; cdes GSTEP; cdes COH0; cdes WF; edone.
-- exfalso.
-  cdes GSTEP; cdes COH0; cdes WF; cdes WF_RF.
-  specialize (RF_DOMb b a RFb).
-  unfold is_rfence, is_read in *; destruct (lab a); ins.
-Qed.
-
-Lemma gstep_hb_b
-  a (COH: Coherent acts sb rmw rf mo sc) (GSTEP: gstep a) 
-  x b (RFb: (rf' b a)) (HB: hb acts' sb' rmw' rf' x a): 
-  exists c, (clos_refl (hb acts sb rmw rf)) x c /\ 
-   (In c acts /\ thread c = thread a \/ rel acts sb rmw rf c b /\ is_ra a).
-Proof.
-cdes GSTEP.
-apply t_rt_step in HB; desc.
-exists z; split.
-  rewrite clos_refl_transE in HB; desf; vauto; right.
-  eapply gstep_hb_a; try rewrite ACT_STEP; eauto.
-  by intro; subst a; eapply irr_hb, t_step, HB0; eauto. 
-destruct HB0; eauto using gstep_sb_b, gstep_sw_b.
-Qed.
-
 Lemma gstep_ur_b
   a (COH: Coherent acts sb rmw rf mo sc) (GSTEP: gstep a) 
   x b (RFb: (rf' b a)) (UR: ur_relation acts' sb' rmw' rf' sc' x a)

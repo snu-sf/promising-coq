@@ -3,7 +3,7 @@
 (** * Definition of graph events *)
 (******************************************************************************)
 
-Require Import Vbase.
+Require Import Hahn.
 
 Require Import Basic Event.
 
