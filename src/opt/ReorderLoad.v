@@ -58,27 +58,27 @@ Inductive reorder_load r1 l1 o1: forall (i2:Instr.t), Prop :=
     reorder_load r1 l1 o1 (Instr.fence or2 ow2)
 .
 
-Inductive sim_load: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (sc0_src:TimeMap.t) (mem0_src:Memory.t)
-                      (st_tgt:lang.(Language.state)) (lc_tgt:Local.t) (sc0_tgt:TimeMap.t) (mem0_tgt:Memory.t), Prop :=
+Inductive sim_load: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (sc1_src:TimeMap.t) (mem1_src:Memory.t)
+                      (st_tgt:lang.(Language.state)) (lc_tgt:Local.t) (sc1_tgt:TimeMap.t) (mem1_tgt:Memory.t), Prop :=
 | sim_load_intro
-    r1 l1 ts1 v1 released1 o1 i2
-    rs lc1_src lc1_tgt lc2_src
-    sc0_src sc0_tgt
-    mem0_src mem0_tgt
+    r1 l1 ts1 v1 released1 o1 i2 rs
+    lc1_src sc1_src mem1_src
+    lc1_tgt sc1_tgt mem1_tgt
+    lc2_src
     (REORDER: reorder_load r1 l1 o1 i2)
-    (READ: Local.read_step lc1_src mem0_src l1 ts1 v1 released1 o1 lc2_src)
-    (SC: TimeMap.le sc0_src sc0_tgt)
-    (MEMORY: Memory.sim mem0_tgt mem0_src)
-    (WF_SRC: Local.wf lc1_src mem0_src)
-    (WF_TGT: Local.wf lc1_tgt mem0_tgt)
-    (SC_SRC: Memory.closed_timemap sc0_src mem0_src)
-    (SC_TGT: Memory.closed_timemap sc0_tgt mem0_tgt)
-    (MEM_SRC: Memory.closed mem0_src)
-    (MEM_TGT: Memory.closed mem0_tgt)
-    (LOCAL: sim_local lc2_src lc1_tgt):
+    (READ: Local.read_step lc1_src mem1_src l1 ts1 v1 released1 o1 lc2_src)
+    (LOCAL: sim_local lc2_src lc1_tgt)
+    (SC: TimeMap.le sc1_src sc1_tgt)
+    (MEMORY: Memory.sim mem1_tgt mem1_src)
+    (WF_SRC: Local.wf lc1_src mem1_src)
+    (WF_TGT: Local.wf lc1_tgt mem1_tgt)
+    (SC_SRC: Memory.closed_timemap sc1_src mem1_src)
+    (SC_TGT: Memory.closed_timemap sc1_tgt mem1_tgt)
+    (MEM_SRC: Memory.closed mem1_src)
+    (MEM_TGT: Memory.closed mem1_tgt):
     sim_load
-      (State.mk rs [Stmt.instr i2; Stmt.instr (Instr.load r1 l1 o1)]) lc1_src sc0_src mem0_src
-      (State.mk (RegFun.add r1 v1 rs) [Stmt.instr i2]) lc1_tgt sc0_tgt mem0_tgt
+      (State.mk rs [Stmt.instr i2; Stmt.instr (Instr.load r1 l1 o1)]) lc1_src sc1_src mem1_src
+      (State.mk (RegFun.add r1 v1 rs) [Stmt.instr i2]) lc1_tgt sc1_tgt mem1_tgt
 .
 
 Lemma sim_load_mon
@@ -104,7 +104,7 @@ Lemma sim_load_mon
            st_tgt lc_tgt sc2_tgt mem2_tgt.
 Proof.
   inv SIM1. exploit future_read_step; try apply READ; eauto. i. des.
-  econs; try apply STEP; eauto. etrans; eauto.
+  econs; eauto. etrans; eauto.
 Qed.
 
 Lemma sim_load_future
@@ -149,11 +149,11 @@ Proof.
     + apply Memory.future_max_timemap; eauto.
   - apply Memory.max_timemap_closed. committac.
   - econs; eauto.
+    + etrans; eauto.
     + etrans.
       * apply Memory.max_timemap_spec; eauto. committac.
       * apply Memory.sim_max_timemap; eauto.
     + apply Memory.max_timemap_closed. committac.
-    + etrans; eauto.
 Qed.
 
 Lemma sim_load_step
@@ -165,7 +165,7 @@ Lemma sim_load_step
                    st1_src lc1_src sc1_src mem1_src
                    st1_tgt lc1_tgt sc1_tgt mem1_tgt.
 Proof.
-  ii. inv SIM.
+  inv SIM. ii.
   inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR; inv REORDER); ss.
   - (* promise *)
     exploit Local.promise_step_future; eauto. i. des.

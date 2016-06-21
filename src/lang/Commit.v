@@ -542,7 +542,41 @@ Module CommitFacts.
        rewrite <- ? TimeMap.join_r; apply COMMIT).
   Qed.
 
-  (* CHECK: monotonicity? min_spec? min_min? *)
+  Lemma write_sc_acqrel
+        sc loc ts ordw
+        (ORDW: Ordering.le ordw Ordering.acqrel):
+    Commit.write_sc sc loc ts ordw = sc.
+  Proof.
+    unfold Commit.write_sc. condtac; tac.
+    apply TimeMap.antisym; tac.
+  Qed.
+
+  Lemma write_commit_acqrel
+        commit sc1 sc2 loc ts ordw
+        (ORDW: Ordering.le ordw Ordering.acqrel):
+    Commit.write_commit commit sc1 loc ts ordw = Commit.write_commit commit sc2 loc ts ordw.
+  Proof.
+    unfold Commit.write_commit.
+    apply Commit.antisym; repeat (condtac; tac; try refl).
+  Qed.
+
+  Lemma write_fence_sc_acqrel
+        commit sc ordw
+        (ORDW: Ordering.le ordw Ordering.acqrel):
+    Commit.write_fence_sc commit sc ordw = sc.
+  Proof.
+    unfold Commit.write_fence_sc. condtac; tac.
+    apply TimeMap.antisym; tac.
+  Qed.
+
+  Lemma write_fence_commit_acqrel
+        commit sc1 sc2 ordw
+        (ORDW: Ordering.le ordw Ordering.acqrel):
+    Commit.write_fence_commit commit sc1 ordw = Commit.write_fence_commit commit sc2 ordw.
+  Proof.
+    unfold Commit.write_fence_commit.
+    apply Commit.antisym; repeat (condtac; tac; try refl).
+  Qed.
 
   Lemma read_future
         loc from to val released ord commit mem

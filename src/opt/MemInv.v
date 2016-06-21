@@ -24,9 +24,9 @@ Lemma memory_sim_add
       mem1_src mem1_tgt
       mem2_src mem2_tgt
       loc from to val released
-      (SIM: Memory.sim mem1_tgt mem1_src)
       (SRC: Memory.add mem1_src loc from to val released mem2_src)
-      (TGT: Memory.add mem1_tgt loc from to val released mem2_tgt):
+      (TGT: Memory.add mem1_tgt loc from to val released mem2_tgt)
+      (SIM: Memory.sim mem1_tgt mem1_src):
   Memory.sim mem2_tgt mem2_src.
 Proof.
 Admitted.
@@ -34,13 +34,39 @@ Admitted.
 Lemma memory_sim_split
       mem1_src mem1_tgt
       mem2_src mem2_tgt
-      loc from to1 to2 val released
-      (SIM: Memory.sim mem1_tgt mem1_src)
-      (SRC: Memory.split mem1_src loc from to1 to2 val released mem2_src)
-      (TGT: Memory.split mem1_tgt loc from to1 to2 val released mem2_tgt):
+      loc from to1 to2_src to2_tgt val released
+      (SRC: Memory.split mem1_src loc from to1 to2_src val released mem2_src)
+      (TGT: Memory.split mem1_tgt loc from to1 to2_tgt val released mem2_tgt)
+      (SIM: Memory.sim mem1_tgt mem1_src):
   Memory.sim mem2_tgt mem2_src.
 Proof.
 Admitted.
+
+Lemma memory_sim_lower
+      mem1_src mem1_tgt
+      mem2_src mem2_tgt
+      loc from to val released1_src released1_tgt released2
+      (SRC: Memory.lower mem1_src loc from to val released1_src released2 mem2_src)
+      (TGT: Memory.lower mem1_tgt loc from to val released1_tgt released2 mem2_tgt)
+      (SIM: Memory.sim mem1_tgt mem1_src):
+  Memory.sim mem2_tgt mem2_src.
+Proof.
+Admitted.
+
+Lemma memory_sim_promise
+      loc from to val released kind
+      promises1_src mem1_src promises2_src mem2_src
+      promises1_tgt mem1_tgt promises2_tgt mem2_tgt
+      (PROMISE_SRC: Memory.promise promises1_src mem1_src loc from to val released promises2_src mem2_src kind)
+      (PROMISE_TGT: Memory.promise promises1_tgt mem1_tgt loc from to val released promises2_tgt mem2_tgt kind)
+      (SIM: Memory.sim mem1_tgt mem1_src):
+  Memory.sim mem2_tgt mem2_src.
+Proof.
+  inv PROMISE_SRC; inv PROMISE_TGT.
+  - eapply memory_sim_add; eauto.
+  - eapply memory_sim_split; eauto.
+  - eapply memory_sim_lower; eauto.
+Qed.
 
 Lemma memory_sim_closed_timemap
       mem_src mem_tgt

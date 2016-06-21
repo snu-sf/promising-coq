@@ -34,38 +34,20 @@ Inductive reorder_fence (or1 ow1:Ordering.t): forall (i2:Instr.t), Prop :=
     reorder_fence or1 ow1 (Instr.store l2 v2 o2)
 .
 
-Inductive sim_fence: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (sc0_src:TimeMap.t) (mem0_src:Memory.t)
-                       (st_tgt:lang.(Language.state)) (lc_tgt:Local.t) (sc0_tgt:TimeMap.t) (mem0_tgt:Memory.t), Prop :=
+Inductive sim_fence: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (sc1_src:TimeMap.t) (mem1_src:Memory.t)
+                       (st_tgt:lang.(Language.state)) (lc_tgt:Local.t) (sc1_tgt:TimeMap.t) (mem1_tgt:Memory.t), Prop :=
 | sim_fence_intro
-    or1 ow1 i2
-    rs lc1_src lc1_tgt lc2_src
-    sc0_src sc0_tgt
-    mem0_src mem0_tgt
+    or1 ow1 i2 rs
+    lc1_src sc1_src mem1_src
+    lc1_tgt sc1_tgt mem1_tgt
+    lc2_src sc2_src
     (REORDER: reorder_fence or1 ow1 i2)
-    (FENCE: Local.fence_step lc1_src sc0_src mem0_src or1 ow1 lc2_src sc0_src)
+    (FENCE: Local.fence_step lc1_src sc1_src mem1_src or1 ow1 lc2_src sc2_src)
     (LOCAL: sim_local lc2_src lc1_tgt):
     sim_fence
-      (State.mk rs [Stmt.instr i2; Stmt.instr (Instr.fence or1 ow1)]) lc1_src sc0_src mem0_src
-      (State.mk rs [Stmt.instr i2]) lc1_tgt sc0_tgt mem0_tgt
+      (State.mk rs [Stmt.instr i2; Stmt.instr (Instr.fence or1 ow1)]) lc1_src sc1_src mem1_src
+      (State.mk rs [Stmt.instr i2]) lc1_tgt sc1_tgt mem1_tgt
 .
-
-Lemma Commit_write_fence_sc_acqrel
-      commit sc ordw
-      (ORDW: Ordering.le ordw Ordering.acqrel):
-  Commit.write_fence_sc commit sc ordw = sc.
-Proof.
-  unfold Commit.write_fence_sc. condtac; committac.
-  apply TimeMap.antisym; committac.
-Qed.
-
-Lemma Commit_write_fence_commit_acqrel
-      commit sc1 sc2 ordw
-      (ORDW: Ordering.le ordw Ordering.acqrel):
-  Commit.write_fence_commit commit sc1 ordw = Commit.write_fence_commit commit sc2 ordw.
-Proof.
-  unfold Commit.write_fence_commit.
-  apply Commit.antisym; repeat (condtac; committac; try refl).
-Qed.
 
 Lemma future_fence_step lc1 sc1 sc1' mem1 mem1' ordr ordw lc2 sc2
       (ORDW: Ordering.le ordw Ordering.acqrel)
@@ -75,8 +57,8 @@ Lemma future_fence_step lc1 sc1 sc1' mem1 mem1' ordr ordw lc2 sc2
   Local.fence_step lc1 sc1' mem1' ordr ordw lc2 sc1'.
 Proof.
   inv STEP.
-  erewrite Commit_write_fence_commit_acqrel; auto.
-  erewrite <- Commit_write_fence_sc_acqrel at 2; eauto.
+  erewrite CommitFacts.write_fence_commit_acqrel; auto.
+  erewrite <- CommitFacts.write_fence_sc_acqrel at 2; eauto.
   econs; auto.
 Qed.
 

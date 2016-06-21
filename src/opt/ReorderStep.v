@@ -169,6 +169,47 @@ Proof.
   - admit. (* Memory.sim sim2 sim2' *)
 Admitted.
 
+Lemma reorder_read_update
+      loc1 ts1 val1 released1 ord1
+      loc2 ts2 val2 released2 ord2
+      from3 to3 val3 released3 ord3
+      lc0 sc0 mem0
+      lc1
+      lc2
+      lc3 sc3 mem3
+      kind
+      (LOC: loc1 <> loc2)
+      (ORD2: Ordering.le ord2 Ordering.relaxed)
+      (ORD3: Ordering.le Ordering.seqcst ord3 -> Ordering.le Ordering.seqcst ord1 -> False)
+      (WF0: Local.wf lc0 mem0)
+      (SC0: Memory.closed_timemap sc0 mem0)
+      (MEM0: Memory.closed mem0)
+      (STEP1: Local.read_step lc0 mem0 loc1 ts1 val1 released1 ord1 lc1)
+      (STEP2: Local.read_step lc1 mem0 loc2 ts2 val2 released2 ord2 lc2)
+      (STEP3: Local.write_step lc2 sc0 mem0 loc2 from3 to3 val3 released2 released3 ord3 lc3 sc3 mem3 kind):
+  exists released3' sc3' mem3' lc1' lc2' lc3',
+    <<STEP1: Local.read_step lc0 mem0 loc2 ts2 val2 released2 ord2 lc1'>> /\
+    <<STEP2: Local.write_step lc1' sc0 mem0 loc2 from3 to3 val3 released2 released3' ord3 lc2' sc3' mem3' kind>> /\
+    <<STEP3: Local.read_step lc2' mem3' loc1 ts1 val1 released1 ord1 lc3'>> /\
+    <<LOCAL: sim_local lc3' lc3>> /\
+    <<RELEASED: Capability.le released3' released3>> /\
+    <<SC: TimeMap.le sc3' sc3>> /\
+    <<MEM: Memory.sim mem3 mem3'>>.
+Proof.
+  exploit Local.read_step_future; try apply STEP1; eauto. i. des.
+  exploit Local.read_step_future; try apply STEP2; eauto. i. des.
+  exploit reorder_read_read; try apply STEP1; try apply STEP2; eauto. i. des.
+  exploit Local.read_step_future; try apply STEP0; eauto. i. des.
+  exploit Local.read_step_future; try apply STEP4; eauto. i. des.
+  exploit sim_local_write; try apply STEP3; eauto; try refl.
+  { inv STEP0. eapply MEM0; eauto. }
+  i. des.
+  exploit reorder_read_write; try apply STEP4; try apply STEP_SRC; eauto. i. des.
+  esplits; eauto.
+  - etrans; eauto.
+  - etrans; eauto.
+Qed.
+
 Lemma reorder_read_fence
       loc1 ts1 val1 released1 ord1
       ordr2 ordw2
@@ -315,6 +356,176 @@ Proof.
     + refl.
   - eapply ReorderCommit.write_write_sc; eauto.
 Admitted.
+
+Lemma reorder_write_update
+      loc1 from1 to1 val1 releasedm1 released1 ord1 kind1
+      loc2 ts2 val2 released2 ord2
+      from3 to3 val3 released3 ord3 kind3
+      lc0 sc0 mem0
+      lc1 sc1 mem1
+      lc2
+      lc3 sc3 mem3
+      (LOC: loc1 <> loc2)
+      (ORD1: Ordering.le ord1 Ordering.relaxed)
+      (ORD2: Ordering.le ord2 Ordering.relaxed)
+      (WF0: Local.wf lc0 mem0)
+      (SC0: Memory.closed_timemap sc0 mem0)
+      (MEM0: Memory.closed mem0)
+      (STEP1: Local.write_step lc0 sc0 mem0 loc1 from1 to1 val1 releasedm1 released1 ord1 lc1 sc1 mem1 kind1)
+      (STEP2: Local.read_step lc1 mem1 loc2 ts2 val2 released2 ord2 lc2)
+      (STEP3: Local.write_step lc2 sc1 mem1 loc2 from3 to3 val3 released2 released3 ord3 lc3 sc3 mem3 kind3):
+  exists released3' lc1' lc2' lc3' sc2' sc3' mem2' mem3',
+    <<STEP1: Local.read_step lc0 mem0 loc2 ts2 val2 released2 ord2 lc1'>> /\
+    <<STEP2: Local.write_step lc1' sc0 mem0 loc2 from3 to3 val3 released2 released3' ord3 lc2' sc2' mem2' kind3>> /\
+    <<STEP3: Local.write_step lc2' sc2' mem2' loc1 from1 to1 val1 releasedm1 released1 ord1 lc3' sc3' mem3' kind1>> /\
+    <<LOCAL: sim_local lc3' lc3>> /\
+    <<RELEASED: Capability.le released3' released3>> /\
+    <<SC: TimeMap.le sc3' sc3>> /\
+    <<MEM: Memory.sim mem3 mem3'>>.
+Proof.
+  exploit Local.write_step_future; try apply STEP1; eauto. i. des.
+  exploit Local.read_step_future; try apply STEP2; eauto. i. des.
+  exploit reorder_write_read; try apply STEP1; try apply STEP2; eauto. i. des.
+  exploit Local.read_step_future; try apply STEP0; eauto. i. des.
+  exploit Local.write_step_future; try apply STEP4; try refl; eauto. i. des.
+  exploit sim_local_write; try apply STEP3; try apply LOCAL; try refl; eauto.
+  { inv STEP0. eapply MEM0; eauto. }
+  i. des.
+  exploit reorder_write_write; try apply STEP4; try apply STEP_SRC; eauto. i. des.
+  esplits; eauto.
+  - etrans; eauto.
+  - etrans; eauto.
+Qed.
+
+Lemma reorder_update_read
+      loc1 ts1 val1 released1 ord1
+      from2 to2 val2 released2 ord2 kind2
+      loc3 ts3 val3 released3 ord3
+      lc0 sc0 mem0
+      lc1
+      lc2 sc2 mem2
+      lc3
+      (LOC: loc1 <> loc3)
+      (ORD2: Ordering.le ord2 Ordering.relaxed)
+      (ORD3: Ordering.le ord3 Ordering.relaxed)
+      (WF0: Local.wf lc0 mem0)
+      (SC0: Memory.closed_timemap sc0 mem0)
+      (MEM0: Memory.closed mem0)
+      (STEP1: Local.read_step lc0 mem0 loc1 ts1 val1 released1 ord1 lc1)
+      (STEP2: Local.write_step lc1 sc0 mem0 loc1 from2 to2 val2 released1 released2 ord2 lc2 sc2 mem2 kind2)
+      (STEP3: Local.read_step lc2 mem2 loc3 ts3 val3 released3 ord3 lc3):
+  exists released2' lc1' lc2' lc3' sc2' mem2',
+    <<STEP1: Local.read_step lc0 mem0 loc3 ts3 val3 released3 ord3 lc1'>> /\
+    <<STEP2: Local.read_step lc1' mem0 loc1 ts1 val1 released1 ord1 lc2'>> /\
+    <<STEP3: Local.write_step lc2' sc0 mem0 loc1 from2 to2 val2 released1 released2' ord2 lc3' sc2' mem2' kind2>> /\
+    <<LOCAL: sim_local lc3' lc3>> /\
+    <<RELEASED: Capability.le released2' released2>> /\
+    <<SC: TimeMap.le sc2' sc2>> /\
+    <<MEM: Memory.sim mem2 mem2'>>.
+Proof.
+  exploit Local.read_step_future; try apply STEP1; eauto. i. des.
+  exploit Local.write_step_future; try apply STEP2; eauto. i. des.
+  exploit reorder_write_read; try apply STEP2; try apply STEP3; eauto. i. des.
+  exploit Local.read_step_future; try apply STEP0; eauto. i. des.
+  exploit reorder_read_read; try apply STEP1; try apply STEP0; eauto. i. des.
+  exploit Local.read_step_future; try apply STEP5; eauto. i. des.
+  exploit Local.read_step_future; try apply STEP6; eauto. i. des.
+  exploit sim_local_write; try apply STEP4; try apply LOCAL0; eauto; try refl.
+  { inv STEP6. eapply MEM0; eauto. }
+  i. des.
+  esplits; eauto. etrans; eauto.
+Qed.
+
+Lemma reorder_update_write
+      loc1 ts1 val1 released1 ord1
+      from2 to2 val2 released2 ord2 kind2
+      loc3 from3 to3 val3 releasedm3 released3 ord3 kind3
+      lc0 sc0 mem0
+      lc1
+      lc2 sc2 mem2
+      lc3 sc3 mem3
+      (LOC: loc1 <> loc3)
+      (ORD2: Ordering.le ord2 Ordering.relaxed)
+      (ORD3: Ordering.le Ordering.seqcst ord3 -> Ordering.le Ordering.seqcst ord1 -> False)
+      (WF0: Local.wf lc0 mem0)
+      (SC0: Memory.closed_timemap sc0 mem0)
+      (MEM0: Memory.closed mem0)
+      (STEP1: Local.read_step lc0 mem0 loc1 ts1 val1 released1 ord1 lc1)
+      (STEP2: Local.write_step lc1 sc0 mem0 loc1 from2 to2 val2 released1 released2 ord2 lc2 sc2 mem2 kind2)
+      (STEP3: Local.write_step lc2 sc2 mem2 loc3 from3 to3 val3 releasedm3 released3 ord3 lc3 sc3 mem3 kind3):
+  exists released2' lc1' lc2' lc3' sc1' sc3' mem1' mem3',
+    <<STEP1: Local.write_step lc0 sc0 mem0 loc3 from3 to3 val3 releasedm3 released3 ord3 lc1' sc1' mem1' kind3>> /\
+    <<STEP2: Local.read_step lc1' mem1' loc1 ts1 val1 released1 ord1 lc2'>> /\
+    <<STEP3: Local.write_step lc2' sc1' mem1' loc1 from2 to2 val2 released1 released2' ord2 lc3' sc3' mem3' kind2>> /\
+    <<LOCAL: sim_local lc3' lc3>> /\
+    <<RELEASED: Capability.le released2' released2>> /\
+    <<SC: TimeMap.le sc3' sc3>> /\
+    <<MEM: Memory.sim mem3 mem3'>>.
+Proof.
+  exploit Local.read_step_future; try apply STEP1; eauto. i. des.
+  exploit Local.write_step_future; try apply STEP2; eauto. i. des.
+  exploit reorder_write_write; try apply STEP2; try apply STEP3; eauto. i. des.
+  exploit Local.write_step_future; try apply STEP0; eauto. i. des.
+  exploit reorder_read_write; try apply STEP1; try apply STEP0; eauto. i. des.
+  exploit Local.write_step_future; try apply STEP5; eauto. i. des.
+  exploit Local.read_step_future; try apply STEP6; eauto. i. des.
+  exploit sim_local_write; try apply STEP4; try apply LOCAL0; try apply x1; try refl; eauto.
+  { inv STEP6. eapply CLOSED1; eauto. }
+  i. des.
+  esplits; eauto.
+  - etrans; eauto.
+  - etrans; eauto.
+Qed.
+
+Lemma reorder_update_update
+      loc1 ts1 val1 released1 ord1
+      from2 to2 val2 released2 ord2 kind2
+      loc3 ts3 val3 released3 ord3
+      from4 to4 val4 released4 ord4 kind4
+      lc0 sc0 mem0
+      lc1
+      lc2 sc2 mem2
+      lc3
+      lc4 sc4 mem4
+      (LOC: loc1 <> loc3)
+      (ORD2: Ordering.le ord2 Ordering.relaxed)
+      (ORD3: Ordering.le ord3 Ordering.relaxed)
+      (ORD4: Ordering.le Ordering.seqcst ord4 -> Ordering.le Ordering.seqcst ord1 -> False)
+      (WF0: Local.wf lc0 mem0)
+      (SC0: Memory.closed_timemap sc0 mem0)
+      (MEM0: Memory.closed mem0)
+      (STEP1: Local.read_step lc0 mem0 loc1 ts1 val1 released1 ord1 lc1)
+      (STEP2: Local.write_step lc1 sc0 mem0 loc1 from2 to2 val2 released1 released2 ord2 lc2 sc2 mem2 kind2)
+      (STEP3: Local.read_step lc2 mem2 loc3 ts3 val3 released3 ord3 lc3)
+      (STEP4: Local.write_step lc3 sc2 mem2 loc3 from4 to4 val4 released3 released4 ord4 lc4 sc4 mem4 kind4):
+  exists released2' released4' lc1' lc2' lc3' lc4' sc2' sc4' mem2' mem4',
+    <<STEP1: Local.read_step lc0 mem0 loc3 ts3 val3 released3 ord3 lc1'>> /\
+    <<STEP2: Local.write_step lc1' sc0 mem0 loc3 from4 to4 val4 released3 released4' ord4 lc2' sc2' mem2' kind4>> /\
+    <<STEP3: Local.read_step lc2' mem2' loc1 ts1 val1 released1 ord1 lc3'>> /\
+    <<STEP4: Local.write_step lc3' sc2' mem2' loc1 from2 to2 val2 released1 released2' ord2 lc4' sc4' mem4' kind2>> /\
+    <<LOCAL: sim_local lc4' lc4>> /\
+    <<RELEASED2: Capability.le released2' released2>> /\
+    <<RELEASED4: Capability.le released4' released4>> /\
+    <<SC: TimeMap.le sc4' sc4>> /\
+    <<MEM: Memory.sim mem4 mem4'>>.
+Proof.
+  exploit Local.read_step_future; try apply STEP1; eauto. i. des.
+  exploit Local.write_step_future; try apply STEP2; eauto. i. des.
+  exploit Local.read_step_future; try apply STEP3; eauto. i. des.
+  exploit reorder_update_read; try apply STEP2; try apply STEP1; try apply STEP3; eauto. i. des.
+  exploit Local.read_step_future; try apply STEP0; eauto. i. des.
+  exploit Local.read_step_future; try apply STEP5; eauto. i. des.
+  exploit Local.write_step_future; try apply STEP6; eauto. i. des.
+  exploit sim_local_write; try apply STEP4; try apply LOCAL; try apply WF1; eauto; try refl.
+  { inv STEP0. eapply MEM0; eauto. }
+  i. des.
+  hexploit reorder_update_write; try apply STEP5; try apply STEP6; try apply STEP_SRC; eauto. i. des.
+  esplits; eauto.
+  - etrans; eauto.
+  - etrans; eauto.
+  - etrans; eauto.
+  - etrans; eauto.
+Qed.
 
 Lemma reorder_fence_promise
       ordr1 ordw1

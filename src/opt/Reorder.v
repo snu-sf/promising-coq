@@ -21,8 +21,8 @@ Require Import MemInv.
 Require Import Progress.
 Require Import ReorderStep.
 Require Import ReorderLoad.
-(* Require Import ReorderStore. *)
-(* Require Import ReorderUpdate. *)
+Require Import ReorderStore.
+Require Import ReorderUpdate.
 Require Import ReorderFence.
 
 Require Import Syntax.
@@ -35,19 +35,26 @@ Inductive reorder: forall (i1 i2:Instr.t), Prop :=
     r1 l1 o1 i2
     (REORDER: reorder_load r1 l1 o1 i2):
     reorder (Instr.load r1 l1 o1) i2
-(* | reorder_intro_store *)
-(*     l1 v1 o1 i2 *)
-(*     (REORDER: reorder_store l1 v1 o1 i2): *)
-(*     reorder (Instr.store l1 v1 o1) i2 *)
-(* | reorder_intro_update *)
-(*     l1 v1 rmw1 or1 ow1 i2 *)
-(*     (REORDER: reorder_update l1 v1 rmw1 or1 ow1 i2): *)
-(*     reorder (Instr.update l1 v1 rmw1 or1 ow1) i2 *)
+| reorder_intro_store
+    l1 v1 o1 i2
+    (REORDER: reorder_store l1 v1 o1 i2):
+    reorder (Instr.store l1 v1 o1) i2
+| reorder_intro_update
+    l1 v1 rmw1 or1 ow1 i2
+    (REORDER: reorder_update l1 v1 rmw1 or1 ow1 i2):
+    reorder (Instr.update l1 v1 rmw1 or1 ow1) i2
 | reorder_intro_fence
     or1 ow1 i2
     (REORDER: reorder_fence or1 ow1 i2):
     reorder (Instr.fence or1 ow1) i2
 .
+
+Lemma Memory_get_Memory_lower
+      mem loc from to val released
+      (GET: Memory.get loc to mem = Some (from, Message.mk val released)):
+  Memory.lower mem loc from to val released released mem.
+Proof.
+Admitted.
 
 Lemma reorder_sim_stmts
       i1 i2 (REORDER: reorder i1 i2):
@@ -84,55 +91,58 @@ Proof.
     + left. eapply paco9_mon; [apply sim_load_sim_thread|]; ss.
       econs; eauto.
       eapply Local.read_step_future; eauto.
-  (* - (* store *) *)
-  (*   exploit sim_local_write; eauto. i. des. *)
-  (*   inv STEP_SRC. *)
-  (*   + esplits; eauto. *)
-  (*     * econs 2. econs 1; ss. *)
-  (*       { econs. econs. } *)
-  (*       { apply progress_silent_step. auto. } *)
-  (*     * auto. *)
-  (*     * left. eapply paco9_mon; [apply sim_store_sim_thread|]; ss. *)
-  (*       econs; eauto. *)
-  (*   + esplits. *)
-  (*     * econs 2; [|econs 1]. econs. *)
-  (*       { econs 2. econs 1; ss. *)
-  (*         - econs. econs. *)
-  (*         - apply progress_silent_step. auto. *)
-  (*       } *)
-  (*       { auto. } *)
-  (*     * econs. econs; eauto. *)
-  (*     * eauto. *)
-  (*     * eauto. *)
-  (*     * left. eapply paco9_mon; [apply sim_store_sim_thread|]; ss. *)
-  (*       econs; eauto. *)
-  (* - (* update *) *)
-  (*   exploit sim_local_read; eauto. i. des. *)
-  (*   exploit sim_local_write; eauto. *)
-  (*   { eapply Local.read_step_future; eauto. } *)
-  (*   { eapply Local.read_step_future; eauto. } *)
-  (*   i. des. *)
-  (*   inv STEP_SRC0. *)
-  (*   + esplits; eauto. *)
-  (*     * econs 2. econs 1; ss. *)
-  (*       { econs. econs. } *)
-  (*       { apply progress_silent_step. auto. } *)
-  (*     * auto. *)
-  (*     * left. eapply paco9_mon; [apply sim_update_sim_thread|]; ss. *)
-  (*       econs; eauto. *)
-  (*   + exploit reorder_read_promise; try apply STEP_SRC; try apply x0; eauto. i. des. *)
-  (*     esplits. *)
-  (*     * econs 2; [|econs 1]. econs. *)
-  (*       { econs 2. econs 1; ss. *)
-  (*         - econs. econs. *)
-  (*         - apply progress_silent_step. auto. *)
-  (*       } *)
-  (*       { auto. } *)
-  (*     * econs 1. econs; eauto. *)
-  (*     * eauto. *)
-  (*     * eauto. *)
-  (*     * left. eapply paco9_mon; [apply sim_update_sim_thread|]; ss. *)
-  (*       econs; eauto. *)
+  - (* store *)
+    exploit Local.write_step_future; eauto. i. des.
+    exploit sim_local_write; try apply SC; eauto; try refl; committac. i. des.
+    exploit Local.write_step_future; eauto. i. des.
+    inv STEP_SRC. inv WRITE.
+    exploit Memory.promise_future; try apply PROMISE; try apply WF_SRC; eauto. i. des.
+    esplits.
+    + eauto.
+    + econs 2. econs 1. econs. econs. eauto.
+    + auto.
+    + etrans; eauto.
+    + auto.
+    + left. eapply paco9_mon; [apply sim_store_sim_thread|done].
+      econs; eauto; (try by etrans; eauto).
+      * hexploit Memory.promise_get2; eauto. i.
+        assert (ORD1': ~ Ordering.le Ordering.acqrel ord).
+        { by inv REORDER0; destruct ord; inv ORD1. }
+        refine (Local.step_write_intro _ _ _ _ _); eauto; [|congr].
+        econs; eauto. econs.
+        { apply Memory_get_Memory_lower. auto. }
+        { apply Memory_get_Memory_lower. eauto. }
+        { eapply CLOSED0. eauto. }
+      * econs; try apply WF_SRC; eauto.
+        s. eapply Commit.future_closed; eauto. apply WF_SRC.
+      * eapply Memory.future_closed_timemap; eauto.
+  - (* update *)
+    exploit Local.read_step_future; eauto. i. des.
+    exploit Local.write_step_future; eauto. i. des.
+    exploit sim_local_read; eauto; try refl. i. des.
+    exploit Local.read_step_future; eauto. i. des.
+    hexploit sim_local_write; try apply LOCAL2; try apply LOCAL0; try apply SC; eauto.
+    { inv LOCAL1. eapply MEM_TGT. eauto. }
+    i. des.
+    exploit Local.write_step_future; eauto. i. des.
+    inv STEP_SRC0. inv WRITE.
+    exploit reorder_read_promise; try apply STEP_SRC; eauto.
+    { econs. eauto. }
+    i. des.
+    exploit Local.promise_step_future; eauto. i. des.
+    esplits.
+    + eauto.
+    + econs 2. econs 1. econs. eauto.
+    + auto.
+    + etrans; eauto.
+    + auto.
+    + left. eapply paco9_mon; [apply sim_update_sim_thread|done].
+      econs; auto.
+      * eauto.
+      * eauto.
+      * admit.
+      * eauto.
+      * etrans; eauto.
   - (* fence *)
     exploit sim_local_fence; try apply SC; eauto; try refl. i. des.
     esplits.
@@ -143,7 +153,4 @@ Proof.
     + auto.
     + left. eapply paco9_mon; [apply sim_fence_sim_thread|]; ss.
       econs; eauto.
-      inv STEP_SRC. erewrite <- Commit_write_fence_sc_acqrel.
-      * econs; auto.
-      * inv REORDER0. etrans; eauto.
-Qed.
+Admitted.

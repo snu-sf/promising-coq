@@ -57,200 +57,220 @@ Inductive reorder_update r1 l1 rmw1 or1 ow1: forall (i2:Instr.t), Prop :=
     reorder_update r1 l1 rmw1 or1 ow1 (Instr.update r2 l2 rmw2 or2 ow2)
 .
 
-Inductive sim_update: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (sc0_src:TimeMap.t) (mem0_src:Memory.t)
-                        (st_tgt:lang.(Language.state)) (lc_tgt:Local.t) (sc0_tgt:TimeMap.t) (mem0_tgt:Memory.t), Prop :=
+Inductive sim_update: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (sc1_src:TimeMap.t) (mem1_src:Memory.t)
+                        (st_tgt:lang.(Language.state)) (lc_tgt:Local.t) (sc1_tgt:TimeMap.t) (mem1_tgt:Memory.t), Prop :=
 | sim_update_intro
-    r1 l1 from1 to1 vr1 vret1 vw1 releasedr1 releasedw1 rmw1 or1 ow1 i2
-    rs lc1_src lc1_tgt lc2_src lc3_src
-    mem0_src mem0_tgt
-    (REORDER: reorder_update r1 l1 rmw1 or1 ow1 i2)
+    r1 l1 from1 to1 vr1 vret1 vw1 releasedr1 releasedw1 rmw1 or1 ow1 i2 rs
+    lc1_src sc1_src mem1_src
+    lc1_tgt sc1_tgt mem1_tgt
+    lc2_src
+    lc3_src sc3_src mem3_src
     (RMW: RegFile.eval_rmw rs rmw1 vr1 = (vret1, vw1))
-    (READ: Local.read_step lc1_src sc0_src mem0_src l1 from1 vr1 releasedr1 or1 lc2_src)
-    (FULFILL: Local.fulfill_step lc2_src mem0_src l1 from1 to1 vw1 releasedw1 (Capability.join releasedr1 releasedw1) ow1 lc3_src)
-    (LOCAL: sim_local lc3_src lc1_tgt):
-    sim_update
-      (State.mk rs [Stmt.instr i2; Stmt.instr (Instr.update r1 l1 rmw1 or1 ow1)]) lc1_src sc0_src mem0_src
-      (State.mk (RegFun.add r1 vret1 rs) [Stmt.instr i2]) lc1_tgt sc0_tgt mem0_tgt
-.
-
-Lemma sim_update_step
-      st1_src lc1_src sc0_src mem0_src
-      st1_tgt lc1_tgt sc0_tgt mem0_tgt
-      (SIM: sim_update st1_src lc1_src sc0_src mem0_src
-                      st1_tgt lc1_tgt sc0_tgt mem0_tgt):
-  forall mem1_src mem1_tgt
-    (MEMORY: sim_memory mem1_src mem1_tgt)
-    (FUTURE_SRC: Memory.future mem0_src mem1_src)
-    (FUTURE_TGT: Memory.future mem0_tgt mem1_tgt)
+    (REORDER: reorder_update r1 l1 rmw1 or1 ow1 i2)
+    (READ: Local.read_step lc1_src mem1_src l1 from1 vr1 releasedr1 or1 lc2_src)
+    (WRITE: Local.write_step lc2_src sc1_src mem1_src l1 from1 to1 vw1 releasedr1 releasedw1 ow1 lc3_src sc3_src mem3_src Memory.promise_kind_lower)
+    (LOCAL: sim_local lc3_src lc1_tgt)
+    (SC: TimeMap.le sc1_src sc1_tgt)
+    (MEMORY: Memory.sim mem1_tgt mem1_src)
     (WF_SRC: Local.wf lc1_src mem1_src)
     (WF_TGT: Local.wf lc1_tgt mem1_tgt)
+    (SC_SRC: Memory.closed_timemap sc1_src mem1_src)
+    (SC_TGT: Memory.closed_timemap sc1_tgt mem1_tgt)
     (MEM_SRC: Memory.closed mem1_src)
-    (MEM_TGT: Memory.closed mem1_tgt),
-    _sim_thread_step lang lang ((sim_thread (sim_terminal eq)) \6/ sim_update)
-                     st1_src lc1_src mem1_src
-                     st1_tgt lc1_tgt mem1_tgt.
+    (MEM_TGT: Memory.closed mem1_tgt):
+    sim_update
+      (State.mk rs [Stmt.instr i2; Stmt.instr (Instr.update r1 l1 rmw1 or1 ow1)]) lc1_src sc1_src mem1_src
+      (State.mk (RegFun.add r1 vret1 rs) [Stmt.instr i2]) lc1_tgt sc1_tgt mem1_tgt
+.
+
+Lemma sim_update_mon
+      st_src lc_src sc1_src mem1_src
+      st_tgt lc_tgt sc1_tgt mem1_tgt
+      sc2_src mem2_src
+      sc2_tgt mem2_tgt
+      (SIM1: sim_update st_src lc_src sc1_src mem1_src
+                       st_tgt lc_tgt sc1_tgt mem1_tgt)
+      (SC_FUTURE_SRC: TimeMap.le sc1_src sc2_src)
+      (SC_FUTURE_TGT: TimeMap.le sc1_tgt sc2_tgt)
+      (MEM_FUTURE_SRC: Memory.future mem1_src mem2_src)
+      (MEM_FUTURE_TGT: Memory.future mem1_tgt mem2_tgt)
+      (SC1: TimeMap.le sc2_src sc2_tgt)
+      (MEM1: Memory.sim mem2_tgt mem2_src)
+      (WF_SRC: Local.wf lc_src mem2_src)
+      (WF_TGT: Local.wf lc_tgt mem2_tgt)
+      (SC_SRC: Memory.closed_timemap sc2_src mem2_src)
+      (SC_TGT: Memory.closed_timemap sc2_tgt mem2_tgt)
+      (MEM_SRC: Memory.closed mem2_src)
+      (MEM_TGT: Memory.closed mem2_tgt):
+  sim_update st_src lc_src sc2_src mem2_src
+            st_tgt lc_tgt sc2_tgt mem2_tgt.
+Proof.
+Admitted.
+
+Lemma sim_update_future
+      st_src lc_src sc1_src mem1_src
+      st_tgt lc_tgt sc1_tgt mem1_tgt
+      sc2_src mem2_src
+      (SC1: TimeMap.le sc1_src sc1_tgt)
+      (MEM1: Memory.sim mem1_tgt mem1_src)
+      (SIM1: sim_update st_src lc_src sc1_src mem1_src
+                       st_tgt lc_tgt sc1_tgt mem1_tgt)
+      (SC_FUTURE_SRC: TimeMap.le sc1_src sc2_src)
+      (MEM_FUTURE_SRC: Memory.future mem1_src mem2_src)
+      (WF_SRC: Local.wf lc_src mem2_src)
+      (SC_SRC: Memory.closed_timemap sc2_src mem2_src)
+      (MEM_SRC: Memory.closed mem2_src):
+  exists lc'_src sc2_tgt mem2_tgt,
+    <<SC2: TimeMap.le sc2_src sc2_tgt>> /\
+    <<MEM2: Memory.sim mem2_tgt mem2_src>> /\
+    <<SC_FUTURE_TGT: TimeMap.le sc1_tgt sc2_tgt>> /\
+    <<MEM_FUTURE_TGT: Memory.future mem1_tgt mem2_tgt>> /\
+    <<WF_TGT: Local.wf lc_tgt mem2_tgt>> /\
+    <<SC_TGT: Memory.closed_timemap sc2_tgt mem2_tgt>> /\
+    <<MEM_TGT: Memory.closed mem2_tgt>> /\
+    <<SIM2: sim_update st_src lc'_src sc2_src mem2_src
+                       st_tgt lc_tgt sc2_tgt mem2_tgt>>.
+Proof.
+Admitted.
+
+Lemma sim_update_step
+      st1_src lc1_src sc1_src mem1_src
+      st1_tgt lc1_tgt sc1_tgt mem1_tgt
+      (SIM: sim_update st1_src lc1_src sc1_src mem1_src
+                       st1_tgt lc1_tgt sc1_tgt mem1_tgt):
+  _sim_thread_step lang lang ((sim_thread (sim_terminal eq)) \8/ sim_update)
+                   st1_src lc1_src sc1_src mem1_src
+                   st1_tgt lc1_tgt sc1_tgt mem1_tgt.
 Proof.
   inv SIM. ii.
-  exploit Local.future_read_step; try apply READ; eauto. i.
-  exploit Local.future_fulfill_step; try apply FULFILL; eauto. i.
+  assert (SIM_SRC: Memory.sim mem1_src mem3_src).
+  { inv WRITE. inv WRITE0. inv PROMISE. econs 2; eauto. econs 2. eauto. }
+  exploit Local.read_step_future; eauto. i. des.
+  exploit Local.write_step_future; eauto. i. des.
+  exploit Local.write_step_sc_acqrel; try apply WRITE; eauto.
+  { inv REORDER; etrans; eauto. }
+  i. subst.
   inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR; inv REORDER); ss.
   - (* promise *)
-    exploit sim_local_promise; eauto.
-    { eapply Local.fulfill_step_future; eauto.
-      eapply Local.read_step_future; eauto.
-    }
+    exploit Local.promise_step_future; eauto. i. des.
+    exploit sim_local_promise; try apply LOCAL0; (try by etrans; eauto); eauto. i. des.
+    exploit reorder_write_promise; try apply WRITE; try apply STEP_SRC; eauto. i. des.
+    exploit Local.promise_step_future; try apply STEP1; eauto. i. des.
+    exploit reorder_read_promise; try apply READ; try apply STEP1; eauto. i. des.
+    exploit Local.promise_step_future; try apply STEP0; eauto. i. des.
+    exploit Local.read_step_future; try apply STEP3; eauto. i. des.
+    exploit sim_local_write; eauto; try apply LOCAL3; eauto; try refl.
+    { inv STEP3. eapply CLOSED1. eauto. }
     i. des.
-    exploit reorder_fulfill_promise; try apply x1; try apply STEP_SRC; eauto.
-    { eapply Local.read_step_future; eauto. }
-    i. des.
-    exploit reorder_read_promise; try apply x0; try apply STEP1; eauto. i. des.
-    i. des.
-    esplits; eauto.
-    + econs. econs 1; eauto.
+    exploit Local.write_step_future; try apply STEP_SRC0; eauto. i. des.
+    esplits.
     + eauto.
-    + right. econs; try apply STEP3; try apply STEP_SRC0; eauto.
+    + econs 2. econs 1. econs; eauto.
+    + auto.
+    + auto.
+    + inv LOCAL0. inv STEP1. eapply memory_sim_promise; eauto.
+    + right. econs; eauto.
+      * etrans; eauto. etrans; eauto.
+      * inv LOCAL0. inv STEP1. eapply memory_sim_promise; eauto.
   - (* load *)
-    exploit sim_local_read; eauto.
-    { eapply Local.fulfill_step_future; eauto.
-      eapply Local.read_step_future; eauto.
-    }
-    i. des.
-    exploit reorder_fulfill_read; try apply x1; try apply STEP_SRC; eauto.
-    { eapply Local.read_step_future; eauto. }
-    i. des.
-    exploit reorder_read_read; try apply x0; try apply STEP1; eauto. i. des.
     apply RegSet.disjoint_add in REGS. des.
+    exploit sim_local_read; try apply LOCAL0; (try by etrans; eauto); eauto; try refl. i. des.
+    exploit reorder_update_read; try apply WRITE; try apply READ; try apply STEP_SRC; eauto. i. des.
     esplits.
-    + econs 2; [|econs 1]. econs.
+    + econs 2; eauto. econs.
       * econs 2. econs 2; eauto. econs. econs.
-      * eauto.
-    + econs 2. econs 4; eauto.
-      * econs. econs. erewrite RegFile.eq_except_rmw; eauto.
-        { symmetry. eauto. }
-        { apply RegFile.eq_except_singleton. }
-      * s. econs 1; eauto.
-        i. destruct ow1; inv ORDW1; inv H.
-    + eauto.
-    + eauto.
-    + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss; eauto.
-      apply RegFun.add_add. ii. subst. apply REGS.
-      apply RegSet.Facts.singleton_iff. auto.
+      * auto.
+    + econs 2. econs 2. econs 4; eauto. econs. econs.
+      erewrite RegFile.eq_except_rmw; eauto.
+      * symmetry. eauto.
+      * apply RegFile.eq_except_singleton.
+    + auto.
+    + etrans; eauto.
+    + etrans; eauto. etrans; eauto.
+    + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
+      * apply RegFun.add_add. ii. subst. eapply REGS.
+        apply RegSet.Facts.singleton_iff. auto.
+      * etrans; eauto.
   - (* store *)
-    exploit sim_local_write; eauto.
-    { eapply Local.fulfill_step_future; eauto.
-      eapply Local.read_step_future; eauto.
-    }
-    i. des.
-    exploit reorder_fulfill_write; try apply x1; try apply STEP_SRC; eauto.
-    { eapply Local.read_step_future; eauto. }
-    i. des.
-    exploit reorder_read_write; try apply x0; try apply STEP1; eauto.
+    apply RegSet.disjoint_add in REGS. des.
+    exploit sim_local_write; try apply LOCAL0; (try by etrans; eauto); eauto; try refl; try by committac. i. des.
+    hexploit reorder_update_write; try apply READ; try apply WRITE; try apply STEP_SRC; eauto.
     { i. destruct or1; inv ORDR1; inv H0. }
     i. des.
     esplits.
-    + econs 2; [|econs 1]. econs.
+    + econs 2; eauto. econs.
       * econs 2. econs 3; eauto. econs.
-        erewrite <- RegFile.eq_except_value; eauto.
+        erewrite RegFile.eq_except_value; cycle 2.
+        { apply RegFile.eq_except_singleton. }
         { econs. }
-        { symmetry.
-          eapply RegFile.eq_except_mon; try apply RegFile.eq_except_singleton.
-          ii. apply RegSet.singleton_spec in H. subst.
-          apply RegSet.add_spec. auto.
-        }
-      * eauto.
-    + econs 2. econs 4; eauto.
-      * econs. econs. eauto.
-      * s. econs 1; eauto.
-        i. destruct ow1; inv ORDW1; inv H.
-    + eauto.
-    + eauto.
+        { ii. apply RegSet.singleton_spec in LHS. subst. congr. }
+      * auto.
+    + econs 2. econs 2. econs 4; eauto. econs. econs. eauto.
+    + auto.
+    + etrans; eauto.
+    + etrans; eauto.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
+      etrans; eauto.
   - (* update *)
-    exploit sim_local_read; eauto.
-    { eapply Local.fulfill_step_future; eauto.
-      eapply Local.read_step_future; eauto.
-    }
+    apply RegSet.disjoint_add in REGS. des.
+    symmetry in REGS0. apply RegSet.disjoint_add in REGS0. des.
+    exploit Local.read_step_future; try apply LOCAL1; eauto. i. des.
+    exploit sim_local_read; try apply LOCAL1; (try by etrans; eauto); eauto; try refl. i. des.
+    exploit Local.read_step_future; try apply STEP_SRC; eauto. i. des.
+    exploit sim_local_write; try apply LOCAL2; try apply LOCAL0; (try by etrans; eauto); eauto; try refl; try by committac.
+    { inv LOCAL1. eapply MEM_TGT; eauto. }
     i. des.
-    exploit sim_local_write; eauto.
-    { eapply Local.read_step_future; eauto.
-      eapply Local.fulfill_step_future; eauto.
-      eapply Local.read_step_future; eauto.
-    }
-    { eapply Local.read_step_future; eauto. }
-    i. des.
-    exploit reorder_fulfill_read; try apply x1; try apply STEP_SRC; eauto.
-    { eapply Local.read_step_future; eauto. }
-    i. des.
-    exploit reorder_read_read; try apply x0; try apply STEP1; eauto. i. des.
-    exploit reorder_fulfill_write; try apply STEP2; try apply STEP_SRC1; eauto.
-    { eapply Local.read_step_future; eauto.
-      eapply Local.read_step_future; eauto.
-    }
-    i. des.
-    exploit reorder_read_write; try apply STEP3; try apply STEP4; eauto.
+    hexploit ReorderStep.reorder_update_update;
+      try apply LOC; try apply READ; try apply WRITE; try apply STEP_SRC; try apply STEP_SRC0; eauto.
     { i. destruct or1; inv ORDR1; inv H0. }
-    { eapply Local.read_step_future; eauto. }
     i. des.
     esplits.
-    + econs 2; [|econs 1]. econs.
+    + econs 2; eauto. econs.
       * econs 2. econs 4; eauto. econs. econs.
-        erewrite <- RegFile.eq_except_rmw; eauto; try apply RegFile.eq_except_singleton.
-        ii. eapply REGS; apply RegSet.add_spec.
-        { left. eauto. }
-        { right. apply RegSet.singleton_spec in LHS. subst. eauto. }
+        erewrite RegFile.eq_except_rmw; eauto; cycle 1.
+        { symmetry. apply RegFile.eq_except_singleton. }
+        { ii. apply RegSet.singleton_spec in LHS. subst. contradict REGS. apply RegSet.add_spec. auto. }
+      * auto.
+    + econs 2. econs 2. econs 4; eauto. econs. econs.
+      erewrite RegFile.eq_except_rmw; cycle 2.
+      * apply RegFile.eq_except_singleton.
       * eauto.
-    + econs 2. econs 4; try apply STEP7; try apply STEP_SRC0; eauto.
-      * econs. econs.
-        erewrite RegFile.eq_except_rmw; eauto; try apply RegFile.eq_except_singleton.
-        ii. eapply REGS; apply RegSet.add_spec.
-        { right. apply RegSet.singleton_spec in LHS. subst. eauto. }
-        { left. eauto. }
-      * econs 1; eauto.
-        i. destruct ow1; inv ORDW1; inv H.
-    + eauto.
-    + eauto.
+      * ii. apply RegSet.singleton_spec in LHS. subst. congr.
+    + auto.
+    + etrans; eauto.
+    + etrans; eauto.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
-      apply RegFun.add_add. ii. subst. eapply REGS.
-      * apply RegSet.add_spec. left. eauto.
-      * apply RegSet.add_spec. left. eauto.
+      * apply RegFun.add_add. ii. subst. apply REGS. apply RegSet.add_spec. auto.
+      * etrans; eauto.
 Qed.
 
 Lemma sim_update_sim_thread:
-  sim_update <6= (sim_thread (sim_terminal eq)).
+  sim_update <8= (sim_thread (sim_terminal eq)).
 Proof.
-  pcofix CIH. i. pfold. ii. ss. splits; ss.
-  - i. inv TERMINAL_TGT. inv PR; ss.
-  - i. inv PR. eapply sim_local_future; try apply LOCAL; eauto.
-    + exploit Local.read_step_future; try apply WF_SRC; i.
-      { eapply Local.future_read_step; eauto. }
-      { eauto. }
-      eapply Local.fulfill_step_future; eauto.
-      eapply Local.future_fulfill_step; eauto.
-    + exploit Local.read_step_future; try apply WF_SRC0; i.
-      { eapply Local.future_read_step; eauto.
-        eapply Local.future_read_step; eauto.
-      }
-      { eauto. }
-      eapply Local.fulfill_step_future; try apply x0; eauto.
-      eapply Local.future_fulfill_step; eauto.
-      eapply Local.future_fulfill_step; eauto.
-  - inversion PR. subst. i.
-    exploit (progress_program_step (RegFun.add r1 vret1 rs) i2 nil); eauto. i. des.
-    destruct lc2. exploit sim_update_step; eauto.
-    { econs 2. eauto. }
+  pcofix CIH. i. pfold. ii. ss. splits; ss; ii.
+  - inv TERMINAL_TGT. inv PR; ss.
+  - exploit sim_update_mon; eauto. i. des.
+    exploit sim_update_future; try apply x8; eauto. i. des.
+    esplits; eauto.
+  - exploit sim_update_mon; eauto. i.
+    inversion x8. subst. i.
+    exploit (progress_program_step (RegFun.add r1 (fst (RegFile.eval_rmw rs rmw1 vr1)) rs) i2 nil); eauto. i. des.
+    destruct th2. exploit sim_update_step; eauto.
+    { rewrite RMW in *. ss. econs 2. eauto. }
     i. des.
     + exploit program_step_promise; eauto. i.
       exploit Thread.rtc_step_future; eauto. s. i. des.
-      exploit Thread.step_future; eauto. s. i. des.
+      exploit Thread.opt_step_future; eauto. s. i. des.
       exploit Thread.program_step_future; eauto. s. i. des.
-      punfold SIM. exploit SIM; eauto; try refl. i. des.
+      punfold SIM. exploit SIM; try apply SC3; eauto; try refl. s. i. des.
       exploit PROMISES; eauto. i. des.
       esplits; [|eauto].
-      etrans; eauto. etrans; [|eauto].
-      econs 2; eauto. econs; eauto. etrans; eauto.
+	    etrans; eauto. etrans; [|eauto].
+      inv STEP_SRC; eauto. econs 2; eauto. econs; eauto. etrans; eauto.
       destruct e; by inv STEP; inv STATE; inv INSTR; inv REORDER.
     + inv SIM. inv STEP; inv STATE.
-  - ii. exploit sim_update_step; eauto. i. des.
+  - exploit sim_update_mon; eauto. i. des.
+    exploit sim_update_step; eauto. i. des.
     + esplits; eauto.
       left. eapply paco9_mon; eauto. ss.
     + esplits; eauto.

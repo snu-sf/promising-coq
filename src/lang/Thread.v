@@ -137,10 +137,9 @@ Module Local.
     - eapply Memory.future_closed_timemap; eauto.
   Qed.
 
-  Lemma read_step_future lc1 sc1 mem1 loc ts val released ord lc2
+  Lemma read_step_future lc1 mem1 loc ts val released ord lc2
         (STEP: read_step lc1 mem1 loc ts val released ord lc2)
         (WF1: wf lc1 mem1)
-        (SC1: Memory.closed_timemap sc1 mem1)
         (CLOSED1: Memory.closed mem1):
     wf lc2 mem1.
   Proof.
@@ -208,10 +207,9 @@ Module Local.
   Qed.
 
   Lemma read_step_disjoint
-        lc1 sc1 mem1 lc2 loc ts val released ord lc
+        lc1 mem1 lc2 loc ts val released ord lc
         (STEP: read_step lc1 mem1 loc ts val released ord lc2)
         (WF1: wf lc1 mem1)
-        (SC1: Memory.closed_timemap sc1 mem1)
         (DISJOINT1: disjoint lc1 lc)
         (WF: wf lc mem1):
     disjoint lc2 lc.
@@ -247,6 +245,15 @@ Module Local.
     <<WF: wf lc mem1>>.
   Proof.
     inv WF1. inv DISJOINT1. inv WF. inv STEP. splits; ss.
+  Qed.
+
+  Lemma write_step_sc_acqrel
+        lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind
+        (ORD: Ordering.le ord Ordering.acqrel)
+        (STEP: Local.write_step lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind):
+    sc2 = sc1.
+  Proof.
+    inv STEP. apply CommitFacts.write_sc_acqrel. etrans; eauto.
   Qed.
 End Local.
 
