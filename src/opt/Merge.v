@@ -27,13 +27,13 @@ Set Implicit Arguments.
 
 Lemma assign_sim_thread:
   forall v1 r2
-    rs_src rs_tgt lc_src lc_tgt sc_k_src sc_k_tgt mem_k_src mem_k_tgt
+    rs_src rs_tgt lc_src lc_tgt sc0_src sc0_tgt mem0_src mem0_tgt
     (RS: rs_src = RegFun.add r2 (RegFile.eval_value rs_tgt v1) rs_tgt)
     (LOCAL: sim_local lc_src lc_tgt),
     sim_thread
       (sim_terminal eq)
-      (State.mk rs_src []) lc_src sc_k_src mem_k_src
-      (State.mk rs_tgt [Stmt.instr (Instr.assign r2 (Instr.expr_val v1))]) lc_tgt sc_k_tgt mem_k_tgt.
+      (State.mk rs_src []) lc_src sc0_src mem0_src
+      (State.mk rs_tgt [Stmt.instr (Instr.assign r2 (Instr.expr_val v1))]) lc_tgt sc0_tgt mem0_tgt.
 Proof.
   pcofix CIH. i. pfold. ii. splits.
   { i. inv TERMINAL_TGT. }

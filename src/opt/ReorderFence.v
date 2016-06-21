@@ -34,29 +34,29 @@ Inductive reorder_fence (or1 ow1:Ordering.t): forall (i2:Instr.t), Prop :=
     reorder_fence or1 ow1 (Instr.store l2 v2 o2)
 .
 
-Inductive sim_fence: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (sc_k_src:TimeMap.t) (mem_k_src:Memory.t)
-                       (st_tgt:lang.(Language.state)) (lc_tgt:Local.t) (sc_k_tgt:TimeMap.t) (mem_k_tgt:Memory.t), Prop :=
+Inductive sim_fence: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (sc0_src:TimeMap.t) (mem0_src:Memory.t)
+                       (st_tgt:lang.(Language.state)) (lc_tgt:Local.t) (sc0_tgt:TimeMap.t) (mem0_tgt:Memory.t), Prop :=
 | sim_fence_intro
     or1 ow1 i2
     rs lc1_src lc1_tgt lc2_src
-    mem_k_src mem_k_tgt
+    mem0_src mem0_tgt
     (REORDER: reorder_fence or1 ow1 i2)
-    (FENCE: Local.fence_step lc1_src sc_k_src mem_k_src or1 ow1 lc2_src)
+    (FENCE: Local.fence_step lc1_src sc0_src mem0_src or1 ow1 lc2_src)
     (LOCAL: sim_local lc2_src lc1_tgt):
     sim_fence
-      (State.mk rs [Stmt.instr i2; Stmt.instr (Instr.fence or1 ow1)]) lc1_src sc_k_src mem_k_src
-      (State.mk rs [Stmt.instr i2]) lc1_tgt sc_k_tgt mem_k_tgt
+      (State.mk rs [Stmt.instr i2; Stmt.instr (Instr.fence or1 ow1)]) lc1_src sc0_src mem0_src
+      (State.mk rs [Stmt.instr i2]) lc1_tgt sc0_tgt mem0_tgt
 .
 
 Lemma sim_fence_step
-      st1_src lc1_src sc_k_src mem_k_src
-      st1_tgt lc1_tgt sc_k_tgt mem_k_tgt
-      (SIM: sim_fence st1_src lc1_src sc_k_src mem_k_src
-                      st1_tgt lc1_tgt sc_k_tgt mem_k_tgt):
+      st1_src lc1_src sc0_src mem0_src
+      st1_tgt lc1_tgt sc0_tgt mem0_tgt
+      (SIM: sim_fence st1_src lc1_src sc0_src mem0_src
+                      st1_tgt lc1_tgt sc0_tgt mem0_tgt):
   forall mem1_src mem1_tgt
     (MEMORY: sim_memory mem1_src mem1_tgt)
-    (FUTURE_SRC: Memory.future mem_k_src mem1_src)
-    (FUTURE_TGT: Memory.future mem_k_tgt mem1_tgt)
+    (FUTURE_SRC: Memory.future mem0_src mem1_src)
+    (FUTURE_TGT: Memory.future mem0_tgt mem1_tgt)
     (WF_SRC: Local.wf lc1_src mem1_src)
     (WF_TGT: Local.wf lc1_tgt mem1_tgt)
     (MEM_SRC: Memory.closed mem1_src)

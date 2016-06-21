@@ -331,18 +331,18 @@ Qed.
 
 
 Lemma sim_compose
-      ths1_src ths2_src sc_k_src mem_k_src
-      ths1_tgt ths2_tgt sc_k_tgt mem_k_tgt
+      ths1_src ths2_src sc0_src mem0_src
+      ths1_tgt ths2_tgt sc0_tgt mem0_tgt
       (DISJOINT_SRC: Threads.disjoint ths1_src ths2_src)
       (DISJOINT_TGT: Threads.disjoint ths1_tgt ths2_tgt)
-      (SIM1: sim ths1_src sc_k_src mem_k_src ths1_tgt sc_k_tgt mem_k_tgt)
-      (SIM2: sim ths2_src sc_k_src mem_k_src ths2_tgt sc_k_tgt mem_k_tgt):
-  sim (Threads.compose ths1_src ths2_src) sc_k_src mem_k_src
-      (Threads.compose ths1_tgt ths2_tgt) sc_k_tgt mem_k_tgt.
+      (SIM1: sim ths1_src sc0_src mem0_src ths1_tgt sc0_tgt mem0_tgt)
+      (SIM2: sim ths2_src sc0_src mem0_src ths2_tgt sc0_tgt mem0_tgt):
+  sim (Threads.compose ths1_src ths2_src) sc0_src mem0_src
+      (Threads.compose ths1_tgt ths2_tgt) sc0_tgt mem0_tgt.
 Proof.
   revert
-    ths1_src ths2_src sc_k_src mem_k_src
-    ths1_tgt ths2_tgt sc_k_tgt mem_k_tgt
+    ths1_src ths2_src sc0_src mem0_src
+    ths1_tgt ths2_tgt sc0_tgt mem0_tgt
     DISJOINT_SRC DISJOINT_TGT
     SIM1 SIM2.
   pcofix CIH. i. pfold. ii.

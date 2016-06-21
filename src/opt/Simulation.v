@@ -44,12 +44,12 @@ Section SimulationLocal.
 
   Definition SIM_THREAD :=
     forall (sim_terminal: SIM_TERMINAL)
-      (st1_src:lang_src.(Language.state)) (lc1_src:Local.t) (sc_k_src:TimeMap.t) (mem_k_src:Memory.t)
-      (st1_tgt:lang_tgt.(Language.state)) (lc1_tgt:Local.t) (sc_k_tgt:TimeMap.t) (mem_k_tgt:Memory.t), Prop.
+      (st1_src:lang_src.(Language.state)) (lc1_src:Local.t) (sc0_src:TimeMap.t) (mem0_src:Memory.t)
+      (st1_tgt:lang_tgt.(Language.state)) (lc1_tgt:Local.t) (sc0_tgt:TimeMap.t) (mem0_tgt:Memory.t), Prop.
 
   Definition _sim_thread_step
-             (sim_thread: forall (st1_src:lang_src.(Language.state)) (lc1_src:Local.t) (sc_k_src:TimeMap.t) (mem_k_src:Memory.t)
-                            (st1_tgt:lang_tgt.(Language.state)) (lc1_tgt:Local.t) (sc_k_tgt:TimeMap.t) (mem_k_tgt:Memory.t), Prop)
+             (sim_thread: forall (st1_src:lang_src.(Language.state)) (lc1_src:Local.t) (sc0_src:TimeMap.t) (mem0_src:Memory.t)
+                            (st1_tgt:lang_tgt.(Language.state)) (lc1_tgt:Local.t) (sc0_tgt:TimeMap.t) (mem0_tgt:Memory.t), Prop)
              st1_src lc1_src sc1_src mem1_src
              st1_tgt lc1_tgt sc1_tgt mem1_tgt
     :=
@@ -72,16 +72,16 @@ Section SimulationLocal.
   Definition _sim_thread
              (sim_thread: SIM_THREAD)
              (sim_terminal: SIM_TERMINAL)
-             (st1_src:lang_src.(Language.state)) (lc1_src:Local.t) (sc_k_src:TimeMap.t) (mem_k_src:Memory.t)
-             (st1_tgt:lang_tgt.(Language.state)) (lc1_tgt:Local.t) (sc_k_tgt:TimeMap.t) (mem_k_tgt:Memory.t): Prop :=
+             (st1_src:lang_src.(Language.state)) (lc1_src:Local.t) (sc0_src:TimeMap.t) (mem0_src:Memory.t)
+             (st1_tgt:lang_tgt.(Language.state)) (lc1_tgt:Local.t) (sc0_tgt:TimeMap.t) (mem0_tgt:Memory.t): Prop :=
     forall sc1_src mem1_src
       sc1_tgt mem1_tgt
       (SC: TimeMap.le sc1_src sc1_tgt)
       (MEMORY: Memory.sim mem1_tgt mem1_src)
-      (SC_FUTURE_SRC: TimeMap.le sc_k_src sc1_src)
-      (SC_FUTURE_TGT: TimeMap.le sc_k_tgt sc1_tgt)
-      (MEM_FUTURE_SRC: Memory.future mem_k_src mem1_src)
-      (MEM_FUTURE_TGT: Memory.future mem_k_tgt mem1_tgt)
+      (SC_FUTURE_SRC: TimeMap.le sc0_src sc1_src)
+      (SC_FUTURE_TGT: TimeMap.le sc0_tgt sc1_tgt)
+      (MEM_FUTURE_SRC: Memory.future mem0_src mem1_src)
+      (MEM_FUTURE_TGT: Memory.future mem0_tgt mem1_tgt)
       (WF_SRC: Local.wf lc1_src mem1_src)
       (WF_TGT: Local.wf lc1_tgt mem1_tgt)
       (SC_SRC: Memory.closed_timemap sc1_src mem1_src)
@@ -155,13 +155,13 @@ Hint Resolve _sim_thread_mon: paco.
 
 Section Simulation.
   Definition SIM :=
-    forall (ths1_src:Threads.t) (sc_k_src:TimeMap.t) (mem_k_src:Memory.t)
-      (ths1_tgt:Threads.t) (sc_k_tgt:TimeMap.t) (mem_k_tgt:Memory.t), Prop.
+    forall (ths1_src:Threads.t) (sc0_src:TimeMap.t) (mem0_src:Memory.t)
+      (ths1_tgt:Threads.t) (sc0_tgt:TimeMap.t) (mem0_tgt:Memory.t), Prop.
 
   Definition _sim
              (sim: SIM)
-             (ths1_src:Threads.t) (sc_k_src:TimeMap.t) (mem_k_src:Memory.t)
-             (ths1_tgt:Threads.t) (sc_k_tgt:TimeMap.t) (mem_k_tgt:Memory.t): Prop :=
+             (ths1_src:Threads.t) (sc0_src:TimeMap.t) (mem0_src:Memory.t)
+             (ths1_tgt:Threads.t) (sc0_tgt:TimeMap.t) (mem0_tgt:Memory.t): Prop :=
     forall sc1_src mem1_src
       sc1_tgt mem1_tgt
       (SC1: TimeMap.le sc1_src sc1_tgt)
@@ -170,10 +170,10 @@ Section Simulation.
       (WF_TGT: Configuration.wf (Configuration.mk ths1_tgt sc1_tgt mem1_tgt))
       (CONSISTENT_SRC: Configuration.consistent (Configuration.mk ths1_src sc1_src mem1_src))
       (CONSISTENT_TGT: Configuration.consistent (Configuration.mk ths1_tgt sc1_tgt mem1_tgt))
-      (SC_FUTURE_SRC: TimeMap.le sc_k_src sc1_src)
-      (SC_FUTURE_TGT: TimeMap.le sc_k_tgt sc1_tgt)
-      (MEM_FUTURE_SRC: Memory.future mem_k_src mem1_src)
-      (MEM_FUTURE_TGT: Memory.future mem_k_tgt mem1_tgt),
+      (SC_FUTURE_SRC: TimeMap.le sc0_src sc1_src)
+      (SC_FUTURE_TGT: TimeMap.le sc0_tgt sc1_tgt)
+      (MEM_FUTURE_SRC: Memory.future mem0_src mem1_src)
+      (MEM_FUTURE_TGT: Memory.future mem0_tgt mem1_tgt),
       <<TERMINAL:
         forall (TERMINAL_TGT: Threads.is_terminal ths1_tgt),
         exists ths2_src sc2_src mem2_src,
@@ -208,14 +208,14 @@ Hint Resolve _sim_mon: paco.
 Lemma sim_thread_future
       lang_src lang_tgt
       sim_terminal
-      st_src lc_src sc_k1_src sc_k2_src mem_k1_src mem_k2_src
-      st_tgt lc_tgt sc_k1_tgt sc_k2_tgt mem_k1_tgt mem_k2_tgt
-      (SIM: @sim_thread lang_src lang_tgt sim_terminal st_src lc_src sc_k1_src mem_k1_src st_tgt lc_tgt sc_k1_tgt mem_k1_tgt)
-      (SC_FUTURE_SRC: TimeMap.le sc_k1_src sc_k2_src)
-      (SC_FUTURE_TGT: TimeMap.le sc_k1_tgt sc_k2_tgt)
-      (MEM_FUTURE_SRC: Memory.future mem_k1_src mem_k2_src)
-      (MEM_FUTURE_TGT: Memory.future mem_k1_tgt mem_k2_tgt):
-  sim_thread sim_terminal st_src lc_src sc_k2_src mem_k2_src st_tgt lc_tgt sc_k2_tgt mem_k2_tgt.
+      st_src lc_src sc1_src sc2_src mem1_src mem2_src
+      st_tgt lc_tgt sc1_tgt sc2_tgt mem1_tgt mem2_tgt
+      (SIM: @sim_thread lang_src lang_tgt sim_terminal st_src lc_src sc1_src mem1_src st_tgt lc_tgt sc1_tgt mem1_tgt)
+      (SC_FUTURE_SRC: TimeMap.le sc1_src sc2_src)
+      (SC_FUTURE_TGT: TimeMap.le sc1_tgt sc2_tgt)
+      (MEM_FUTURE_SRC: Memory.future mem1_src mem2_src)
+      (MEM_FUTURE_TGT: Memory.future mem1_tgt mem2_tgt):
+  sim_thread sim_terminal st_src lc_src sc2_src mem2_src st_tgt lc_tgt sc2_tgt mem2_tgt.
 Proof.
   pfold. ii.
   punfold SIM. exploit SIM; (try by etrans; eauto); eauto.
@@ -223,14 +223,14 @@ Qed.
 
 
 Lemma sim_future
-      ths_src sc_k1_src sc_k2_src mem_k1_src mem_k2_src
-      ths_tgt sc_k1_tgt sc_k2_tgt mem_k1_tgt mem_k2_tgt
-      (SIM: sim ths_src sc_k1_src mem_k1_src ths_tgt sc_k1_tgt mem_k1_tgt)
-      (SC_FUTURE_SRC: TimeMap.le sc_k1_src sc_k2_src)
-      (SC_FUTURE_TGT: TimeMap.le sc_k1_tgt sc_k2_tgt)
-      (MEM_FUTURE_SRC: Memory.future mem_k1_src mem_k2_src)
-      (MEM_FUTURE_TGT: Memory.future mem_k1_tgt mem_k2_tgt):
-  sim ths_src sc_k2_src mem_k2_src ths_tgt sc_k2_tgt mem_k2_tgt.
+      ths_src sc1_src sc2_src mem1_src mem2_src
+      ths_tgt sc1_tgt sc2_tgt mem1_tgt mem2_tgt
+      (SIM: sim ths_src sc1_src mem1_src ths_tgt sc1_tgt mem1_tgt)
+      (SC_FUTURE_SRC: TimeMap.le sc1_src sc2_src)
+      (SC_FUTURE_TGT: TimeMap.le sc1_tgt sc2_tgt)
+      (MEM_FUTURE_SRC: Memory.future mem1_src mem2_src)
+      (MEM_FUTURE_TGT: Memory.future mem1_tgt mem2_tgt):
+  sim ths_src sc2_src mem2_src ths_tgt sc2_tgt mem2_tgt.
 Proof.
   pfold. ii.
   punfold SIM. exploit SIM; (try by etrans; eauto); eauto.
@@ -448,17 +448,17 @@ Qed.
 Lemma sim_thread_sim
       lang_src lang_tgt
       sim_terminal
-      st1_src lc1_src sc_k_src mem_k_src
-      st1_tgt lc1_tgt sc_k_tgt mem_k_tgt
+      st1_src lc1_src sc0_src mem0_src
+      st1_tgt lc1_tgt sc0_tgt mem0_tgt
       tid
       (SIM: @sim_thread lang_src lang_tgt sim_terminal
-                        st1_src lc1_src sc_k_src mem_k_src
-                        st1_tgt lc1_tgt sc_k_tgt mem_k_tgt):
+                        st1_src lc1_src sc0_src mem0_src
+                        st1_tgt lc1_tgt sc0_tgt mem0_tgt):
   sim
-    (IdentMap.singleton tid (existT _ _ st1_src, lc1_src)) sc_k_src mem_k_src
-    (IdentMap.singleton tid (existT _ _ st1_tgt, lc1_tgt)) sc_k_tgt mem_k_tgt.
+    (IdentMap.singleton tid (existT _ _ st1_src, lc1_src)) sc0_src mem0_src
+    (IdentMap.singleton tid (existT _ _ st1_tgt, lc1_tgt)) sc0_tgt mem0_tgt.
 Proof.
-  revert st1_src lc1_src sc_k_src mem_k_src st1_tgt lc1_tgt sc_k_tgt mem_k_tgt SIM. pcofix CIH. i. pfold. ii.
+  revert st1_src lc1_src sc0_src mem0_src st1_tgt lc1_tgt sc0_tgt mem0_tgt SIM. pcofix CIH. i. pfold. ii.
   exploit singleton_consistent_inv; try apply WF_SRC; eauto. i. des.
   exploit singleton_consistent_inv; try apply WF_TGT; eauto. i. des.
   splits.

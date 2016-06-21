@@ -287,13 +287,13 @@ Definition _sim_stmts
            (sim_regs0:SIM_REGS)
            (stmts_src stmts_tgt:list Stmt.t)
            (sim_regs1:SIM_REGS): Prop :=
-  forall rs_src rs_tgt lc_src lc_tgt sc_k_src sc_k_tgt mem_k_src mem_k_tgt
+  forall rs_src rs_tgt lc_src lc_tgt sc0_src sc0_tgt mem0_src mem0_tgt
     (RS: sim_regs0 rs_src rs_tgt)
     (LOCAL: sim_local lc_src lc_tgt),
     sim_thread
       (sim_terminal sim_regs1)
-      (State.mk rs_src stmts_src) lc_src sc_k_src mem_k_src
-      (State.mk rs_tgt stmts_tgt) lc_tgt sc_k_tgt mem_k_tgt.
+      (State.mk rs_src stmts_src) lc_src sc0_src mem0_src
+      (State.mk rs_tgt stmts_tgt) lc_tgt sc0_tgt mem0_tgt.
 
 Lemma _sim_stmts_mon
       s1 s2 (S: s1 <9= s2):
@@ -478,48 +478,48 @@ Qed.
 Inductive ctx (sim_thread:SIM_THREAD lang lang): SIM_THREAD lang lang :=
 | ctx_incl
     sim_terminal
-    st1 lc1 sc_k_src mem_k_src st2 lc2 sc_k_tgt mem_k_tgt
-    (SIM: sim_thread sim_terminal st1 lc1 sc_k_src mem_k_src st2 lc2 sc_k_tgt mem_k_tgt):
-    ctx sim_thread sim_terminal st1 lc1 sc_k_src mem_k_src st2 lc2 sc_k_tgt mem_k_tgt
+    st1 lc1 sc0_src mem0_src st2 lc2 sc0_tgt mem0_tgt
+    (SIM: sim_thread sim_terminal st1 lc1 sc0_src mem0_src st2 lc2 sc0_tgt mem0_tgt):
+    ctx sim_thread sim_terminal st1 lc1 sc0_src mem0_src st2 lc2 sc0_tgt mem0_tgt
 | ctx_nil
     (sim_regs:SIM_REGS)
-    rs_src sc_k_src mem_k_src
-    rs_tgt sc_k_tgt mem_k_tgt
+    rs_src sc0_src mem0_src
+    rs_tgt sc0_tgt mem0_tgt
     lc_src lc_tgt
     (RS: sim_regs rs_src rs_tgt)
     (LOCAL: sim_local lc_src lc_tgt):
     ctx sim_thread
         (sim_terminal sim_regs)
-        (State.mk rs_src []) lc_src sc_k_src mem_k_src
-        (State.mk rs_tgt []) lc_tgt sc_k_tgt mem_k_tgt
+        (State.mk rs_src []) lc_src sc0_src mem0_src
+        (State.mk rs_tgt []) lc_tgt sc0_tgt mem0_tgt
 | ctx_instr
     instr regs
-    rs_src sc_k_src mem_k_src
-    rs_tgt sc_k_tgt mem_k_tgt
+    rs_src sc0_src mem0_src
+    rs_tgt sc0_tgt mem0_tgt
     lc_src lc_tgt
     (REGS: RegSet.disjoint regs (Instr.regs_of instr))
     (RS: RegFile.eq_except regs rs_src rs_tgt)
     (LOCAL: sim_local lc_src lc_tgt):
     ctx sim_thread
         (sim_terminal (RegFile.eq_except regs))
-        (State.mk rs_src [Stmt.instr instr]) lc_src sc_k_src mem_k_src
-        (State.mk rs_tgt [Stmt.instr instr]) lc_tgt sc_k_tgt mem_k_tgt
+        (State.mk rs_src [Stmt.instr instr]) lc_src sc0_src mem0_src
+        (State.mk rs_tgt [Stmt.instr instr]) lc_tgt sc0_tgt mem0_tgt
 | ctx_seq
     sim_regs1 sim_regs2
-    stmts1_src stmts2_src rs_src lc_src sc_k_src mem_k_src
-    stmts1_tgt stmts2_tgt rs_tgt lc_tgt sc_k_tgt mem_k_tgt
+    stmts1_src stmts2_src rs_src lc_src sc0_src mem0_src
+    stmts1_tgt stmts2_tgt rs_tgt lc_tgt sc0_tgt mem0_tgt
     (SIM1: sim_thread (sim_terminal sim_regs1)
-                      (State.mk rs_src stmts1_src) lc_src sc_k_src mem_k_src
-                      (State.mk rs_tgt stmts1_tgt) lc_tgt sc_k_tgt mem_k_tgt)
+                      (State.mk rs_src stmts1_src) lc_src sc0_src mem0_src
+                      (State.mk rs_tgt stmts1_tgt) lc_tgt sc0_tgt mem0_tgt)
     (SIM2: _sim_stmts sim_thread sim_regs1 stmts2_src stmts2_tgt sim_regs2):
     ctx sim_thread
         (sim_terminal sim_regs2)
-        (State.mk rs_src (stmts1_src ++ stmts2_src)) lc_src sc_k_src mem_k_src
-        (State.mk rs_tgt (stmts1_tgt ++ stmts2_tgt)) lc_tgt sc_k_tgt mem_k_tgt
+        (State.mk rs_src (stmts1_src ++ stmts2_src)) lc_src sc0_src mem0_src
+        (State.mk rs_tgt (stmts1_tgt ++ stmts2_tgt)) lc_tgt sc0_tgt mem0_tgt
 | ctx_ite
     sim_regs0 sim_regs1
-    cond_src stmts1_src stmts2_src rs_src sc_k_src mem_k_src
-    cond_tgt stmts1_tgt stmts2_tgt rs_tgt sc_k_tgt mem_k_tgt
+    cond_src stmts1_src stmts2_src rs_src sc0_src mem0_src
+    cond_tgt stmts1_tgt stmts2_tgt rs_tgt sc0_tgt mem0_tgt
     lc_src lc_tgt
     (COND: sim_expr sim_regs0 cond_src cond_tgt)
     (RS: sim_regs0 rs_src rs_tgt)
@@ -528,12 +528,12 @@ Inductive ctx (sim_thread:SIM_THREAD lang lang): SIM_THREAD lang lang :=
     (SIM2: _sim_stmts sim_thread sim_regs0 stmts2_src stmts2_tgt sim_regs1):
     ctx sim_thread
         (sim_terminal sim_regs1)
-        (State.mk rs_src [Stmt.ite cond_src stmts1_src stmts2_src]) lc_src sc_k_src mem_k_src
-        (State.mk rs_tgt [Stmt.ite cond_tgt stmts1_tgt stmts2_tgt]) lc_tgt sc_k_tgt mem_k_tgt
+        (State.mk rs_src [Stmt.ite cond_src stmts1_src stmts2_src]) lc_src sc0_src mem0_src
+        (State.mk rs_tgt [Stmt.ite cond_tgt stmts1_tgt stmts2_tgt]) lc_tgt sc0_tgt mem0_tgt
 | ctx_dowhile
     sim_regs
-    cond_src stmts_src rs_src sc_k_src mem_k_src
-    cond_tgt stmts_tgt rs_tgt sc_k_tgt mem_k_tgt
+    cond_src stmts_src rs_src sc0_src mem0_src
+    cond_tgt stmts_tgt rs_tgt sc0_tgt mem0_tgt
     lc_src lc_tgt
     (COND: sim_expr sim_regs cond_src cond_tgt)
     (RS: sim_regs rs_src rs_tgt)
@@ -541,8 +541,8 @@ Inductive ctx (sim_thread:SIM_THREAD lang lang): SIM_THREAD lang lang :=
     (SIM: _sim_stmts sim_thread sim_regs stmts_src stmts_tgt sim_regs):
     ctx sim_thread
         (sim_terminal sim_regs)
-        (State.mk rs_src [Stmt.dowhile stmts_src cond_src]) lc_src sc_k_src mem_k_src
-        (State.mk rs_tgt [Stmt.dowhile stmts_tgt cond_tgt]) lc_tgt sc_k_tgt mem_k_tgt
+        (State.mk rs_src [Stmt.dowhile stmts_src cond_src]) lc_src sc0_src mem0_src
+        (State.mk rs_tgt [Stmt.dowhile stmts_tgt cond_tgt]) lc_tgt sc0_tgt mem0_tgt
 .
 Hint Constructors ctx.
 

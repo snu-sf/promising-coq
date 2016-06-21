@@ -50,29 +50,29 @@ Inductive reorder_store l1 v1 o1: forall (i2:Instr.t), Prop :=
     reorder_store l1 v1 o1 (Instr.update r2 l2 rmw2 or2 ow2)
 .
 
-Inductive sim_store: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (sc_k_src:TimeMap.t) (mem_k_src:Memory.t)
-                       (st_tgt:lang.(Language.state)) (lc_tgt:Local.t) (sc_k_tgt:TimeMap.t) (mem_k_tgt:Memory.t), Prop :=
+Inductive sim_store: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (sc0_src:TimeMap.t) (mem0_src:Memory.t)
+                       (st_tgt:lang.(Language.state)) (lc_tgt:Local.t) (sc0_tgt:TimeMap.t) (mem0_tgt:Memory.t), Prop :=
 | sim_store_intro
     l1 f1 t1 v1 released1 o1 i2
     rs lc1_src lc1_tgt lc2_src
-    mem_k_src mem_k_tgt
+    mem0_src mem0_tgt
     (REORDER: reorder_store l1 v1 o1 i2)
-    (FULFILL: Local.fulfill_step lc1_src sc_k_src mem_k_src l1 f1 t1 (RegFile.eval_value rs v1) released1 released1 o1 lc2_src)
+    (FULFILL: Local.fulfill_step lc1_src sc0_src mem0_src l1 f1 t1 (RegFile.eval_value rs v1) released1 released1 o1 lc2_src)
     (LOCAL: sim_local lc2_src lc1_tgt):
     sim_store
-      (State.mk rs [Stmt.instr i2; Stmt.instr (Instr.store l1 v1 o1)]) lc1_src sc_k_src mem_k_src
-      (State.mk rs [Stmt.instr i2]) lc1_tgt sc_k_tgt mem_k_tgt
+      (State.mk rs [Stmt.instr i2; Stmt.instr (Instr.store l1 v1 o1)]) lc1_src sc0_src mem0_src
+      (State.mk rs [Stmt.instr i2]) lc1_tgt sc0_tgt mem0_tgt
 .
 
 Lemma sim_store_step
-      st1_src lc1_src sc_k_src mem_k_src
-      st1_tgt lc1_tgt sc_k_tgt mem_k_tgt
-      (SIM: sim_store st1_src lc1_src sc_k_src mem_k_src
-                      st1_tgt lc1_tgt sc_k_tgt mem_k_tgt):
+      st1_src lc1_src sc0_src mem0_src
+      st1_tgt lc1_tgt sc0_tgt mem0_tgt
+      (SIM: sim_store st1_src lc1_src sc0_src mem0_src
+                      st1_tgt lc1_tgt sc0_tgt mem0_tgt):
   forall mem1_src mem1_tgt
     (MEMORY: sim_memory mem1_src mem1_tgt)
-    (FUTURE_SRC: Memory.future mem_k_src mem1_src)
-    (FUTURE_TGT: Memory.future mem_k_tgt mem1_tgt)
+    (FUTURE_SRC: Memory.future mem0_src mem1_src)
+    (FUTURE_TGT: Memory.future mem0_tgt mem1_tgt)
     (WF_SRC: Local.wf lc1_src mem1_src)
     (WF_TGT: Local.wf lc1_tgt mem1_tgt)
     (MEM_SRC: Memory.closed mem1_src)
