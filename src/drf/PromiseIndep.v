@@ -434,9 +434,10 @@ Lemma thread_step_unset_promises
   <<TIME: Time.lt (th1.(Thread.local).(Local.commit).(Commit.cur).(Capability.rw) loc) ts>>.
 Proof.
   inv STEP.
-  { inv STEP0. inv LOCAL. ss.
+  { inv STEP0. inv LOCAL. destruct msg. ss. 
     exploit Memory.promise_promises_get1; eauto. i. des. congr.
   }
+  destruct msg.
   inv STEP0; ss; try by inv LOCAL; ss; congr.
   - by rewrite TH1 in TH2.
   - inv LOCAL. inv WRITE.
@@ -920,16 +921,13 @@ Lemma key_lemma
       cS1 cT1 cS2 cT2 tid
       (PI_CONSISTENT : pi_consistent (cS1, cT1))
       (WF : pi_wf (cS1, cT1))
+      (RACEFREE : pf_racefree cS1)
       (STEPS : rtc (pi_step_evt tid) (cS1, cT1) (cS2, cT2))
       loc ts cSTM3
       (STEPS_LIFT : rtc (pi_step_lift_except loc ts tid) (cS2, cT2, cT2) cSTM3)
-      lst3 lc3 from msg 
-      (THREAD : IdentMap.find tid (Configuration.threads cSTM3.(fst).(snd)) = Some (lst3, lc3))
-      (PROMISE : Memory.get loc ts (Local.promises lc3) = Some (from, msg))
-      (RACEFREE : pf_racefree cS1)
       cM4
-      (PI_STEPS : rtc (small_step_evt tid) cSTM3.(snd) cM4)
-      (FULFILL: can_fulfill_promises tid cM4):
+      (FULFILL: can_fulfill_promises tid cM4)
+      (PI_STEPS : rtc (small_step_evt tid) cSTM3.(snd) cM4):
   exists cS4 : Configuration.t,
   <<STEPS: rtc (pi_step_evt tid) (cSTM3.(fst).(fst), cSTM3.(snd)) (cS4, cM4) >> /\
   <<STATE: IdentMap.find tid (conf_st cS4) = IdentMap.find tid (conf_st cM4)>>.
@@ -1000,9 +998,10 @@ Proof.
   { eapply pi_step_pf_step in STEP. eauto. }
   intro RACEFREE.
 
-  inv FULFILL1. exploit key_lemma; eauto 
-    using can_fulfill_promises_rtc_small_step, can_fulfill_promises_small_step.
-  i; des.
+  inv FULFILL1.
+  eapply can_fulfill_promises_rtc_small_step in FULFILL2; [|eauto].
+  eapply can_fulfill_promises_small_step in FULFILL2; [|eauto].
+  exploit key_lemma; eauto.
 
   exploit small_step_to_program_step_writing; eauto.
   i; des.
