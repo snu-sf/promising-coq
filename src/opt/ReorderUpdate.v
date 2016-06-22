@@ -154,15 +154,8 @@ Proof.
   - (* promise *)
     exploit Local.promise_step_future; eauto. i. des.
     exploit sim_local_promise; try apply LOCAL0; (try by etrans; eauto); eauto. i. des.
-    exploit reorder_write_promise; try apply WRITE; try apply STEP_SRC; eauto. i. des.
-    exploit Local.promise_step_future; try apply STEP1; eauto. i. des.
-    exploit reorder_read_promise; try apply READ; try apply STEP1; eauto. i. des.
-    exploit Local.promise_step_future; try apply STEP0; eauto. i. des.
-    exploit Local.read_step_future; try apply STEP3; eauto. i. des.
-    exploit sim_local_write; eauto; try apply LOCAL3; eauto; try refl.
-    { inv STEP3. eapply CLOSED1. eauto. }
-    i. des.
-    exploit Local.write_step_future; try apply STEP_SRC0; eauto. i. des.
+    exploit reorder_update_promise; try apply READ; try apply WRITE; try apply STEP_SRC; eauto. i. des.
+    exploit Local.promise_step_future; eauto. i. des.
     esplits.
     + eauto.
     + econs 2. econs 1. econs; eauto.
@@ -170,7 +163,7 @@ Proof.
     + auto.
     + inv LOCAL0. inv STEP1. eapply memory_sim_promise; eauto.
     + right. econs; eauto.
-      * etrans; eauto. etrans; eauto.
+      * etrans; eauto.
       * inv LOCAL0. inv STEP1. eapply memory_sim_promise; eauto.
   - (* load *)
     apply RegSet.disjoint_add in REGS. des.

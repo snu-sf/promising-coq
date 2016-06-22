@@ -1459,6 +1459,20 @@ Module Memory.
       + contradict n. des. auto.
   Qed.
 
+  Lemma lower_get_inv
+        mem1 loc from1 to1 val1 released1 released2 mem2
+        l t f m
+        (LOWER: lower mem1 loc from1 to1 val1 released1 released2 mem2)
+        (GET: get l t mem2 = Some (f, m)):
+    (l = loc /\ t = to1 /\ f = from1 /\ m = Message.mk val1 released2) \/
+    (~ (l = loc /\ t = to1) /\
+     get l t mem1 = Some (f, m)).
+  Proof.
+    inv LOWER.
+    exploit add_get_inv; eauto. i. des; auto.
+    exploit remove_get_inv; eauto.
+  Qed.
+
   Lemma lower_mem
         mem1 loc from1 to1 val1 released1 released2 mem2
         (REMOVE: lower mem1 loc from1 to1 val1 released1 released2 mem2)
@@ -1610,16 +1624,18 @@ Module Memory.
 
   Lemma promise_get1
         promises1 mem1 loc from to val released promises2 mem2 kind
-        l t f m
+        l t f v r
         (PROMISE: promise promises1 mem1 loc from to val released promises2 mem2 kind)
-        (GET: get l t mem1 = Some (f, m)):
-    exists f', get l t mem2 = Some (f', m).
+        (GET: get l t mem1 = Some (f, Message.mk v r)):
+    exists f' r',
+      <<GET: get l t mem2 = Some (f', Message.mk v r')>> /\
+      <<RELEASED: Capability.le r' r>>.
   Proof.
     inv PROMISE.
-    - exploit add_get1; eauto.
-    - eapply split_get1'; eauto.
-    - admit.
-  Admitted.
+    - exploit add_get1; eauto. i. esplits; eauto. refl.
+    - exploit split_get1'; eauto. i. des. esplits; eauto. refl.
+    - exploit lower_get1'; eauto.
+  Qed.
 
   Lemma promise_get2
         promises1 mem1 loc from to val released promises2 mem2 kind
@@ -1629,45 +1645,51 @@ Module Memory.
     inv PROMISE.
     - eapply add_get2; eauto.
     - eapply split_get2; eauto.
-    - admit.
-  Admitted.
+    - inv PROMISES. eapply add_get2. eauto.
+  Qed.
 
   Lemma promise_promises_get1
         promises1 mem1 loc from to val released promises2 mem2 kind
-        l t f m
+        l t f v r
         (PROMISE: promise promises1 mem1 loc from to val released promises2 mem2 kind)
-        (GET: get l t promises1 = Some (f, m)):
-    exists f', get l t promises2 = Some (f', m).
+        (GET: get l t promises1 = Some (f, Message.mk v r)):
+    exists f' r',
+      <<GET: get l t promises2 = Some (f', Message.mk v r')>> /\
+      <<RELEASED: Capability.le r' r>>.
   Proof.
     inv PROMISE.
-    - exploit add_get1; try apply PROMISES; eauto.
-    - eapply split_get1'; eauto.
-    - admit.
-  Admitted.
+    - exploit add_get1; try apply GET; eauto. i. esplits; eauto. refl.
+    - exploit split_get1'; try apply GET; eauto. i. des. esplits; eauto. refl.
+    - exploit lower_get1'; try apply GET; eauto.
+  Qed.
 
   Lemma promise_promises_get2
         promises1 mem1 loc from to val released promises2 mem2 kind
         l t f m
         (PROMISE: promise promises1 mem1 loc from to val released promises2 mem2 kind)
         (GET: get l t promises2 = Some (f, m)):
-    (l = loc /\ t = to /\ f = from /\ m = Message.mk val released /\ get l t promises1 = None) \/
+    (l = loc /\ t = to /\ f = from /\ m = Message.mk val released) \/
     (~ (l = loc /\ t = to) /\ exists f', get l t promises1 = Some (f', m)).
   Proof.
     inv PROMISE.
     - exploit add_get_inv; try apply PROMISES; eauto. i. des.
       + subst. left. splits; auto.
-        eapply add_disjoint. eauto.
+        (* eapply add_disjoint. eauto. *)
       + right. splits; auto. eexists. eauto.
     - exploit split_get_inv; try apply PROMISES; eauto. i. des.
       + subst. left. splits; auto.
-        eapply split_disjoint. eauto.
+        (* eapply split_disjoint. eauto. *)
       + subst. right. splits.
         * ii. des. subst. inv PROMISES. inv SPLIT.
           eapply Time.lt_strorder. eauto.
         * eexists. eauto.
       + right. splits; auto. eexists. eauto.
-    - admit.
-  Admitted.
+    - exploit lower_get_inv; try apply PROMISES; eauto. i. des.
+      + subst. left. splits; auto.
+        (* eapply split_disjoint. eauto. *)
+      + subst. right. splits; auto.
+        eexists. eauto.
+  Qed.
 
   Lemma promise_future
         promises1 mem1 loc from to val released promises2 mem2 kind

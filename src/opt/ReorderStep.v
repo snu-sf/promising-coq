@@ -112,18 +112,21 @@ Lemma reorder_read_promise
       (MEM0: Memory.closed mem0)
       (STEP1: Local.read_step lc0 mem0 loc1 ts1 val1 released1 ord1 lc1)
       (STEP2: Local.promise_step lc1 mem0 loc2 from2 to2 val2 released2 lc2 mem2 kind2):
-  exists lc1' lc2',
+  exists released1' lc1' lc2',
     <<STEP1: Local.promise_step lc0 mem0 loc2 from2 to2 val2 released2 lc1' mem2 kind2>> /\
-    <<STEP2: Local.read_step lc1' mem2 loc1 ts1 val1 released1 ord1 lc2'>> /\
-    <<LOCAL: sim_local lc2' lc2>>.
+    <<STEP2: Local.read_step lc1' mem2 loc1 ts1 val1 released1' ord1 lc2'>> /\
+    <<LOCAL: sim_local lc2' lc2>> /\
+    <<RELEASED: Capability.le released1' released1>>.
 Proof.
   inv STEP1. inv STEP2. ss.
   exploit Memory.promise_get1; eauto. i. des.
-  esplits.
+  esplits; eauto.
   - econs; eauto.
-  - econs; eauto.
+  - econs; eauto. s. econs; try apply READABLE.
+    i. etrans; [apply RELEASED|]. apply READABLE. auto.
   - econs; s.
-    + refl.
+    + apply CommitFacts.read_commit_mon; auto; try refl; try apply WF0.
+      eapply MEM0. eauto.
     + apply MemInv.sem_bot.
     + refl.
 Qed.
@@ -525,6 +528,43 @@ Proof.
   - etrans; eauto.
   - etrans; eauto.
   - etrans; eauto.
+Qed.
+
+Lemma reorder_update_promise
+      loc1 ts1 val1 released1 ord1
+      from2 to2 val2 released2 ord2 kind2
+      loc3 from3 to3 val3 released3 kind3
+      lc0 sc0 mem0
+      lc1
+      lc2 sc2 mem2
+      lc3 mem3
+      (WF0: Local.wf lc0 mem0)
+      (SC0: Memory.closed_timemap sc0 mem0)
+      (MEM0: Memory.closed mem0)
+      (STEP1: Local.read_step lc0 mem0 loc1 ts1 val1 released1 ord1 lc1)
+      (STEP2: Local.write_step lc1 sc0 mem0 loc1 from2 to2 val2 released1 released2 ord2 lc2 sc2 mem2 kind2)
+      (STEP3: Local.promise_step lc2 mem2 loc3 from3 to3 val3 released3 lc3 mem3 kind3):
+  exists released1' released2' lc1' lc2' lc3' sc3' mem1' mem3',
+    <<STEP1: Local.promise_step lc0 mem0 loc3 from3 to3 val3 released3 lc1' mem1' kind3>> /\
+    <<STEP2: Local.read_step lc1' mem1' loc1 ts1 val1 released1' ord1 lc2'>> /\
+    <<STEP3: Local.write_step lc2' sc0 mem1' loc1 from2 to2 val2 released1' released2' ord2 lc3' sc3' mem3' kind2>> /\
+    <<LOCAL: sim_local lc3' lc3>> /\
+    <<RELEASED1: Capability.le released1' released1>> /\
+    <<RELEASED2: Capability.le released2' released2>> /\
+    <<SC: TimeMap.le sc3' sc2>> /\
+    <<MEM: Memory.sim mem3 mem3'>>.
+Proof.
+  exploit Local.read_step_future; try apply STEP1; eauto. i. des.
+  exploit Local.write_step_future; try apply STEP2; eauto. i. des.
+  exploit reorder_write_promise; try apply STEP2; try apply STEP3; eauto. i. des.
+  exploit Local.promise_step_future; try apply STEP0; eauto. i. des.
+  exploit reorder_read_promise; try apply STEP1; try apply STEP0; eauto. i. des.
+  exploit Local.promise_step_future; try apply STEP5; eauto. i. des.
+  exploit Local.read_step_future; try apply STEP6; eauto. i. des.
+  exploit sim_local_write; try apply STEP4; try apply LOCAL0; try apply x1; eauto; try refl.
+  { inv STEP1. eapply MEM0; eauto. }
+  i. des.
+  esplits; eauto. etrans; eauto.
 Qed.
 
 Lemma reorder_fence_promise
