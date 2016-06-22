@@ -1487,6 +1487,18 @@ Module Memory.
     exploit remove_get0. eauto. i. congr.
   Qed.
 
+  Lemma lower_inhabited
+        mem1 mem2 loc from to1 to2 val released
+        (LOWER: lower mem1 loc from to1 to2 val released mem2)
+        (INHABITED: inhabited mem1):
+    <<INHABITED: inhabited mem2>>.
+  Proof.
+    inv LOWER. ii. specialize (INHABITED loc0).
+    exploit remove_get1; eauto. i. des.
+    { inv ADD. inv ADD0. exfalso. eapply Time.lt_strorder. eauto. }
+    exploit add_get1; eauto.
+  Qed.
+
   Lemma future_get
         loc from to val released mem1 mem2
         (LE: future mem1 mem2)
@@ -1723,15 +1735,31 @@ Module Memory.
           subst. contradict LHS0. auto.
       + econs.
         * ii. eapply split_get_inv' in MSG; eauto. des.
-          { inv MSG2. subst. inv MEM. eauto. }
+          { inv MSG2. inv MEM. eauto. }
           { inv CLOSED1. exploit CLOSED0; eauto. i. des. splits; auto.
             eapply future_closed_capability; eauto.
             econs 2; eauto. econs 2. eauto.
           }
         * eapply split_inhabited; eauto. apply CLOSED1.
       + econs 2; eauto. econs 2; eauto.
-    - admit.
-  Admitted.
+    - splits; eauto.
+      + ii. eapply lower_get_inv in LHS; eauto. des.
+        * subst. eapply lower_get2. eauto.
+        * exploit lower_get1; try apply MEM; eauto. i. rewrite <- x0. auto.
+      + econs.
+        * ii. eapply lower_get_inv in MSG; eauto. des.
+          { inv MSG2. splits; eauto.
+            - inv MEM. inv ADD. auto.
+            - inv MEM. etrans; [eapply LE|].
+              eapply CLOSED1. eapply remove_get0. eauto.
+          }
+          { inv CLOSED1. exploit CLOSED0; eauto. i. des. splits; auto.
+            eapply future_closed_capability; eauto.
+            econs 2; eauto. econs 3. eauto.
+          }
+        * eapply lower_inhabited; eauto. apply CLOSED1.
+      + econs 2; eauto. econs 3; eauto.
+  Qed.
 
   Lemma promise_disjoint
         promises1 mem1 loc from to val released promises2 mem2 ctx kind
@@ -1779,8 +1807,20 @@ Module Memory.
       + ii. exploit split_get1; eauto. i. des; auto. subst.
         inv PROMISES. inv SPLIT.
         exfalso. eapply Cell.disjoint_get; [apply DISJOINT| |]; eauto.
-    - admit.
-  Admitted.
+    - splits.
+      + econs. i. econs.
+        { i. eapply lower_get_inv in GET1; eauto. des.
+          - inv MEM. inv ADD. inv ADD0. inv TO1.
+          - inv DISJOINT. destruct (DISJOINT0 loc0). eapply DISJOINT1; eauto.
+        }
+        i. eapply lower_get_inv in GET1; eauto. des.
+        * subst. exploit lower_disjoint; try apply PROMISES; eauto. i.
+          eapply DISJOINT; eauto.
+        * eapply DISJOINT; eauto.
+      + ii. erewrite <- lower_get1; try apply MEM; eauto.
+        ii. des. subst. exploit lower_disjoint; try apply PROMISES; eauto. i.
+        eapply Cell.disjoint_get; try apply DISJOINT; eauto.
+  Qed.
 
   Lemma remove_future
         promises1 mem1 loc from to val released promises2
@@ -1892,6 +1932,15 @@ Module Memory.
     eapply max_ts_spec; eauto.
   Qed.
 
+  Lemma max_timemap_spec' tm mem
+        (TIMEMAP: forall loc, exists from to val released, Time.le (tm loc) to /\ get loc to mem = Some (from, Message.mk val released))
+        (INHABITED: inhabited mem):
+    TimeMap.le tm (max_timemap mem).
+  Proof.
+    ii. exploit TIMEMAP; eauto. i. des.
+    etrans; eauto. eapply max_ts_spec; eauto.
+  Qed.
+
   Lemma future_max_timemap
         mem1 mem2
         (CLOSED1: closed mem1)
@@ -1905,14 +1954,49 @@ Module Memory.
     eauto.
   Qed.
 
-  Lemma sim_max_timemap
+  Lemma sim_imm_max_timemap
         mem1 mem2
-        (CLOSED1: closed mem1)
-        (CLOSED2: closed mem2)
-        (FUTURE: sim mem1 mem2):
+        (INHABITED1: inhabited mem1)
+        (SIM: sim_imm mem1 mem2):
     TimeMap.le (max_timemap mem2) (max_timemap mem1).
   Proof.
-  Admitted.
+    assert (inhabited mem2).
+    { inv SIM.
+      - eapply split_inhabited; eauto.
+      - eapply lower_inhabited; eauto.
+    }
+    apply max_timemap_spec'; auto. i.
+    exploit max_timemap_closed; eauto. i. des.
+    inv SIM.
+    - exploit split_get_inv; eauto. i. des.
+      + inv x4.
+        exploit split_get0; eauto. i. des. destruct msg2.
+        esplits; eauto. inv SPLIT. inv SPLIT0. left. auto.
+      + subst.
+        exploit split_get0; eauto. i. des. destruct msg2.
+        esplits; eauto. refl.
+      + esplits; eauto. refl.
+    - exploit lower_get_inv; eauto. i. des.
+      + inv x4.
+        exploit lower_disjoint; eauto. i. des.
+        esplits; eauto. refl.
+      + esplits; eauto. refl.
+  Qed.
+
+  Lemma sim_max_timemap
+        mem1 mem2
+        (INHABITED1: inhabited mem1)
+        (SIM: sim mem1 mem2):
+    TimeMap.le (max_timemap mem2) (max_timemap mem1).
+  Proof.
+    revert INHABITED1. induction SIM.
+    - refl.
+    - i. rewrite IHSIM.
+      + apply sim_imm_max_timemap; auto.
+      + inv H.
+        * eapply split_inhabited; eauto.
+        * eapply lower_inhabited; eauto.
+  Qed.
 
   Definition max_capability (mem:t): Capability.t :=
     Capability.mk (max_timemap mem) (max_timemap mem) (max_timemap mem).

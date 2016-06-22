@@ -41,7 +41,7 @@ Proof.
     esplits; eauto.
     - etrans.
       + apply Memory.max_timemap_spec; eauto. committac.
-      + apply Memory.sim_max_timemap; eauto.
+      + apply Memory.sim_max_timemap; eauto. committac.
     - etrans.
       + apply Memory.max_timemap_spec; eauto. committac.
       + apply Memory.future_max_timemap; eauto.
@@ -83,7 +83,7 @@ Proof.
     esplits; eauto.
     - etrans.
       + apply Memory.max_timemap_spec; eauto. committac.
-      + apply Memory.sim_max_timemap; eauto.
+      + apply Memory.sim_max_timemap; eauto. committac.
     - etrans.
       + apply Memory.max_timemap_spec; eauto. committac.
       + apply Memory.future_max_timemap; eauto.
@@ -133,7 +133,7 @@ Proof.
     esplits; eauto.
     - etrans.
       + apply Memory.max_timemap_spec; eauto. committac.
-      + apply Memory.sim_max_timemap; eauto.
+      + apply Memory.sim_max_timemap; eauto. committac.
     - etrans.
       + apply Memory.max_timemap_spec; eauto. committac.
       + apply Memory.future_max_timemap; eauto.
@@ -185,7 +185,7 @@ Proof.
     esplits; eauto.
     - etrans.
       + apply Memory.max_timemap_spec; eauto. committac.
-      + apply Memory.sim_max_timemap; eauto.
+      + apply Memory.sim_max_timemap; eauto. committac.
     - etrans.
       + apply Memory.max_timemap_spec; eauto. committac.
       + apply Memory.future_max_timemap; eauto.
@@ -243,7 +243,7 @@ Proof.
     esplits; eauto.
     - etrans.
       + apply Memory.max_timemap_spec; eauto. committac.
-      + apply Memory.sim_max_timemap; eauto.
+      + apply Memory.sim_max_timemap; eauto. committac.
     - etrans.
       + apply Memory.max_timemap_spec; eauto. committac.
       + apply Memory.future_max_timemap; eauto.
@@ -304,7 +304,7 @@ Proof.
     esplits; eauto.
     - etrans.
       + apply Memory.max_timemap_spec; eauto. committac.
-      + apply Memory.sim_max_timemap; eauto.
+      + apply Memory.sim_max_timemap; eauto. committac.
     - etrans.
       + apply Memory.max_timemap_spec; eauto. committac.
       + apply Memory.future_max_timemap; eauto.
@@ -369,7 +369,7 @@ Proof.
     esplits; eauto.
     - etrans.
       + apply Memory.max_timemap_spec; eauto. committac.
-      + apply Memory.sim_max_timemap; eauto.
+      + apply Memory.sim_max_timemap; eauto. committac.
     - etrans.
       + apply Memory.max_timemap_spec; eauto. committac.
       + apply Memory.future_max_timemap; eauto.
@@ -406,7 +406,7 @@ Proof.
     esplits; eauto.
     - etrans.
       + apply Memory.max_timemap_spec; eauto. committac.
-      + apply Memory.sim_max_timemap; eauto.
+      + apply Memory.sim_max_timemap; eauto. committac.
     - etrans.
       + apply Memory.max_timemap_spec; eauto. committac.
       + apply Memory.future_max_timemap; eauto.
