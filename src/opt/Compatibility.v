@@ -200,6 +200,40 @@ Proof.
   - apply CommitFacts.write_sc_mon; auto. refl.
 Qed.
 
+Lemma sim_local_update
+      lc1_src sc1_src mem1_src
+      lc1_tgt sc1_tgt mem1_tgt
+      lc2_tgt
+      lc3_tgt sc3_tgt mem3_tgt
+      loc ts1 val1 released1_tgt ord1_src ord1_tgt
+      from2 to2 val2 released2_tgt ord2 kind
+      (STEP1_TGT: Local.read_step lc1_tgt mem1_tgt loc ts1 val1 released1_tgt ord1_tgt lc2_tgt)
+      (STEP2_TGT: Local.write_step lc2_tgt sc1_tgt mem1_tgt loc from2 to2 val2 released1_tgt released2_tgt ord2 lc3_tgt sc3_tgt mem3_tgt kind)
+      (LOCAL1: sim_local lc1_src lc1_tgt)
+      (SC1: TimeMap.le sc1_src sc1_tgt)
+      (MEM1: Memory.sim mem1_tgt mem1_src)
+      (WF1_SRC: Local.wf lc1_src mem1_src)
+      (WF1_TGT: Local.wf lc1_tgt mem1_tgt)
+      (MEM1_SRC: Memory.closed mem1_src)
+      (MEM1_TGT: Memory.closed mem1_tgt)
+      (ORD: Ordering.le ord1_src ord1_tgt):
+  exists released1_src released2_src lc2_src lc3_src sc3_src mem3_src,
+    <<REL1: Capability.le released1_src released1_tgt>> /\
+    <<REL2: Capability.le released2_src released2_tgt>> /\
+    <<STEP1_SRC: Local.read_step lc1_src mem1_src loc ts1 val1 released1_src ord1_src lc2_src>> /\
+    <<STEP2_SRC: Local.write_step lc2_src sc1_src mem1_src loc from2 to2 val2 released1_src released2_src ord2 lc3_src sc3_src mem3_src kind>> /\
+    <<LOCAL3: sim_local lc3_src lc3_tgt>> /\
+    <<SC3: TimeMap.le sc3_src sc3_tgt>> /\
+    <<MEM3: Memory.sim mem3_tgt mem3_src>>.
+Proof.
+  exploit Local.read_step_future; eauto. i. des.
+  exploit sim_local_read; eauto. i. des.
+  exploit Local.read_step_future; eauto. i. des.
+  exploit sim_local_write; eauto.
+  { inv STEP1_TGT. eapply MEM1_TGT; eauto. }
+  i. des. esplits; eauto.
+Qed.
+
 Lemma sim_local_fence
       lc1_src sc1_src mem1_src
       lc1_tgt sc1_tgt mem1_tgt

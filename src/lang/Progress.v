@@ -32,7 +32,7 @@ Proof.
   exploit Memory.promise_promises_get2; eauto. i. des.
   - subst. contradict x0. auto.
   - rewrite Memory.bot_get in *. congr.
-Admitted.
+Qed.
 
 Lemma program_step_promise
       lang e
@@ -108,8 +108,10 @@ Lemma progress_read_step
     Local.read_step lc1 mem1 loc (Memory.max_ts loc mem1) val released ord lc2.
 Proof.
   exploit (Memory.max_ts_spec loc); try apply MEM1; eauto. i. des.
-  esplits; eauto. econs; eauto. admit.
-Admitted.
+  esplits; eauto. econs; eauto.
+  econs; try by i; eapply Memory.max_ts_spec2; apply WF1.
+  i. eapply Memory.max_ts_spec2. eapply MEM1. eauto.
+Qed.
 
 Lemma progress_write_step
       lc1 sc1 mem1
@@ -147,10 +149,13 @@ Proof.
       + rewrite PROMISES1, Memory.bot_get in *. congr.
   }
   esplits. econs; eauto.
-  - admit.
+  - econs; i; (try eapply TimeFacts.le_lt_lt; [|eauto]).
+    + apply Memory.max_ts_spec2. apply WF1.
+    + apply Memory.max_ts_spec2. apply WF1.
+    + apply Memory.max_ts_spec2. auto.
   - econs; eauto. subst promises2. apply Memory.remove_singleton.
   - rewrite PROMISES1. auto.
-Admitted.
+Qed.
 
 Lemma progress_fence_step
       lc1 sc1 mem1

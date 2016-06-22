@@ -11,7 +11,7 @@ Require Import Configuration.
 
 Set Implicit Arguments.
 
-(* TODO: We currently consider only finite behaviors of program: we
+(* NOTE: We currently consider only finite behaviors of program: we
  * ignore non-terminating executions.  This simplification affects two
  * aspects of the development:
  *
@@ -36,7 +36,12 @@ Inductive behaviors: forall (conf:Configuration.t) (b:list Event.t), Prop :=
     behaviors c nil
 | behaviors_event
     e tid c1 c2 beh
-    (STEP: Configuration.step e tid c1 c2)
+    (STEP: Configuration.step (Some e) tid c1 c2)
     (NEXT: behaviors c2 beh):
-    behaviors c1 (match e with | Some e => (e::beh) | None => beh end)
+    behaviors c1 (e::beh)
+| behaviors_tau
+    c1 c2 beh
+    (STEP: Configuration.tau_step c1 c2)
+    (NEXT: behaviors c2 beh):
+    behaviors c1 beh
 .

@@ -165,11 +165,11 @@ Module Local.
     exploit CommitFacts.write_future; eauto.
     { eapply Commit.future_closed; eauto. }
     { eapply Memory.future_closed_timemap; eauto. }
-    { admit. }
+    { eapply Memory.write_get2; try apply WRITE; eauto. }
     i. des. splits; eauto.
     - econs; ss.
     - apply CommitFacts.write_sc_incr.
-  Admitted.
+  Qed.
 
   Lemma fence_step_future lc1 sc1 mem1 ordr ordw lc2 sc2
         (STEP: fence_step lc1 sc1 mem1 ordr ordw lc2 sc2)
