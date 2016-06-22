@@ -30,7 +30,6 @@ Set Implicit Arguments.
 Inductive reorder_update r1 l1 rmw1 or1 ow1: forall (i2:Instr.t), Prop :=
 | reorder_update_load
     r2 l2 o2
-    (ORDR1: Ordering.le or1 Ordering.acqrel)
     (ORDW1: Ordering.le ow1 Ordering.relaxed)
     (ORD2: Ordering.le o2 Ordering.relaxed)
     (LOC: l1 <> l2)
@@ -39,18 +38,17 @@ Inductive reorder_update r1 l1 rmw1 or1 ow1: forall (i2:Instr.t), Prop :=
     reorder_update r1 l1 rmw1 or1 ow1 (Instr.load r2 l2 o2)
 | reorder_update_store
     l2 v2 o2
-    (ORDR1: Ordering.le or1 Ordering.acqrel)
     (ORDW1: Ordering.le ow1 Ordering.relaxed)
+    (ORD2: Ordering.le Ordering.seqcst o2 -> Ordering.le Ordering.seqcst or1 -> False)
     (LOC: l1 <> l2)
     (REGS: RegSet.disjoint (Instr.regs_of (Instr.update r1 l1 rmw1 or1 ow1))
                            (Instr.regs_of (Instr.store l2 v2 o2))):
     reorder_update r1 l1 rmw1 or1 ow1 (Instr.store l2 v2 o2)
 | reorder_update_update
     r2 l2 rmw2 or2 ow2
-    (ORDR1: Ordering.le or1 Ordering.acqrel)
     (ORDW1: Ordering.le ow1 Ordering.relaxed)
     (ORDR2: Ordering.le or2 Ordering.relaxed)
-    (ORDW2: Ordering.le ow2 Ordering.acqrel)
+    (ORDW2: Ordering.le Ordering.seqcst ow2 -> Ordering.le Ordering.seqcst or1 -> False)
     (LOC: l1 <> l2)
     (REGS: RegSet.disjoint (Instr.regs_of (Instr.update r1 l1 rmw1 or1 ow1))
                            (Instr.regs_of (Instr.update r2 l2 rmw2 or2 ow2))):
@@ -187,9 +185,7 @@ Proof.
   - (* store *)
     apply RegSet.disjoint_add in REGS. des.
     exploit sim_local_write; try apply LOCAL0; (try by etrans; eauto); eauto; try refl; try by committac. i. des.
-    hexploit reorder_update_write; try apply READ; try apply WRITE; try apply STEP_SRC; eauto.
-    { i. destruct or1; inv ORDR1; inv H0. }
-    i. des.
+    hexploit reorder_update_write; try apply READ; try apply WRITE; try apply STEP_SRC; eauto. i. des.
     esplits.
     + econs 2; eauto. econs.
       * econs 2. econs 3; eauto. econs.
@@ -214,9 +210,7 @@ Proof.
     { inv LOCAL1. eapply MEM_TGT; eauto. }
     i. des.
     hexploit ReorderStep.reorder_update_update;
-      try apply LOC; try apply READ; try apply WRITE; try apply STEP_SRC; try apply STEP_SRC0; eauto.
-    { i. destruct or1; inv ORDR1; inv H0. }
-    i. des.
+      try apply LOC; try apply READ; try apply WRITE; try apply STEP_SRC; try apply STEP_SRC0; eauto. i. des.
     esplits.
     + econs 2; eauto. econs.
       * econs 2. econs 4; eauto. econs. econs.
