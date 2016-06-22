@@ -41,7 +41,7 @@ Variable sc : event -> event -> Prop.
 
 Definition f_equal_max (INR : event -> Prop) val :=
  << UB: forall a (INa: INR a), Time.le (f a) val >> /\
- << MAX: exists a_max, << INa: INR a_max >> /\ <<LB': Time.le val (f a_max)>> >>.
+ exists a_max, << INa: INR a_max >> /\ <<LB': Time.le val (f a_max)>>.
  
 Definition valid :=
   forall a b, mo a b -> Time.lt (f a) (f b).
@@ -69,7 +69,7 @@ Definition sim_cell_helper b from msg :=
   << FROMRMW: (forall a (RFRMW: (seq rf rmw) a b), from = f a) >>.
 
 Definition sim_cell cell l  :=
-  << DOM: forall b, (is_write b) /\ (loc b = Some l) <-> Cell.get (f b) cell <> None >> /\
+  << DOM: forall b, is_write b /\ loc b = Some l <-> Cell.get (f b) cell <> None >> /\
   << SIMCELL: forall b (WRITE: is_write b) (LOC: loc b = Some l) 
                        from msg (CELL: Cell.get (f b) cell = Some (from, msg)),
                 sim_cell_helper b from msg >>.
@@ -114,8 +114,9 @@ Qed.
 
 Definition sim_f f (op_st: Configuration.t) (ax_st: Machine.configuration) :=
   << STATES: ts ax_st = IdentMap.map fst (Configuration.threads op_st) >> /\
-  << LOCAL: forall i foo local (TID: IdentMap.find i (Configuration.threads op_st) = Some (foo, local)),
-                sim_local f (acts ax_st) (sb ax_st) (rmw ax_st) (rf ax_st) (sc ax_st) local i>> /\
+  << LOCAL: forall i foo local 
+                   (TID: IdentMap.find i (Configuration.threads op_st) = Some (foo, local)),
+              sim_local f (acts ax_st) (sb ax_st) (rmw ax_st) (rf ax_st) (sc ax_st) local i>> /\
   << SC: True  >> /\ (** TODO: SC map **)
   << MEM: sim_mem f (acts ax_st) (sb ax_st) (rmw ax_st) (rf ax_st) (sc ax_st) op_st.(Configuration.memory) >>.
 
@@ -212,8 +213,7 @@ Qed.
 Lemma tm_join_bot a  :
   TimeMap.join a TimeMap.bot =  a.
 Proof.
-
- Admitted.
+Admitted.
 
 Lemma f_equal_max_singleton f b :
   f_equal_max f (fun a => a = b) (f b).
