@@ -1786,6 +1786,18 @@ Module Memory.
       eapply DISJOINT; eauto.
   Qed.
 
+  Lemma write_get2
+        promises1 mem1 loc from to val released promises2 mem2 kind
+        (PROMISES: le promises1 mem1)
+        (MEM: closed mem1)
+        (WRITE: write promises1 mem1 loc from to val released promises2 mem2 kind):
+    get loc to mem2 = Some (from, Message.mk val released).
+  Proof.
+    inv WRITE.
+    exploit promise_future; try apply PROMISE; eauto. i. des.
+    apply LE_PROMISES2. eapply promise_get2. eauto.
+  Qed.
+
   Lemma write_future
         promises1 mem1 loc from to val released promises2 mem2 kind
         (LE_PROMISES1: le promises1 mem1)
@@ -1826,6 +1838,15 @@ Module Memory.
     <<GET: exists from val released, get loc (max_ts loc mem) mem = Some (from, Message.mk val released)>> /\
     <<MAX: Time.le ts (max_ts loc mem)>>.
   Proof. eapply Cell.max_ts_spec; eauto. Qed.
+
+  Lemma max_ts_spec2
+        tm mem loc
+        (CLOSED: closed_timemap tm mem):
+    Time.le (tm loc) (max_ts loc mem).
+  Proof.
+    exploit CLOSED. i. des.
+    eapply max_ts_spec. eauto.
+  Qed.
 
   Definition max_timemap (mem:t): TimeMap.t :=
     fun loc => max_ts loc mem.

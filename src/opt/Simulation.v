@@ -184,7 +184,7 @@ Section Simulation.
       <<STEP:
         forall e tid_tgt ths3_tgt sc3_tgt mem3_tgt
           (STEP_TGT: Configuration.step e tid_tgt (Configuration.mk ths1_tgt sc1_tgt mem1_tgt) (Configuration.mk ths3_tgt sc3_tgt mem3_tgt)),
-        exists e tid_src ths2_src sc2_src mem2_src ths3_src sc3_src mem3_src,
+        exists tid_src ths2_src sc2_src mem2_src ths3_src sc3_src mem3_src,
           <<STEPS: rtc Configuration.tau_step (Configuration.mk ths1_src sc1_src mem1_src) (Configuration.mk ths2_src sc2_src mem2_src)>> /\
           <<STEP_SRC: Configuration.opt_step e tid_src (Configuration.mk ths2_src sc2_src mem2_src) (Configuration.mk ths3_src sc3_src mem3_src)>> /\
           <<SC3: TimeMap.le sc3_src sc3_tgt>> /\
@@ -493,7 +493,8 @@ Proof.
     i. des. rewrite STEPS1 in STEPS0. inv STEP0.
     { generalize (rtc_tail STEPS0). intro X. des.
       - inv X0. esplits; eauto.
-        + econs 2. econs; s.
+        + rewrite <- EVENT. s. rewrite <- TAU.
+          econs 2. econs; s.
           * apply IdentMap.singleton_eq.
           * etrans; eauto.
           * eauto.
@@ -501,12 +502,13 @@ Proof.
         + right. s. rewrite ? IdentMap.singleton_add.
           apply CIH. ss.
       - inv X. esplits; eauto.
-        + instantiate (2 := tid). econs 1.
+        + rewrite <- EVENT. s. instantiate (2 := tid). econs 1.
         + right. s. rewrite ? IdentMap.singleton_add.
           apply CIH. eauto.
     }
     esplits; eauto.
-    + econs 2. econs; s.
+    + rewrite <- EVENT.
+      econs 2. econs; s.
       * apply IdentMap.singleton_eq.
       * etrans; eauto.
       * eauto.
