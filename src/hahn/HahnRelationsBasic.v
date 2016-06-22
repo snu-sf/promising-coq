@@ -645,7 +645,6 @@ Proof.
   eapply H0 in NEQ; desf; eauto.
 Qed.
 
-
 (** Second, for equivalence. *)
 
 Lemma same_relation_exp A (r r' : relation A) (EQ: r <--> r') :
