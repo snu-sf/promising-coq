@@ -957,26 +957,6 @@ Lemma key_lemma
   <<STEPS: rtc (pi_step_evt tid) (cSTM3.(fst).(fst), cSTM3.(snd)) (cS4, cM4) >> /\
   <<STATE: IdentMap.find tid (conf_st cS4) = IdentMap.find tid (conf_st cM4)>>.
 Proof.
-
-
-Lemma key_lemma
-      cS1 cT1 cS2 cT2 tid
-      (PI_CONSISTENT : pi_consistent (cS1, cT1))
-      (WF : pi_wf (cS1, cT1))
-      (RACEFREE : pf_racefree cS1)
-      (STEPS : rtc (pi_step_evt tid) (cS1, cT1) (cS2, cT2))
-      loc ts cSTM3
-      (STEPS_LIFT : rtc (pi_step_lift_except loc ts tid) (cS2, cT2, cT2) cSTM3)
-      cM4
-      (PI_STEPS : rtc (small_step_evt tid) cSTM3.(snd) cM4)
-      (FULFILL: can_fulfill_promises tid cM4)
-      lst4 lc4 from msg 
-      (THREAD : IdentMap.find tid (Configuration.threads cM4) = Some (lst4, lc4))
-      (PROMISE : Memory.get loc ts (Local.promises lc4) = Some (from, msg)):
-  exists cS4 : Configuration.t,
-  <<STEPS: rtc (pi_step_evt tid) (cSTM3.(fst).(fst), cSTM3.(snd)) (cS4, cM4) >> /\
-  <<STATE: IdentMap.find tid (conf_st cS4) = IdentMap.find tid (conf_st cM4)>>.
-Proof.
   assert (WF2: pi_wf (cS2,cT2)).
   { eapply rtc_pi_step_future; eauto.
     eapply rtc_implies, STEPS; eauto. }
@@ -988,9 +968,6 @@ Proof.
       eapply rtc_implies, STEPS_LIFT.
       i. inv PR. eauto. 
     - i. inv PR. eauto. }
-
-  
-
 
   revert_until STEPS_LIFT.
   apply Operators_Properties.clos_rt_rt1n_iff in STEPS_LIFT.
