@@ -11,6 +11,8 @@ Require Import DenseOrder.
 Require Import Event.
 Require Import Language.
 Require Import Time.
+Require Import View.
+Require Import Cell.
 Require Import Memory.
 Require Import Commit.
 Require Import Thread.
@@ -74,7 +76,7 @@ Lemma reorder_read_read
       lc0 mem0
       lc1
       lc2
-      (LOC: loc1 <> loc2)
+      (LOC: loc1 = loc2 -> Ordering.le ord1 Ordering.unordered)
       (ORD2: Ordering.le ord2 Ordering.relaxed)
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
@@ -93,6 +95,8 @@ Proof.
   - econs; eauto. s. unfold Commit.read_commit.
     econs; repeat (try condtac; try splits; aggrtac; eauto; try apply READABLE;
                    unfold TimeMap.singleton, LocFun.add in *).
+    + specialize (LOC eq_refl). committac.
+    + specialize (LOC eq_refl). committac.
   - s. econs; s.
     + apply ReorderCommit.read_read_commit; auto.
       * apply WF0.
@@ -139,7 +143,7 @@ Lemma reorder_read_write
       lc2 sc2 mem2
       kind
       (LOC: loc1 <> loc2)
-      (ORD: Ordering.le Ordering.seqcst ord2 -> Ordering.le Ordering.seqcst ord1 -> False)
+      (ORD: Ordering.le ord1 Ordering.acqrel \/ Ordering.le ord2 Ordering.acqrel)
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
       (STEP1: Local.read_step lc0 mem0 loc1 ts1 val1 released1 ord1 lc1)
@@ -161,8 +165,8 @@ Proof.
     + s. unfold Commit.write_commit.
       econs; repeat (try condtac; try splits; aggrtac; eauto; try apply READABLE;
                      unfold TimeMap.singleton, LocFun.add in *).
-      * exfalso. apply ORD; auto.
-      * exfalso. apply ORD; auto.
+      * by destruct ord1, ord2; inv H; inv COND0; inv ORD.
+      * by destruct ord1, ord2; inv H; inv COND0; inv ORD.
   - s. econs; s.
     + apply ReorderCommit.read_write_commit; auto.
       * apply WF0.
@@ -183,7 +187,7 @@ Lemma reorder_read_update
       kind
       (LOC: loc1 <> loc2)
       (ORD2: Ordering.le ord2 Ordering.relaxed)
-      (ORD3: Ordering.le Ordering.seqcst ord3 -> Ordering.le Ordering.seqcst ord1 -> False)
+      (ORD3: Ordering.le ord1 Ordering.acqrel \/ Ordering.le ord3 Ordering.acqrel)
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
@@ -199,12 +203,15 @@ Lemma reorder_read_update
     <<SC: TimeMap.le sc3' sc3>> /\
     <<MEM: Memory.sim mem3 mem3'>>.
 Proof.
+  guardH ORD3.
   exploit Local.read_step_future; try apply STEP1; eauto. i. des.
   exploit Local.read_step_future; try apply STEP2; eauto. i. des.
-  exploit reorder_read_read; try apply STEP1; try apply STEP2; eauto. i. des.
+  exploit reorder_read_read; try apply STEP1; try apply STEP2; eauto; try congr. i. des.
   exploit Local.read_step_future; try apply STEP0; eauto. i. des.
   exploit Local.read_step_future; try apply STEP4; eauto. i. des.
   exploit sim_local_write; try apply STEP3; eauto; try refl.
+  { inv STEP0. eapply MEM0; eauto. }
+  { inv STEP0. eapply MEM0; eauto. }
   { inv STEP0. eapply MEM0; eauto. }
   i. des.
   exploit reorder_read_write; try apply STEP4; try apply STEP_SRC; eauto. i. des.
@@ -272,7 +279,7 @@ Lemma reorder_write_read
     <<LOCAL: sim_local lc2' lc2>>.
 Proof.
   inv STEP1. inv STEP2. ss.
-  exploit Memory.write_future; try apply WF0; eauto. i. des.
+  exploit Memory.write_future; try apply WRITE; try apply WF0; eauto. i. des.
   esplits.
   - econs; eauto.
     + admit. (* memory.write_get_inv *)
@@ -308,7 +315,7 @@ Lemma reorder_write_promise
     <<LOCAL: sim_local lc2' lc2>>.
 Proof.
   inv STEP1. inv STEP2. ss. inv WRITE.
-  exploit Memory.promise_future; try apply WF0; eauto. i. des.
+  exploit Memory.promise_future; try apply PROMISE0; try apply WF0; eauto. i. des.
   exploit ReorderMemory.remove_promise; eauto. i. des.
   esplits.
   - admit. (* promise step *)
@@ -353,6 +360,7 @@ Proof.
                      unfold TimeMap.singleton, LocFun.add in *);
         inv WRITABLE; eapply TimeFacts.le_lt_lt; eauto; aggrtac.
     + admit. (* Memory.write *)
+    + admit. (* Memory.cosed_capability *)
   - s. econs; s.
     + apply ReorderCommit.write_write_commit; auto. apply WF0.
     + apply MemInv.sem_bot.
@@ -393,6 +401,8 @@ Proof.
   exploit Local.write_step_future; try apply STEP4; try refl; eauto. i. des.
   exploit sim_local_write; try apply STEP3; try apply LOCAL; try refl; eauto.
   { inv STEP0. eapply MEM0; eauto. }
+  { inv STEP2. eapply CLOSED2; eauto. }
+  { inv STEP2. eapply CLOSED2; eauto. }
   i. des.
   exploit reorder_write_write; try apply STEP4; try apply STEP_SRC; eauto. i. des.
   esplits; eauto.
@@ -430,10 +440,12 @@ Proof.
   exploit Local.write_step_future; try apply STEP2; eauto. i. des.
   exploit reorder_write_read; try apply STEP2; try apply STEP3; eauto. i. des.
   exploit Local.read_step_future; try apply STEP0; eauto. i. des.
-  exploit reorder_read_read; try apply STEP1; try apply STEP0; eauto. i. des.
+  exploit reorder_read_read; try apply STEP1; try apply STEP0; eauto; try congr. i. des.
   exploit Local.read_step_future; try apply STEP5; eauto. i. des.
   exploit Local.read_step_future; try apply STEP6; eauto. i. des.
   exploit sim_local_write; try apply STEP4; try apply LOCAL0; eauto; try refl.
+  { inv STEP6. eapply MEM0; eauto. }
+  { inv STEP6. eapply MEM0; eauto. }
   { inv STEP6. eapply MEM0; eauto. }
   i. des.
   esplits; eauto. etrans; eauto.
@@ -449,7 +461,7 @@ Lemma reorder_update_write
       lc3 sc3 mem3
       (LOC: loc1 <> loc3)
       (ORD2: Ordering.le ord2 Ordering.relaxed)
-      (ORD3: Ordering.le Ordering.seqcst ord3 -> Ordering.le Ordering.seqcst ord1 -> False)
+      (ORD3: Ordering.le ord1 Ordering.acqrel \/ Ordering.le ord3 Ordering.acqrel)
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
@@ -465,6 +477,7 @@ Lemma reorder_update_write
     <<SC: TimeMap.le sc3' sc3>> /\
     <<MEM: Memory.sim mem3 mem3'>>.
 Proof.
+  guardH ORD3.
   exploit Local.read_step_future; try apply STEP1; eauto. i. des.
   exploit Local.write_step_future; try apply STEP2; eauto. i. des.
   exploit reorder_write_write; try apply STEP2; try apply STEP3; eauto. i. des.
@@ -472,7 +485,9 @@ Proof.
   exploit reorder_read_write; try apply STEP1; try apply STEP0; eauto. i. des.
   exploit Local.write_step_future; try apply STEP5; eauto. i. des.
   exploit Local.read_step_future; try apply STEP6; eauto. i. des.
-  exploit sim_local_write; try apply STEP4; try apply LOCAL0; try apply x1; try refl; eauto.
+  exploit sim_local_write; try apply STEP4; try apply LOCAL0; try exact x1; try refl; eauto.
+  { inv STEP6. eapply CLOSED1; eauto. }
+  { inv STEP6. eapply CLOSED1; eauto. }
   { inv STEP6. eapply CLOSED1; eauto. }
   i. des.
   esplits; eauto.
@@ -493,7 +508,7 @@ Lemma reorder_update_update
       (LOC: loc1 <> loc3)
       (ORD2: Ordering.le ord2 Ordering.relaxed)
       (ORD3: Ordering.le ord3 Ordering.relaxed)
-      (ORD4: Ordering.le Ordering.seqcst ord4 -> Ordering.le Ordering.seqcst ord1 -> False)
+      (ORD: Ordering.le ord1 Ordering.acqrel \/ Ordering.le ord4 Ordering.acqrel)
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
@@ -512,6 +527,7 @@ Lemma reorder_update_update
     <<SC: TimeMap.le sc4' sc4>> /\
     <<MEM: Memory.sim mem4 mem4'>>.
 Proof.
+  guardH ORD.
   exploit Local.read_step_future; try apply STEP1; eauto. i. des.
   exploit Local.write_step_future; try apply STEP2; eauto. i. des.
   exploit Local.read_step_future; try apply STEP3; eauto. i. des.
@@ -519,7 +535,11 @@ Proof.
   exploit Local.read_step_future; try apply STEP0; eauto. i. des.
   exploit Local.read_step_future; try apply STEP5; eauto. i. des.
   exploit Local.write_step_future; try apply STEP6; eauto. i. des.
-  exploit sim_local_write; try apply STEP4; try apply LOCAL; try apply WF1; eauto; try refl.
+  exploit sim_local_write; try apply STEP4; try apply LOCAL; try exact WF1; eauto; try refl.
+  { inv STEP0. eapply MEM0; eauto. }
+  { eapply Memory.future_closed_capability; eauto.
+    inv STEP0. eapply MEM0; eauto.
+  }
   { inv STEP0. eapply MEM0; eauto. }
   i. des.
   hexploit reorder_update_write; try apply STEP5; try apply STEP6; try apply STEP_SRC; eauto. i. des.
@@ -561,7 +581,9 @@ Proof.
   exploit reorder_read_promise; try apply STEP1; try apply STEP0; eauto. i. des.
   exploit Local.promise_step_future; try apply STEP5; eauto. i. des.
   exploit Local.read_step_future; try apply STEP6; eauto. i. des.
-  exploit sim_local_write; try apply STEP4; try apply LOCAL0; try apply x1; eauto; try refl.
+  exploit sim_local_write; try apply STEP4; try apply LOCAL0; try exact x1; eauto; try refl.
+  { inv STEP6. eapply CLOSED0; eauto. }
+  { inv STEP6. eapply CLOSED0; eauto. }
   { inv STEP1. eapply MEM0; eauto. }
   i. des.
   esplits; eauto. etrans; eauto.

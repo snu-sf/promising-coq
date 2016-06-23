@@ -13,6 +13,8 @@ Require Import Language.
 Require Import Event.
 Require Import Time.
 Require Import Configuration.
+Require Import View.
+Require Import Cell.
 Require Import Memory.
 Require Import Thread.
 Require Import Commit.

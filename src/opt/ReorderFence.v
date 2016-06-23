@@ -10,6 +10,8 @@ Require Import Basic.
 Require Import Event.
 Require Import Language.
 Require Import Time.
+Require Import View.
+Require Import Cell.
 Require Import Memory.
 Require Import Commit.
 Require Import Thread.
@@ -102,9 +104,7 @@ Proof.
     + eauto.
     + right. econs; eauto.
   - (* store *)
-    exploit sim_local_write; try apply SC; eauto.
-    { refl. }
-    { apply Capability.bot_wf. }
+    exploit sim_local_write; try apply SC; eauto; try refl; committac.
     { eapply Local.fence_step_future; eauto. }
     i. des.
     exploit reorder_fence_write; try apply x0; try apply STEP_SRC; eauto. i. des.

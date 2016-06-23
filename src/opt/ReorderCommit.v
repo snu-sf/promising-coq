@@ -10,6 +10,8 @@ Require Import Basic.
 Require Import Event.
 Require Import Language.
 Require Import Time.
+Require Import View.
+Require Import Cell.
 Require Import Memory.
 Require Import Commit.
 Require Import Thread.
@@ -30,7 +32,7 @@ Lemma read_read_commit
       loc1 ts1 released1 ord1
       loc2 ts2 released2 ord2
       commit0
-      (LOC: loc1 <> loc2)
+      (LOC: loc1 = loc2 -> Ordering.le ord1 Ordering.unordered)
       (ORD2: Ordering.le ord2 Ordering.relaxed)
       (WF0: Commit.wf commit0)
       (WF1: Capability.wf released1)
@@ -53,7 +55,7 @@ Lemma read_write_commit
       loc2 ts2 ord2
       commit0 sc0
       (LOC: loc1 <> loc2)
-      (ORD: Ordering.le Ordering.seqcst ord2 -> Ordering.le Ordering.seqcst ord1 -> False)
+      (ORD: Ordering.le ord1 Ordering.acqrel \/ Ordering.le ord2 Ordering.acqrel)
       (WF0: Commit.wf commit0)
       (WF1: Capability.wf released1):
   Commit.le

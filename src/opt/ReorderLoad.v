@@ -10,6 +10,8 @@ Require Import Basic.
 Require Import Event.
 Require Import Language.
 Require Import Time.
+Require Import View.
+Require Import Cell.
 Require Import Memory.
 Require Import Commit.
 Require Import Thread.
@@ -30,13 +32,13 @@ Inductive reorder_load r1 l1 o1: forall (i2:Instr.t), Prop :=
 | reorder_load_load
     r2 l2 o2
     (ORD2: Ordering.le o2 Ordering.relaxed)
-    (LOC: l1 <> l2)
+    (LOC: l1 = l2 -> Ordering.le o1 Ordering.unordered)
     (REGS: RegSet.disjoint (Instr.regs_of (Instr.load r1 l1 o1))
                            (Instr.regs_of (Instr.load r2 l2 o2))):
     reorder_load r1 l1 o1 (Instr.load r2 l2 o2)
 | reorder_load_store
     l2 v2 o2
-    (ORD: Ordering.le Ordering.seqcst o1 -> Ordering.le Ordering.seqcst o2 -> False)
+    (ORD: Ordering.le o1 Ordering.acqrel \/ Ordering.le o2 Ordering.acqrel)
     (LOC: l1 <> l2)
     (REGS: RegSet.disjoint (Instr.regs_of (Instr.load r1 l1 o1))
                            (Instr.regs_of (Instr.store l2 v2 o2))):
@@ -44,7 +46,7 @@ Inductive reorder_load r1 l1 o1: forall (i2:Instr.t), Prop :=
 | reorder_load_update
     r2 l2 rmw2 or2 ow2
     (ORDR2: Ordering.le or2 Ordering.relaxed)
-    (ORDW2: Ordering.le Ordering.seqcst o1 -> Ordering.le Ordering.seqcst ow2 -> False)
+    (ORDW2: Ordering.le o1 Ordering.acqrel \/ Ordering.le ow2 Ordering.acqrel)
     (LOC: l1 <> l2)
     (REGS: RegSet.disjoint (Instr.regs_of (Instr.load r1 l1 o1))
                            (Instr.regs_of (Instr.update r2 l2 rmw2 or2 ow2))):
@@ -197,9 +199,8 @@ Proof.
       * apply RegSet.singleton_spec. eauto.
       * etrans; eauto.
   - (* store *)
-    exploit sim_local_write; try apply SC; try apply LOCAL1; (try by etrans; eauto); eauto.
-    { refl. }
-    { apply Capability.bot_wf. }
+    guardH ORD.
+    exploit sim_local_write; try apply SC; try apply LOCAL1; (try by etrans; eauto); eauto; try refl; committac.
     { eapply Local.read_step_future; eauto. }
     i. des.
     exploit reorder_read_write; try apply STEP; try apply STEP_SRC; eauto. i. des.
@@ -216,11 +217,14 @@ Proof.
     + etrans; eauto.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss. etrans; eauto.
   - (* update *)
+    guardH ORDW2.
     exploit sim_local_read; (try by etrans; eauto); eauto; try refl.
     { eapply Local.read_step_future; eauto. }
     i. des.
-    exploit reorder_read_read; try apply READ; try apply STEP_SRC; eauto. i. des.
+    exploit reorder_read_read; try apply READ; try apply STEP_SRC; eauto; try congr. i. des.
     exploit sim_local_write; try apply SC; try apply LOCAL1; (try by etrans; eauto); eauto.
+    { inv STEP1. eapply MEM_SRC. eauto. }
+    { inv STEP1. eapply MEM_SRC. eauto. }
     { inv LOCAL1. eapply MEM_TGT; eauto. }
     { eapply Local.read_step_future; eauto.
       eapply Local.read_step_future; eauto.
