@@ -669,7 +669,7 @@ Proof.
         + ss. setoid_rewrite IdentMap.Properties.F.map_o.
           by rewrite TID. 
         + econs 2; econs 3; eauto. 
-          admit.
+          ss. admit.
         + eauto.
       - s. by rewrite !IdentMap.gss.
     }
@@ -695,7 +695,7 @@ Proof.
         + eauto.
       - s. by rewrite !IdentMap.gss.
     }
-Admitted.
+Admitted. (* Mostly done *)
 
 Lemma can_fulfill_promises_small_step
       tid c1 c2
@@ -855,6 +855,17 @@ Inductive pi_step_lift_except x t (tid_except:Ident.t) cSTM1 cSTM2: Prop :=
 .
 Hint Constructors pi_step_lift_except.
 
+Lemma pi_steps_lift_except_pi_steps
+      cSTM1 cSTM2 x t tid
+      (STEPS: rtc (pi_step_lift_except x t tid) cSTM1 cSTM2):
+  rtc (pi_step_except tid) cSTM1.(fst) cSTM2.(fst).
+Proof.
+  induction STEPS; eauto.
+  etrans; [|apply IHSTEPS].
+  inv H. inv PI_STEP. inv PI_STEP0.
+  econs; eauto.
+Qed.
+
 Lemma pi_step_lifting
       tid cST1 cST2 x t
       (PI_STEPS: rtc (pi_step_except tid) cST1 cST2):
@@ -921,6 +932,13 @@ Proof.
   ii. eapply FREE, RACE. etrans; eauto.
 Qed.
 
+Lemma option_map_map 
+      A B C (f: B -> C) (g: A -> B) (a: option A):
+  option_map f (option_map g a) = option_map (fun x => f (g x)) a.
+Proof.
+  destruct a; eauto.
+Qed.
+
 Lemma key_lemma
       cS1 cT1 cS2 cT2 tid
       (PI_CONSISTENT : pi_consistent (cS1, cT1))
@@ -939,14 +957,83 @@ Lemma key_lemma
   <<STEPS: rtc (pi_step_evt tid) (cSTM3.(fst).(fst), cSTM3.(snd)) (cS4, cM4) >> /\
   <<STATE: IdentMap.find tid (conf_st cS4) = IdentMap.find tid (conf_st cM4)>>.
 Proof.
+
+
+Lemma key_lemma
+      cS1 cT1 cS2 cT2 tid
+      (PI_CONSISTENT : pi_consistent (cS1, cT1))
+      (WF : pi_wf (cS1, cT1))
+      (RACEFREE : pf_racefree cS1)
+      (STEPS : rtc (pi_step_evt tid) (cS1, cT1) (cS2, cT2))
+      loc ts cSTM3
+      (STEPS_LIFT : rtc (pi_step_lift_except loc ts tid) (cS2, cT2, cT2) cSTM3)
+      cM4
+      (PI_STEPS : rtc (small_step_evt tid) cSTM3.(snd) cM4)
+      (FULFILL: can_fulfill_promises tid cM4)
+      lst4 lc4 from msg 
+      (THREAD : IdentMap.find tid (Configuration.threads cM4) = Some (lst4, lc4))
+      (PROMISE : Memory.get loc ts (Local.promises lc4) = Some (from, msg)):
+  exists cS4 : Configuration.t,
+  <<STEPS: rtc (pi_step_evt tid) (cSTM3.(fst).(fst), cSTM3.(snd)) (cS4, cM4) >> /\
+  <<STATE: IdentMap.find tid (conf_st cS4) = IdentMap.find tid (conf_st cM4)>>.
+Proof.
+  assert (WF2: pi_wf (cS2,cT2)).
+  { eapply rtc_pi_step_future; eauto.
+    eapply rtc_implies, STEPS; eauto. }
+
+  assert (WF3: pi_wf cSTM3.(fst)).
+  { eapply rtc_pi_step_future; eauto.
+    eapply rtc_implies in STEPS_LIFT.
+    - eapply pi_steps_lift_except_pi_steps in STEPS_LIFT.
+      eapply rtc_implies, STEPS_LIFT.
+      i. inv PR. eauto. 
+    - i. inv PR. eauto. }
+
+  
+
+
   revert_until STEPS_LIFT.
   apply Operators_Properties.clos_rt_rt1n_iff in STEPS_LIFT.
   apply Operators_Properties.clos_rt_rtn1_iff in STEPS_LIFT.
+
   induction STEPS_LIFT.
-  { s. i. exploit pi_consistent_rtc_small_step_pi; eauto.
+  { s. i. exploit pi_consistent_rtc_small_step_pi; try eapply WF; eauto.
     intro STEPS1. des. esplits; eauto.
-    admit.
-  }    
+    
+    exploit rtc_pi_step_future; try eapply rtc_implies, STEPS1; eauto.
+    i; des. clear FUTURES FUTURET.
+
+    inv WF0. unfold conf_st, Threads_remove_promise. 
+    s. rewrite !IdentMap.Properties.F.map_o. 
+    by rewrite option_map_map.
+  }
+
+  rename H into STEP.
+  destruct y as [[cS3 cT3] cM3].
+  destruct z as [[cS4 cT4] cM4].
+
+  do 2 intro.
+  apply Operators_Properties.clos_rt_rt1n_iff in PI_STEPS.
+  apply Operators_Properties.clos_rt_rtn1_iff in PI_STEPS.
+  induction PI_STEPS; i.
+  { esplits; eauto. ss.
+    inv STEP. inv PI_STEP. inv PI_STEP0.
+    rewrite ST.
+    unfold conf_st. rewrite !IdentMap.Properties.F.map_o.
+    inv WF3. unfold Threads_remove_promise. ss. 
+    rewrite !IdentMap.Properties.F.map_o, option_map_map. eauto.
+  }
+
+  ss. rename H into STEP2, y into CM5, z into CM6.
+  
+  
+  
+
+
+
+
+  admit.
+
 Admitted.
 
 Theorem pi_consistent_pi_step_pi_consistent
