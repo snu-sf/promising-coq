@@ -41,7 +41,7 @@ Inductive reorder_update r1 l1 rmw1 or1 ow1: forall (i2:Instr.t), Prop :=
 | reorder_update_store
     l2 v2 o2
     (ORDW1: Ordering.le ow1 Ordering.relaxed)
-    (ORD2: Ordering.le Ordering.seqcst o2 -> Ordering.le Ordering.seqcst or1 -> False)
+    (ORD2: Ordering.le or1 Ordering.acqrel \/ Ordering.le o2 Ordering.acqrel)
     (LOC: l1 <> l2)
     (REGS: RegSet.disjoint (Instr.regs_of (Instr.update r1 l1 rmw1 or1 ow1))
                            (Instr.regs_of (Instr.store l2 v2 o2))):
@@ -50,7 +50,7 @@ Inductive reorder_update r1 l1 rmw1 or1 ow1: forall (i2:Instr.t), Prop :=
     r2 l2 rmw2 or2 ow2
     (ORDW1: Ordering.le ow1 Ordering.relaxed)
     (ORDR2: Ordering.le or2 Ordering.relaxed)
-    (ORDW2: Ordering.le Ordering.seqcst ow2 -> Ordering.le Ordering.seqcst or1 -> False)
+    (ORDW2: Ordering.le or1 Ordering.acqrel \/ Ordering.le ow2 Ordering.acqrel)
     (LOC: l1 <> l2)
     (REGS: RegSet.disjoint (Instr.regs_of (Instr.update r1 l1 rmw1 or1 ow1))
                            (Instr.regs_of (Instr.update r2 l2 rmw2 or2 ow2))):
@@ -185,6 +185,7 @@ Proof.
         apply RegSet.Facts.singleton_iff. auto.
       * etrans; eauto.
   - (* store *)
+    guardH ORD2.
     apply RegSet.disjoint_add in REGS. des.
     exploit sim_local_write; try apply LOCAL0; (try by etrans; eauto); eauto; try refl; try by committac. i. des.
     hexploit reorder_update_write; try apply READ; try apply WRITE; try apply STEP_SRC; eauto. i. des.
@@ -203,6 +204,7 @@ Proof.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
       etrans; eauto.
   - (* update *)
+    guardH ORDW2.
     apply RegSet.disjoint_add in REGS. des.
     symmetry in REGS0. apply RegSet.disjoint_add in REGS0. des.
     exploit Local.read_step_future; try apply LOCAL1; eauto. i. des.

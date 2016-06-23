@@ -76,7 +76,7 @@ Lemma reorder_read_read
       lc0 mem0
       lc1
       lc2
-      (LOC: loc1 <> loc2)
+      (LOC: loc1 = loc2 -> Ordering.le ord1 Ordering.unordered)
       (ORD2: Ordering.le ord2 Ordering.relaxed)
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
@@ -95,6 +95,8 @@ Proof.
   - econs; eauto. s. unfold Commit.read_commit.
     econs; repeat (try condtac; try splits; aggrtac; eauto; try apply READABLE;
                    unfold TimeMap.singleton, LocFun.add in *).
+    + specialize (LOC eq_refl). committac.
+    + specialize (LOC eq_refl). committac.
   - s. econs; s.
     + apply ReorderCommit.read_read_commit; auto.
       * apply WF0.
@@ -141,7 +143,7 @@ Lemma reorder_read_write
       lc2 sc2 mem2
       kind
       (LOC: loc1 <> loc2)
-      (ORD: Ordering.le Ordering.seqcst ord2 -> Ordering.le Ordering.seqcst ord1 -> False)
+      (ORD: Ordering.le ord1 Ordering.acqrel \/ Ordering.le ord2 Ordering.acqrel)
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
       (STEP1: Local.read_step lc0 mem0 loc1 ts1 val1 released1 ord1 lc1)
@@ -163,8 +165,8 @@ Proof.
     + s. unfold Commit.write_commit.
       econs; repeat (try condtac; try splits; aggrtac; eauto; try apply READABLE;
                      unfold TimeMap.singleton, LocFun.add in *).
-      * exfalso. apply ORD; auto.
-      * exfalso. apply ORD; auto.
+      * by destruct ord1, ord2; inv H; inv COND0; inv ORD.
+      * by destruct ord1, ord2; inv H; inv COND0; inv ORD.
   - s. econs; s.
     + apply ReorderCommit.read_write_commit; auto.
       * apply WF0.
@@ -185,7 +187,7 @@ Lemma reorder_read_update
       kind
       (LOC: loc1 <> loc2)
       (ORD2: Ordering.le ord2 Ordering.relaxed)
-      (ORD3: Ordering.le Ordering.seqcst ord3 -> Ordering.le Ordering.seqcst ord1 -> False)
+      (ORD3: Ordering.le ord1 Ordering.acqrel \/ Ordering.le ord3 Ordering.acqrel)
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
@@ -201,9 +203,10 @@ Lemma reorder_read_update
     <<SC: TimeMap.le sc3' sc3>> /\
     <<MEM: Memory.sim mem3 mem3'>>.
 Proof.
+  guardH ORD3.
   exploit Local.read_step_future; try apply STEP1; eauto. i. des.
   exploit Local.read_step_future; try apply STEP2; eauto. i. des.
-  exploit reorder_read_read; try apply STEP1; try apply STEP2; eauto. i. des.
+  exploit reorder_read_read; try apply STEP1; try apply STEP2; eauto; try congr. i. des.
   exploit Local.read_step_future; try apply STEP0; eauto. i. des.
   exploit Local.read_step_future; try apply STEP4; eauto. i. des.
   exploit sim_local_write; try apply STEP3; eauto; try refl.
@@ -437,7 +440,7 @@ Proof.
   exploit Local.write_step_future; try apply STEP2; eauto. i. des.
   exploit reorder_write_read; try apply STEP2; try apply STEP3; eauto. i. des.
   exploit Local.read_step_future; try apply STEP0; eauto. i. des.
-  exploit reorder_read_read; try apply STEP1; try apply STEP0; eauto. i. des.
+  exploit reorder_read_read; try apply STEP1; try apply STEP0; eauto; try congr. i. des.
   exploit Local.read_step_future; try apply STEP5; eauto. i. des.
   exploit Local.read_step_future; try apply STEP6; eauto. i. des.
   exploit sim_local_write; try apply STEP4; try apply LOCAL0; eauto; try refl.
@@ -458,7 +461,7 @@ Lemma reorder_update_write
       lc3 sc3 mem3
       (LOC: loc1 <> loc3)
       (ORD2: Ordering.le ord2 Ordering.relaxed)
-      (ORD3: Ordering.le Ordering.seqcst ord3 -> Ordering.le Ordering.seqcst ord1 -> False)
+      (ORD3: Ordering.le ord1 Ordering.acqrel \/ Ordering.le ord3 Ordering.acqrel)
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
@@ -474,6 +477,7 @@ Lemma reorder_update_write
     <<SC: TimeMap.le sc3' sc3>> /\
     <<MEM: Memory.sim mem3 mem3'>>.
 Proof.
+  guardH ORD3.
   exploit Local.read_step_future; try apply STEP1; eauto. i. des.
   exploit Local.write_step_future; try apply STEP2; eauto. i. des.
   exploit reorder_write_write; try apply STEP2; try apply STEP3; eauto. i. des.
@@ -504,7 +508,7 @@ Lemma reorder_update_update
       (LOC: loc1 <> loc3)
       (ORD2: Ordering.le ord2 Ordering.relaxed)
       (ORD3: Ordering.le ord3 Ordering.relaxed)
-      (ORD4: Ordering.le Ordering.seqcst ord4 -> Ordering.le Ordering.seqcst ord1 -> False)
+      (ORD: Ordering.le ord1 Ordering.acqrel \/ Ordering.le ord4 Ordering.acqrel)
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
@@ -523,6 +527,7 @@ Lemma reorder_update_update
     <<SC: TimeMap.le sc4' sc4>> /\
     <<MEM: Memory.sim mem4 mem4'>>.
 Proof.
+  guardH ORD.
   exploit Local.read_step_future; try apply STEP1; eauto. i. des.
   exploit Local.write_step_future; try apply STEP2; eauto. i. des.
   exploit Local.read_step_future; try apply STEP3; eauto. i. des.
