@@ -207,7 +207,7 @@ Module Memory.
 
   Inductive promise_kind :=
   | promise_kind_add
-  | promise_kind_split
+  | promise_kind_split (to2:Time.t)
   | promise_kind_lower
   .
 
@@ -225,7 +225,7 @@ Module Memory.
       (PROMISES: split promises1 loc from1 to1 to2 val1 released1 promises2)
       (MEM: split mem1 loc from1 to1 to2 val1 released1 mem2)
       (TS: Time.le (Capability.rw released1 loc) to1):
-      promise promises1 mem1 loc from1 to1 val1 released1 promises2 mem2 promise_kind_split
+      promise promises1 mem1 loc from1 to1 val1 released1 promises2 mem2 (promise_kind_split to2)
   | promise_lower
       released0
       (PROMISES: lower promises1 loc from1 to1 val1 released0 released1 promises2)
@@ -1267,13 +1267,6 @@ Module Memory.
     eexists. econs; eauto.
   Qed.
 
-  Lemma get_lower
-        mem loc from to val released
-        (GET: get loc to mem = Some (from, Message.mk val released)):
-    lower mem loc from to val released released mem.
-  Proof.
-  Admitted.
-
   Lemma add_lower_add
         mem1 loc from to val released released' mem2
         (ADD: add mem1 loc from to val released mem2)
@@ -1370,5 +1363,39 @@ Module Memory.
   Proof.
     exploit Cell.remove_exists; eauto. i. des.
     eexists. econs. eauto.
+  Qed.
+
+  Lemma lower_exists
+        mem1 loc from to val released1 released2
+        (GET: get loc to mem1 = Some (from, Message.mk val released1))
+        (REL_LE: Capability.le released2 released1)
+        (REL_WF: Capability.wf released2)
+        (LT: Time.lt from to):
+    exists mem2, lower mem1 loc from to val released1 released2 mem2.
+  Proof.
+    exploit remove_exists; eauto. i. des.
+    exploit add_exists; eauto.
+    { admit. (* FALSE! by remove + add we cannot lower a promise that is adjacent to a next one. *) }
+    i. des. esplits. econs; eauto.
+  Admitted.
+
+  Lemma lower_exists_same
+        mem1 loc from to val released
+        (REL_WF: Capability.wf released)
+        (GET: get loc to mem1 = Some (from, Message.mk val released))
+        (LT: Time.lt from to):
+    lower mem1 loc from to val released released mem1.
+  Proof.
+    exploit lower_exists; eauto; try refl. i. des.
+    cut (mem2 = mem1).
+    { i. subst. auto. }
+    apply ext. i.
+    destruct (get loc0 ts mem2) as [[]|] eqn:X.
+    { exploit lower_get_inv; eauto. i. des; subst; auto. }
+    destruct (get loc0 ts mem1) as [[]|] eqn:Y.
+    { erewrite lower_get1 in Y; eauto; try congr.
+      ii. des. subst. exploit lower_get2; eauto. i. congr.
+    }
+    auto.
   Qed.
 End Memory.

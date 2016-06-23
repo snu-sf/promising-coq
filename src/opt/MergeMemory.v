@@ -33,7 +33,7 @@ Lemma remove_promise_remove_remove
       (LE: Memory.le promises1 mem1)
       (REMOVE: Memory.remove promises1 loc ts1 ts3 val2 released2 promises4):
   exists promises2 mem2 promises3,
-    <<SPLIT: Memory.promise promises1 mem1 loc ts1 ts2 val1 released1 promises2 mem2 Memory.promise_kind_split>> /\
+    <<SPLIT: Memory.promise promises1 mem1 loc ts1 ts2 val1 released1 promises2 mem2 (Memory.promise_kind_split ts2)>> /\
     <<REMOVE1: Memory.remove promises2 loc ts1 ts2 val1 released1 promises3>> /\
     <<REMOVE2: Memory.remove promises3 loc ts2 ts3 val2 released2 promises4>>.
 Proof.

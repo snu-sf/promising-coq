@@ -105,9 +105,19 @@ Proof.
         assert (ORD1': ~ Ordering.le Ordering.acqrel ord).
         { by inv REORDER0; destruct ord; inv ORD1. }
         refine (Local.step_write_intro _ _ _ _ _ _); eauto; [|congr].
+        assert (Time.lt from to).
+        { inv PROMISE.
+          - inv MEM. inv ADD. auto.
+          - inv MEM. inv SPLIT. auto.
+          - inv MEM. inv ADD. inv ADD0. auto.
+        }
         econs; eauto. econs.
-        { apply Memory.get_lower. auto. }
-        { apply Memory.get_lower. eauto. }
+        { apply Memory.lower_exists_same; auto.
+          repeat (try condtac; committac; try apply WF_SRC).
+        }
+        { apply Memory.lower_exists_same; eauto.
+          repeat (try condtac; committac; try apply WF_SRC).
+        }
       * econs; try apply WF_SRC; eauto.
         s. eapply Commit.future_closed; eauto. apply WF_SRC.
       * eapply Memory.future_closed_timemap; eauto.
