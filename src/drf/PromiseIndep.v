@@ -463,9 +463,11 @@ Admitted. (* Done *)
 
 Inductive can_fulfill (tid: Ident.t) loc ts (c1 c4: Configuration.t) : Prop :=
 | can_fulfill_intro
-    c2 c3 e ord from val rel 
+    c2 c3 e ord lst2 lc2 from2 msg2 from val rel 
     (STEPS: rtc (small_step_evt tid) c1 c2)
     (STEP: small_step e tid c2 c3)
+    (THREAD: IdentMap.find tid c2.(Configuration.threads) = Some (lst2, lc2))
+    (PROMISE: Memory.get loc ts lc2.(Local.promises) = Some (from2, msg2))
     (EVENT: ThreadEvent.is_writing e = Some (loc, from, ts, val, ord, rel))
     (ORD: Ordering.le ord Ordering.relaxed)
     (STEPS: rtc (small_step_evt tid) c3 c4):
@@ -542,7 +544,7 @@ Proof.
     rewrite IdentMap.gss in IHSTEPS.
     exploit IHSTEPS; eauto.
     intros []; i.
-    econs; swap 3 6; eauto.
+    econs; swap 5 8; eauto.
     etrans; [|apply STEPS0].
     econs; eauto.
   - exploit thread_step_unset_promises; eauto; s; eauto.
@@ -928,8 +930,11 @@ Lemma key_lemma
       loc ts cSTM3
       (STEPS_LIFT : rtc (pi_step_lift_except loc ts tid) (cS2, cT2, cT2) cSTM3)
       cM4
+      (PI_STEPS : rtc (small_step_evt tid) cSTM3.(snd) cM4)
       (FULFILL: can_fulfill_promises tid cM4)
-      (PI_STEPS : rtc (small_step_evt tid) cSTM3.(snd) cM4):
+      lst4 lc4 from msg 
+      (THREAD : IdentMap.find tid (Configuration.threads cM4) = Some (lst4, lc4))
+      (PROMISE : Memory.get loc ts (Local.promises lc4) = Some (from, msg)):
   exists cS4 : Configuration.t,
   <<STEPS: rtc (pi_step_evt tid) (cSTM3.(fst).(fst), cSTM3.(snd)) (cS4, cM4) >> /\
   <<STATE: IdentMap.find tid (conf_st cS4) = IdentMap.find tid (conf_st cM4)>>.
@@ -1004,6 +1009,7 @@ Proof.
   eapply can_fulfill_promises_rtc_small_step in FULFILL2; [|eauto].
   eapply can_fulfill_promises_small_step in FULFILL2; [|eauto].
   exploit key_lemma; eauto.
+  i; des.
 
   exploit small_step_to_program_step_writing; eauto.
   i; des.
