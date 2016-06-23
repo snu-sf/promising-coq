@@ -59,58 +59,42 @@ Section Consistency.
 (** ** Additional derived relations for simulation *)
 (******************************************************************************)
 
-  Definition hbsc := (clos_refl (hb ;; (eqv_rel is_wfence))) ;; sc.
+  Definition rfhbsc := clos_refl rf ;; clos_refl (hb ;; <| is_wfence |>) ;; sc.
 
-  Definition ur_relation := 
-    <| fun a => In a acts |> ;; 
-    clos_refl (clos_refl rf ;; hbsc ;; <| is_wfence |>) ;; 
-    clos_refl hb.
-  Definition rw_relation := 
-    ur_relation +++ 
-    <| fun a => In a acts |> ;; rf ;; clos_refl hb.
-  Definition sc_relation := 
-    rw_relation +++ 
-    <| fun a => In a acts |> ;; clos_refl rf ;; hbsc ;; clos_refl hb.
+  Definition urr := 
+    <| fun a => In a acts |> ;; clos_refl (rfhbsc ;; <| is_wfence |>) ;; clos_refl hb.
+
+  Definition rwr := 
+    urr +++ <| fun a => In a acts |> ;; clos_refl rf ;; clos_refl hb.
+
+  Definition scr := 
+    rwr +++ 
+    <| fun a => In a acts |> ;; clos_refl (rfhbsc ;; <| is_write |>) ;; clos_refl hb.
+
+  Definition urr_rel := urr ;; rel.
+  Definition rwr_rel := rwr ;; rel.
+  Definition scr_rel := scr ;; rel.
 
   Definition m_rel l tm_relation := 
-    eqv_rel (fun a => is_write a /\ loc a = Some l) ;; 
-    tm_relation ;; rel.
-
-  Definition m_rel_ur l a b:= m_rel l ur_relation a b.
-  Definition m_rel_rw l a b:= m_rel l rw_relation a b.
-  Definition m_rel_sc l a b:= m_rel l sc_relation a b.
-
-  Definition c_cur i l tm_relation := 
-    eqv_rel (fun a => is_write a /\ loc a = Some l) ;; 
-    tm_relation ;; 
-    eqv_rel (fun a => thread a = i).
-
-  Definition c_cur_ur i l :=  dom_rel (c_cur i l ur_relation).
-  Definition c_cur_rw i l :=  dom_rel (c_cur i l rw_relation).
-  Definition c_cur_sc i l :=  dom_rel (c_cur i l sc_relation).
-
-  Definition c_acq i l tm_relation :=  
-    (m_rel l tm_relation) ;; rf ;; eqv_rel (fun a => is_rlx a) ;;
-    eqv_rel (fun a => thread a = i).
-
-  Definition c_acq_ur i l := dom_rel (c_acq i l ur_relation).
-  Definition c_acq_rw i l := dom_rel (c_acq i l rw_relation).
-  Definition c_acq_sc i l := dom_rel (c_acq i l sc_relation).
+    <| fun x => is_write x /\ loc x = Some l |> ;; tm_relation.
 
   Definition c_rel i l' l tm_relation :=  
     m_rel l tm_relation ;;
-    eqv_rel (fun a => is_write a /\ loc a = Some l') ;;
-    eqv_rel (fun a => thread a = i).
+    <| fun x => is_write x /\ loc x = Some l' |> ;;
+    <| fun x => thread x = i |>.
 
-  Definition c_rel_ur i l' l := dom_rel (c_rel i l' l ur_relation).
-  Definition c_rel_rw i l' l := dom_rel (c_rel i l' l rw_relation).
-  Definition c_rel_sc i l' l := dom_rel (c_rel i l' l sc_relation).
+  Definition c_cur i l tm_relation := 
+    <| fun x => is_write x /\ loc x = Some l |> ;; 
+    tm_relation ;; 
+    <| fun x => thread x = i |>.
+
+  Definition c_acq i l tm_relation :=  
+    m_rel l tm_relation ;; rf ;; <| is_rlx |> ;; <| fun x => thread x = i |>.
 
   Definition S_tm_relation l := 
-    eqv_rel (fun a => In a acts) ;; 
-    eqv_rel (fun a => is_write a /\ loc a = Some l) ;; 
-    clos_refl ((clos_refl rf) ;; hb ;; eqv_rel is_wfence) ;;
-    eqv_rel (is_sc).
+    <| fun x => In x acts |> ;; 
+    <| fun x => is_write x /\ loc x = Some l |> ;; 
+    clos_refl rf ;; hb ;; <| is_wfence |> ;; <| is_sc |>.
 
   Definition S_tm l := dom_rel (S_tm_relation l).
 
@@ -118,47 +102,70 @@ Section Consistency.
 (** ** Basic properties *)
 (******************************************************************************)
 
-Lemma sb_in_hb : inclusion sb hb.
-Proof. vauto. Qed.
+  Lemma sb_in_hb : inclusion sb hb.
+  Proof. vauto. Qed.
 
-Lemma sw_in_hb : inclusion sw hb.
-Proof. vauto. Qed.
+  Lemma sw_in_hb : inclusion sw hb.
+  Proof. vauto. Qed.
+   
+  Lemma hb_trans : 
+    forall x y z, hb x y -> hb y z -> hb x z.
+  Proof.
+    vauto.
+  Qed.
+   
+  Lemma ur_in_rw : inclusion urr rwr.
+  Proof. vauto. Qed.
+   
+  Lemma rw_in_sc : inclusion rwr scr.
+  Proof. vauto. Qed.
+   
+  Lemma ur_in_sc : inclusion urr scr.
+  Proof. transitivity rwr; vauto. Qed.
 
-Lemma hb_trans : 
-  forall x y z, hb x y -> hb y z -> hb x z.
-Proof.
-  vauto.
-Qed.
+  Lemma reflexive_ur a (IN: In a acts): urr a a.
+  Proof. repeat (eexists; splits; eauto). Qed.
 
-(*Hint Resolve hb_trans sb_in_hb sw_in_hb : hb. *)
+  Lemma reflexive_rw a (IN: In a acts): rwr a a.
+  Proof. left; apply reflexive_ur; done. Qed.
 
-(*
-Lemma eqv_rel_seq_eqv_rel f1 f2 (a b: event): 
-  ((eqv_rel f1) ;; (eqv_rel f2)) a b <-> (eqv_rel (f1 /1\ f2)) a b.
-Proof.
-unfold eqv_rel, seq; split; ins; desf; eauto.
-Qed.
+  Lemma reflexive_sc a (IN: In a acts): scr a a.
+  Proof. left; apply reflexive_rw; done. Qed.
 
-Lemma eqv_rel_seq_eqv_rel_id f (a b: event): 
-  ((eqv_rel f) ;; (eqv_rel f)) a b <-> (eqv_rel (f /1\ f)) a b.
-Proof.
-unfold eqv_rel, seq; split; ins; desf; eauto.
-Qed.
+  Lemma hb_hb : inclusion (hb ;; hb) hb.
+  Proof. unfold seq, inclusion; ins; desf; vauto. Qed.
 
-Hint Resolve eqv_rel_seq_eqv_rel eqv_rel_seq_eqv_rel_id : eqv_rel. 
-*)
+  Lemma cr_hb_hb : inclusion (clos_refl hb ;; hb) hb.
+  Proof. rewrite crE, seq_union_l, hb_hb; rel_simpl. Qed.
 
-Lemma rseq_alt : 
-  rseq <--> 
-  <|fun a => In a acts|> ;; <|is_write|> +++
-  <|fun a => In a acts|> ;; <|is_write|> ;; useq +++
-  <|fun a => In a acts|> ;; <|is_write|> ;; restr_eq_rel loc sb ;; <|is_write|> +++
-  <|fun a => In a acts|> ;; <|is_write|> ;; restr_eq_rel loc sb ;; 
-  eqv_rel is_write ;; useq.
-Proof.
-unfold rseq; rewrite !crE; rel_simpl; rewrite !seq_eqvK, !(seq2 (seq_eqvK _)).
-unfold same_relation, inclusion, union; split; ins; desf; eauto. 
-Qed.
+  Lemma urr_hb : inclusion (urr ;; hb) urr.
+  Proof.
+    unfold urr; rewrite !seqA, cr_hb_hb; eauto with rel.
+  Qed.  
+
+  Lemma rwr_hb : inclusion (rwr ;; hb) rwr. 
+  Proof.
+    unfold rwr; rewrite seq_union_l, urr_hb, !seqA, cr_hb_hb.
+    eauto 8 with rel.
+  Qed.
+
+  Lemma scr_hb : inclusion (scr ;; hb) scr.
+  Proof.
+    unfold scr; rewrite seq_union_l, rwr_hb, !seqA, cr_hb_hb.
+    eauto 8 with rel.
+  Qed.
+
+  Lemma rseq_alt : 
+    rseq <--> 
+    <|fun a => In a acts|> ;; <|is_write|> +++
+    <|fun a => In a acts|> ;; <|is_write|> ;; useq +++
+    <|fun a => In a acts|> ;; <|is_write|> ;; restr_eq_rel loc sb ;; <|is_write|> +++
+    <|fun a => In a acts|> ;; <|is_write|> ;; restr_eq_rel loc sb ;; 
+    eqv_rel is_write ;; useq.
+  Proof.
+  unfold rseq; rewrite !crE; rel_simpl; rewrite !seq_eqvK, !(seq2 (seq_eqvK _)).
+  unfold same_relation, inclusion, union; split; ins; desf; eauto. 
+  Qed.
 
 (******************************************************************************)
 (** ** Well-formed relations *)
@@ -233,6 +240,8 @@ Qed.
 (******************************************************************************)
 (** ** Same Location relations  *)
 (******************************************************************************)
+
+Section WellFormedResults.
 
 Definition loceq (R : event -> event -> Prop) := 
 forall (WF: Wf) a b (H: R a b), loc a = loc b.
@@ -313,148 +322,84 @@ Qed.
 (******************************************************************************)
 (** ** Domains and Codomains of relations  *)
 (******************************************************************************)
-Definition doma (R : event -> event -> Prop) (Property: event -> Prop) := 
-forall (WF: Wf) a b (H: R a b), Property a.
 
-Definition domb (R : event -> event -> Prop) (Property: event -> Prop) := 
-forall (WF: Wf) a b (H: R a b), Property b.
-
-Lemma eqv_rel_doma f: doma (eqv_rel f) f.
-Proof. unfold doma, eqv_rel; ins; desf. Qed.
-
-Lemma eqv_rel_domb f: domb (eqv_rel f) f.
-Proof. unfold domb, eqv_rel; ins; desf. Qed.
-
-Lemma eqv_rel_seq_doma_doma f R f2 (A: doma R f2): doma (eqv_rel f ;; R) f2.
-Proof. unfold doma, eqv_rel, seq; ins; desf; eauto. Qed.
-
-Lemma domb_seq_eqv_rel_domb f R f2 (A: domb R f2): domb (R ;; eqv_rel f) f2.
-Proof. unfold domb, eqv_rel, seq; ins; desf; eauto. Qed.
-
-Lemma restr_eq_rel_doma T (f: _ -> T) R f2 (A: doma R f2): doma (restr_eq_rel f R) f2. 
-Proof. unfold doma, restr_eq_rel; ins; desf; eauto. Qed.
-
-Lemma restr_eq_rel_domb T (f: _ -> T) R f2 (A: domb R f2): domb (restr_eq_rel f R) f2. 
-Proof. unfold domb, restr_eq_rel; ins; desf; eauto. Qed.
-
-Lemma doma_seq_R_doma T R f2 (H: doma T f2) : doma (T;;R) f2. 
-Proof. unfold doma, seq; ins; desf; eauto. Qed.
-
-Lemma R_seq_domb_domb T R f2 (H: domb R f2) : domb (T;;R) f2. 
-Proof. unfold domb, seq; ins; desf; eauto. Qed.
-
-Lemma doma_union_doma_doma T R f2 (H_T: doma T f2) (H_R: doma R f2): doma (T +++ R) f2. 
-Proof. unfold doma, union; ins; desf; eauto. Qed.
-
-Lemma doma_union_domb_domb T R f2 (H_T: domb T f2) (H_R: domb R f2): domb (T +++ R) f2. 
-Proof. unfold domb, union; ins; desf; eauto. Qed.
-
-Lemma tc_doma_doma R f2 (H: doma R f2) : doma (tc R) f2. 
-Proof.
-unfold doma; ins; apply clos_trans_t1n_iff in H0.
-destruct H0; eauto.
-Qed.
-
-Lemma tc_domb_domb R f2 (H: domb R f2) : domb (tc R) f2. 
-Proof.
-unfold domb; ins; apply clos_trans_tn1_iff in H0.
-destruct H0; eauto.
-Qed.
-
-Lemma clos_refl_doma_seq_doma_doma T R f2 (H: doma T f2) (H1: doma R f2): doma ((clos_refl T);;R) f2. 
-Proof. unfold doma, clos_refl, seq; ins; desf; eauto. Qed.
-
-Lemma domb_seq_clos_refl_domb_domb T R f2 (H: domb T f2) (H1: domb R f2): domb (T ;; (clos_refl R)) f2. 
-Proof. unfold domb, clos_refl, seq; ins; desf; eauto. Qed.
-
-Lemma restr_eq_rel_doma_doma T (f: _ -> T) R f2 (A: doma R f2): doma (restr_eq_rel f R) f2. 
-Proof. unfold doma, restr_eq_rel; ins; desf; eauto. Qed.
-
-Lemma restr_eq_rel_doma_domb T (f: _ -> T) R f2 (A: domb R f2): domb (restr_eq_rel f R) f2. 
-Proof. unfold domb, restr_eq_rel; ins; desf; eauto. Qed.
-
-Hint Resolve
- eqv_rel_doma eqv_rel_domb eqv_rel_seq_doma_doma domb_seq_eqv_rel_domb 
- restr_eq_rel_doma restr_eq_rel_domb doma_seq_R_doma R_seq_domb_domb
- doma_union_doma_doma doma_union_domb_domb tc_doma_doma tc_domb_domb
- clos_refl_doma_seq_doma_doma domb_seq_clos_refl_domb_domb
- restr_eq_rel_doma_doma restr_eq_rel_doma_domb : domab.
+Hypothesis WF: Wf.
 
 Lemma rmw_doma : doma rmw is_read.
-Proof. red; ins; red in WF; desc; red in WF_RMW; desf; eauto. Qed.
+Proof. cdes WF; cdes WF_RMW; eauto. Qed.
 Lemma rmw_domb : domb rmw is_write.
-Proof. red; ins; red in WF; desc; red in WF_RMW; desf; eauto. Qed.
+Proof. cdes WF; cdes WF_RMW; eauto. Qed.
 Lemma rf_doma : doma rf is_write.
-Proof. red; ins; red in WF; desc; red in WF_RF; desf; eauto. Qed.
+Proof. cdes WF; cdes WF_RF; eauto. Qed.
 Lemma rf_domb : domb rf is_read.
-Proof. red; ins; red in WF; desc; red in WF_RF; desf; eauto. Qed.
+Proof. cdes WF; cdes WF_RF; eauto. Qed.
 Lemma mo_doma : doma mo is_write.
-Proof. red; ins; red in WF; desc; red in WF_MO; desf; eauto. Qed.
+Proof. cdes WF; cdes WF_MO; eauto. Qed.
 Lemma mo_domb : domb mo is_write.
-Proof. red; ins; red in WF; desc; red in WF_MO; desf; eauto. Qed.
+Proof. cdes WF; cdes WF_MO; eauto. Qed.
 Lemma sc_doma : doma sc is_sc.
-Proof. red; ins; red in WF; desc; red in WF_SC; desf; eauto. Qed.
+Proof. cdes WF; cdes WF_SC; eauto. Qed.
 Lemma sc_domb : domb sc is_sc.
-Proof. red; ins; red in WF; desc; red in WF_SC; desf; eauto. Qed.
+Proof. cdes WF; cdes WF_SC; eauto. Qed.
 Lemma useq_doma : doma useq is_write.
-Proof. unfold useq; eauto using rf_doma with domab. Qed.
+Proof. unfold useq; eauto using rf_doma with rel. Qed.
 Lemma useq_domb : domb useq is_write.
-Proof. unfold useq; eauto using rmw_domb with domab. Qed.
+Proof. unfold useq; eauto using rmw_domb with rel. Qed.
 Lemma rseq_doma : doma rseq is_write.
-Proof. unfold rseq; eauto with domab. Qed.
+Proof. unfold rseq; eauto with rel. Qed.
 Lemma rseq_domb : domb rseq is_write.
-Proof. unfold rseq; eauto using useq_domb with domab. Qed.
+Proof. unfold rseq; eauto using useq_domb with rel. Qed.
 Lemma rel_doma : doma rel is_ra.
-Proof. unfold rel; eauto with domab. Qed.
+Proof. unfold rel; eauto with rel. Qed.
 Lemma rel_domb : domb rel is_write.
-Proof. unfold rel; eauto using rseq_domb with domab. Qed.
+Proof. unfold rel; eauto using rseq_domb with rel. Qed.
 Lemma sw_doma : doma sw is_ra.
-Proof. unfold sw; eauto using rel_doma with domab. Qed.
+Proof. unfold sw; eauto using rel_doma with rel. Qed.
 Lemma sw_domb : domb sw is_ra.
-Proof. unfold sw; eauto with domab. Qed.
+Proof. unfold sw; eauto with rel. Qed.
 
-Lemma hbsc_domb : domb hbsc is_sc.
-Proof. unfold hbsc; eauto using sc_domb with domab. Qed.
+Lemma rfhbsc_domb : domb rfhbsc is_sc.
+Proof. unfold rfhbsc; eauto using sc_domb with rel. Qed.
 
 Lemma c_cur_doma i l tm_relation: doma (c_cur i l tm_relation) (fun a : event => is_write a /\ loc a = Some l).
-Proof. unfold c_cur; eauto with domab. Qed.
+Proof. unfold c_cur; eauto with rel. Qed.
 Lemma c_cur_doma1 i l tm_relation: doma (c_cur i l tm_relation) is_write.
 Proof. unfold doma; ins; exploit c_cur_doma; ins; desc; eauto. Qed.
 Lemma c_cur_doma2 i l tm_relation: doma (c_cur i l tm_relation) (fun a : event => loc a = Some l).
 Proof. unfold doma; ins; exploit c_cur_doma; ins; desc; eauto. Qed.
 Lemma c_cur_domb i l tm_relation: domb (c_cur i l tm_relation) (fun a => thread a = i).
-Proof. unfold c_cur; eauto with domab. Qed.
+Proof. unfold c_cur; eauto with rel. Qed.
 
-Lemma m_rel_doma l tm_relation: doma (m_rel l tm_relation) (fun a : event => is_write a /\ loc a = Some l).
-Proof. unfold m_rel; eauto with domab. Qed.
-Lemma m_rel_doma1 l tm_relation: doma (m_rel l tm_relation) is_write.
+Lemma m_rel_doma l tm: doma (m_rel l tm) (fun a => is_write a /\ loc a = Some l).
+Proof. unfold m_rel; eauto with rel. Qed.
+Lemma m_rel_doma1 l tm: doma (m_rel l tm) is_write.
 Proof. unfold doma; ins; exploit m_rel_doma; ins; desc; eauto. Qed.
-Lemma m_rel_doma2 l tm_relation: doma (m_rel l tm_relation) (fun a : event => loc a = Some l).
+Lemma m_rel_doma2 l tm: doma (m_rel l tm) (fun a => loc a = Some l).
 Proof. unfold doma; ins; exploit m_rel_doma; ins; desc; eauto. Qed.
-Lemma m_rel_domb l tm_relation: domb (m_rel l tm_relation) is_write.
-Proof. unfold m_rel; eauto using rel_domb with domab. Qed.
+Lemma m_rel_domb l tm: domb tm is_write -> domb (m_rel l tm) is_write.
+Proof. unfold m_rel; eauto using rel_domb with rel. Qed.
 
-Lemma c_acq_doma i l tm_relation: doma (c_acq i l tm_relation) (fun a : event => is_write a /\ loc a = Some l).
-Proof. unfold c_acq; eauto using m_rel_doma with domab. Qed.
-Lemma c_acq_doma1 i l tm_relation: doma (c_acq i l tm_relation) is_write.
+Lemma c_acq_doma i l tm : doma (c_acq i l tm) (fun a => is_write a /\ loc a = Some l).
+Proof. unfold c_acq; eauto using m_rel_doma with rel. Qed.
+Lemma c_acq_doma1 i l tm: doma (c_acq i l tm) is_write.
 Proof. unfold doma; ins; exploit c_acq_doma; ins; desc; eauto. Qed.
-Lemma c_acq_doma2 i l tm_relation: doma (c_acq i l tm_relation) (fun a : event => loc a = Some l).
+Lemma c_acq_doma2 i l tm: doma (c_acq i l tm) (fun a : event => loc a = Some l).
 Proof. unfold doma; ins; exploit c_acq_doma; ins; desc; eauto. Qed.
-Lemma c_acq_domb1 i l tm_relation: domb (c_acq i l tm_relation) (fun a => thread a = i).
-Proof. unfold c_acq; eauto with domab. Qed.
-Lemma c_acq_domb2 i l tm_relation: domb (c_acq i l tm_relation) is_read.
-Proof. Admitted.
-Lemma c_acq_domb3 i l tm_relation: domb (c_acq i l tm_relation) is_rlx.
-Proof. unfold c_acq; eauto with domab. Qed.
+Lemma c_acq_domb1 i l tm: domb (c_acq i l tm) (fun a => thread a = i).
+Proof. unfold c_acq; eauto with rel. Qed.
+Lemma c_acq_domb2 i l tm: domb (c_acq i l tm) is_read.
+Proof. unfold c_acq; rewrite <- !seqA; eauto 8 using rf_domb with rel. Qed.
+Lemma c_acq_domb3 i l tm: domb (c_acq i l tm) is_rlx.
+Proof. unfold c_acq; eauto with rel. Qed.
 
-Lemma S_tm_relation_doma l: doma (S_tm_relation l) (fun a : event => is_write a /\ loc a = Some l).
-Proof. unfold S_tm_relation; eauto with domab. Qed.
+Lemma S_tm_relation_doma l: doma (S_tm_relation l) (fun a => is_write a /\ loc a = Some l).
+Proof. unfold S_tm_relation; eauto with rel. Qed.
 Lemma S_tm_relation_doma1 l: doma (S_tm_relation l) is_write.
 Proof. unfold doma; ins; exploit S_tm_relation_doma; ins; desc; eauto. Qed.
-Lemma S_tm_relation_doma2 l: doma (S_tm_relation l) (fun a : event => loc a = Some l).
+Lemma S_tm_relation_doma2 l: doma (S_tm_relation l) (fun a => loc a = Some l).
 Proof. unfold doma; ins; exploit S_tm_relation_doma; ins; desc; eauto. Qed.
 Lemma S_tm_relation_domb l: domb (S_tm_relation l) is_sc.
-Proof. unfold S_tm_relation; eauto with domab. Qed.
+Proof. unfold S_tm_relation; eauto 8 with rel. Qed.
 
 
 Definition is_f (R : event -> Prop) f := forall (WF: Wf) a (H: R a), f a.
@@ -465,39 +410,41 @@ unfold is_f, doma, dom_rel in *; ins; desf; eauto.
 Qed.
 
 Hint Resolve
- dom_dom_rel : domab.
+ dom_dom_rel : rel.
 
+
+(*
 Lemma c_cur_ur_dom1 i l : is_f (c_cur_ur i l) is_write.
-Proof. unfold c_cur_ur; eauto using c_cur_doma1 with domab. Qed.
+Proof. unfold c_cur_ur; eauto using c_cur_doma1 with rel. Qed.
 Lemma c_cur_rw_dom1 i l : is_f (c_cur_rw i l) is_write.
-Proof. unfold c_cur_rw; eauto using c_cur_doma1 with domab. Qed.
+Proof. unfold c_cur_rw; eauto using c_cur_doma1 with rel. Qed.
 Lemma c_cur_sc_dom1 i l : is_f (c_cur_sc i l) is_write.
-Proof. unfold c_cur_sc; eauto using c_cur_doma1 with domab. Qed.
+Proof. unfold c_cur_sc; eauto using c_cur_doma1 with rel. Qed.
 Lemma c_cur_ur_dom2 i l : is_f (c_cur_ur i l) (fun a : event => loc a = Some l).
-Proof. unfold c_cur_ur; eauto using c_cur_doma2 with domab. Qed.
+Proof. unfold c_cur_ur; eauto using c_cur_doma2 with rel. Qed.
 Lemma c_cur_rw_dom2 i l : is_f (c_cur_rw i l) (fun a : event => loc a = Some l).
-Proof. unfold c_cur_rw; eauto using c_cur_doma2 with domab. Qed.
+Proof. unfold c_cur_rw; eauto using c_cur_doma2 with rel. Qed.
 Lemma c_cur_sc_dom2 i l : is_f (c_cur_sc i l) (fun a : event => loc a = Some l).
-Proof. unfold c_cur_sc; eauto using c_cur_doma2 with domab. Qed.
+Proof. unfold c_cur_sc; eauto using c_cur_doma2 with rel. Qed.
 
 Lemma c_acq_ur_dom1 i l : is_f (c_acq_ur i l) is_write.
-Proof. unfold c_acq_ur; eauto using c_acq_doma1 with domab. Qed.
+Proof. unfold c_acq_ur; eauto using c_acq_doma1 with rel. Qed.
 Lemma c_acq_rw_dom1 i l : is_f (c_acq_rw i l) is_write.
-Proof. unfold c_acq_rw; eauto using c_acq_doma1 with domab. Qed.
+Proof. unfold c_acq_rw; eauto using c_acq_doma1 with rel. Qed.
 Lemma c_acq_sc_dom1 i l : is_f (c_acq_sc i l) is_write.
-Proof. unfold c_acq_sc; eauto using c_acq_doma1 with domab. Qed.
+Proof. unfold c_acq_sc; eauto using c_acq_doma1 with rel. Qed.
 Lemma c_acq_ur_dom2 i l : is_f (c_acq_ur i l) (fun a : event => loc a = Some l).
-Proof. unfold c_acq_ur; eauto using c_acq_doma2 with domab. Qed.
+Proof. unfold c_acq_ur; eauto using c_acq_doma2 with rel. Qed.
 Lemma c_acq_rw_dom2 i l : is_f (c_acq_rw i l) (fun a : event => loc a = Some l).
-Proof. unfold c_acq_rw; eauto using c_acq_doma2 with domab. Qed.
+Proof. unfold c_acq_rw; eauto using c_acq_doma2 with rel. Qed.
 Lemma c_acq_sc_dom2 i l : is_f (c_acq_sc i l) (fun a : event => loc a = Some l).
-Proof. unfold c_acq_sc; eauto using c_acq_doma2 with domab. Qed.
+Proof. unfold c_acq_sc; eauto using c_acq_doma2 with rel. Qed.
 
 Lemma S_tm_dom1 l : is_f (S_tm l) is_write.
-Proof. unfold S_tm; eauto using S_tm_relation_doma1 with domab. Qed.
+Proof. unfold S_tm; eauto using S_tm_relation_doma1 with rel. Qed.
 Lemma S_tm_dom2 l : is_f (S_tm l) (fun a : event => loc a = Some l).
-Proof. unfold S_tm; eauto using S_tm_relation_doma2 with domab. Qed.
-
+Proof. unfold S_tm; eauto using S_tm_relation_doma2 with rel. Qed.
+*)
 
 
 (* Lemma conflicting_domains (WF: Wf) (R T: event -> event -> Prop) a b (A: R a b) (B: T a b) 
@@ -515,26 +462,26 @@ Proof.
 Qed.
  *)
 
-Lemma rf_to_non_read (C: Wf) a b (RF: rf a b) (NON_READ: ~ is_read b) : False.
+Lemma rf_to_non_read a b (RF: rf a b) (NON_READ: ~ is_read b) : False.
 Proof.
   exploit rf_domb; eauto.
 Qed.
 
-Lemma rf_mo (C: Wf) a b c (RF: rf a b) (MO: mo c b) : False.
+Lemma rf_mo a b c (RF: rf a b) (MO: mo c b) : False.
 Proof.
   exploit rf_domb; eauto.
   exploit mo_domb; eauto; ins.
   unfold is_read, is_write in *; destruct (lab b); ins; desf.
 Qed.
 
-Lemma inv_rf_mo (C: Wf) a b c (RF: rf b a) (MO: mo a c) : False.
+Lemma inv_rf_mo a b c (RF: rf b a) (MO: mo a c) : False.
 Proof.
   exploit rf_domb; eauto.
   exploit mo_doma; eauto; ins.
   unfold is_read, is_write in *; destruct (lab a); ins; desf.
 Qed.
 
-Lemma rel_rf a b c (C: WfRF) (RA: is_ra c) (REL: rel a b) (RF: rf b c) : sw a c.
+Lemma rel_rf a b c (RA: is_ra c) (REL: rel a b) (RF: rf b c) : sw a c.
 Proof.
 unfold WfRF,WfMO in *; desf.
 eexists; splits; try edone.
@@ -544,167 +491,92 @@ exists c; splits; try edone.
 left; eauto.
 Qed.
 
-Lemma rf_rf a b c (C: Wf) (RF: rf a b) (RF1: rf b c) : False.
+Lemma rf_rf a b c (RF: rf a b) (RF1: rf b c) : False.
 Proof.
   exploit rf_doma; eauto.
-  generalize (rf_domb C RF); ins.
+  generalize (rf_domb RF); ins.
   unfold is_read, is_write in *; destruct (lab b); ins; desf.
 Qed.
 
-Lemma irr_rf a (C: Wf) (RF: rf a a) : False.
+Lemma irr_rf a (RF: rf a a) : False.
 Proof.
-eapply rf_rf; edone.
+  eapply rf_rf; edone.
 Qed.
 
-Lemma reflexive_ur a (IN: In a acts): ur_relation a a.
-Proof.
-red; unfold seq, eqv_rel.
-repeat (eexists; splits; eauto).
-Qed.
 
-Lemma reflexive_rw a (IN: In a acts): rw_relation a a.
-Proof.
-red; left; apply reflexive_ur; done.
-Qed.
-
-Lemma reflexive_sc a (IN: In a acts): sc_relation a a.
-Proof.
-red; left; apply reflexive_rw; done.
-Qed.
 
 (******************************************************************************)
 (** ** Actions in graph *)
 (******************************************************************************)
-Definition acta (R : event -> event -> Prop) := doma R (fun a => In a acts).
-Definition actb (R : event -> event -> Prop) := domb R (fun a => In a acts).
 
-Lemma eqv_rel_acta : acta (eqv_rel (fun a => In a acts)).
-Proof. unfold acta, doma, eqv_rel; ins; desf. Qed.
+Local Notation "'acta' r" := (doma r (fun x => In x acts)) (at level 100).
+Local Notation "'actb' r" := (domb r (fun x => In x acts)) (at level 100).
 
-Lemma eqv_rel_actb : actb (eqv_rel (fun a => In a acts)).
-Proof. unfold actb, domb, eqv_rel; ins; desf. Qed.
-
-Lemma eqv_rel_seq_acta_acta f R (A: acta R): acta (eqv_rel f ;; R).
-Proof. unfold acta, doma, eqv_rel, seq; ins; desf; eauto. Qed.
-
-Lemma actb_seq_eqv_rel_actb f R (A: actb R): actb (R ;; eqv_rel f).
-Proof. unfold actb, domb, eqv_rel, seq; ins; desf; eauto. Qed.
-
-Lemma restr_eq_rel_acta T (f: _ -> T) R (A: acta R): acta (restr_eq_rel f R). 
-Proof. unfold acta, doma, restr_eq_rel; ins; desf; eauto. Qed.
-
-Lemma restr_eq_rel_actb T (f: _ -> T) R (A: actb R): actb (restr_eq_rel f R). 
-Proof. unfold actb, domb, restr_eq_rel; ins; desf; eauto. Qed.
-
-Lemma acta_seq_R_acta T R (H: acta T) : acta (T;;R).
-Proof. unfold acta, doma, seq; ins; desf; eauto. Qed.
-
-Lemma R_seq_actb_actb T R (H: actb R) : actb (T;;R).
-Proof. unfold actb, domb, seq; ins; desf; eauto. Qed.
-
-Lemma acta_union_acta_acta T R (H_T: acta T) (H_R: acta R): acta (T +++ R).
-Proof. unfold acta, doma, union; ins; desf; eauto. Qed.
-
-Lemma acta_union_actb_actb T R (H_T: actb T) (H_R: actb R): actb (T +++ R).
-Proof. unfold actb, domb, union; ins; desf; eauto. Qed.
-
-Lemma tc_acta_acta R (H: acta R) : acta (tc R).
-Proof.
-unfold acta, doma; ins; apply clos_trans_t1n_iff in H0.
-destruct H0; eauto.
-Qed.
-
-Lemma tc_actb_actb R (H: actb R) : actb (tc R).
-Proof.
-unfold actb, domb; ins; apply clos_trans_tn1_iff in H0.
-destruct H0; eauto.
-Qed.
-
-Lemma clos_refl_acta_seq_acta_acta T R (H: acta T) (H1: acta R): acta ((clos_refl T);;R).
-Proof. unfold acta, doma, clos_refl, seq; ins; desf; eauto. Qed.
-
-Lemma actb_seq_clos_refl_actb_actb T R (H: actb T) (H1: actb R): actb (T ;; (clos_refl R)).
-Proof. unfold actb, domb, clos_refl, seq; ins; desf; eauto. Qed.
-
-Lemma restr_eq_rel_acta_acta T (f: _ -> T) R (A: acta R): acta (restr_eq_rel f R). 
-Proof. unfold acta, doma, restr_eq_rel; ins; desf; eauto. Qed.
-
-Lemma restr_eq_rel_acta_actb T (f: _ -> T) R (A: actb R): actb (restr_eq_rel f R). 
-Proof. unfold actb, domb, restr_eq_rel; ins; desf; eauto. Qed.
-
-Hint Resolve
- eqv_rel_acta eqv_rel_actb eqv_rel_seq_acta_acta actb_seq_eqv_rel_actb 
- restr_eq_rel_acta restr_eq_rel_actb acta_seq_R_acta R_seq_actb_actb
- acta_union_acta_acta acta_union_actb_actb tc_acta_acta tc_actb_actb
- clos_refl_acta_seq_acta_acta actb_seq_clos_refl_actb_actb
- restr_eq_rel_acta_acta restr_eq_rel_acta_actb : actab. 
-
-Lemma in_acts_acta : acta (eqv_rel (fun a => In a acts)).
-Proof. unfold acta; eauto with domab. Qed.
-Lemma in_acts_actb : actb (eqv_rel (fun a => In a acts)).
-Proof. unfold actb; eauto with domab. Qed.
 Lemma sb_acta : acta sb.
-Proof. red; red; ins; red in WF; desc. red in WF_SB; desc; eauto. Qed.
+Proof. cdes WF; cdes WF_SB; eauto. Qed.
 Lemma sb_actb : actb sb.
-Proof. red; red; ins; red in WF; desc. red in WF_SB; desc; eauto. Qed.
+Proof. cdes WF; cdes WF_SB; eauto. Qed.
 Lemma rmw_acta : acta rmw.
-Proof. red; red; ins; red in WF; desc; red in WF_SB; red in WF_RMW; desc.
-apply (SB_ACTa a b); apply (RMW_SB a b); done. Qed.
+Proof. red; cdes WF; cdes WF_SB; cdes WF_RMW; eauto. Qed.
 Lemma rmw_actb : actb rmw.
-Proof. red; red; ins; red in WF; desc; red in WF_SB; red in WF_RMW; desc.
-by apply (SB_ACTb a b); apply (RMW_SB a b). Qed.
+Proof. red; cdes WF; cdes WF_SB; cdes WF_RMW; eauto. Qed.
 Lemma rf_acta : acta rf.
-Proof. red; red; ins; red in WF; desc. red in WF_RF; desc; eauto. Qed.
+Proof. red; cdes WF; cdes WF_SB; cdes WF_RF; eauto. Qed.
 Lemma rf_actb : actb rf.
-Proof. red; red; ins; red in WF; desc. red in WF_RF; desc; eauto. Qed.
+Proof. red; cdes WF; cdes WF_SB; cdes WF_RF; eauto. Qed.
 Lemma mo_acta : acta mo.
-Proof. red; red; ins; red in WF; desc. red in WF_MO; desc; eauto. Qed.
+Proof. red; cdes WF; cdes WF_SB; cdes WF_MO; eauto. Qed.
 Lemma mo_actb : actb mo.
-Proof. red; red; ins; red in WF; desc. red in WF_MO; desc; eauto. Qed.
+Proof. red; cdes WF; cdes WF_SB; cdes WF_MO; eauto. Qed.
 Lemma sc_acta : acta sc.
-Proof. red; red; ins; red in WF; desc. red in WF_SC; desc; eauto. Qed.
+Proof. red; cdes WF; cdes WF_SB; cdes WF_SC; eauto. Qed.
 Lemma sc_actb : actb sc.
-Proof. red; red; ins; red in WF; desc. red in WF_SC; desc; eauto. Qed.
+Proof. red; cdes WF; cdes WF_SB; cdes WF_SC; eauto. Qed.
 
-Lemma useq_acta : acta useq.
-Proof. unfold useq; eauto using rf_acta with actab. Qed.
-Lemma useq_actb : actb useq.
-Proof. unfold useq; eauto using rmw_actb with actab. Qed.
-Lemma rseq_acta : acta rseq.
-Proof. unfold rseq; eauto with actab. Qed.
-Lemma rseq_actb : actb rseq.
-Proof. Admitted.
-Lemma rel_acta : acta rel.
-Proof. unfold rel; eauto using sb_acta, rseq_acta with actab.
-apply eqv_rel_seq_acta_acta. Admitted.
-Lemma rel_actb : actb rel.
-Proof. unfold rel; eauto using rseq_actb with actab. Qed.
-Lemma sw_acta : acta sw.
-Proof. unfold sw; eauto using rel_acta with actab. Qed.
-Lemma sw_actb : actb sw.
-Proof. unfold sw; eauto using sb_actb,rf_actb with actab.
-Admitted.
-Lemma hb_acta : acta hb.
-Proof. unfold hb; eauto using sb_acta,sw_acta with actab. Qed.
-Lemma hb_actb : actb hb.
-Proof. unfold hb; eauto using sb_actb,sw_actb with actab. Qed.
-Lemma hbsc_acta : acta hbsc.
-Proof. unfold hbsc; eauto using hb_acta,sc_acta with actab. Qed.
-Lemma hbsc_actb : actb hbsc.
-Proof. unfold hbsc; eauto using sc_actb with actab. Qed.
-Lemma ur_acta : acta ur_relation.
-Proof. unfold ur_relation; eauto using hb_acta,sc_acta with actab. Qed.
-Lemma ur_actb : actb ur_relation.
-Proof. Admitted.
-Lemma rw_acta : acta rw_relation.
-Proof. unfold rw_relation; eauto using hb_acta,sc_acta,ur_acta with actab. Qed.
-Lemma rw_actb : actb rw_relation.
-Proof. Admitted.
-Lemma scr_acta : acta sc_relation.
-Proof. unfold sc_relation; eauto using hb_acta,sc_acta,rw_acta with actab. Qed.
-Lemma scr_actb : actb sc_relation.
-Proof. Admitted.
-Lemma m_rel_ur_acta l : acta (m_rel_ur l).
+Hint Resolve 
+  sb_acta rmw_acta rf_acta mo_acta sc_acta 
+  sb_actb rmw_actb rf_actb mo_actb sc_actb : rel. 
+
+Lemma useq_acta : acta useq. Proof. eauto with rel. Qed.
+Lemma useq_actb : actb useq. Proof. eauto with rel. Qed.
+Hint Resolve useq_acta useq_actb : rel. 
+Lemma rseq_acta : acta rseq. Proof. eauto with rel. Qed.
+Lemma rseq_actb : actb rseq. Proof. unfold rseq; rewrite <- !seqA; eauto 8 with rel. Qed.
+Hint Resolve rseq_acta rseq_actb : rel. 
+Lemma rel_acta : acta rel. Proof. unfold rel; rel_simpl; eauto with rel. Qed.
+Lemma rel_actb : actb rel. Proof. eauto with rel. Qed.
+Hint Resolve rel_acta rel_actb : rel. 
+Lemma sw_acta : acta sw. Proof. eauto with rel. Qed.
+Lemma sw_actb : actb sw. Proof. unfold sw; rewrite inclusion_seq_eqv_r; eauto with rel. Qed.
+Hint Resolve sw_acta sw_actb : rel.
+ Lemma hb_acta : acta hb. Proof. eauto with rel. Qed.
+Lemma hb_actb : actb hb. Proof. eauto with rel. Qed.
+Hint Resolve hb_acta hb_actb : rel.
+Lemma rfhbsc_acta : acta rfhbsc. Proof. eauto with rel. Qed.
+Lemma rfhbsc_actb : actb rfhbsc. Proof. eauto with rel. Qed.
+Hint Resolve rfhbsc_acta rfhbsc_actb : rel.
+Lemma urr_acta : acta urr. Proof. eauto with rel. Qed.
+Lemma urr_actb : actb urr. Proof. unfold urr; rewrite <- seqA; eauto with rel. Qed. 
+Hint Resolve urr_acta urr_actb : rel.
+Lemma rwr_acta : acta rwr. Proof. eauto with rel. Qed.
+Lemma rwr_actb : actb rwr. Proof. unfold rwr; rewrite <- seqA; eauto with rel. Qed.
+Hint Resolve rwr_acta rwr_actb : rel.
+Lemma scr_acta : acta scr. Proof. eauto with rel. Qed.
+Lemma scr_actb : actb scr. Proof. unfold scr; rewrite <- seqA; eauto with rel. Qed.
+Hint Resolve scr_acta scr_actb : rel.
+Lemma urr_rel_acta : acta urr_rel. Proof. eauto with rel. Qed.
+Lemma urr_rel_actb : actb urr_rel. Proof. eauto with rel. Qed.
+Hint Resolve urr_rel_acta urr_rel_actb : rel.
+Lemma rwr_rel_acta : acta rwr_rel. Proof. eauto with rel. Qed.
+Lemma rwr_rel_actb : actb rwr_rel. Proof. eauto with rel. Qed.
+Hint Resolve rwr_rel_acta rwr_rel_actb : rel.
+Lemma scr_rel_acta : acta scr_rel. Proof. eauto with rel. Qed.
+Lemma scr_rel_actb : actb scr_rel. Proof. eauto with rel. Qed.
+Hint Resolve scr_rel_acta scr_rel_actb : rel.
+
+
+
+(*Lemma m_rel_ur_acta l : acta (m_rel_ur l).
 Proof. unfold m_rel_ur, m_rel. eauto using ur_acta with actab. Qed.
 Lemma m_rel_rw_acta l : acta (m_rel_rw l).
 Proof. unfold m_rel_rw, m_rel. eauto using rw_acta with actab. Qed.
@@ -716,20 +588,21 @@ Lemma m_rel_rw_actb l : actb (m_rel_rw l).
 Proof. unfold m_rel_rw, m_rel. eauto using rel_actb with actab. Qed.
 Lemma m_rel_sc_actb l : actb (m_rel_sc l).
 Proof. unfold m_rel_sc, m_rel. eauto using rel_actb with actab. Qed.
+*)
 Lemma S_tm_relation_acta l : acta (S_tm_relation l).
-Proof. unfold S_tm_relation. eauto using rf_acta, hb_acta with actab. Qed.
+Proof. unfold S_tm_relation; eauto with rel. Qed.
 
 
 Definition in_acts (R : event -> Prop) := forall (WF: Wf) a (H: R a), In a acts.
 
 Lemma dom_in_acts rel (H: acta rel) : in_acts (dom_rel rel). 
 Proof.
-unfold in_acts, acta, doma, dom_rel in *; ins; desf; eauto.
+unfold in_acts, doma, dom_rel in *; ins; desf; eauto.
 Qed.
 
-Hint Resolve
- dom_in_acts : actab.
+Hint Resolve dom_in_acts : rel.
 
+(*
 Lemma c_cur_ur_in_acts i l : in_acts (c_cur_ur i l).
 Proof. unfold c_cur_ur, c_cur; eauto using ur_acta with actab. Qed.
 Lemma c_cur_rw_in_acts i l : in_acts (c_cur_rw i l).
@@ -742,9 +615,12 @@ Lemma c_acq_rw_in_acts i l : in_acts (c_acq_rw i l).
 Proof. unfold c_acq_rw, c_acq, m_rel; eauto using rw_acta with actab. Qed.
 Lemma c_acq_sc_in_acts i l : in_acts (c_acq_sc i l).
 Proof. unfold c_acq_sc, c_acq, m_rel; eauto using scr_acta with actab. Qed.
+*)
 
 Lemma S_tm_acta l : in_acts (S_tm l).
-Proof. unfold S_tm; eauto using S_tm_relation_acta with actab. Qed.
+Proof. unfold S_tm; eauto using S_tm_relation_acta with rel. Qed.
+
+End WellFormedResults.
 
 (******************************************************************************)
 (** ** Coherence *)
@@ -810,60 +686,56 @@ Qed.
 
 Hint Immediate inclusion_eqv_rt : rel.
 
-Lemma rmw_in_sb (COH: Coherent) : inclusion rmw sb.
+Section CoherenceProperties.
+
+Hypothesis (COH: Coherent).
+
+Lemma rmw_in_sb : inclusion rmw sb.
 Proof. apply COH. Qed.
 
-
-Lemma useq_in_sb_rf (COH: Coherent) :
-  inclusion useq (clos_trans (sb +++ rf)).
+Lemma useq_in_sb_rf : inclusion useq (clos_trans (sb +++ rf)).
 Proof.
   unfold useq; rewrite rmw_in_sb;
   eauto using inclusion_t_t2, inclusion_step2_ct with rel.
 Qed.
 
-Lemma rseq_in_sb_rf (COH: Coherent) :
-  inclusion rseq (clos_refl_trans (sb +++ rf)).
+Lemma rseq_in_sb_rf : inclusion rseq (clos_refl_trans (sb +++ rf)).
 Proof.
   unfold rseq.
   rewrite !inclusion_seq_eqv_l, useq_in_sb_rf, inclusion_restr_eq, cr_of_t; ins.
   eapply inclusion_seq_rt; eauto with rel. 
 Qed.
 
-
-Lemma rel_in_sb_rf (COH: Coherent) :
-  inclusion rel (clos_refl_trans (sb +++ rf)).
+Lemma rel_in_sb_rf :inclusion rel (clos_refl_trans (sb +++ rf)).
 Proof.
   unfold rel.
   rewrite !inclusion_seq_eqv_l, rseq_in_sb_rf; ins.
   eapply inclusion_seq_rt; eauto with rel. 
 Qed.
 
-Lemma sw_in_sb_rf (COH: Coherent) :
-  inclusion sw (clos_trans (sb +++ rf)).
+Lemma sw_in_sb_rf : inclusion sw (clos_trans (sb +++ rf)).
 Proof.
   unfold sw; rewrite !inclusion_seq_eqv_l, !inclusion_seq_eqv_r, rel_in_sb_rf; ins.
   rewrite <- rt_ct; apply inclusion_seq_mon; ins. 
   rewrite crE; rel_simpl; eauto using inclusion_step2_ct with rel. 
 Qed.
 
-Lemma hb_in_sb_rf (COH: Coherent) : 
-  inclusion hb (clos_trans (sb +++ rf)).
+Lemma hb_in_sb_rf : inclusion hb (clos_trans (sb +++ rf)).
 Proof.
   unfold hb; rewrite sw_in_sb_rf; ins; eauto using inclusion_t_t2 with rel.
 Qed.
 
-Lemma hb_in_sb_rf_sc (COH: Coherent) :
-  inclusion hb (clos_trans (sb +++ rf +++ sc)).
+Lemma hb_in_sb_rf_sc : inclusion hb (clos_trans (sb +++ rf +++ sc)).
 Proof.
   rewrite hb_in_sb_rf; eauto with rel.
 Qed.
 
-Lemma irr_hb (COH: Coherent) : irreflexive hb.
+Lemma irr_hb : irreflexive hb.
 Proof.
   rewrite hb_in_sb_rf_sc; ins; apply COH.
 Qed.
 
-Lemma hb_mo (COH: Coherent) a b (HB : hb a b) l
+Lemma hb_mo a b (HB : hb a b) l
     (Wa : is_write a) (Wb : is_write b) 
     (LOCa: loc a = Some l) (LOCb: loc b = Some l) :
     mo a b.
@@ -881,48 +753,43 @@ Proof.
   eapply hb_actb; eauto.
 Qed.
 
-Lemma hb_in_sc (COH: Coherent) x y (HB: hb x y) (A: is_sc x) (B : is_sc y) : sc x y.
+Lemma hb_in_sc x y (HB: hb x y) (A: is_sc x) (B : is_sc y) : sc x y.
 Proof.
   destruct (classic (x=y)) as [|N]; desf.
     by apply irr_hb in HB; eauto.
-  cdes COH; cdes WF; apply WF_SC in N; desf;
+  cdes COH; cdes WF; apply WF_SC in N; desf; intuition;
+    try solve [eby eapply hb_acta | eby eapply hb_actb].
   eauto using hb_acta, hb_actb.
   exfalso; cdes COH; eapply Cnp, t_trans, hb_in_sb_rf_sc; vauto.
 Qed.
 
-Lemma hb_in_sc2 (COH: Coherent) :
-  inclusion (<| is_sc |> ;; hb ;; <| is_sc |>) sc.
+Lemma hb_in_sc2 : inclusion (<| is_sc |> ;; hb ;; <| is_sc |>) sc.
 Proof.
   rewrite seq_eqv_r, seq_eqv_l; red; ins; desf; eauto using hb_in_sc.
 Qed.
 
-Lemma sc_hb (COH: Coherent) a b c (SC: sc a b) (HB: hb b c) (IS_SC: is_sc c) : sc a c.
+Lemma sc_hb a b c (SC: sc a b) (HB: hb b c) (IS_SC: is_sc c) : sc a c.
 Proof.
   cdes COH; cdes WF; unfold WfSC in *; desc.
   apply hb_in_sc in HB; eauto.
 Qed.
 
-Lemma hb_sc (COH: Coherent) a b c (SC: sc b c) (HB: hb a b) (IS_SC: is_sc a) : sc a c.
+Lemma hb_sc a b c (SC: sc b c) (HB: hb a b) (IS_SC: is_sc a) : sc a c.
 Proof.
   cdes COH; cdes WF; unfold WfSC in *; desc.
   apply hb_in_sc in HB; eauto.
 Qed.
 
-Lemma mo_sc (COH: Coherent) a b 
-      (MO: mo a b) (IS_SCa: is_sc a) (IS_SCb: is_sc b) : sc a b.
+Lemma mo_sc a b (MO: mo a b) (IS_SCa: is_sc a) (IS_SCb: is_sc b) : sc a b.
 Proof.
-assert (COH' := COH).
-red in COH; desf.
-red in WF; desf. 
-red in WF_SC, WF_MO; desf. 
-destruct (classic (a=b)) as [|N].
-by desf; exfalso; eauto.
-apply SC_TOT in N; desf; eauto.
-exfalso; eapply Csc; eauto.
+  cdes COH; cdes WF; cdes WF_SC; cdes WF_MO.
+  destruct (classic (a=b)) as [|N].
+    by desf; exfalso; eauto.
+  apply SC_TOT in N; desf; eauto.
+  exfalso; eapply Csc; eauto.
 Qed.
 
-Lemma rf_rmw_mo (COH: Coherent) :
-  inclusion (rf ;; rmw) mo.
+Lemma rf_rmw_mo : inclusion (rf ;; rmw) mo.
 Proof.
 intros a b A; cdes COH.
 red in WF; desc. 
@@ -940,50 +807,41 @@ destruct (classic (a=b)) as [|N].
   exfalso; eapply Crmw; eauto.
 Qed.
 
-Lemma useq_mo (COH: Coherent) : inclusion useq mo.
+Lemma useq_mo : inclusion useq mo.
 Proof.
  eapply inclusion_t_ind, COH; eauto using rf_rmw_mo. 
 Qed.
 
-Lemma transitive_r A (rel : relation A) :
-  transitive rel ->
-  transitive (clos_refl rel).
-Proof.
-  unfold clos_refl, transitive; ins; desf; eauto.
-Qed.
-
-Lemma rseq_mo (COH: Coherent) : inclusion rseq (clos_refl mo).
+Lemma rseq_mo : inclusion rseq (clos_refl mo).
 Proof.
   unfold rseq.
   rewrite useq_mo, inclusion_seq_eqv_l, crE; rel_simpl.
   apply inclusion_union_l; [by rewrite !inclusion_seq_eqv_l|]. 
   rewrite <- !seqA; apply inclusion_seq_trans; ins.
-    by apply transitive_r, COH.
+    by apply cr_trans, COH.
   rewrite seq_eqv_l, seq_eqv_r; unfold restr_eq_rel in *; red; ins; desf.
   cdes COH; cdes WF; cdes WF_MO.
   assert (X: exists l, loc x = Some l); desc; try rewrite X in *.
     by unfold is_write, loc in *; destruct (lab x); ins; eauto.
   destruct (classic (x = y)) as [|N]; desf; vauto.
-  eapply MO_TOT in N; desf; eauto using sb_acta, sb_actb.
+  eapply MO_TOT in N; desf; intuition; eauto; try solve [eby eapply sb_acta | eby eapply sb_actb].
   edestruct Cww; eauto using sb_in_hb.
 Qed.
 
-Lemma rel_mo (COH: Coherent) : 
-  inclusion (<| is_write |> ;; rel) (clos_refl mo).
+Lemma rel_mo : inclusion (<| is_write |> ;; rel) (clos_refl mo).
 Proof.
   unfold rel; rewrite rseq_mo; rel_simpl.
   apply inclusion_union_l; [by rewrite !inclusion_seq_eqv_l|]. 
   unfold seq, eqv_rel; red; ins; desf; destruct z2 as [? ? []]; ins. 
 Qed.
 
-Lemma rel_hb_mo (COH: Coherent) :
-  inclusion rel (clos_refl hb ;; clos_refl mo).
+Lemma rel_hb_mo : inclusion rel (clos_refl hb ;; clos_refl mo).
 Proof.
   unfold rel; rewrite rseq_mo, !inclusion_seq_eqv_l; rel_simpl.
   rewrite (crE hb), inclusion_seq_eqv_l; rel_simpl.
 Qed.
 
-Lemma basic_coherence_lemma (COH: Coherent) a b (MO: mo a b) c 
+Lemma basic_coherence_lemma a b (MO: mo a b) c 
   (RF: (clos_refl rf) b c) d (HB: (clos_refl hb) c d) (INV_RF: (clos_refl rf) a d)
   (RLX: a=d \/ c=d \/ b=c \/ is_rlx d) : False.
 Proof.
@@ -994,6 +852,7 @@ try solve [eapply rf_mo; eauto| eapply inv_rf_mo; eauto|eapply irr_hb; eauto |
  eapply MO_IRR; erewrite RF_FUN; edone].
 Qed.
 
+(*
 Lemma ur_rel (COH: Coherent) a b c l (UR: ur_relation a b) (REL: rel b c) 
   (WRITE: is_write a) (LOC: loc a = Some l) : m_rel_ur l a c.
 Proof.
@@ -1017,20 +876,11 @@ red; red; unfold eqv_rel.
 eexists; splits; try edone.
 eexists; edone.
 Qed.
+*)
 
-Lemma rf_in_rw a b (WF: Wf) (RF: rf a b): rw_relation a b.
+Lemma rf_in_rw (WF: Wf) : inclusion rf rwr.
 Proof. right; repeat (eexists; splits; eauto); eapply rf_acta; eauto. Qed.
 
-Lemma ur_in_rw a b (H: ur_relation a b): rw_relation a b.
-Proof. left; done. Qed.
-
-Lemma rw_in_sc a b (H: rw_relation a b): sc_relation a b.
-Proof. left; done. Qed.
-
-Lemma ur_in_sc a b (H: ur_relation a b): sc_relation a b.
-Proof.
-eauto using rw_in_sc, ur_in_rw.
-Qed.
 
 (* Lemma S_tm_sc (COH: Coherent) a b c l (S_TM: S_tm_relation l a b) (SC: sc b c) 
   (WRITE: is_write a) (LOC: loc a = Some l) : sc_relation a c.
@@ -1053,12 +903,12 @@ Qed. *)
 (** ** Basic properties *)
 (******************************************************************************)
 
-Lemma Coherent_ur (COH: Coherent) a b c 
-  (MO: mo a b) (UR: ur_relation b c) (RF_INV: a=c \/ rf a c) : False.
+Lemma Coherent_ur a b c 
+  (MO: mo a b) (UR: urr b c) (RF_INV: a=c \/ rf a c) : False.
 Proof.
 cdes COH.
 red in WF; desc. 
-unfold ur_relation,hbsc, seq, clos_refl in *; desc.
+unfold urr, rfhbsc, seq, clos_refl in *; desc.
 cdes WF_MO; unfold WfSC in *; desc.
 unfold eqv_rel in *.
 destruct UR0; desc; subst.
@@ -1066,84 +916,63 @@ destruct UR0; desc; subst.
 desf; eapply Csc; eauto.
 Qed.
 
-Lemma Coherent_rw (COH: Coherent) a b c 
-  (MO: mo a b) (RW: rw_relation b c) (RF_INV: a=c \/ (rf a c /\ is_rlx c)) : False.
+Lemma Coherent_rw a b c 
+  (MO: mo a b) (RW: rwr b c) (RF_INV: a=c \/ (rf a c /\ is_rlx c)) : False.
 Proof.
 destruct RW.
 eapply Coherent_ur; eauto. tauto.
-unfold hbsc, seq, clos_refl in *.
+unfold rfhbsc, seq, clos_refl in *.
 cdes COH; cdes WF; cdes WF_MO; unfold WfSC in *; desc.
 unfold eqv_rel in *.
 desf; try (by desf; eapply basic_coherence_lemma; eauto).
 Qed.
 
-Lemma Coherent_sc (COH: Coherent) a b c  (SCc: is_sc c) 
-  (MO: mo a b) (SC: sc_relation b c) (RF_INV: a=c \/ rf a c) : False.
+(*
+Lemma Coherent_sc a b c  (SCc: is_sc c) 
+  (MO: mo a b) (SC: scr b c) (RF_INV: a=c \/ rf a c) : False.
 Proof.
-destruct SC.
-eapply Coherent_rw; eauto.
-desf; eauto with acts.
-unfold hbsc, seq, clos_refl in *.
-cdes COH; cdes WF; cdes WF_MO; unfold WfSC in *; desc.
-unfold eqv_rel in *.
-assert (sc z2 c). 
-    destruct H2. by subst. eby eapply sc_hb.
+  destruct SC.
+    by eapply Coherent_rw; eauto; desf; eauto with acts.
+  apply seq_eqv_l in H; unfold rfhbsc, seq, clos_refl, eqv_rel in *; desc.
+  cdes COH; cdes WF; cdes WF_MO; unfold WfSC in *; desc.
+  assert (is_sc z).
+    desf; eauto.
+    exfalso; eauto.
+    exfalso; eauto.
+
+
+  assert (sc z c). 
+
+
+    destruct H0. by subst. eby eapply sc_hb.
 desf; eapply Csc; try edone; eauto using hb_trans.
 Qed.
+*)
 
-Lemma ur_hb a b c (A: ur_relation a b) (HB: hb b c) : ur_relation a c. 
-Proof.
-red in A; unfold seq, eqv_rel in *; desf. 
-red. eexists.
-split. try done.
-exists z0; split; eauto.
-unfold clos_refl in *; desf; eauto using hb_trans.
-Qed.
 
-Lemma rw_hb a b c (A: rw_relation a b) (HB: hb b c) : rw_relation a c. 
-Proof.
-destruct A as [A|A]; eauto using ur_in_rw, ur_hb.
-red in A; unfold seq, eqv_rel in *; desf. 
-right. eexists.
-split. try done.
-exists z0; split; eauto.
-unfold clos_refl in *; desf; eauto using hb_trans.
-Qed.
-
-Lemma scr_hb a b c (A: sc_relation a b) (HB: hb b c) : sc_relation a c. 
-Proof.
-destruct A as [A|A]; eauto using rw_in_sc, rw_hb.
-red in A; unfold seq, eqv_rel in *; desf. 
-right. eexists.
-split. try done.
-exists z0; split; eauto.
-exists z1; split; eauto.
-unfold clos_refl in *; desf; eauto using hb_trans.
-Qed.
-
-Lemma Coherent_ur_sb (COH: Coherent) a b c d
-  (MO: mo a b) (UR: ur_relation b c) (SB: sb c d) (RF_INV: a=d \/ rf a d) : False.
+Lemma Coherent_urr_sb a b c d
+  (MO: mo a b) (UR: urr b c) (SB: sb c d) (RF_INV: a=d \/ rf a d) : False.
 Proof.
   eapply Coherent_ur with (c:=d); try eauto.
-  eapply ur_hb; try edone.
-  eapply sb_in_hb; eauto.
+  eapply urr_hb; try edone; eexists; split; eauto using sb_in_hb. 
 Qed.
 
-Lemma Coherent_rw_sb (COH: Coherent) a b c d
-  (MO: mo a b) (RW: rw_relation b c) (SB: sb c d) (RF_INV: a=d \/ (rf a d /\ is_rlx d)) : False.
+Lemma Coherent_rwr_sb a b c d
+  (MO: mo a b) (RW: rwr b c) (SB: sb c d) (RF_INV: a=d \/ (rf a d /\ is_rlx d)) : False.
 Proof.
   eapply Coherent_rw with (c:=d); try eauto.
-  eapply rw_hb; try edone.
-  eapply sb_in_hb; eauto.
+  eapply rwr_hb; try edone; eexists; split; eauto using sb_in_hb.
 Qed.
 
-Lemma Coherent_sc_sb (COH: Coherent) a b c d
-  (SCc: is_sc d) (MO: mo a b) (SC: sc_relation b c) (SB: sb c d) (RF_INV: a=d \/ rf a d) : False.
+(*
+Lemma Coherent_scr_sb a b c d
+  (SCc: is_sc d) (MO: mo a b) (SC: scr b c) (SB: sb c d) (RF_INV: a=d \/ rf a d) : False.
 Proof.
-  eapply Coherent_sc with (c:=d); try eauto.
+  eapply Coherent_scr with (c:=d); try eauto.
   eapply scr_hb; try edone.
   eapply sb_in_hb; eauto.
 Qed.
+
 
 Lemma Coherent_m_rel_rw (COH: Coherent) a b x (LOC: loc b = Some x) 
   (RW: m_rel_rw x a b) (MO: mo b a) : False.
@@ -1154,6 +983,9 @@ unfold m_rel_rw, m_rel_rw, m_rel, seq, eqv_rel in *; desc; subst.
 clear - COH MO RW0 RW1 RW2 RW3 MO_T LOC.
 by unfold clos_refl, seq in *; desf; eauto using Coherent_rw, rw_hb.
 Qed.
+*)
+
+End CoherenceProperties.
 
 End Consistency.
 
@@ -1322,5 +1154,3 @@ Proof.
   intros; unfold Coherent; unnw.
   rewrite H, H0, H1, H2, H3; reflexivity.
 Qed. 
-
- 
