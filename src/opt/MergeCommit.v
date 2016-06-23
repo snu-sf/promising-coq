@@ -87,8 +87,7 @@ Qed.
 Lemma write_write_sc
       loc ts1 ts2 ord
       (TS: Time.lt ts1 ts2)
-      commit0 sc0
-      (WF0: Commit.wf commit0):
+      sc0:
   TimeMap.le
     (Commit.write_sc (Commit.write_sc sc0 loc ts1 ord)
                      loc ts2 ord)
