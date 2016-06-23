@@ -11,6 +11,8 @@ Require Import DenseOrder.
 Require Import Event.
 Require Import Language.
 Require Import Time.
+Require Import View.
+Require Import Cell.
 Require Import Memory.
 Require Import Commit.
 Require Import Thread.
@@ -206,6 +208,8 @@ Proof.
   exploit Local.read_step_future; try apply STEP4; eauto. i. des.
   exploit sim_local_write; try apply STEP3; eauto; try refl.
   { inv STEP0. eapply MEM0; eauto. }
+  { inv STEP0. eapply MEM0; eauto. }
+  { inv STEP0. eapply MEM0; eauto. }
   i. des.
   exploit reorder_read_write; try apply STEP4; try apply STEP_SRC; eauto. i. des.
   esplits; eauto.
@@ -272,7 +276,7 @@ Lemma reorder_write_read
     <<LOCAL: sim_local lc2' lc2>>.
 Proof.
   inv STEP1. inv STEP2. ss.
-  exploit Memory.write_future; try apply WF0; eauto. i. des.
+  exploit Memory.write_future; try apply WRITE; try apply WF0; eauto. i. des.
   esplits.
   - econs; eauto.
     + admit. (* memory.write_get_inv *)
@@ -308,7 +312,7 @@ Lemma reorder_write_promise
     <<LOCAL: sim_local lc2' lc2>>.
 Proof.
   inv STEP1. inv STEP2. ss. inv WRITE.
-  exploit Memory.promise_future; try apply WF0; eauto. i. des.
+  exploit Memory.promise_future; try apply PROMISE0; try apply WF0; eauto. i. des.
   exploit ReorderMemory.remove_promise; eauto. i. des.
   esplits.
   - admit. (* promise step *)
@@ -353,6 +357,7 @@ Proof.
                      unfold TimeMap.singleton, LocFun.add in *);
         inv WRITABLE; eapply TimeFacts.le_lt_lt; eauto; aggrtac.
     + admit. (* Memory.write *)
+    + admit. (* Memory.cosed_capability *)
   - s. econs; s.
     + apply ReorderCommit.write_write_commit; auto. apply WF0.
     + apply MemInv.sem_bot.
@@ -393,6 +398,8 @@ Proof.
   exploit Local.write_step_future; try apply STEP4; try refl; eauto. i. des.
   exploit sim_local_write; try apply STEP3; try apply LOCAL; try refl; eauto.
   { inv STEP0. eapply MEM0; eauto. }
+  { inv STEP2. eapply CLOSED2; eauto. }
+  { inv STEP2. eapply CLOSED2; eauto. }
   i. des.
   exploit reorder_write_write; try apply STEP4; try apply STEP_SRC; eauto. i. des.
   esplits; eauto.
@@ -435,6 +442,8 @@ Proof.
   exploit Local.read_step_future; try apply STEP6; eauto. i. des.
   exploit sim_local_write; try apply STEP4; try apply LOCAL0; eauto; try refl.
   { inv STEP6. eapply MEM0; eauto. }
+  { inv STEP6. eapply MEM0; eauto. }
+  { inv STEP6. eapply MEM0; eauto. }
   i. des.
   esplits; eauto. etrans; eauto.
 Qed.
@@ -472,7 +481,9 @@ Proof.
   exploit reorder_read_write; try apply STEP1; try apply STEP0; eauto. i. des.
   exploit Local.write_step_future; try apply STEP5; eauto. i. des.
   exploit Local.read_step_future; try apply STEP6; eauto. i. des.
-  exploit sim_local_write; try apply STEP4; try apply LOCAL0; try apply x1; try refl; eauto.
+  exploit sim_local_write; try apply STEP4; try apply LOCAL0; try exact x1; try refl; eauto.
+  { inv STEP6. eapply CLOSED1; eauto. }
+  { inv STEP6. eapply CLOSED1; eauto. }
   { inv STEP6. eapply CLOSED1; eauto. }
   i. des.
   esplits; eauto.
@@ -519,7 +530,11 @@ Proof.
   exploit Local.read_step_future; try apply STEP0; eauto. i. des.
   exploit Local.read_step_future; try apply STEP5; eauto. i. des.
   exploit Local.write_step_future; try apply STEP6; eauto. i. des.
-  exploit sim_local_write; try apply STEP4; try apply LOCAL; try apply WF1; eauto; try refl.
+  exploit sim_local_write; try apply STEP4; try apply LOCAL; try exact WF1; eauto; try refl.
+  { inv STEP0. eapply MEM0; eauto. }
+  { eapply Memory.future_closed_capability; eauto.
+    inv STEP0. eapply MEM0; eauto.
+  }
   { inv STEP0. eapply MEM0; eauto. }
   i. des.
   hexploit reorder_update_write; try apply STEP5; try apply STEP6; try apply STEP_SRC; eauto. i. des.
@@ -561,7 +576,9 @@ Proof.
   exploit reorder_read_promise; try apply STEP1; try apply STEP0; eauto. i. des.
   exploit Local.promise_step_future; try apply STEP5; eauto. i. des.
   exploit Local.read_step_future; try apply STEP6; eauto. i. des.
-  exploit sim_local_write; try apply STEP4; try apply LOCAL0; try apply x1; eauto; try refl.
+  exploit sim_local_write; try apply STEP4; try apply LOCAL0; try exact x1; eauto; try refl.
+  { inv STEP6. eapply CLOSED0; eauto. }
+  { inv STEP6. eapply CLOSED0; eauto. }
   { inv STEP1. eapply MEM0; eauto. }
   i. des.
   esplits; eauto. etrans; eauto.

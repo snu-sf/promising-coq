@@ -10,6 +10,8 @@ Require Import Basic.
 Require Import Event.
 Require Import Language.
 Require Import Time.
+Require Import View.
+Require Import Cell.
 Require Import Memory.
 Require Import Commit.
 Require Import Thread.
@@ -151,7 +153,7 @@ Proof.
   - (* store *)
     exploit merge_write_read1; eauto. i. des.
     exploit Local.write_step_future; eauto. i. des.
-    exploit sim_local_write; try apply SC; try apply STEP1; eauto; committac; try refl. i. des.
+    exploit sim_local_write; try apply SC; try apply STEP1; eauto; try refl; committac. i. des.
     exploit Local.write_step_future; eauto. i. des.
     exploit sim_local_read; try apply STEP2; eauto; try refl. i. des.
     esplits.
@@ -330,6 +332,8 @@ Proof.
     exploit sim_local_read; try apply LOCAL1; try apply OR1; eauto. i. des.
     exploit Local.read_step_future; eauto. i. des.
     hexploit sim_local_write; try apply SC; try apply LOCAL2; eauto.
+    { inv STEP_SRC. eapply MEM_SRC. eauto. }
+    { inv STEP_SRC. eapply MEM_SRC. eauto. }
     { inv LOCAL1. eapply MEM_TGT. eauto. }
     i. des.
     exploit Local.write_step_future; try apply STEP_SRC; eauto. i. des.

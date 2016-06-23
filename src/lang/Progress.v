@@ -11,6 +11,8 @@ Require Import DenseOrder.
 Require Import Event.
 Require Import Time.
 Require Import Language.
+Require Import View.
+Require Import Cell.
 Require Import Memory.
 Require Import Commit.
 Require Import Thread.
@@ -80,8 +82,16 @@ Proof.
   exploit Memory.add_exists_le; try apply WF1; eauto. i. des.
   assert (FUTURE: Memory.future mem1 mem2).
   { econs 2; [|econs 1]. econs 1. eauto. }
-  hexploit Memory.add_inhabited; try apply x0; [committac|].
-  esplits. econs. econs; eauto.
+  hexploit Memory.add_inhabited; try apply x0; [committac|]. i. des.
+  esplits. econs.
+  - econs; eauto.
+    committac; repeat (condtac; committac);
+      (try by apply Time.bot_spec);
+      (try by unfold TimeMap.singleton, LocFun.add; condtac; [refl|congr]);
+      (try by left; eapply TimeFacts.le_lt_lt; [|eauto];
+       eapply closed_timemap_max_ts; apply WF1).
+    left. eapply TimeFacts.le_lt_lt; [|eauto].
+    eapply closed_timemap_max_ts. apply CLOSED_REL.
   - committac;
       repeat condtac; committac;
         (try eapply Memory.future_closed_capability; eauto);
@@ -89,13 +99,6 @@ Proof.
     + eapply Memory.add_get2. eauto.
     + econs; try apply Memory.closed_timemap_bot; committac.
     + eapply Memory.add_get2. eauto.
-  - committac; repeat (condtac; committac);
-      (try by apply Time.bot_spec);
-      (try by unfold TimeMap.singleton, LocFun.add; condtac; [refl|congr]);
-      (try by left; eapply TimeFacts.le_lt_lt; [|eauto];
-       eapply closed_timemap_max_ts; apply WF1).
-    left. eapply TimeFacts.le_lt_lt; [|eauto].
-    eapply closed_timemap_max_ts. apply CLOSED_REL.
 Qed.
 
 Lemma progress_read_step

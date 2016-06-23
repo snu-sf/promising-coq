@@ -13,6 +13,8 @@ Require Import Event.
 Require Import DenseOrder.
 Require Import Time.
 Require Import Language.
+Require Import View.
+Require Import Cell.
 Require Import Memory.
 Require Import Commit.
 Require Import Thread.
@@ -337,8 +339,9 @@ Module MemInv.
         promises1_src mem1_src
         promises1_tgt mem1_tgt promises2_tgt mem2_tgt
         kind
-        (REL: Capability.le released_src released_tgt)
         (WRITE_TGT: Memory.write promises1_tgt mem1_tgt loc from to val released_tgt promises2_tgt mem2_tgt kind)
+        (REL_LE: Capability.le released_src released_tgt)
+        (REL_WF: Capability.wf released_src)
         (INV1: sem inv promises1_src promises1_tgt)
         (LE1: Memory.le promises1_tgt promises1_src)
         (SIM1: Memory.sim mem1_tgt mem1_src)
@@ -349,10 +352,17 @@ Module MemInv.
     exists promises2_src mem2_src,
       <<PROMISE_SRC: Memory.promise promises1_src mem1_src loc from to val released_src promises2_src mem2_src kind>> /\
       <<INV2: sem (set loc to inv) promises2_src promises2_tgt>> /\
+      <<INV2': mem loc to inv = false>> /\
       <<LE2: Memory.le promises2_tgt promises2_src>> /\
       <<SIM2: Memory.sim mem2_tgt mem2_src>>.
   Proof.
     inv WRITE_TGT. exploit promise; eauto. i. des.
+    exploit Memory.promise_lower_promise; try apply PROMISE_SRC; eauto. i. des.
+    esplits; eauto.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
   Admitted.
 
   Lemma write
@@ -361,7 +371,8 @@ Module MemInv.
         promises1_src mem1_src
         promises1_tgt mem1_tgt promises2_tgt mem2_tgt
         kind
-        (REL: Capability.le released_src released_tgt)
+        (REL_LE: Capability.le released_src released_tgt)
+        (REL_WF: Capability.wf released_src)
         (WRITE_TGT: Memory.write promises1_tgt mem1_tgt loc from to val released_tgt promises2_tgt mem2_tgt kind)
         (INV1: sem inv promises1_src promises1_tgt)
         (LE1: Memory.le promises1_tgt promises1_src)
@@ -385,7 +396,9 @@ Module MemInv.
       + i. erewrite Memory.remove_mem; [|eauto].
         rewrite JOIN. rewrite set_o.
         repeat condtac; subst; s; try by apply Bool.andb_true_r.
-        admit.
+        symmetry. apply orb_false_intro; auto.
+        destruct (Memory.mem loc to promises2_tgt) eqn:X; auto.
+        exploit DISJOINT; try apply set_eq; try apply X; try done.
       + i. eapply DISJOINT; eauto.
         rewrite set_o. repeat condtac; auto.
     - ii. exploit LE2; eauto. i.
@@ -394,7 +407,7 @@ Module MemInv.
       + apply set_eq.
       + unfold Memory.mem. rewrite LHS. auto.
     - auto.
-  Admitted.
+  Qed.
 
   Lemma future
         inv

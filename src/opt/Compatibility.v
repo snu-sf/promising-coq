@@ -11,6 +11,8 @@ Require Import Basic.
 Require Import Event.
 Require Import Time.
 Require Import Language.
+Require Import View.
+Require Import Cell.
 Require Import Memory.
 Require Import Commit.
 Require Import Thread.
@@ -92,11 +94,14 @@ Proof.
   { apply WF1_SRC. }
   { apply WF1_TGT. }
   i. des.
+  exploit Memory.future_closed_capability; eauto.
+  { apply Memory.sim_future. eauto. }
+  i. des.
   exploit Memory.promise_future; try apply PROMISE_SRC; eauto.
   { apply WF1_SRC. }
   i. des.
   esplits; eauto.
-  - econs. apply PROMISE_SRC.
+  - econs; eauto.
   - econs; eauto.
 Qed.
 
@@ -127,12 +132,54 @@ Proof.
     + eapply MEM1_TGT. eauto.
 Qed.
 
+Lemma promise_closed_capability
+      promises1 mem1 commit1 sc1 loc from to val releasedm released ord promises2 mem2 kind
+      (PROMISES: Memory.le promises1 mem1)
+      (CLOSED0: Memory.closed_timemap sc1 mem1)
+      (CLOSED1: Memory.closed mem1)
+      (CLOSED2: Commit.closed commit1 mem1)
+      (CLOSED3: Memory.closed_capability releasedm mem1)
+      (PROMISE: Memory.promise promises1 mem1 loc from to val released promises2 mem2 kind):
+  Memory.closed_capability
+    (Capability.join
+       releasedm
+       (Commit.rel (Commit.write_commit commit1 sc1 loc to ord) loc))
+    mem2.
+Proof.
+  exploit Memory.promise_future0; eauto; try by committac. i. des.
+  repeat (try condtac; committac).
+  - eapply Memory.future_closed_capability; eauto.
+  - eapply Memory.future_closed_capability; eauto. apply CLOSED2.
+  - eapply Memory.future_closed_capability; eauto. apply CLOSED2.
+  - eapply LE_PROMISES2. eapply Memory.promise_get2. apply PROMISE.
+  - econs; committac. eapply Memory.future_closed_timemap; eauto.
+Qed.
+
+Lemma write_closed_capability
+      promises1 mem1 commit1 sc1 loc from to val releasedm released ord promises2 mem2 kind
+      (PROMISES: Memory.le promises1 mem1)
+      (CLOSED0: Memory.closed_timemap sc1 mem1)
+      (CLOSED1: Memory.closed mem1)
+      (CLOSED2: Commit.closed commit1 mem1)
+      (CLOSED3: Memory.closed_capability releasedm mem1)
+      (WRITE: Memory.write promises1 mem1 loc from to val released promises2 mem2 kind):
+  Memory.closed_capability
+    (Capability.join
+       releasedm
+       (Commit.rel (Commit.write_commit commit1 sc1 loc to ord) loc))
+    mem2.
+Proof.
+  inv WRITE. eapply promise_closed_capability; eauto.
+Qed.
+
 Lemma sim_local_write
       lc1_src sc1_src mem1_src
       lc1_tgt sc1_tgt mem1_tgt
       lc2_tgt sc2_tgt mem2_tgt
       loc from to val releasedm_src releasedm_tgt released_tgt ord kind
-      (RELM: Capability.le releasedm_src releasedm_tgt)
+      (RELM_LE: Capability.le releasedm_src releasedm_tgt)
+      (RELM_WF: Capability.wf releasedm_src)
+      (RELM_CLOSED: Memory.closed_capability releasedm_src mem1_src)
       (WF_RELM_TGT: Capability.wf releasedm_tgt)
       (STEP_TGT: Local.write_step lc1_tgt sc1_tgt mem1_tgt loc from to val releasedm_tgt released_tgt ord lc2_tgt sc2_tgt mem2_tgt kind)
       (LOCAL1: sim_local lc1_src lc1_tgt)
@@ -140,6 +187,8 @@ Lemma sim_local_write
       (MEM1: Memory.sim mem1_tgt mem1_src)
       (WF1_SRC: Local.wf lc1_src mem1_src)
       (WF1_TGT: Local.wf lc1_tgt mem1_tgt)
+      (SC1_SRC: Memory.closed_timemap sc1_src mem1_src)
+      (SC1_TGT: Memory.closed_timemap sc1_tgt mem1_tgt)
       (MEM1_SRC: Memory.closed mem1_src)
       (MEM1_TGT: Memory.closed mem1_tgt):
   exists released_src lc2_src sc2_src mem2_src,
@@ -150,7 +199,7 @@ Lemma sim_local_write
     <<MEM2: Memory.sim mem2_tgt mem2_src>>.
 Proof.
   inv STEP_TGT.
-  assert (REL:
+  assert (REL_LE:
    Capability.le
      (Capability.join releasedm_src
         (Commit.rel
@@ -183,6 +232,13 @@ Proof.
         rewrite <- Capability.join_r.
         econs; try refl. ss.
   }
+  assert (REL_WF:
+   Capability.wf
+     (Capability.join releasedm_src
+        (Commit.rel
+           (Commit.write_commit (Local.commit lc1_src) sc1_src loc to
+              ord) loc))).
+  { repeat (try condtac; committac; try apply WF1_SRC). }
   exploit MemInv.write; try apply WRITE; eauto.
   { apply LOCAL1. }
   { apply LOCAL1. }
@@ -191,6 +247,7 @@ Proof.
   i. des. esplits; eauto.
   - econs; eauto.
     + eapply CommitFacts.writable_mon; eauto. apply LOCAL1. refl.
+    + eapply write_closed_capability; try apply WRITE_SRC; try apply WF1_SRC; eauto.
     + i. exploit RELEASE; eauto. i. des.
       splits; auto. eapply sim_local_cell_bot; eauto.
   - econs; eauto. s. apply CommitFacts.write_commit_mon; auto.
@@ -214,6 +271,8 @@ Lemma sim_local_update
       (MEM1: Memory.sim mem1_tgt mem1_src)
       (WF1_SRC: Local.wf lc1_src mem1_src)
       (WF1_TGT: Local.wf lc1_tgt mem1_tgt)
+      (SC1_SRC: Memory.closed_timemap sc1_src mem1_src)
+      (SC1_TGT: Memory.closed_timemap sc1_tgt mem1_tgt)
       (MEM1_SRC: Memory.closed mem1_src)
       (MEM1_TGT: Memory.closed mem1_tgt)
       (ORD: Ordering.le ord1_src ord1_tgt):
@@ -230,6 +289,8 @@ Proof.
   exploit sim_local_read; eauto. i. des.
   exploit Local.read_step_future; eauto. i. des.
   exploit sim_local_write; eauto.
+  { inv STEP_SRC. eapply MEM1_SRC. eauto. }
+  { inv STEP_SRC. eapply MEM1_SRC. eauto. }
   { inv STEP1_TGT. eapply MEM1_TGT; eauto. }
   i. des. esplits; eauto.
 Qed.
@@ -661,10 +722,7 @@ Proof.
         { apply rclo9_step. apply ctx_nil; auto. }
       * (* write *)
         inv STATE.
-        exploit sim_local_write; try apply LOCAL0; try apply SC; eauto.
-        { refl. }
-        { apply Capability.bot_wf. }
-        i. des.
+        exploit sim_local_write; try apply LOCAL0; try apply SC; eauto; try refl; committac. i. des.
         exploit RegFile.eq_except_instr; eauto. i. des.
         esplits; eauto.
         { econs 2. econs 2. econs 3; eauto. econs. eauto. }
@@ -674,6 +732,8 @@ Proof.
         inv STATE.
         exploit sim_local_read; eauto; try refl. i. des.
         exploit sim_local_write; try apply SC; eauto.
+        { inv STEP_SRC. eapply MEM_SRC. eauto. }
+        { inv STEP_SRC. eapply MEM_SRC. eauto. }
         { inv LOCAL1. ss. eapply MEM_TGT. eauto. }
         { eapply Local.read_step_future; eauto. }
         { eapply Local.read_step_future; eauto. }

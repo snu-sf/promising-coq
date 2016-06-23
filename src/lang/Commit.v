@@ -10,6 +10,8 @@ Require Import DataStructure.
 Require Import Event.
 Require Import Time.
 Require Import Language.
+Require Import View.
+Require Import Cell.
 Require Import Memory.
 
 Set Implicit Arguments.

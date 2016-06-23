@@ -4,6 +4,8 @@ Require Import paco.
 Require Import Basic.
 Require Import Event.
 Require Import Language.
+Require Import View.
+Require Import Cell.
 Require Import Memory.
 Require Import Commit.
 Require Import Thread.

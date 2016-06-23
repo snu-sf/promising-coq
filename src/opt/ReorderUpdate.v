@@ -10,6 +10,8 @@ Require Import Basic.
 Require Import Event.
 Require Import Language.
 Require Import Time.
+Require Import View.
+Require Import Cell.
 Require Import Memory.
 Require Import Commit.
 Require Import Thread.
@@ -207,6 +209,8 @@ Proof.
     exploit sim_local_read; try apply LOCAL1; (try by etrans; eauto); eauto; try refl. i. des.
     exploit Local.read_step_future; try apply STEP_SRC; eauto. i. des.
     exploit sim_local_write; try apply LOCAL2; try apply LOCAL0; (try by etrans; eauto); eauto; try refl; try by committac.
+    { inv STEP_SRC. eapply CLOSED2; eauto. }
+    { inv STEP_SRC. eapply CLOSED2; eauto. }
     { inv LOCAL1. eapply MEM_TGT; eauto. }
     i. des.
     hexploit ReorderStep.reorder_update_update;

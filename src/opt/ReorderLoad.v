@@ -10,6 +10,8 @@ Require Import Basic.
 Require Import Event.
 Require Import Language.
 Require Import Time.
+Require Import View.
+Require Import Cell.
 Require Import Memory.
 Require Import Commit.
 Require Import Thread.
@@ -197,9 +199,7 @@ Proof.
       * apply RegSet.singleton_spec. eauto.
       * etrans; eauto.
   - (* store *)
-    exploit sim_local_write; try apply SC; try apply LOCAL1; (try by etrans; eauto); eauto.
-    { refl. }
-    { apply Capability.bot_wf. }
+    exploit sim_local_write; try apply SC; try apply LOCAL1; (try by etrans; eauto); eauto; try refl; committac.
     { eapply Local.read_step_future; eauto. }
     i. des.
     exploit reorder_read_write; try apply STEP; try apply STEP_SRC; eauto. i. des.
@@ -221,6 +221,8 @@ Proof.
     i. des.
     exploit reorder_read_read; try apply READ; try apply STEP_SRC; eauto. i. des.
     exploit sim_local_write; try apply SC; try apply LOCAL1; (try by etrans; eauto); eauto.
+    { inv STEP1. eapply MEM_SRC. eauto. }
+    { inv STEP1. eapply MEM_SRC. eauto. }
     { inv LOCAL1. eapply MEM_TGT; eauto. }
     { eapply Local.read_step_future; eauto.
       eapply Local.read_step_future; eauto.

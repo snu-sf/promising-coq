@@ -11,6 +11,8 @@ Require Import DenseOrder.
 Require Import Event.
 Require Import Time.
 Require Import Language.
+Require Import View.
+Require Import Cell.
 Require Import Memory.
 Require Import Commit.
 
@@ -83,7 +85,8 @@ Module Local.
   Inductive promise_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:Capability.t): forall (lc2:t) (mem2:Memory.t) (kind:Memory.promise_kind), Prop :=
   | step_promise
       promises2 mem2 kind
-      (PROMISE: Memory.promise lc1.(promises) mem1 loc from to val released promises2 mem2 kind):
+      (PROMISE: Memory.promise lc1.(promises) mem1 loc from to val released promises2 mem2 kind)
+      (CLOSED: Memory.closed_capability released mem2):
       promise_step lc1 mem1 loc from to val released (mk lc1.(commit) promises2) mem2 kind
   .
 
@@ -103,6 +106,7 @@ Module Local.
       (RELEASED: released = Capability.join releasedm ((Commit.write_commit lc1.(commit) sc1 loc to ord).(Commit.rel) loc))
       (WRITABLE: Commit.writable lc1.(commit) sc1 loc to ord)
       (WRITE: Memory.write lc1.(promises) mem1 loc from to val released promises2 mem2 kind)
+      (CLOSED: Memory.closed_capability released mem2)
       (RELEASE: Ordering.le Ordering.acqrel ord ->
                 lc1.(promises) loc = Cell.bot /\
                 kind = Memory.promise_kind_add):
@@ -165,7 +169,7 @@ Module Local.
     exploit CommitFacts.write_future; eauto.
     { eapply Commit.future_closed; eauto. }
     { eapply Memory.future_closed_timemap; eauto. }
-    { eapply Memory.write_get2; try apply WRITE; eauto. }
+    { eapply Memory.write_get2; try apply WRITE; committac. }
     i. des. splits; eauto.
     - econs; ss.
     - apply CommitFacts.write_sc_incr.

@@ -10,6 +10,8 @@ Require Import Basic.
 Require Import Event.
 Require Import Language.
 Require Import Time.
+Require Import View.
+Require Import Cell.
 Require Import Memory.
 Require Import Commit.
 Require Import Thread.
@@ -48,13 +50,6 @@ Inductive reorder: forall (i1 i2:Instr.t), Prop :=
     (REORDER: reorder_fence or1 ow1 i2):
     reorder (Instr.fence or1 ow1) i2
 .
-
-Lemma Memory_get_Memory_lower
-      mem loc from to val released
-      (GET: Memory.get loc to mem = Some (from, Message.mk val released)):
-  Memory.lower mem loc from to val released released mem.
-Proof.
-Admitted.
 
 Lemma reorder_sim_stmts
       i1 i2 (REORDER: reorder i1 i2):
@@ -100,6 +95,7 @@ Proof.
     esplits.
     + eauto.
     + econs 2. econs 1. econs. econs. eauto.
+      eapply promise_closed_capability; try apply PROMISE; try apply WF_SRC; eauto; committac.
     + auto.
     + etrans; eauto.
     + auto.
@@ -108,11 +104,10 @@ Proof.
       * hexploit Memory.promise_get2; eauto. i.
         assert (ORD1': ~ Ordering.le Ordering.acqrel ord).
         { by inv REORDER0; destruct ord; inv ORD1. }
-        refine (Local.step_write_intro _ _ _ _ _); eauto; [|congr].
+        refine (Local.step_write_intro _ _ _ _ _ _); eauto; [|congr].
         econs; eauto. econs.
-        { apply Memory_get_Memory_lower. auto. }
-        { apply Memory_get_Memory_lower. eauto. }
-        { eapply CLOSED0. eauto. }
+        { apply Memory.get_lower. auto. }
+        { apply Memory.get_lower. eauto. }
       * econs; try apply WF_SRC; eauto.
         s. eapply Commit.future_closed; eauto. apply WF_SRC.
       * eapply Memory.future_closed_timemap; eauto.
@@ -122,12 +117,17 @@ Proof.
     exploit sim_local_read; eauto; try refl. i. des.
     exploit Local.read_step_future; eauto. i. des.
     hexploit sim_local_write; try apply LOCAL2; try apply LOCAL0; try apply SC; eauto.
+    { inv STEP_SRC. eapply MEM_SRC. eauto. }
+    { inv STEP_SRC. eapply MEM_SRC. eauto. }
     { inv LOCAL1. eapply MEM_TGT. eauto. }
     i. des.
     exploit Local.write_step_future; eauto. i. des.
     inv STEP_SRC0. inv WRITE.
     exploit reorder_read_promise; try apply STEP_SRC; eauto.
-    { econs. eauto. }
+    { econs. eauto.
+      eapply promise_closed_capability; try apply PROMISE; try apply x1; eauto.
+      inv STEP_SRC. eapply MEM_SRC. eauto.
+    }
     i. des.
     exploit Local.promise_step_future; eauto. i. des.
     esplits.
