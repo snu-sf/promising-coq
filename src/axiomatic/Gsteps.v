@@ -1315,7 +1315,7 @@ Proof.
   by eapply (gstep_c_rel_other GA MON).
 Qed.
 
-Lemma gstep_dom_c_cur_other tm 
+Lemma gstep_t_cur_other tm 
    (GA: gstep_a (tm acts sb rmw rf sc) (tm acts' sb' rmw' rf' sc')) 
    (MON: inclusion (tm acts sb rmw rf sc) (tm acts' sb' rmw' rf' sc')) 
    i (NT: thread a <> i) l x :
@@ -1326,7 +1326,7 @@ Proof.
   by eapply (gstep_c_cur_other GA MON).
 Qed.
 
-Lemma gstep_dom_t_acq_other tm 
+Lemma gstep_t_acq_other tm 
    (GA: gstep_a (tm acts sb rmw rf sc) (tm acts' sb' rmw' rf' sc')) 
    (MON: inclusion (tm acts sb rmw rf sc) (tm acts' sb' rmw' rf' sc')) 
    i l (NT: thread a <> i \/ ~ is_read a \/ ~ is_rlx a) x :

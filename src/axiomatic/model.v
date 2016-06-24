@@ -511,8 +511,8 @@ Qed.
 (** ** Actions in graph *)
 (******************************************************************************)
 
-Local Notation "'acta' r" := (doma r (fun x => In x acts)) (at level 100).
-Local Notation "'actb' r" := (domb r (fun x => In x acts)) (at level 100).
+Local Notation "'acta' r" := (doma r (fun x => In x acts)) (at level 1).
+Local Notation "'actb' r" := (domb r (fun x => In x acts)) (at level 1).
 
 Lemma sb_acta : acta sb.
 Proof. cdes WF; cdes WF_SB; eauto. Qed.
@@ -576,21 +576,24 @@ Lemma scr_rel_acta : acta scr_rel. Proof. eauto with rel. Qed.
 Lemma scr_rel_actb : actb scr_rel. Proof. eauto with rel. Qed.
 Hint Resolve scr_rel_acta scr_rel_actb : rel.
 
+Lemma m_rel_acta l tm : acta tm -> acta (m_rel l tm).
+Proof. eauto with rel. Qed.
+Lemma m_rel_actb l tm : actb tm -> actb (m_rel l tm).
+Proof. eauto with rel. Qed.
 
+Lemma c_rel_acta i l l' tm : acta tm -> acta (c_rel i l l' tm).
+Proof. unfold c_rel; eauto with rel. Qed.
+Lemma c_rel_actb i l l' tm : actb tm -> actb (c_rel i l l' tm).
+Proof. unfold c_rel; rewrite <- !seqA; eauto using m_rel_actb with rel. Qed.
+Lemma c_cur_acta i l tm : acta tm -> acta (c_cur i l tm).
+Proof. unfold c_cur; eauto with rel. Qed.
+Lemma c_cur_actb i l tm : actb tm -> actb (c_cur i l tm).
+Proof. unfold c_cur; rewrite <- !seqA; eauto using m_rel_actb with rel. Qed.
+Lemma c_acq_acta i l tm : acta tm -> acta (c_acq i l tm).
+Proof. unfold c_acq; eauto with rel. Qed.
+Lemma c_acq_actb i l tm : actb tm -> actb (c_acq i l tm).
+Proof. unfold c_acq; rewrite <- !seqA; eauto using m_rel_actb with rel. Qed.
 
-(*Lemma m_rel_ur_acta l : acta (m_rel_ur l).
-Proof. unfold m_rel_ur, m_rel. eauto using ur_acta with actab. Qed.
-Lemma m_rel_rw_acta l : acta (m_rel_rw l).
-Proof. unfold m_rel_rw, m_rel. eauto using rw_acta with actab. Qed.
-Lemma m_rel_sc_acta l : acta (m_rel_sc l).
-Proof. unfold m_rel_sc, m_rel. eauto using scr_acta with actab. Qed.
-Lemma m_rel_ur_actb l : actb (m_rel_ur l).
-Proof. unfold m_rel_ur, m_rel. eauto using rel_actb with actab. Qed.
-Lemma m_rel_rw_actb l : actb (m_rel_rw l).
-Proof. unfold m_rel_rw, m_rel. eauto using rel_actb with actab. Qed.
-Lemma m_rel_sc_actb l : actb (m_rel_sc l).
-Proof. unfold m_rel_sc, m_rel. eauto using rel_actb with actab. Qed.
-*)
 Lemma S_tm_relation_acta l : acta (S_tm_relation l).
 Proof. unfold S_tm_relation; eauto with rel. Qed.
 
@@ -1009,6 +1012,97 @@ Definition t_acq tm (acts : list event) (sb rmw rf sc : relation event) i l :=
 Definition msg_rel tm (acts : list event) (sb rmw rf sc : relation event) l :=  
   m_rel l (tm acts sb rmw rf sc ;; rel acts sb rmw rf).
 
+
+(*
+Lemma c_cur_ur_dom1 i l : is_f (c_cur_ur i l) is_write.
+Proof. unfold c_cur_ur; eauto using c_cur_doma1 with rel. Qed.
+Lemma c_cur_rw_dom1 i l : is_f (c_cur_rw i l) is_write.
+Proof. unfold c_cur_rw; eauto using c_cur_doma1 with rel. Qed.
+Lemma c_cur_sc_dom1 i l : is_f (c_cur_sc i l) is_write.
+Proof. unfold c_cur_sc; eauto using c_cur_doma1 with rel. Qed.
+Lemma c_cur_ur_dom2 i l : is_f (c_cur_ur i l) (fun a : event => loc a = Some l).
+Proof. unfold c_cur_ur; eauto using c_cur_doma2 with rel. Qed.
+Lemma c_cur_rw_dom2 i l : is_f (c_cur_rw i l) (fun a : event => loc a = Some l).
+Proof. unfold c_cur_rw; eauto using c_cur_doma2 with rel. Qed.
+Lemma c_cur_sc_dom2 i l : is_f (c_cur_sc i l) (fun a : event => loc a = Some l).
+Proof. unfold c_cur_sc; eauto using c_cur_doma2 with rel. Qed.
+
+Lemma c_acq_ur_dom1 i l : is_f (c_acq_ur i l) is_write.
+Proof. unfold c_acq_ur; eauto using c_acq_doma1 with rel. Qed.
+Lemma c_acq_rw_dom1 i l : is_f (c_acq_rw i l) is_write.
+Proof. unfold c_acq_rw; eauto using c_acq_doma1 with rel. Qed.
+Lemma c_acq_sc_dom1 i l : is_f (c_acq_sc i l) is_write.
+Proof. unfold c_acq_sc; eauto using c_acq_doma1 with rel. Qed.
+Lemma c_acq_ur_dom2 i l : is_f (c_acq_ur i l) (fun a : event => loc a = Some l).
+Proof. unfold c_acq_ur; eauto using c_acq_doma2 with rel. Qed.
+Lemma c_acq_rw_dom2 i l : is_f (c_acq_rw i l) (fun a : event => loc a = Some l).
+Proof. unfold c_acq_rw; eauto using c_acq_doma2 with rel. Qed.
+Lemma c_acq_sc_dom2 i l : is_f (c_acq_sc i l) (fun a : event => loc a = Some l).
+Proof. unfold c_acq_sc; eauto using c_acq_doma2 with rel. Qed.
+
+Lemma S_tm_dom1 l : is_f (S_tm l) is_write.
+Proof. unfold S_tm; eauto using S_tm_relation_doma1 with rel. Qed.
+Lemma S_tm_dom2 l : is_f (S_tm l) (fun a : event => loc a = Some l).
+Proof. unfold S_tm; eauto using S_tm_relation_doma2 with rel. Qed.
+*)
+
+Section Exports.
+
+  Variable acts : list event.
+  Variables sb rmw rf mo sc : relation event.
+  Hypothesis COH : Coherent acts sb rmw rf mo sc.
+  Variables i : thread_id.
+  Variables l' l : Loc.t.
+  Variables x y : event.
+
+  Hint Resolve coh_wf c_rel_acta c_cur_acta c_acq_acta.
+  Hint Resolve urr_acta rwr_acta scr_acta rel_actb.
+
+  Lemma acts_rel_urr : t_rel urr acts sb rmw rf sc i l' l x -> In x acts.
+  Proof. eapply dom_in_acts; eauto. Qed.
+  Lemma acts_rel_rwr : t_rel rwr acts sb rmw rf sc i l' l x -> In x acts.
+  Proof. eapply dom_in_acts; eauto. Qed.
+  Lemma acts_rel_scr : t_rel scr acts sb rmw rf sc i l' l x -> In x acts.
+  Proof. eapply dom_in_acts; eauto. Qed.
+
+  Lemma acts_cur_urr : t_cur urr acts sb rmw rf sc i l x -> In x acts.
+  Proof. eapply dom_in_acts; eauto. Qed.
+  Lemma acts_cur_rwr : t_cur rwr acts sb rmw rf sc i l x -> In x acts.
+  Proof. eapply dom_in_acts; eauto. Qed.
+  Lemma acts_cur_scr : t_cur scr acts sb rmw rf sc i l x -> In x acts.
+  Proof. eapply dom_in_acts; eauto. Qed.
+
+  Lemma acts_acq_urr : t_acq urr acts sb rmw rf sc i l x -> In x acts.
+  Proof. eapply dom_in_acts; eauto with rel. Qed.
+  Lemma acts_acq_rwr : t_acq rwr acts sb rmw rf sc i l x -> In x acts.
+  Proof. eapply dom_in_acts; eauto with rel. Qed.
+  Lemma acts_acq_scr : t_acq scr acts sb rmw rf sc i l x -> In x acts.
+  Proof. eapply dom_in_acts; eauto with rel. Qed.
+
+  Lemma acta_msg_urr : msg_rel urr acts sb rmw rf sc l x y -> In x acts.
+  Proof. apply m_rel_acta; eauto with rel. Qed.
+  Lemma acta_msg_rwr : msg_rel rwr acts sb rmw rf sc l x y -> In x acts.
+  Proof. apply m_rel_acta; eauto with rel. Qed.
+  Lemma acta_msg_scr : msg_rel scr acts sb rmw rf sc l x y -> In x acts.
+  Proof. apply m_rel_acta; eauto with rel. Qed.
+
+  Lemma actb_msg_urr : msg_rel urr acts sb rmw rf sc l x y -> In y acts.
+  Proof. apply m_rel_actb; eauto with rel. Qed.
+  Lemma actb_msg_rwr : msg_rel rwr acts sb rmw rf sc l x y -> In y acts.
+  Proof. apply m_rel_actb; eauto with rel. Qed.
+  Lemma actb_msg_scr : msg_rel scr acts sb rmw rf sc l x y -> In y acts.
+  Proof. apply m_rel_actb; eauto with rel. Qed.
+
+End Exports.
+
+Hint Resolve 
+     acts_rel_urr acts_rel_rwr acts_rel_scr
+     acts_cur_urr acts_cur_rwr acts_cur_scr
+     acts_acq_urr acts_acq_rwr acts_acq_scr
+     acta_msg_urr acta_msg_rwr acta_msg_scr
+     actb_msg_urr actb_msg_rwr actb_msg_scr : acts.
+
+
 Require Import Setoid Permutation.
 
 Add Parametric Morphism : (restr_eq_rel loc) with signature 
@@ -1027,33 +1121,25 @@ Qed.
 Add Parametric Morphism : (rseq) with signature 
   eq ==> same_relation ==> same_relation ==> same_relation ==> same_relation as rseq_more.
 Proof.
-  unfold rseq. ins.
-rewrite H, H0, H1.
-reflexivity.
+  by unfold rseq; ins; rewrite H, H0, H1.
 Qed. 
  
 Add Parametric Morphism : (rel) with signature 
   eq ==> same_relation ==> same_relation ==> same_relation ==> same_relation as rel_more.
 Proof.
-  unfold rel. ins.
-  rewrite H, H0, H1.
-  reflexivity.
+  by unfold rel; ins; rewrite H, H0, H1.
 Qed. 
 
 Add Parametric Morphism : (sw) with signature 
   eq ==> same_relation ==> same_relation ==> same_relation ==> same_relation as sw_more.
 Proof.
-  unfold sw. ins.
-  rewrite H, H0, H1.
-  reflexivity.
+  by unfold sw; ins; rewrite H, H0, H1.
 Qed. 
 
 Add Parametric Morphism : (hb) with signature 
   eq ==> same_relation ==> same_relation ==> same_relation ==> same_relation as hb_more.
 Proof.
-  unfold hb. ins.
-  rewrite H, H0, H1.
-  reflexivity.
+  by unfold hb; ins; rewrite H, H0, H1.
 Qed. 
 
 Add Parametric Morphism : (WfSB) with signature 
