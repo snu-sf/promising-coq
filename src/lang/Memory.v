@@ -897,14 +897,13 @@ Module Memory.
         promises1 mem1 loc from to val released promises2 mem2 ctx kind
         (LE_PROMISES1: le promises1 mem1)
         (CLOSED1: closed mem1)
-        (CLOSED2: closed_capability released mem2)
         (PROMISE: promise promises1 mem1 loc from to val released promises2 mem2 kind)
         (LE_PROMISES: le ctx mem1)
         (DISJOINT: Memory.disjoint promises1 ctx):
     <<DISJOINT: Memory.disjoint promises2 ctx>> /\
     <<LE_PROMISES: le ctx mem2>>.
   Proof.
-    exploit promise_future; try apply PROMISE; eauto. i. des.
+    exploit promise_future0; try apply PROMISE; try apply CLOSED1; eauto. i. des.
     inv PROMISE.
     - splits.
       + econs. i. econs.
@@ -1024,7 +1023,6 @@ Module Memory.
         promises1 mem1 loc from to val released promises2 mem2 ctx kind
         (LE_PROMISES1: le promises1 mem1)
         (CLOSED1: closed mem1)
-        (CLOSED2: closed_capability released mem2)
         (PROMISE: write promises1 mem1 loc from to val released promises2 mem2 kind)
         (LE_PROMISES: le ctx mem1)
         (DISJOINT: Memory.disjoint promises1 ctx):
@@ -1032,7 +1030,7 @@ Module Memory.
     <<LE_PROMISES: le ctx mem2>>.
   Proof.
     inv PROMISE.
-    hexploit promise_future; try apply PROMISE0; eauto. i. des.
+    hexploit promise_future0; try apply PROMISE0; try apply CLOSED1; eauto. i. des.
     hexploit remove_future; try apply REMOVE; eauto. i. des.
     hexploit promise_disjoint; try apply PROMISE0; eauto. i. des.
     hexploit remove_disjoint; try apply REMOVE; eauto.
@@ -1397,5 +1395,32 @@ Module Memory.
       ii. des. subst. exploit lower_get2; eauto. i. congr.
     }
     auto.
+  Qed.
+
+  Lemma write_lower_write
+        promises1 mem1 loc from to val released released' promises2 mem2 kind
+        (WRITE: write promises1 mem1 loc from to val released promises2 mem2 kind)
+        (REL_LE: Capability.le released' released)
+        (REL_WF: Capability.wf released'):
+    exists promises2' mem2',
+      write promises1 mem1 loc from to val released' promises2' mem2' kind.
+  Proof.
+    inv WRITE. exploit promise_lower_promise; eauto. i. des.
+    exploit promise_get2; eauto. i.
+    exploit remove_exists; eauto. i. des.
+    esplits. econs; eauto.
+  Qed.
+
+  Lemma promise_exists_same
+        promises1 mem1 loc from to val released
+        (REL_WF: Capability.wf released)
+        (LE: le promises1 mem1)
+        (GET: get loc to promises1 = Some (from, Message.mk val released))
+        (LT: Time.lt from to):
+    promise promises1 mem1 loc from to val released promises1 mem1 promise_kind_lower.
+  Proof.
+    exploit lower_exists_same; eauto. i.
+    exploit lower_exists_same; try apply LE; eauto. i.
+    econs; eauto.
   Qed.
 End Memory.

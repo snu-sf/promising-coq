@@ -40,7 +40,20 @@ Lemma remove_promise
     Memory.promise promises1 mem1 loc2 from2 to2 val2 released2 promises2' mem3 kind /\
     Memory.remove promises2' loc1 from1 to1 val1 released1 promises3.
 Proof.
-Admitted.
+Admitted. (* reorder remove & promise *)
+
+Lemma promise_promise
+      promises1 mem1 loc1 from1 to1 val1 released1 kind1
+      promises2 mem2 loc2 from2 to2 val2 released2 kind2
+      promises3 mem3
+      (LE: Memory.le promises1 mem1)
+      (PROMISE1: Memory.promise promises1 mem1 loc1 from1 to1 val1 released1 promises2 mem2 kind1)
+      (PROMISE2: Memory.promise promises2 mem2 loc2 from2 to2 val2 released2 promises3 mem3 kind2):
+  exists promises2' mem2',
+    <<PROMISE1: Memory.promise promises1 mem1 loc2 from2 to2 val2 released2 promises2' mem2' kind2>> /\
+    <<PROMISE2: Memory.promise promises2' mem2' loc1 from1 to1 val1 released1 promises3 mem3 kind1>>.
+Proof.
+Admitted. (* reorder promise & promise; WRONG: need a condition *)
 
 Lemma get_remove
       promises0 mem0 loc from to val released promises1

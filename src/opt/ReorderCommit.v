@@ -32,8 +32,6 @@ Lemma read_read_commit
       loc1 ts1 released1 ord1
       loc2 ts2 released2 ord2
       commit0
-      (LOC: loc1 = loc2 -> Ordering.le ord1 Ordering.unordered)
-      (ORD2: Ordering.le ord2 Ordering.relaxed)
       (WF0: Commit.wf commit0)
       (WF1: Capability.wf released1)
       (WF2: Capability.wf released2):
@@ -54,8 +52,6 @@ Lemma read_write_commit
       loc1 ts1 released1 ord1
       loc2 ts2 ord2
       commit0 sc0
-      (LOC: loc1 <> loc2)
-      (ORD: Ordering.le ord1 Ordering.acqrel \/ Ordering.le ord2 Ordering.acqrel)
       (WF0: Commit.wf commit0)
       (WF1: Capability.wf released1):
   Commit.le
@@ -76,7 +72,6 @@ Lemma read_read_fence_commit
       loc1 ts1 released1 ord1
       ord2
       commit0
-      (ORD2: Ordering.le ord2 Ordering.relaxed)
       (WF0: Commit.wf commit0)
       (WF1: Capability.wf released1):
   Commit.le
@@ -92,6 +87,7 @@ Proof.
     (try by condtac; aggrtac).
   - repeat condtac; aggrtac; try apply WF0.
   - repeat condtac; aggrtac; try apply WF0.
+    destruct ord1; inv COND; inv COND1.
 Qed.
 
 Lemma read_write_fence_commit
@@ -123,9 +119,7 @@ Lemma write_read_commit
       loc1 ts1 ord1
       loc2 ts2 released2 ord2
       commit0 sc0
-      (LOC: loc1 <> loc2)
       (ORD1: Ordering.le ord1 Ordering.relaxed)
-      (ORD2: Ordering.le ord2 Ordering.relaxed)
       (WF0: Commit.wf commit0)
       (WF2: Capability.wf released2):
   Commit.le
@@ -139,16 +133,15 @@ Proof.
   econs; aggrtac;
     (try by apply WF0);
     (try by condtac; aggrtac).
-  - condtac; aggrtac. condtac.
-    + destruct ord1; inv ORD1; inv COND0.
-    + aggrtac; try apply WF0.
+  condtac; aggrtac. condtac.
+  - destruct ord1; inv ORD1; inv COND0.
+  - aggrtac; try apply WF0.
 Qed.
 
 Lemma write_write_commit
       loc1 ts1 ord1
       loc2 ts2 ord2
       commit0 sc0
-      (LOC: loc1 <> loc2)
       (ORD1: Ordering.le ord1 Ordering.relaxed)
       (WF0: Commit.wf commit0):
   Commit.le
@@ -170,6 +163,9 @@ Proof.
     econs; aggrtac. apply CommitFacts.write_sc_incr.
   - rewrite <- ? Capability.join_r.
     econs; aggrtac. apply CommitFacts.write_sc_incr.
+  - econs; committac.
+    rewrite <- ? TimeMap.join_r.
+    apply CommitFacts.write_sc_incr.
 Qed.
 
 Lemma write_write_sc
@@ -193,7 +189,6 @@ Lemma read_fence_write_commit
       ord1
       loc2 ts2 ord2
       commit0 sc0
-      (ORD1: Ordering.le ord1 Ordering.acqrel)
       (WF0: Commit.wf commit0):
   Commit.le
     (Commit.read_fence_commit
@@ -290,4 +285,23 @@ Proof.
     rewrite <- ? Capability.join_r.
     unfold Commit.write_fence_sc. repeat (condtac; aggrtac).
     rewrite <- TimeMap.join_r. apply WF0.
+Qed.
+
+Lemma read_write_commit_eq
+      loc1 ts1 released1 ord1
+      loc2 ts2 ord2
+      commit0 sc0
+      (ORD1: Ordering.le ord2 Ordering.relaxed)
+      (WF0: Commit.wf commit0)
+      (WF1: Capability.wf released1):
+  (Commit.read_commit
+     (Commit.write_commit commit0 sc0 loc2 ts2 ord2)
+     loc1 ts1 released1 ord1) =
+  (Commit.write_commit
+     (Commit.read_commit commit0 loc1 ts1 released1 ord1)
+     sc0 loc2 ts2 ord2).
+Proof.
+  apply Commit.antisym.
+  - apply read_write_commit; auto.
+  - apply write_read_commit; auto.
 Qed.

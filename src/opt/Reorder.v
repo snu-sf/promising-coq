@@ -13,6 +13,7 @@ Require Import Time.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
+Require Import MemoryFacts.
 Require Import Commit.
 Require Import Thread.
 
@@ -20,6 +21,7 @@ Require Import Configuration.
 Require Import Simulation.
 Require Import Compatibility.
 Require Import MemInv.
+Require Import FulfillStep.
 Require Import Progress.
 Require Import ReorderStep.
 Require Import ReorderLoad.
@@ -87,15 +89,17 @@ Proof.
       econs; eauto.
       eapply Local.read_step_future; eauto.
   - (* store *)
-    exploit Local.write_step_future; eauto. i. des.
+    exploit Local.write_step_future; eauto; try by committac. i. des.
     exploit sim_local_write; try apply SC; eauto; try refl; committac. i. des.
-    exploit Local.write_step_future; eauto. i. des.
+    exploit Local.write_step_future; eauto; try by committac. i. des.
     inv STEP_SRC. inv WRITE.
-    exploit Memory.promise_future; try apply PROMISE; try apply WF_SRC; eauto. i. des.
+    exploit Memory.promise_future; try apply PROMISE; try apply WF_SRC; eauto.
+    { eapply Local.promise_closed_capability; try exact PROMISE; try apply WF_SRC; eauto; try by committac. }
+    i. des.
     esplits.
     + eauto.
     + econs 2. econs 1. econs. econs. eauto.
-      eapply promise_closed_capability; try apply PROMISE; try apply WF_SRC; eauto; committac.
+      eapply Local.promise_closed_capability; try exact PROMISE; try apply WF_SRC; eauto; try by committac.
     + auto.
     + etrans; eauto.
     + auto.
@@ -104,39 +108,27 @@ Proof.
       * hexploit Memory.promise_get2; eauto. i.
         assert (ORD1': ~ Ordering.le Ordering.acqrel ord).
         { by inv REORDER0; destruct ord; inv ORD1. }
-        refine (Local.step_write_intro _ _ _ _ _ _); eauto; [|congr].
-        assert (Time.lt from to).
-        { inv PROMISE.
-          - inv MEM. inv ADD. auto.
-          - inv MEM. inv SPLIT. auto.
-          - inv MEM. inv ADD. inv ADD0. auto.
-        }
-        econs; eauto. econs.
-        { apply Memory.lower_exists_same; auto.
-          repeat (try condtac; committac; try apply WF_SRC).
-        }
-        { apply Memory.lower_exists_same; eauto.
-          repeat (try condtac; committac; try apply WF_SRC).
-        }
+        refine (step_fulfill _ _ _ _ _); eauto.
+        eapply promise_time_lt. eauto.
       * econs; try apply WF_SRC; eauto.
         s. eapply Commit.future_closed; eauto. apply WF_SRC.
       * eapply Memory.future_closed_timemap; eauto.
   - (* update *)
+    exploit Local.read_step_released; eauto. i. des.
     exploit Local.read_step_future; eauto. i. des.
     exploit Local.write_step_future; eauto. i. des.
     exploit sim_local_read; eauto; try refl. i. des.
+    exploit Local.read_step_released; eauto. i. des.
     exploit Local.read_step_future; eauto. i. des.
-    hexploit sim_local_write; try apply LOCAL2; try apply LOCAL0; try apply SC; eauto.
-    { inv STEP_SRC. eapply MEM_SRC. eauto. }
-    { inv STEP_SRC. eapply MEM_SRC. eauto. }
-    { inv LOCAL1. eapply MEM_TGT. eauto. }
+    hexploit sim_local_write; try apply LOCAL2; try apply LOCAL0; try apply SC; eauto;
+      try by eapply Local.read_step_released; eauto.
     i. des.
     exploit Local.write_step_future; eauto. i. des.
     inv STEP_SRC0. inv WRITE.
     exploit reorder_read_promise; try apply STEP_SRC; eauto.
+    { admit. (* tsr <> tsw *) }
     { econs. eauto.
-      eapply promise_closed_capability; try apply PROMISE; try apply x1; eauto.
-      inv STEP_SRC. eapply MEM_SRC. eauto.
+      eapply Local.promise_closed_capability; try apply PROMISE; try apply x1; eauto.
     }
     i. des.
     exploit Local.promise_step_future; eauto. i. des.

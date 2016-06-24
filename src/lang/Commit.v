@@ -255,6 +255,42 @@ Module CommitFacts.
            | [|- Memory.closed_timemap TimeMap.bot ?m] =>
              apply Memory.closed_timemap_bot
 
+           | [H1: is_true (Ordering.le ?o Ordering.relaxed),
+              H2: Ordering.le Ordering.acqrel ?o = true |- _] =>
+               by destruct o; inv H1; inv H2
+           | [H1: is_true (Ordering.le ?o Ordering.relaxed),
+              H2: Ordering.le Ordering.seqcst ?o = true |- _] =>
+               by destruct o; inv H1; inv H2
+           | [H1: is_true (Ordering.le ?o Ordering.acqrel),
+              H2: Ordering.le Ordering.seqcst ?o = true |- _] =>
+               by destruct o; inv H1; inv H2
+           | [H1: is_true (Ordering.le ?o Ordering.unordered),
+              H2: Ordering.le Ordering.acqrel ?o = true |- _] =>
+               by destruct o; inv H1; inv H2
+           | [H1: is_true (Ordering.le ?o Ordering.unordered),
+              H2: Ordering.le Ordering.relaxed ?o = true |- _] =>
+               by destruct o; inv H1; inv H2
+           | [H1: is_true (Ordering.le ?o Ordering.unordered),
+              H2: is_true (Ordering.le Ordering.relaxed ?o) |- _] =>
+               by destruct o; inv H1; inv H2
+           | [H1: is_true (Ordering.le ?o Ordering.unordered),
+              H2: is_true (Ordering.le Ordering.seqcst ?o) |- _] =>
+               by destruct o; inv H1; inv H2
+           | [H1: is_true (Ordering.le ?o Ordering.acqrel),
+              H2: is_true (Ordering.le Ordering.seqcst ?o) |- _] =>
+               by destruct o; inv H1; inv H2
+           | [H1: is_true (Ordering.le ?o Ordering.relaxed),
+              H2: is_true (Ordering.le Ordering.seqcst ?o) |- _] =>
+               by destruct o; inv H1; inv H2
+           | [H1: is_true (Ordering.le ?o1 ?o2),
+              H2: Ordering.le ?o0 ?o1 = true,
+              H3: Ordering.le ?o0 ?o2 = false |- _] =>
+               by destruct o1, o2; inv H1; inv H2; inv H3
+           | [|- Capability.wf (Capability.mk ?tm ?tm ?tm)] =>
+               by econs; refl
+           | [|- Capability.wf (Capability.mk TimeMap.bot TimeMap.bot _)] =>
+             econs; apply TimeMap.bot_spec
+
            | [|- Capability.le (Capability.join _ _) _] =>
              apply Capability.join_spec
            | [|- Capability.le (Capability.singleton_ur _ _) _] =>
@@ -317,42 +353,7 @@ Module CommitFacts.
            | [|- context[LocFun.add _ _ _]] =>
              unfold LocFun.add
 
-           | [|- Capability.wf (Capability.mk TimeMap.bot TimeMap.bot _)] =>
-             econs; apply TimeMap.bot_spec
-           | [|- Capability.wf (Capability.mk ?tm ?tm ?tm)] =>
-             econs; refl
-           | [H: _ <> _ |- _] => inv H
-           | [H1: is_true (Ordering.le ?o Ordering.relaxed),
-              H2: Ordering.le Ordering.acqrel ?o = true |- _] =>
-               by destruct o; inv H1; inv H2
-           | [H1: is_true (Ordering.le ?o Ordering.relaxed),
-              H2: Ordering.le Ordering.seqcst ?o = true |- _] =>
-               by destruct o; inv H1; inv H2
-           | [H1: is_true (Ordering.le ?o Ordering.acqrel),
-              H2: Ordering.le Ordering.seqcst ?o = true |- _] =>
-               by destruct o; inv H1; inv H2
-           | [H1: is_true (Ordering.le ?o Ordering.unordered),
-              H2: Ordering.le Ordering.acqrel ?o = true |- _] =>
-               by destruct o; inv H1; inv H2
-           | [H1: is_true (Ordering.le ?o Ordering.unordered),
-              H2: Ordering.le Ordering.relaxed ?o = true |- _] =>
-               by destruct o; inv H1; inv H2
-           | [H1: is_true (Ordering.le ?o Ordering.unordered),
-              H2: is_true (Ordering.le Ordering.relaxed ?o) |- _] =>
-               by destruct o; inv H1; inv H2
-           | [H1: is_true (Ordering.le ?o Ordering.unordered),
-              H2: is_true (Ordering.le Ordering.seqcst ?o) |- _] =>
-               by destruct o; inv H1; inv H2
-           | [H1: is_true (Ordering.le ?o Ordering.acqrel),
-              H2: is_true (Ordering.le Ordering.seqcst ?o) |- _] =>
-               by destruct o; inv H1; inv H2
-           | [H1: is_true (Ordering.le ?o Ordering.relaxed),
-              H2: is_true (Ordering.le Ordering.seqcst ?o) |- _] =>
-               by destruct o; inv H1; inv H2
-           | [H1: is_true (Ordering.le ?o1 ?o2),
-              H2: Ordering.le ?o0 ?o1 = true,
-              H3: Ordering.le ?o0 ?o2 = false |- _] =>
-               by destruct o1, o2; inv H1; inv H2; inv H3
+           (* | [H: _ <> _ |- _] => inv H *)
            end; subst; ss; i).
 
   Ltac aggrtac :=

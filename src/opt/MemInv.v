@@ -16,6 +16,7 @@ Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
+Require Import MemoryFacts.
 Require Import Commit.
 Require Import Thread.
 Require Import Configuration.
@@ -262,9 +263,7 @@ Module MemInv.
         (LE1: Memory.le promises1_tgt promises1_src)
         (SIM1: Memory.sim mem1_tgt mem1_src)
         (LE1_SRC: Memory.le promises1_src mem1_src)
-        (LE1_TGT: Memory.le promises1_tgt mem1_tgt)
-        (CLOSED1_SEC: Memory.closed mem1_src)
-        (CLOSED1_TGT: Memory.closed mem1_tgt):
+        (LE1_TGT: Memory.le promises1_tgt mem1_tgt):
     exists promises2_src mem2_src,
       <<PROMISE_SRC: Memory.promise promises1_src mem1_src loc from to val released promises2_src mem2_src kind>> /\
       <<INV2: sem inv promises2_src promises2_tgt>> /\
@@ -326,6 +325,173 @@ Module MemInv.
         * apply LE1 in LHS0. erewrite <- Memory.lower_get1; eauto.
   Admitted.
 
+  Lemma remove_tgt
+        inv
+        loc from to val released
+        promises1_src mem1_src
+        promises1_tgt mem1_tgt promises2_tgt
+        (REMOVE_TGT: Memory.remove promises1_tgt loc from to val released promises2_tgt)
+        (INV1: sem inv promises1_src promises1_tgt)
+        (LE1: Memory.le promises1_tgt promises1_src)
+        (SIM1: Memory.sim mem1_tgt mem1_src)
+        (LE1_SRC: Memory.le promises1_src mem1_src)
+        (LE1_TGT: Memory.le promises1_tgt mem1_tgt):
+      <<INV2: sem (set loc to inv) promises1_src promises2_tgt>> /\
+      <<INV2': mem loc to inv = false>> /\
+      <<LE2: Memory.le promises2_tgt promises1_src>>.
+  Proof.
+    hexploit Memory.remove_future; eauto. i. des.
+    exploit Memory.remove_get0; [eauto|]. i.
+    exploit LE1; eauto. i.
+    esplits.
+    - admit. (* sem new inv *)
+    - destruct (mem loc to inv) eqn:X; auto.
+      inv INV1. exploit DISJOINT; [eauto| |done].
+      unfold Memory.mem. rewrite x0. auto.
+    - etrans; [|eauto]. ii. eapply Memory.remove_get_inv; eauto.
+  Admitted.
+
+  Lemma remove_src
+        inv
+        loc from to val released
+        promises1_src mem1_src
+        promises1_tgt mem1_tgt
+        (INV1: sem inv promises1_src promises1_tgt)
+        (INV1': mem loc to inv)
+        (LE1: Memory.le promises1_tgt promises1_src)
+        (SIM1: Memory.sim mem1_tgt mem1_src)
+        (LE1_SRC: Memory.le promises1_src mem1_src)
+        (LE1_TGT: Memory.le promises1_tgt mem1_tgt):
+    exists promises2_src,
+      <<REMOVE_SRC: Memory.remove promises1_src loc from to val released promises2_src>> /\
+      <<INV2: sem (unset loc to inv) promises2_src promises1_tgt>> /\
+      <<LE2: Memory.le promises1_tgt promises2_src>>.
+  Proof.
+    exploit Memory.remove_exists.
+    { inv INV1. admit. (* strange inv condition *) }
+    i. des.
+    esplits; eauto.
+    - admit. (* sem new inv *)
+    - ii. exploit LE1; eauto. i.
+      exploit Memory.remove_get1; eauto. i. des; auto.
+      subst. admit. (* strange inv condition *)
+  Admitted.
+
+  Lemma remove
+        inv
+        loc from to val released_src released_tgt
+        promises1_src mem1_src
+        promises1_tgt mem1_tgt promises3_tgt
+        (REL_LE: Capability.le released_src released_tgt)
+        (REL_WF_SRC: Capability.wf released_src)
+        (REL_WF_TGT: Capability.wf released_tgt)
+        (TIME: Time.lt from to)
+        (REMOVE_TGT: Memory.remove promises1_tgt loc from to val released_tgt promises3_tgt)
+        (INV1: sem inv promises1_src promises1_tgt)
+        (LE1: Memory.le promises1_tgt promises1_src)
+        (SIM1: Memory.sim mem1_tgt mem1_src)
+        (LE1_SRC: Memory.le promises1_src mem1_src)
+        (LE1_TGT: Memory.le promises1_tgt mem1_tgt):
+    exists promises2_src mem3_src promises3_src,
+      <<LOWER_SRC: Memory.promise promises1_src mem1_src loc from to val released_src promises2_src mem3_src Memory.promise_kind_lower>> /\
+      <<REMOVE_SRC: Memory.remove promises2_src loc from to val released_src promises3_src>> /\
+      <<INV3: sem inv promises3_src promises3_tgt>> /\
+      <<LE3: Memory.le promises3_tgt promises3_src>> /\
+      <<SIM3: Memory.sim mem1_tgt mem3_src>>.
+  Proof.
+    hexploit Memory.remove_future; try apply REMOVE_TGT; eauto. i. des.
+    exploit remove_tgt; eauto. i. des.
+    exploit remove_src; try apply set_eq; eauto. i. des.
+    exploit remove_promise_remove; try apply REMOVE_SRC; eauto. i. des.
+    esplits; eauto.
+    - rewrite unset_set in INV0; auto.
+    - etrans; eauto.
+  Qed.
+
+  Lemma write_promise
+        inv
+        loc from to val released
+        promises1_src mem1_src
+        promises1_tgt mem1_tgt promises2_tgt mem2_tgt
+        kind
+        (WRITE_TGT: Memory.write promises1_tgt mem1_tgt loc from to val released promises2_tgt mem2_tgt kind)
+        (REL: Capability.wf released)
+        (INV1: sem inv promises1_src promises1_tgt)
+        (LE1: Memory.le promises1_tgt promises1_src)
+        (SIM1: Memory.sim mem1_tgt mem1_src)
+        (LE1_SRC: Memory.le promises1_src mem1_src)
+        (LE1_TGT: Memory.le promises1_tgt mem1_tgt)
+        (MEM1_SEC: Memory.closed mem1_src)
+        (MEM1_TGT: Memory.closed mem1_tgt):
+    exists promises2_src mem2_src,
+      <<PROMISE_SRC: Memory.promise promises1_src mem1_src loc from to val released promises2_src mem2_src kind>> /\
+      <<INV2: sem (set loc to inv) promises2_src promises2_tgt>> /\
+      <<INV2': mem loc to inv = false>> /\
+      <<LE2: Memory.le promises2_tgt promises2_src>> /\
+      <<SIM2: Memory.sim mem2_tgt mem2_src>>.
+  Proof.
+    inv WRITE_TGT.
+    exploit Memory.promise_future0; try apply PROMISE; eauto; try committac. i. des.
+    exploit promise; eauto. i. des.
+    exploit Memory.promise_future0; try apply PROMISE_SRC; eauto; try committac. i. des.
+    exploit remove_tgt; eauto; try refl. i. des.
+    esplits; eauto.
+  Qed.
+
+  Lemma write
+        inv
+        loc from to val released_src released_tgt
+        promises1_src mem1_src
+        promises1_tgt mem1_tgt promises2_tgt mem2_tgt
+        kind
+        (REL_LE: Capability.le released_src released_tgt)
+        (REL_WF_SRC: Capability.wf released_src)
+        (REL_WF_TGT: Capability.wf released_tgt)
+        (WRITE_TGT: Memory.write promises1_tgt mem1_tgt loc from to val released_tgt promises2_tgt mem2_tgt kind)
+        (INV1: sem inv promises1_src promises1_tgt)
+        (LE1: Memory.le promises1_tgt promises1_src)
+        (SIM1: Memory.sim mem1_tgt mem1_src)
+        (LE1_SRC: Memory.le promises1_src mem1_src)
+        (LE1_TGT: Memory.le promises1_tgt mem1_tgt)
+        (CLOSED1_SEC: Memory.closed mem1_src)
+        (CLOSED1_TGT: Memory.closed mem1_tgt):
+    exists promises2_src mem2_src,
+      <<WRITE_SRC: Memory.write promises1_src mem1_src loc from to val released_src promises2_src mem2_src kind>> /\
+      <<INV2: sem inv promises2_src promises2_tgt>> /\
+      <<LE2: Memory.le promises2_tgt promises2_src>> /\
+      <<SIM2: Memory.sim mem2_tgt mem2_src>>.
+  Proof.
+    inv WRITE_TGT.
+    exploit Memory.promise_future0; try apply PROMISE; eauto; try committac. i. des.
+    exploit promise; eauto. i. des.
+    exploit Memory.promise_future0; try apply PROMISE_SRC; eauto; try committac. i. des.
+    exploit remove; eauto; try refl; try eapply promise_time_lt; eauto. i. des.
+    esplits; eauto. econs; eauto.
+    admit. (* promise_kind + promise_lower <= promise_kind *)
+  Admitted.
+
+  (*   i. des. *)
+  (*   exploit Memory.promise_get2; eauto. i. *)
+  (*   exploit Memory.remove_exists; eauto. i. des. *)
+  (*   esplits. *)
+  (*   - econs; eauto. *)
+  (*   - inv INV2. econs. *)
+  (*     + i. erewrite Memory.remove_mem; [|eauto]. *)
+  (*       rewrite JOIN. rewrite set_o. *)
+  (*       repeat condtac; subst; s; try by apply Bool.andb_true_r. *)
+  (*       symmetry. apply orb_false_intro; auto. *)
+  (*       destruct (Memory.mem loc to promises2_tgt) eqn:X; auto. *)
+  (*       exploit DISJOINT; try apply set_eq; try apply X; try done. *)
+  (*     + i. eapply DISJOINT; eauto. *)
+  (*       rewrite set_o. repeat condtac; auto. *)
+  (*   - ii. exploit LE2; eauto. i. *)
+  (*     exploit Memory.remove_get1; eauto. i. des; auto. *)
+  (*     subst. inv INV2. exfalso. eapply DISJOINT. *)
+  (*     + apply set_eq. *)
+  (*     + unfold Memory.mem. rewrite LHS. auto. *)
+  (*   - auto. *)
+  (* Qed. *)
+
     (* - exploit Memory.add_exists; eauto. i. des. *)
     (*   exploit memory_sim_add; try apply INV1; eauto. i. *)
     (*   exploit Memory.promise_add_exists; try apply LE1_SRC; eauto. *)
@@ -382,111 +548,111 @@ Module MemInv.
     (*       destruct (Memory.get loc0 ts promises1_tgt) as [[]|] eqn:Y; [|done]. *)
     (*       exploit Memory.split_get1; try apply Y; eauto. i. des; congr. *)
 
-  Lemma write_promise
-        inv
-        loc from to val released_src released_tgt
-        promises1_src mem1_src
-        promises1_tgt mem1_tgt promises2_tgt mem2_tgt
-        kind
-        (WRITE_TGT: Memory.write promises1_tgt mem1_tgt loc from to val released_tgt promises2_tgt mem2_tgt kind)
-        (REL_LE: Capability.le released_src released_tgt)
-        (REL_WF: Capability.wf released_src)
-        (INV1: sem inv promises1_src promises1_tgt)
-        (LE1: Memory.le promises1_tgt promises1_src)
-        (SIM1: Memory.sim mem1_tgt mem1_src)
-        (LE1_SRC: Memory.le promises1_src mem1_src)
-        (LE1_TGT: Memory.le promises1_tgt mem1_tgt)
-        (CLOSED1_SEC: Memory.closed mem1_src)
-        (CLOSED1_TGT: Memory.closed mem1_tgt):
-    exists promises2_src mem2_src,
-      <<PROMISE_SRC: Memory.promise promises1_src mem1_src loc from to val released_src promises2_src mem2_src kind>> /\
-      <<INV2: sem (set loc to inv) promises2_src promises2_tgt>> /\
-      <<INV2': mem loc to inv = false>> /\
-      <<LE2: Memory.le promises2_tgt promises2_src>> /\
-      <<SIM2: Memory.sim mem2_tgt mem2_src>>.
-  Proof.
-    inv WRITE_TGT. exploit promise; eauto. i. des.
-    exploit Memory.promise_lower_promise; try apply PROMISE_SRC; eauto. i. des.
-    esplits; eauto.
-    - admit. (* inv holds after memory operations *)
-    - inv PROMISE; inv PROMISE_SRC.
-      + exploit Memory.add_disjoint; try apply PROMISES0. i.
-        inv INV1. specialize (JOIN loc to).
-        unfold Memory.mem in JOIN. rewrite x1 in JOIN.
-        symmetry in JOIN. apply orb_false_elim in JOIN. des. auto.
-      + exploit Memory.split_disjoint; try apply PROMISES0. i.
-        inv INV1. specialize (JOIN loc to).
-        unfold Memory.mem in JOIN. rewrite x1 in JOIN.
-        symmetry in JOIN. apply orb_false_elim in JOIN. des. auto.
-      + exploit Memory.lower_disjoint; try apply PROMISES. i.
-        inv INV1. specialize (DISJOINT loc to).
-        unfold Memory.mem in DISJOINT. rewrite x1 in DISJOINT.
-        destruct (mem loc to inv); auto. exfalso. apply DISJOINT; auto.
-    - ii. exploit Memory.remove_get_inv; eauto. i. des.
-      inv PROMISE; inv x0.
-      + exploit Memory.add_get_inv; try apply PROMISES; eauto. i. des.
-        { subst. contradict x1. auto. }
-        exploit LE1; eauto. i.
-        exploit Memory.add_get1; try apply PROMISES0; eauto.
-      + exploit Memory.split_get_inv; try apply PROMISES; eauto. i. des; subst.
-        * contradict x1. auto.
-        * exploit Memory.split_get1; try apply PROMISES0; eauto. i. des; auto.
-          contradict x0. auto.
-        * exploit LE1; eauto. i.
-          exploit Memory.split_get1; try apply PROMISES0; eauto. i. des; auto.
-          subst. contradict x3; auto.
-      + exploit Memory.lower_get_inv; try apply PROMISES; eauto. i. des.
-        { subst. contradict x1. auto. }
-        exploit LE1; eauto. i.
-        erewrite <- Memory.lower_get1; eauto.
-    - etrans.
-      + eapply memory_sim_promise; try apply PROMISE_SRC; eauto.
-      + admit. (* promise w/ lower released => sim *)
-  Admitted.
+  (* Lemma write_promise *)
+  (*       inv *)
+  (*       loc from to val released_src released_tgt *)
+  (*       promises1_src mem1_src *)
+  (*       promises1_tgt mem1_tgt promises2_tgt mem2_tgt *)
+  (*       kind *)
+  (*       (WRITE_TGT: Memory.write promises1_tgt mem1_tgt loc from to val released_tgt promises2_tgt mem2_tgt kind) *)
+  (*       (REL_LE: Capability.le released_src released_tgt) *)
+  (*       (REL_WF: Capability.wf released_src) *)
+  (*       (INV1: sem inv promises1_src promises1_tgt) *)
+  (*       (LE1: Memory.le promises1_tgt promises1_src) *)
+  (*       (SIM1: Memory.sim mem1_tgt mem1_src) *)
+  (*       (LE1_SRC: Memory.le promises1_src mem1_src) *)
+  (*       (LE1_TGT: Memory.le promises1_tgt mem1_tgt) *)
+  (*       (CLOSED1_SEC: Memory.closed mem1_src) *)
+  (*       (CLOSED1_TGT: Memory.closed mem1_tgt): *)
+  (*   exists promises2_src mem2_src, *)
+  (*     <<PROMISE_SRC: Memory.promise promises1_src mem1_src loc from to val released_src promises2_src mem2_src kind>> /\ *)
+  (*     <<INV2: sem (set loc to inv) promises2_src promises2_tgt>> /\ *)
+  (*     <<INV2': mem loc to inv = false>> /\ *)
+  (*     <<LE2: Memory.le promises2_tgt promises2_src>> /\ *)
+  (*     <<SIM2: Memory.sim mem2_tgt mem2_src>>. *)
+  (* Proof. *)
+  (*   inv WRITE_TGT. exploit promise; eauto. i. des. *)
+  (*   exploit Memory.promise_lower_promise; try apply PROMISE_SRC; eauto. i. des. *)
+  (*   esplits; eauto. *)
+  (*   - admit. (* inv holds after memory operations *) *)
+  (*   - inv PROMISE; inv PROMISE_SRC. *)
+  (*     + exploit Memory.add_disjoint; try apply PROMISES0. i. *)
+  (*       inv INV1. specialize (JOIN loc to). *)
+  (*       unfold Memory.mem in JOIN. rewrite x1 in JOIN. *)
+  (*       symmetry in JOIN. apply orb_false_elim in JOIN. des. auto. *)
+  (*     + exploit Memory.split_disjoint; try apply PROMISES0. i. *)
+  (*       inv INV1. specialize (JOIN loc to). *)
+  (*       unfold Memory.mem in JOIN. rewrite x1 in JOIN. *)
+  (*       symmetry in JOIN. apply orb_false_elim in JOIN. des. auto. *)
+  (*     + exploit Memory.lower_disjoint; try apply PROMISES. i. *)
+  (*       inv INV1. specialize (DISJOINT loc to). *)
+  (*       unfold Memory.mem in DISJOINT. rewrite x1 in DISJOINT. *)
+  (*       destruct (mem loc to inv); auto. exfalso. apply DISJOINT; auto. *)
+  (*   - ii. exploit Memory.remove_get_inv; eauto. i. des. *)
+  (*     inv PROMISE; inv x0. *)
+  (*     + exploit Memory.add_get_inv; try apply PROMISES; eauto. i. des. *)
+  (*       { subst. contradict x1. auto. } *)
+  (*       exploit LE1; eauto. i. *)
+  (*       exploit Memory.add_get1; try apply PROMISES0; eauto. *)
+  (*     + exploit Memory.split_get_inv; try apply PROMISES; eauto. i. des; subst. *)
+  (*       * contradict x1. auto. *)
+  (*       * exploit Memory.split_get1; try apply PROMISES0; eauto. i. des; auto. *)
+  (*         contradict x0. auto. *)
+  (*       * exploit LE1; eauto. i. *)
+  (*         exploit Memory.split_get1; try apply PROMISES0; eauto. i. des; auto. *)
+  (*         subst. contradict x3; auto. *)
+  (*     + exploit Memory.lower_get_inv; try apply PROMISES; eauto. i. des. *)
+  (*       { subst. contradict x1. auto. } *)
+  (*       exploit LE1; eauto. i. *)
+  (*       erewrite <- Memory.lower_get1; eauto. *)
+  (*   - etrans. *)
+  (*     + eapply memory_sim_promise; try apply PROMISE_SRC; eauto. *)
+  (*     + admit. (* promise w/ lower released => sim *) *)
+  (* Admitted. *)
 
-  Lemma write
-        inv
-        loc from to val released_src released_tgt
-        promises1_src mem1_src
-        promises1_tgt mem1_tgt promises2_tgt mem2_tgt
-        kind
-        (REL_LE: Capability.le released_src released_tgt)
-        (REL_WF: Capability.wf released_src)
-        (WRITE_TGT: Memory.write promises1_tgt mem1_tgt loc from to val released_tgt promises2_tgt mem2_tgt kind)
-        (INV1: sem inv promises1_src promises1_tgt)
-        (LE1: Memory.le promises1_tgt promises1_src)
-        (SIM1: Memory.sim mem1_tgt mem1_src)
-        (LE1_SRC: Memory.le promises1_src mem1_src)
-        (LE1_TGT: Memory.le promises1_tgt mem1_tgt)
-        (CLOSED1_SEC: Memory.closed mem1_src)
-        (CLOSED1_TGT: Memory.closed mem1_tgt):
-    exists promises2_src mem2_src,
-      <<WRITE_SRC: Memory.write promises1_src mem1_src loc from to val released_src promises2_src mem2_src kind>> /\
-      <<INV2: sem inv promises2_src promises2_tgt>> /\
-      <<LE2: Memory.le promises2_tgt promises2_src>> /\
-      <<SIM2: Memory.sim mem2_tgt mem2_src>>.
-  Proof.
-    exploit write_promise; eauto. i. des.
-    exploit Memory.promise_get2; eauto. i.
-    exploit Memory.remove_exists; eauto. i. des.
-    esplits.
-    - econs; eauto.
-    - inv INV2. econs.
-      + i. erewrite Memory.remove_mem; [|eauto].
-        rewrite JOIN. rewrite set_o.
-        repeat condtac; subst; s; try by apply Bool.andb_true_r.
-        symmetry. apply orb_false_intro; auto.
-        destruct (Memory.mem loc to promises2_tgt) eqn:X; auto.
-        exploit DISJOINT; try apply set_eq; try apply X; try done.
-      + i. eapply DISJOINT; eauto.
-        rewrite set_o. repeat condtac; auto.
-    - ii. exploit LE2; eauto. i.
-      exploit Memory.remove_get1; eauto. i. des; auto.
-      subst. inv INV2. exfalso. eapply DISJOINT.
-      + apply set_eq.
-      + unfold Memory.mem. rewrite LHS. auto.
-    - auto.
-  Qed.
+  (* Lemma write *)
+  (*       inv *)
+  (*       loc from to val released_src released_tgt *)
+  (*       promises1_src mem1_src *)
+  (*       promises1_tgt mem1_tgt promises2_tgt mem2_tgt *)
+  (*       kind *)
+  (*       (REL_LE: Capability.le released_src released_tgt) *)
+  (*       (REL_WF: Capability.wf released_src) *)
+  (*       (WRITE_TGT: Memory.write promises1_tgt mem1_tgt loc from to val released_tgt promises2_tgt mem2_tgt kind) *)
+  (*       (INV1: sem inv promises1_src promises1_tgt) *)
+  (*       (LE1: Memory.le promises1_tgt promises1_src) *)
+  (*       (SIM1: Memory.sim mem1_tgt mem1_src) *)
+  (*       (LE1_SRC: Memory.le promises1_src mem1_src) *)
+  (*       (LE1_TGT: Memory.le promises1_tgt mem1_tgt) *)
+  (*       (CLOSED1_SEC: Memory.closed mem1_src) *)
+  (*       (CLOSED1_TGT: Memory.closed mem1_tgt): *)
+  (*   exists promises2_src mem2_src, *)
+  (*     <<WRITE_SRC: Memory.write promises1_src mem1_src loc from to val released_src promises2_src mem2_src kind>> /\ *)
+  (*     <<INV2: sem inv promises2_src promises2_tgt>> /\ *)
+  (*     <<LE2: Memory.le promises2_tgt promises2_src>> /\ *)
+  (*     <<SIM2: Memory.sim mem2_tgt mem2_src>>. *)
+  (* Proof. *)
+  (*   exploit write_promise; eauto. i. des. *)
+  (*   exploit Memory.promise_get2; eauto. i. *)
+  (*   exploit Memory.remove_exists; eauto. i. des. *)
+  (*   esplits. *)
+  (*   - econs; eauto. *)
+  (*   - inv INV2. econs. *)
+  (*     + i. erewrite Memory.remove_mem; [|eauto]. *)
+  (*       rewrite JOIN. rewrite set_o. *)
+  (*       repeat condtac; subst; s; try by apply Bool.andb_true_r. *)
+  (*       symmetry. apply orb_false_intro; auto. *)
+  (*       destruct (Memory.mem loc to promises2_tgt) eqn:X; auto. *)
+  (*       exploit DISJOINT; try apply set_eq; try apply X; try done. *)
+  (*     + i. eapply DISJOINT; eauto. *)
+  (*       rewrite set_o. repeat condtac; auto. *)
+  (*   - ii. exploit LE2; eauto. i. *)
+  (*     exploit Memory.remove_get1; eauto. i. des; auto. *)
+  (*     subst. inv INV2. exfalso. eapply DISJOINT. *)
+  (*     + apply set_eq. *)
+  (*     + unfold Memory.mem. rewrite LHS. auto. *)
+  (*   - auto. *)
+  (* Qed. *)
 
   Lemma future
         inv

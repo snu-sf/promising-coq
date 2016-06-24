@@ -174,12 +174,14 @@ Proof.
     exploit sim_local_promise; (try by etrans; eauto); eauto.
     { eapply Local.read_step_future; eauto. }
     i. des.
-    exploit reorder_read_promise; try apply x0; try apply STEP_SRC; eauto. i. des.
+    exploit reorder_read_promise; try apply x0; try apply STEP_SRC; eauto.
+    { admit. (* read msg <> promised msg *) }
+    i. des.
     exploit Local.promise_step_future; eauto. i. des.
     esplits; try apply SC; eauto.
     + econs 2. econs. econs. eauto.
     + eauto.
-    + right. econs; eauto. etrans; eauto.
+    + right. econs; eauto.
   - (* load *)
     exploit sim_local_read; (try by etrans; eauto); eauto; try refl.
     { eapply Local.read_step_future; eauto. }
@@ -197,13 +199,12 @@ Proof.
       apply RegFun.add_add. ii. subst. eapply REGS.
       * apply RegSet.singleton_spec. eauto.
       * apply RegSet.singleton_spec. eauto.
-      * etrans; eauto.
   - (* store *)
     guardH ORD.
     exploit sim_local_write; try apply SC; try apply LOCAL1; (try by etrans; eauto); eauto; try refl; committac.
     { eapply Local.read_step_future; eauto. }
     i. des.
-    exploit reorder_read_write; try apply STEP; try apply STEP_SRC; eauto. i. des.
+    exploit reorder_read_write; try apply STEP; try apply STEP_SRC; eauto; try by committac. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 3; eauto. econs.
@@ -218,14 +219,13 @@ Proof.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss. etrans; eauto.
   - (* update *)
     guardH ORDW2.
+    exploit Local.read_step_released; try exact LOCAL1; eauto. i. des.
     exploit sim_local_read; (try by etrans; eauto); eauto; try refl.
     { eapply Local.read_step_future; eauto. }
     i. des.
     exploit reorder_read_read; try apply READ; try apply STEP_SRC; eauto; try congr. i. des.
+    exploit Local.read_step_released; try exact STEP1; eauto. i. des.
     exploit sim_local_write; try apply SC; try apply LOCAL1; (try by etrans; eauto); eauto.
-    { inv STEP1. eapply MEM_SRC. eauto. }
-    { inv STEP1. eapply MEM_SRC. eauto. }
-    { inv LOCAL1. eapply MEM_TGT; eauto. }
     { eapply Local.read_step_future; eauto.
       eapply Local.read_step_future; eauto.
     }
@@ -266,7 +266,7 @@ Proof.
     + eauto.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
       etrans; eauto.
-Qed.
+Admitted.
 
 Lemma sim_load_sim_thread:
   sim_load <8= (sim_thread (sim_terminal eq)).
