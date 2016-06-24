@@ -874,9 +874,9 @@ Lemma pi_step_lift_except_future
       (WF: pi_wf (cS1,cT1))
       (FIND: IdentMap.find tid cT1.(Configuration.threads) = Some (lst1,lc1)):
   <<MEMFUT: Memory.future cT1.(Configuration.memory) cSTM2.(snd)>> /\
-  <<TIMELE: TimeMap.le cT1.(Configuration.sc) cSTM2.(fst).(fst).(Configuration.sc)>> /\
+  <<TIMELE: TimeMap.le cT1.(Configuration.sc) cSTM2.(fst).(snd).(Configuration.sc)>> /\
   <<LOCWF: Local.wf lc1 cSTM2.(snd)>> /\
-  <<MEMCLOTM: Memory.closed_timemap (cSTM2.(fst).(fst).(Configuration.sc)) cSTM2.(snd)>> /\
+  <<MEMCLOTM: Memory.closed_timemap (cSTM2.(fst).(snd).(Configuration.sc)) cSTM2.(snd)>> /\
   <<MEMCLO: Memory.closed cSTM2.(snd)>>.
 Proof.
 Admitted.
@@ -884,6 +884,7 @@ Admitted.
 Lemma rtc_pi_step_lift_except_find
       cSTM1 cSTM2 tid loc ts
       (STEPS: rtc (pi_step_lift_except loc ts tid) cSTM1 cSTM2):
+  IdentMap.find tid cSTM1.(fst).(fst).(Configuration.threads) = IdentMap.find tid cSTM2.(fst).(fst).(Configuration.threads) /\
   IdentMap.find tid cSTM1.(fst).(snd).(Configuration.threads) = IdentMap.find tid cSTM2.(fst).(snd).(Configuration.threads).
 Proof.
   (* ginduction STEPS; eauto. *)
@@ -926,8 +927,8 @@ Proof.
   ii. eapply FREE, RACE. etrans; eauto.
 Qed.
 
-Definition conf_update (c: Configuration.t) tid thr  m : Configuration.t :=
-  Configuration.mk (IdentMap.add tid thr c.(Configuration.threads)) c.(Configuration.sc) m.
+Definition conf_update_global (c: Configuration.t) sc (m: Memory.t) : Configuration.t :=
+  Configuration.mk c.(Configuration.threads) sc m.
 
 Lemma key_lemma
       cS1 cT1 cS2 cT2 tid
@@ -937,19 +938,16 @@ Lemma key_lemma
       (STEPS : rtc (pi_step_evt tid) (cS1, cT1) (cS2, cT2))
       loc ts cSTM3
       (STEPS_LIFT : rtc (pi_step_lift_except loc ts tid) (cS2, cT2, cT2.(Configuration.memory)) cSTM3)
-      thr2
-      (FIND: IdentMap.find tid cT2.(Configuration.threads) = Some thr2)
       cM4 
-      (PI_STEPS : rtc (small_step_evt tid) (conf_update cSTM3.(fst).(fst) tid thr2 cSTM3.(snd)) cM4)
+      (PI_STEPS : rtc (small_step_evt tid) (conf_update_global cT2 cSTM3.(fst).(snd).(Configuration.sc) cSTM3.(snd)) cM4)
       (FULFILL: can_fulfill_promises tid cM4)
       lst4 lc4 from msg 
       (THREAD : IdentMap.find tid (Configuration.threads cM4) = Some (lst4, lc4))
       (PROMISE : Memory.get loc ts (Local.promises lc4) = Some (from, msg)):
   exists cS4 : Configuration.t,
-  <<STEPS: rtc (pi_step_evt tid) (cSTM3.(fst).(fst), conf_update cSTM3.(fst).(fst) tid thr2 cSTM3.(snd)) (cS4, cM4) >> /\
+  <<STEPS: rtc (pi_step_evt tid) (cSTM3.(fst).(fst), conf_update_global cT2 cSTM3.(fst).(snd).(Configuration.sc) cSTM3.(snd)) (cS4, cM4)>> /\
   <<STATE: option_map fst (IdentMap.find tid cS4.(Configuration.threads)) = option_map fst (IdentMap.find tid cM4.(Configuration.threads))>>.
 Proof.
-(*
   assert (WF2: pi_wf (cS2,cT2)).
   { eapply rtc_pi_step_future; eauto.
     eapply rtc_implies, STEPS; eauto. }
@@ -967,14 +965,14 @@ Proof.
   apply Operators_Properties.clos_rt_rtn1_iff in STEPS_LIFT.
 
   induction STEPS_LIFT.
-  { s. i. apply update_conf2prmem in UPDATE. subst.
+  { s. i. destruct cT2. unfold conf_update_global in *. ss.
     exploit pi_consistent_rtc_small_step_pi; try eapply WF; try apply FULFILL; eauto.
     intro STEPS1. des. esplits; eauto.
     
     exploit rtc_pi_step_future; try eapply rtc_implies, STEPS1; eauto.
     i; des. clear FUTURES FUTURET.
 
-    inv WF0. unfold conf_st, Threads_remove_promise. 
+    inv WF0. unfold Threads_remove_promise. 
     s. rewrite !IdentMap.Properties.F.map_o. 
     by rewrite option_map_map.
   }
@@ -983,27 +981,31 @@ Proof.
   destruct y as [[cS3 cT3] M3].
   destruct z as [[cS4 cT4] M4].
 
-  do 4 intro. rename cM4 into cM5, cM3 into cM4.
+  s. do 2 intro. rename cM4 into cM5.
   apply Operators_Properties.clos_rt_rt1n_iff in PI_STEPS.
   apply Operators_Properties.clos_rt_rtn1_iff in PI_STEPS.
   induction PI_STEPS; i.
   { esplits; eauto. ss.
-    destruct UPDATE. rewrite ST.
-    inv WF3. unfold conf_st, Threads_remove_promise.
-    s. rewrite !IdentMap.Properties.F.map_o, option_map_map. eauto.
+    replace (option_map fst (IdentMap.find tid (Configuration.threads cT2))) 
+       with (option_map fst (IdentMap.find tid (Configuration.threads cS2))); cycle 1.
+    { inv WF2. unfold Threads_remove_promise. s.
+      rewrite !IdentMap.Properties.F.map_o, option_map_map. eauto. }
+    apply Operators_Properties.clos_rt_rtn1_iff in STEPS_LIFT.
+    apply Operators_Properties.clos_rt_rt1n_iff in STEPS_LIFT.
+    apply rtc_pi_step_lift_except_find in STEPS_LIFT.
+    ss. des. rewrite STEPS_LIFT.
+    exploit rtc_pi_step_lift_except_find.
+    { econs 2; eauto. }
+    s. intro EQ. des. by rewrite EQ.
   }
 
-  ss. rename H into STEP2, y into CM5, z into CM6.
+  (* ss. rename H into STEP2, y into CM5, z into CM6. *)
 
-  inv STEP. inv PI_STEP. inv PI_STEP0.
-  destruct (ThreadEvent.is_writing e) as [[[[[[loc1 from1] ts1] val1] ord1] rel1]|] eqn: EQ; cycle 1.
-  { des. 
-    assert (X := injective_projections _ _ PMEMEQ MEMEQ); subst. clear MEMEQ PMEMEQ.
-    
-
-  }
-Focus 2.
-*)
+  (* inv STEP. inv PI_STEP. inv PI_STEP0. *)
+  (* destruct (ThreadEvent.is_writing e) as [[[[[[loc1 from1] ts1] val1] ord1] rel1]|] eqn: EQ; cycle 1. *)
+  (* { des.  *)
+  (*   assert (X := injective_projections _ _ PMEMEQ MEMEQ); subst. clear MEMEQ PMEMEQ. *)
+  (* } *)
 
   admit.
 
@@ -1050,17 +1052,14 @@ Proof.
   i. des. ss.
 
   exploit rtc_pi_step_lift_except_find; eauto.
-  s; intro EQ; des. 
-  assert (X:= EQ); rewrite THREAD, TH in X. depdes X.
+  s; intro EQ; des. clear EQ.
+  assert (X:= EQ0); rewrite THREAD, TH in X. depdes X.
 
   exploit consistent_can_fulfill_promises_future
-  ; [| |instantiate (3:=conf_update cS3 tid (existT _ lang2 st2, lc3) M3)|..]; eauto.
-  {  unfold conf_update. s. rewrite IdentMap.gss. eauto. }
+  ; [| |instantiate (3:=conf_update_global cT2 cT3.(Configuration.sc) M3)|..]; eauto.
   intro FULFILL.
 
-  depdes FULFILL. 
-  setoid_rewrite IdentMap.gss in FULFILL.
-  exploit FULFILL; eauto. 
+  depdes FULFILL. exploit FULFILL; eauto. 
   i. des.
 
   hexploit pf_racefree_steps; [eauto|..].
