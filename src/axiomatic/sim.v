@@ -61,9 +61,9 @@ Qed.
 
 Definition sim_msg (m: Message.t) b:=
   << VAL: Some m.(Message.val) = (val b) >> /\
-  << UR: forall y, f_equal_max (fun a => (m_rel_ur acts sb rmw rf sc y a b)) ((m.(Message.released)).(Capability.ur) y) >> /\
-  << RW: forall y, f_equal_max (fun a => (m_rel_rw acts sb rmw rf sc y a b)) ((m.(Message.released)).(Capability.rw) y) >> /\
-  << SC: forall y, f_equal_max (fun a => (m_rel_sc acts sb rmw rf sc y a b)) ((m.(Message.released)).(Capability.sc) y) >>.
+  << UR: forall l, f_equal_max (msg_rel urr acts sb rmw rf sc l b) ((m.(Message.released)).(Capability.ur) l) >> /\
+  << RW: forall l, f_equal_max (msg_rel rwr acts sb rmw rf sc l b) ((m.(Message.released)).(Capability.rw) l) >> /\
+  << SC: forall l, f_equal_max (msg_rel scr acts sb rmw rf sc l b) ((m.(Message.released)).(Capability.sc) l) >>.
 
 Definition sim_cell_helper b from msg :=
   << SIMMSG: sim_msg msg b >> /\ 
@@ -79,20 +79,20 @@ Definition sim_cell cell l  :=
 Definition sim_mem (mem: Memory.t) :=
   forall l, sim_cell (mem l) l.
 
+Definition sim_rel rel i :=
+  << REL_UR: forall l' l, f_equal_max (t_rel urr acts sb rmw rf sc i l' l) ((rel l').(Capability.ur) l) >> /\
+  << REL_RW: forall l' l, f_equal_max (t_rel rwr acts sb rmw rf sc i l' l) ((rel l').(Capability.rw) l) >> /\
+  << REL_SC: forall l' l, f_equal_max (t_rel scr acts sb rmw rf sc i l' l) ((rel l').(Capability.sc) l) >>.
+
 Definition sim_cur cur i :=
-  << CUR_UR: forall l, f_equal_max (c_cur_ur acts sb rmw rf sc i l) (cur.(Capability.ur) l) >> /\
-  << CUR_RW: forall l, f_equal_max (c_cur_rw acts sb rmw rf sc i l) (cur.(Capability.rw) l) >> /\
-  << CUR_SC: forall l, f_equal_max (c_cur_sc acts sb rmw rf sc i l) (cur.(Capability.sc) l) >>.
+  << CUR_UR: forall l, f_equal_max (t_cur urr acts sb rmw rf sc i l) (cur.(Capability.ur) l) >> /\
+  << CUR_RW: forall l, f_equal_max (t_cur rwr acts sb rmw rf sc i l) (cur.(Capability.rw) l) >> /\
+  << CUR_SC: forall l, f_equal_max (t_cur scr acts sb rmw rf sc i l) (cur.(Capability.sc) l) >>.
 
 Definition sim_acq acq i :=
-  << ACQ_UR: forall l, f_equal_max (c_acq_ur acts sb rmw rf sc i l) (acq.(Capability.ur) l) >> /\
-  << ACQ_RW: forall l, f_equal_max (c_acq_rw acts sb rmw rf sc i l) (acq.(Capability.rw) l) >> /\
-  << ACQ_SC: forall l, f_equal_max (c_acq_sc acts sb rmw rf sc i l) (acq.(Capability.sc) l) >>.
-
-Definition sim_rel rel i :=
-  << REL_UR: forall l' l, f_equal_max (c_rel_ur acts sb rmw rf sc i l' l) ((rel l').(Capability.ur) l) >> /\
-  << REL_RW: forall l' l, f_equal_max (c_rel_rw acts sb rmw rf sc i l' l) ((rel l').(Capability.rw) l) >> /\
-  << REL_SC: forall l' l, f_equal_max (c_rel_sc acts sb rmw rf sc i l' l) ((rel l').(Capability.sc) l) >>.
+  << ACQ_UR: forall l, f_equal_max (t_acq urr acts sb rmw rf sc i l) (acq.(Capability.ur) l) >> /\
+  << ACQ_RW: forall l, f_equal_max (t_acq rwr acts sb rmw rf sc i l) (acq.(Capability.rw) l) >> /\
+  << ACQ_SC: forall l, f_equal_max (t_acq scr acts sb rmw rf sc i l) (acq.(Capability.sc) l) >>.
 
 Definition sim_commit commit i :=
   << CUR: sim_cur commit.(Commit.cur) i >> /\
@@ -115,10 +115,9 @@ Qed.
 
 
 Definition sim_f f (op_st: Configuration.t) (ax_st: Machine.configuration) :=
-  << STATES: ts ax_st = IdentMap.map fst (Configuration.threads op_st) >> /\
   << LOCAL: forall i foo local (TID: IdentMap.find i (Configuration.threads op_st) = Some (foo, local)),
-                sim_local f (acts ax_st) (sb ax_st) (rmw ax_st) (rf ax_st) (sc ax_st) local i>> /\
-  << SC: True  >> /\ (** TODO: SC map **)
+                sim_local f (acts ax_st) (sb ax_st) (rmw ax_st) (rf ax_st) (sc ax_st) local i >> /\
+  << SC: forall l, f_equal_max f (S_tm (acts ax_st) (sb ax_st) (rmw ax_st) (rf ax_st) l) (Configuration.sc op_st l)  >> /\
   << MEM: sim_mem f (acts ax_st) (sb ax_st) (rmw ax_st) (rf ax_st) (sc ax_st) op_st.(Configuration.memory) >>.
 
 Definition sim (op_st: Configuration.t) (ax_st: Machine.configuration) :=
@@ -127,8 +126,8 @@ Definition sim (op_st: Configuration.t) (ax_st: Machine.configuration) :=
   << CONS_OP_ST: Configuration.consistent op_st >> /\
   << NO_PROMISES: forall i foo local (TID: IdentMap.find i (Configuration.threads op_st) = Some (foo, local)),
          local.(Local.promises) = Memory.bot>> /\
-  << TIME: exists f, << MONOTONE: valid f (mo ax_st) >> /\ 
-                    << SIM: sim_f f op_st ax_st >>>>.
+  << STATES: ts ax_st = IdentMap.map fst (Configuration.threads op_st) >> /\
+  << TIME: exists f, << MONOTONE: valid f (mo ax_st) >> /\  << SIM: sim_f f op_st ax_st >>>>.
 
 Lemma find_mapD A B tid (f: A -> B) x y :
   IdentMap.find tid (IdentMap.map f x) = Some y ->
@@ -161,33 +160,19 @@ Proof.
 Qed.
 
 
+(* Next two lemmas from old Vbase:
+ *)
+Lemma fun_if 
+(A B : Type) (f : A -> B) (b : bool) (vT vF : A)
+: f (if b then vT else vF) = if b then f vT else f vF.
+Proof. by case b. Qed.
 
-(* 
- Lemma ur_join_if cond a b :
-  Capability.ur (Capability.join_if cond a b) =
-  TimeMap.join_if cond (Capability.ur a) (Capability.ur b).
-Proof.
-  destruct cond; ins.
-Qed.
+Lemma if_arg 
+(A B : Type) (x : A)  (b : bool)
+: forall fT fF : A -> B,
+  (if b then fT else fF) x = if b then fT x else fF x.
+Proof. by case b. Qed.
 
-
-Lemma le_join_if1 x (cond: bool) a b :
-  cond -> Time.le x a ->
-  Time.le x (Time.join_if cond a b).
-Proof.
-ins; unfold Time.join_if; desf.
-apply transitivity with (y:=a); try done.
-apply Time.join_l.
-Qed.
-
-Lemma le_join_if2 x cond a b :
-  Time.le x b ->
-  Time.le x (Time.join_if cond a b).
-Proof.
-ins; unfold Time.join_if; desf.
-apply transitivity with (y:=b); try done.
-apply Time.join_r.
-Qed. *)
 
 Lemma tm_join a b l :
   TimeMap.join a b l =  Time.join (a l) (b l).
@@ -196,13 +181,19 @@ Proof.  ins. Qed.
 Lemma tm_singleton l t  :
   TimeMap.singleton l t l = t.
 Proof.
-Admitted.
+unfold TimeMap.singleton, LocFun.add.
+rewrite Loc.eq_dec_eq.
+done.
+Qed.
 
 Lemma tm_singleton2 l l' t (NEQ: l <> l') :
   TimeMap.singleton l t l' = Time.bot.
 Proof.
-Admitted.
-
+unfold TimeMap.singleton, LocFun.add.
+rewrite Loc.eq_dec_neq.
+by rewrite LocFun.init_spec; done.
+by intro; subst; auto.
+Qed.
 
 Lemma tm_join_singleton_to_if t1 t2 l l' :
   Time.join t1 (TimeMap.singleton l t2 l') = 
@@ -211,19 +202,36 @@ Proof.
 desf; [by rewrite tm_singleton|by rewrite tm_singleton2].
 Qed.
 
+Lemma time_join_bot a  :
+  Time.join a Time.bot =  a.
+Proof.
+Admitted.
+
 Lemma tm_join_bot a  :
   TimeMap.join a TimeMap.bot =  a.
 Proof.
-
- Admitted.
+eapply TimeMap.antisym.
+apply TimeMap.join_spec.
+apply TimeMap.le_PreOrder.
+apply TimeMap.bot_spec.
+apply TimeMap.join_l.
+Qed.
 
 Lemma f_equal_max_singleton f b :
-  f_equal_max f (fun a => a = b) (f b).
+  f_equal_max f (eq b) (f b).
 Proof.
 red; splits; ins; desc; subst.
 by apply Time.le_lteq; eauto.
 exists b; splits; try apply Time.le_lteq; eauto.
 Qed.
+
+
+Lemma f_equal_max_same_set f rel cap rel' :
+  f_equal_max f rel cap ->
+  (forall x, rel x <-> rel' x) ->  
+  f_equal_max f rel' cap.
+Proof.
+Admitted.
 
 Lemma f_equal_max_join f rel cap rel' cap' rel'' :
   f_equal_max f rel cap ->
@@ -275,8 +283,138 @@ unfold f_equal_max; ins; desf; splits; ins.
   rewrite H1; splits; eauto.
   apply Time.join_spec; eauto using Time.bot_spec.
 Qed.
+ 
+
+(* Lemma my_Time_join_l a b c:
+Time.le a b ->
+Time.le a (Time.join b c).
+Proof.
+etransitivity; eauto using Time.join_l.
+Qed.
+
+Lemma my_Time_join_r a b c:
+Time.le a c ->
+Time.le a (Time.join b c).
+Proof.
+etransitivity; eauto using Time.join_r.
+Qed.
+
+Lemma my_Time_refl a:
+Time.le a a.
+Proof.
+reflexivity.
+Qed. *)
+
+Lemma f_equal_max_join_if_loc f P P' t t' (cond : bool) l l' b P'':
+  f_equal_max f P t ->
+  f_equal_max f P' t' ->
+  (forall x, P'' x <-> P x \/ (eq b) x /\ l=l' \/ P' x /\ cond) ->
+f_equal_max f P''
+  (Time.join (Time.join t
+     (if LocSet.Facts.eq_dec l l' then (f b) else Time.bot))
+     (if cond then t' else Time.bot)).
+Proof.
+ins.
+eapply f_equal_max_join_if with(P:= fun x=>P x \/ b = x /\ l = l'); 
+try edone.
+eapply f_equal_max_join_if2; try edone.
+apply f_equal_max_singleton.
+eauto.
+intro; specialize (H1 x); tauto.
+Qed.
 
 
+Lemma sim_local_other_threads acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
+  a (GSTEP: gstep acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc' a)
+  (COH: Coherent acts sb rmw rf mo sc) 
+  f i (NEQ: i <> thread a) local (LOCAL: sim_local f acts sb rmw rf sc local i):
+    sim_local f acts' sb' rmw' rf' sc' local i.
+Proof.
+unfold sim_local, sim_commit, sim_cur, sim_acq, sim_rel in *; desf; splits;
+ins; eapply f_equal_max_same_set; try edone; intro.
+- unfold t_cur; unfold dom_rel;
+  split; ins; desc; eexists; [eapply gstep_c_cur_other | 
+  eapply gstep_c_cur_other with (tm':=urr acts' sb' rmw' rf' sc')]; 
+  eauto using gstep_urr_a, urr_mon.
+- unfold t_cur; unfold dom_rel;
+  split; ins; desc; eexists; [eapply gstep_c_cur_other | 
+  eapply gstep_c_cur_other with (tm':=rwr acts' sb' rmw' rf' sc')]; 
+  eauto using gstep_rwr_a, rwr_mon.
+- unfold t_cur; unfold dom_rel;
+  split; ins; desc; eexists; [eapply gstep_c_cur_other | 
+  eapply gstep_c_cur_other with (tm':=scr acts' sb' rmw' rf' sc')]; 
+  eauto using gstep_scr_a, scr_mon.
+- unfold t_acq; unfold dom_rel;
+  split; ins; desc; eexists; [eapply gstep_c_acq_other | 
+  eapply gstep_c_acq_other with (tm':=urr acts' sb' rmw' rf' sc')]; 
+  eauto using gstep_urr_rel_a, urr_mon.
+- unfold t_acq; unfold dom_rel;
+  split; ins; desc; eexists; [eapply gstep_c_acq_other | 
+  eapply gstep_c_acq_other with (tm':=rwr acts' sb' rmw' rf' sc')]; 
+  eauto using gstep_rwr_a, rwr_mon.
+- unfold t_acq; unfold dom_rel;
+  split; ins; desc; eexists; [eapply gstep_c_acq_other | 
+  eapply gstep_c_acq_other with (tm':=scr acts' sb' rmw' rf' sc')]; 
+  eauto using gstep_scr_a, scr_mon.
+
+
+Admitted.
+
+Lemma Readable_cur_urr acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
+  a (GSTEP: gstep acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc' a)
+  (COH: Coherent acts sb rmw rf mo sc) 
+  t f (VALID: valid f mo) l v o b (LABa: lab a = Aload l v o)
+  (CUR: f_equal_max f (t_cur urr acts sb rmw rf sc (thread a) l) t) 
+  (RFb: rf' b a) : Time.le t (f b).
+Proof.
+assert (~ is_write a).
+  intro; unfold is_write in *; destruct (lab a); ins.
+red in CUR; desf.
+eapply transitivity with (y:=f a_max); try done.
+cdes GSTEP. 
+eapply valid_converse with (acts:=(a :: acts)); eauto.
+- right. admit. (* red in INa. red in INa. desf. red in INa. eauto with rel. eapply c_cur_ur_in_acts; eauto.*)
+- eapply rf_acta in RFb; eauto. rewrite <- ACT_STEP; eauto.
+- admit. (* eapply c_cur_ur_dom1; eauto.*)
+- eapply rf_doma in RFb; eauto.
+- red in INa; red in INa; desc. apply c_cur_doma2 in INa. edone.
+- eapply loceq_rf in RFb; eauto. unfold loc in *. rewrite LABa in RFb. done.
+- cdes COH0; cdes WF; cdes WF_MO; eauto.
+  intro; rewrite gstep_non_write_mo with (mo':=mo'); eauto.
+  rewrite <- ACT_STEP; eauto.
+- intro.
+eapply Coherent_ur with (mo:=mo') (c:=a); eauto.
+eapply gstep_non_write_mo with (acts:=acts) (mo:=mo); eauto.
+(*     eby eapply gstep_new_ur0 with (acts:=acts) (a:=a). 
+ *)
+Admitted.
+
+Lemma Readable_cur_rwr acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
+  a (GSTEP: gstep acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc' a)
+  (COH: Coherent acts sb rmw rf mo sc) 
+  t f (VALID: valid f mo) l v o b (LABa: lab a = Aload l v o)
+  (CUR: f_equal_max f (t_cur rwr acts sb rmw rf sc (thread a) l) t) 
+  (RFb: rf' b a) (RLX: is_rlx a): Time.le t (f b).
+Proof.
+Admitted.
+
+Lemma Readable_cur_scr acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
+  a (GSTEP: gstep acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc' a)
+  (COH: Coherent acts sb rmw rf mo sc) 
+  t f (VALID: valid f mo) l v o b (LABa: lab a = Aload l v o)
+  (CUR: f_equal_max f (t_cur scr acts sb rmw rf sc (thread a) l) t) 
+  (RFb: rf' b a) (SC: is_sc a): Time.le t (f b).
+Proof.
+Admitted.
+
+Lemma Readable_msg_sc acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
+  a (GSTEP: gstep acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc' a)
+  (COH: Coherent acts sb rmw rf mo sc) 
+  t f (VALID: valid f mo) l v o b (LABa: lab a = Aload l v o)
+  (MSG: f_equal_max f (msg_rel scr acts sb rmw rf sc l b) t)
+  (RFb: rf' b a) (SC: is_sc a): Time.le t (f b).
+Proof.
+Admitted.
 
 Lemma ax_op_sim :
   forall op_st ax_st (SIM: sim op_st ax_st) ax_st' (AXSTEP: m_step ax_st ax_st'),
@@ -300,6 +438,13 @@ assert (E: exists from rel, Cell.get (f b) ((Configuration.memory op_st) l) =
   cdes GSTEP; cdes INC; cdes COH0; cdes WF.
   eapply get_cell; try edone; rewrite <- ACT_STEP in *; try edone.
 
+assert (RA: is_ra a = Ordering.le Ordering.acqrel o).
+unfold is_ra, is_ra_lab; rewrite LAB_STEP; done.
+
+assert (RLX: is_rlx a = Ordering.le Ordering.relaxed o).
+unfold is_rlx, is_rlx_lab; rewrite LAB_STEP; done.
+
+
 assert (WRITE_B: is_write b). 
   unfold is_write; destruct (lab b); ins.
 
@@ -317,98 +462,21 @@ desf.
 
 assert (READABLE: Commit.readable (Local.commit local) l (f b) rel o).
 {
-clear -LOCAL TID SAME_MO GSTEP COH INb MONOTONE RFb LAB_STEP SC0 LABb.
-
-assert (WRITE_B: is_write b). 
-  unfold is_write; destruct (lab b); ins.
-
-assert (LOC_B: loc b = Some l). 
-  unfold loc; destruct (lab b); ins; desf.
-
   specialize (LOCAL (thread a) (existT _ lang st) local TID); desf.
   red in LOCAL; red in LOCAL; desc; red in CUR; desc.
   constructor.
-  {
-  specialize (CUR_UR l).
-  red in CUR_UR; desf.
-  eapply transitivity with (y:=f a_max); try done.
-  eapply valid_converse with (acts:=(a :: acts)) (mo:=mo0); eauto.
-  - right; eapply c_cur_ur_in_acts; eauto.
-  - right; done.
-  - eapply c_cur_ur_dom1; eauto.
-  - eapply c_cur_ur_dom2; eauto.
-  - cdes GSTEP; rewrite <- ACT_STEP; apply COH0.
-  - intro; cdes GSTEP.
-    eapply Coherent_ur with (mo:=mo0) (c:=a); eauto.
-    eby eapply gstep_new_ur0 with (acts:=acts) (a:=a). 
-  }
-  {
-  specialize (CUR_RW l).
-  red in CUR_RW; desf; ins.
-  eapply transitivity with (y:=f a_max); try done.
-  eapply valid_converse with (acts:=(a :: acts)) (mo:=mo0); try edone.
-  - right; eapply c_cur_rw_in_acts; cdes COH; desc; eauto.
-  - right; done. 
-  - eapply c_cur_rw_dom1; eauto.
-  - eapply c_cur_rw_dom2; eauto.
-  - cdes GSTEP; rewrite <- ACT_STEP; apply COH0.
-  - intro; cdes GSTEP.
-    eapply Coherent_rw with (mo:=mo0) (c:=a); try eauto.
-    eby eapply gstep_new_rw0 with (acts:=acts).
-    right; unfold is_rlx; rewrite LAB_STEP; eauto.
-  }
-  {
-  specialize (CUR_SC l).
-  red in CUR_SC; desf; ins.
-  eapply transitivity with (y:=f a_max); try done.
-  eapply valid_converse with (acts:=(a :: acts)) (mo:=mo0); try edone.
-  - right; eapply c_cur_sc_in_acts; cdes COH; desc; eauto.
-  - right; done. 
-  - eapply c_cur_sc_dom1; eauto.
-  - eapply c_cur_sc_dom2; eauto.
-  - cdes GSTEP; rewrite <- ACT_STEP; apply COH0.
-  - intro; cdes GSTEP.
-    eapply Coherent_sc with (mo:=mo0) (c:=a); try eauto.
-    unfold is_sc; rewrite LAB_STEP; eauto.
-    eby eapply gstep_new_sc0 with (acts:=acts).
-  }
-  {
-cdes SC0.
-specialize (SC1 l); desc; ins.
-apply transitivity with (y:=f a_max); try done.
-  eapply valid_converse with (acts:=(a :: acts)) (mo:=mo0); try edone.
-  - right; eapply m_rel_sc_acta; cdes COH; desc; eauto.
-  - right; done. 
-  - eapply m_rel_doma1; eauto.
-  - eapply m_rel_doma2; eauto.
-  - cdes GSTEP; rewrite <- ACT_STEP; apply COH0.
-  - intro; cdes GSTEP.
-    eapply Coherent_sc with (mo:=mo0) (c:=a); try eauto.
-    unfold is_sc; rewrite LAB_STEP; eauto.
-    eapply gstep_new_sc_relation with (acts:=acts); eauto.
-    by repeat red; rewrite LAB_STEP; ins; destruct o.
-  }
+  - specialize (CUR_UR l); eapply Readable_cur_urr; eauto.
+  - specialize (CUR_RW l). intro. 
+    eapply Readable_cur_rwr; eauto.
+    unfold is_rlx; rewrite LAB_STEP; ins.
+  - specialize (CUR_SC l). intro. 
+    eapply Readable_cur_scr; eauto.
+    unfold is_sc; rewrite LAB_STEP; ins.
+  - specialize (SC0 l). intro. 
+    eapply Readable_msg_sc; eauto.
+    unfold is_sc; rewrite LAB_STEP; ins.
 }
 
-(*   {
-  destruct WF_OP_ST; destruct WF; eapply THREADS; eauto. 
-  }
-  {
-  destruct WF_OP_ST. destruct MEM0.
-  specialize (CLOSED l from (f b) {| Message.val := v; Message.released := rel |}).
-  apply CLOSED in E; desc.
-  eauto.
-  }
-
- *)
-(* assert (LOCAL_STEP: Local.read_step local (Configuration.memory op_st) l (f b) v rel o
-         {| Local.commit := CommitFacts.read_min l (f b) rel o (Local.commit local);
-            Local.promises := Local.promises local |}).
-  econstructor; eauto.
-  destruct WF_OP_ST.
-  eapply CommitFacts.read_min_closed; eauto.
-  destruct WF; eapply THREADS; eauto.
- *)
 eexists _,_,(thread a).
 
 Lemma foo (P Q : Prop) : P -> (P -> Q) -> P /\ Q.
@@ -418,14 +486,11 @@ apply foo; [|intro STEP].
 {
 econstructor; try edone.
 - econstructor.
-- apply Thread.step_some.
-  apply Thread.step_program.
+- apply Thread.step_program.
   eapply Thread.step_read; eauto.
   econstructor; edone.
 - admit.
 }
-
-
 
 (* match goal with |- Configuration.step ?G (thread a) op_st ?G' /\ _ =>
   set (M := G); set (M' := G') end.
@@ -433,59 +498,39 @@ econstructor; try edone.
 (* match goal with |- ?G /\ _ =>
   set (M := G) end.
  *) 
+
+
 red; simpl; splits; eauto.
 - eby eapply Configuration.step_future.
 - eby eapply Configuration.step_future.
 - ins; rewrite IdentMap.gsspec in TID0; desf; ins;
   eapply NO_PROMISES; edone.
+- by rewrite IdentMap.map_add.
 - exists f; split; [by apply MONOTONE|].
   clear STEP; red; splits; ins.
-  * by rewrite IdentMap.map_add.
-  * rewrite IdentMap.gsspec in TID0; desf; ins;
-    exploit LOCAL; clear LOCAL; eauto; intro LOCAL;
-    unfold sim_local in *; ins.
-
-
-
+  * ins; rewrite IdentMap.gsspec in TID0; desf; ins.
+    Focus 2. by eapply sim_local_other_threads; eauto.
+red; ins; red; ins.
+exploit LOCAL; clear LOCAL; eauto; intro LOCAL; unfold sim_local in *; ins.
 unfold sim_commit, sim_acq, sim_cur, sim_rel in *; desc; splits; intro l';
 simpl;
-try rewrite tm_join_bot;
-try rewrite !tm_join;
-try rewrite fun_if; simpl;
-try rewrite if_arg with (x := l'); simpl.
-{
-eapply f_equal_max_join_if; eauto.
-ins; rewrite (gstep_c_cur_ur COH GSTEP l' _ RFb (thread a)).
-unfold is_ra, is_ra_lab; rewrite LAB_STEP; simpl; split; ins; desf; eauto.
-}
-{
-rewrite tm_join_singleton_to_if.
-eapply f_equal_max_join_if with (P:= fun x => c_cur_rw acts sb rmw rf sc (thread a) l' x \/
-(x = b /\ loc b = Some l')); eauto.
-eapply f_equal_max_join_if2; eauto.
-apply f_equal_max_singleton; eauto.
-intro; split; intro; desf; eauto.
-ins; rewrite (gstep_c_cur_rw COH GSTEP l' _ RFb (thread a)).
-unfold is_ra, is_ra_lab; rewrite LAB_STEP; simpl; split; ins; desf; eauto.
-}
-{
-rewrite tm_join_singleton_to_if.
-eapply f_equal_max_join_if with (P:= fun x => c_cur_sc acts sb rmw rf sc (thread a) l' x \/
-(x = b /\ loc b = Some l')); eauto.
-eapply f_equal_max_join_if2 with (P':= fun x => x=b); eauto.
-apply f_equal_max_singleton; eauto.
-intro; split; intro; desf; eauto.
-admit.
-
-}
-{
-eapply f_equal_max_join_if; eauto.
-ins; rewrite (gstep_c_cur_ur COH GSTEP l' _ RFb (thread a)).
-unfold is_ra, is_ra_lab; rewrite LAB_STEP; simpl; split; ins; desf; eauto.
+unfold TimeMap.bot.
+all: try (rewrite !tm_join; rewrite time_join_bot).
+all: try (rewrite !tm_join; rewrite tm_join_singleton_to_if).
+all: try rewrite !time_join_bot.
+all: try rewrite !fun_if; simpl.
+all: try rewrite !if_arg with (x := l'); simpl.
+all: unfold TimeMap.bot; simpl.
+all: try intro; try eapply f_equal_max_join_if_loc; try edone; simpl.
+all: try intro; try eapply f_equal_max_join_if; try edone.
+all: try intro; try eapply f_equal_max_same_set; try edone.
+all: try rewrite <- RA.
+all: try rewrite <- RLX.
 
 
-
+clear -GSTEP LAB_STEP RFb.
 Admitted.
+Qed.
 
 
 Lemma ax_sim_op :
