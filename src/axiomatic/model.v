@@ -80,7 +80,8 @@ Section Consistency.
 
   Definition c_rel i l' l tm_relation :=  
     m_rel l tm_relation ;;
-    <| fun x => is_write x /\ loc x = Some l' |> ;;
+    <| is_ra |> ;;
+    <| fun x => is_write x /\ loc x = Some l' \/ is_wfence x |> ;;
     <| fun x => thread x = i |>.
 
   Definition c_cur i l tm_relation := 
@@ -92,11 +93,12 @@ Section Consistency.
     m_rel l tm_relation ;; rf ;; <| is_rlx |> ;; <| fun x => thread x = i |>.
 
   Definition S_tm_relation l := 
-    <| fun x => In x acts |> ;; 
     <| fun x => is_write x /\ loc x = Some l |> ;; 
-    clos_refl rf ;; hb ;; <| is_wfence |> ;; <| is_sc |>.
+    <| fun x => In x acts |> ;; 
+    clos_refl rf ;; clos_refl (hb ;; <| is_wfence |>) ;; <| is_sc |>.
 
   Definition S_tm l := dom_rel (S_tm_relation l).
+
 
 (******************************************************************************)
 (** ** Basic properties *)
@@ -592,6 +594,12 @@ Proof. unfold m_rel_sc, m_rel. eauto using rel_actb with actab. Qed.
 Lemma S_tm_relation_acta l : acta (S_tm_relation l).
 Proof. unfold S_tm_relation; eauto with rel. Qed.
 
+Lemma S_tm_relation_actb l : actb (S_tm_relation l).
+Proof. 
+  unfold S_tm_relation; rewrite !inclusion_seq_eqv_r, inclusion_seq_eqv_l, !crE; 
+  rel_simpl. 
+Qed.
+
 
 Definition in_acts (R : event -> Prop) := forall (WF: Wf) a (H: R a), In a acts.
 
@@ -988,6 +996,18 @@ Qed.
 End CoherenceProperties.
 
 End Consistency.
+
+Definition t_rel tm (acts : list event) (sb rmw rf sc : relation event) i l' l :=  
+  dom_rel (c_rel i l' l (tm acts sb rmw rf sc)).
+
+Definition t_cur tm (acts : list event) (sb rmw rf sc : relation event) i l :=  
+  dom_rel (c_cur i l (tm acts sb rmw rf sc)).
+
+Definition t_acq tm (acts : list event) (sb rmw rf sc : relation event) i l :=  
+  dom_rel (c_acq rf i l (tm acts sb rmw rf sc ;; rel acts sb rmw rf)).
+
+Definition msg_rel tm (acts : list event) (sb rmw rf sc : relation event) l :=  
+  m_rel l (tm acts sb rmw rf sc ;; rel acts sb rmw rf).
 
 Require Import Setoid Permutation.
 

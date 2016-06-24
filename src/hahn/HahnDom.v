@@ -63,6 +63,24 @@ Section Lemmas.
   Lemma seq_r_domb : domb r d -> domb r' d -> domb (r ;; clos_refl r') d. 
   Proof. unfold clos_refl, seq; red; ins; desf; eauto. Qed.
 
+  Lemma dom_union x : dom_rel (r +++ r') x <-> dom_rel r x \/ dom_rel r' x.
+  Proof. unfold dom_rel, union; split; ins; desf; eauto. Qed.
+
+  Lemma codom_union x : codom_rel (r +++ r') x <-> codom_rel r x \/ codom_rel r' x.
+  Proof. unfold codom_rel, union; split; ins; desf; eauto. Qed.
+
+  Lemma dom_eqv x : dom_rel <| d |> x <-> d x.
+  Proof. unfold dom_rel, eqv_rel; split; ins; desf; eauto. Qed.
+
+  Lemma codom_eqv x : codom_rel <| d |> x <-> d x.
+  Proof. unfold codom_rel, eqv_rel; split; ins; desf; eauto. Qed.
+
+  Lemma dom_eqv1 x : dom_rel (<| d |> ;; r) x <-> d x /\ dom_rel r x.
+  Proof. unfold dom_rel, seq, eqv_rel; split; ins; desf; eauto. Qed.
+
+  Lemma codom_eqv1 x : codom_rel (r ;; <| d |>) x <-> codom_rel r x /\ d x.
+  Proof. unfold codom_rel, seq, eqv_rel; split; ins; desf; eauto. Qed.
+
 End Lemmas.
 
 End Domains.
@@ -95,3 +113,17 @@ Add Parametric Morphism X : (@domb X) with signature
 Proof.
   by unfold same_relation; split; desc; [rewrite H0|rewrite H]. 
 Qed.
+
+Add Parametric Morphism X : (@dom_rel X) with signature 
+  same_relation  ==> eq ==> iff as dom_rel_more.
+Proof.
+  unfold same_relation; intros; unfold dom_rel; split; ins; desc; eauto.
+Qed. 
+
+Add Parametric Morphism X : (@codom_rel X) with signature 
+  same_relation  ==> eq ==> iff as codom_rel_more.
+Proof.
+  unfold same_relation; intros; unfold codom_rel; split; ins; desc; eauto.
+Qed. 
+
+Hint Rewrite dom_union codom_union dom_eqv codom_eqv dom_eqv1 codom_eqv1 : rel_dom.
