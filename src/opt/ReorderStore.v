@@ -20,6 +20,7 @@ Require Import Configuration.
 Require Import Simulation.
 Require Import Compatibility.
 Require Import MemInv.
+Require Import FulfillStep.
 Require Import Progress.
 Require Import ReorderStep.
 
@@ -58,11 +59,11 @@ Inductive sim_store: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (sc1
     l1 f1 t1 v1 released1 o1 i2 rs
     lc1_src sc1_src mem1_src
     lc1_tgt sc1_tgt mem1_tgt
-    lc2_src sc2_src mem2_src
+    lc2_src sc2_src
     (REORDER: reorder_store l1 v1 o1 i2)
-    (WRITE: Local.write_step lc1_src sc1_src mem1_src l1 f1 t1 (RegFile.eval_value rs v1) Capability.bot released1 o1 lc2_src sc2_src mem2_src Memory.promise_kind_lower)
+    (FULFILL: fulfill_step lc1_src sc1_src l1 f1 t1 (RegFile.eval_value rs v1) Capability.bot released1 o1 lc2_src sc2_src)
     (LOCAL: sim_local lc2_src lc1_tgt)
-    (SC: TimeMap.le sc1_src sc1_tgt)
+    (SC: TimeMap.le sc2_src sc1_tgt)
     (MEMORY: Memory.sim mem1_tgt mem1_src)
     (WF_SRC: Local.wf lc1_src mem1_src)
     (WF_TGT: Local.wf lc1_tgt mem1_tgt)
@@ -135,79 +136,78 @@ Lemma sim_store_step
                      st1_tgt lc1_tgt sc1_tgt mem1_tgt.
 Proof.
   inv SIM. ii.
-  assert (SIM_SRC: Memory.sim mem1_src mem2_src).
-  { inv WRITE. inv WRITE0. inv PROMISE. econs 2; eauto. econs 2. eauto. }
-  exploit Local.write_step_future; eauto. i. des.
-  exploit Local.write_step_sc_acqrel; try apply WRITE; eauto.
-  { inv REORDER; etrans; eauto. }
-  i. subst.
+  exploit fulfill_step_future; eauto; try committac. i. des.
   inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR; inv REORDER); ss.
   - (* promise *)
     exploit Local.promise_step_future; eauto. i. des.
     exploit sim_local_promise; try apply LOCAL0; (try by etrans; eauto); eauto. i. des.
-    exploit reorder_write_promise; try apply WRITE; try apply STEP_SRC; eauto. i. des.
-    exploit Local.promise_step_future; try apply STEP1; eauto. i. des.
+    exploit reorder_fulfill_promise; try apply FULFILL; try apply STEP_SRC; eauto. i. des.
+    exploit Local.promise_step_future; eauto. i. des.
     esplits.
     + eauto.
     + econs 2. econs 1. econs; eauto.
     + auto.
+    + etrans; eauto.
     + auto.
-    + inv LOCAL0. inv STEP1. eapply memory_sim_promise; eauto.
     + right. econs; eauto.
-      * etrans; eauto.
-      * inv LOCAL0. inv STEP1. eapply memory_sim_promise; eauto.
+      eapply Memory.future_closed_timemap; eauto.
   - (* load *)
     exploit sim_local_read; try apply LOCAL0; (try by etrans; eauto); eauto; try refl. i. des.
-    exploit reorder_write_read; try apply WRITE; try apply STEP_SRC; eauto. i. des.
+    exploit reorder_fulfill_read; try apply FULFILL; try apply STEP_SRC; eauto. i. des.
     exploit Local.read_step_future; try apply STEP1; eauto. i. des.
     esplits.
     + econs 2; eauto. econs.
       * econs 2. econs 2; eauto. econs. econs.
       * auto.
-    + econs 2. econs 2. econs 3; eauto. econs. eauto.
-      erewrite RegFile.eq_except_value; eauto.
-      * econs.
-      * symmetry. eauto.
-      * symmetry. apply RegFile.eq_except_singleton.
+    + econs 2. econs 2. econs 3; eauto.
+      * econs. econs.
+      * apply fulfill_write; eauto; try by committac.
+        erewrite RegFile.eq_except_value; eauto.
+        { symmetry. eauto. }
+        { apply RegFile.eq_except_singleton. }
     + auto.
     + auto.
-    + etrans; eauto.
+    + auto.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
-      etrans; eauto.
   - (* store *)
-    exploit sim_local_write; try apply LOCAL0; (try by etrans; eauto); eauto; try refl; committac. i. des.
-    exploit reorder_write_write; try apply WRITE; try apply STEP_SRC; eauto. i. des.
-    exploit Local.write_step_future; try apply STEP1; eauto. i. des.
+    exploit sim_local_write; try apply LOCAL0; eauto; try refl; try by committac. i. des.
+    exploit reorder_fulfill_write; try exact FULFILL; try exact STEP_SRC; eauto; try by committac. i. des.
+    exploit Local.write_step_future; try apply STEP1; eauto; try by committac. i. des.
     esplits.
     + econs 2; eauto. econs.
       * econs 2. econs 3; eauto. econs. econs.
       * auto.
-    + econs 2. econs 2. econs 3; eauto. econs. econs.
+    + econs 2. econs 2. econs 3; eauto.
+      * econs. econs.
+      * apply fulfill_write; eauto; try by committac.
     + auto.
     + etrans; eauto.
-    + auto.
+    + etrans; eauto.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
       etrans; eauto.
   - (* update *)
-    exploit Local.write_step_future; try apply WRITE; eauto. i. des.
+    exploit fulfill_step_future; try apply FULFILL; eauto. i. des.
+    exploit Local.read_step_released; try apply LOCAL1; eauto; try by committac. i. des.
     exploit Local.read_step_future; try apply LOCAL1; eauto. i. des.
     exploit sim_local_read; try apply LOCAL1; (try by etrans; eauto); eauto; try refl. i. des.
     exploit Local.read_step_future; try apply STEP_SRC; eauto. i. des.
-    exploit sim_local_write; try apply LOCAL2; (try by etrans; eauto); eauto; try refl.
-    { inv STEP_SRC. eapply CLOSED2; eauto. }
-    { inv STEP_SRC. eapply CLOSED2; eauto. }
-    { inv LOCAL1. eapply MEM_TGT; eauto. }
+    exploit sim_local_write; try apply LOCAL2; eauto; try refl;
+      try by eapply Local.read_step_released; eauto.
     i. des.
-    hexploit reorder_write_update; try apply STEP_SRC; try apply WRITE; try apply STEP_SRC0; eauto. i. des.
+    hexploit reorder_fulfill_update; try apply FULFILL; try apply STEP_SRC; try apply STEP_SRC0; eauto; try by committac. i. des.
+    exploit Local.read_step_released; try apply STEP1; eauto. i. des.
+    exploit Local.read_step_future; try apply STEP1; eauto. i. des.
+    exploit Local.write_step_future; try apply STEP2; eauto. i. des.
     esplits.
     + econs 2; eauto. econs.
       * econs 2. econs 4; eauto. econs. econs. eauto.
       * auto.
-    + econs 2. econs 2. econs 3; eauto. econs. eauto.
-      erewrite RegFile.eq_except_value; eauto.
-      * econs.
-      * symmetry. eauto.
-      * symmetry. apply RegFile.eq_except_singleton.
+    + econs 2. econs 2. econs 3; eauto.
+      * econs. econs.
+      * apply fulfill_write; eauto; try exact STEP3; try by committac.
+        erewrite RegFile.eq_except_value; eauto.
+        { symmetry. eauto. }
+        { apply RegFile.eq_except_singleton. }
     + auto.
     + etrans; eauto.
     + etrans; eauto.

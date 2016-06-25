@@ -20,6 +20,7 @@ Require Import Configuration.
 Require Import Simulation.
 Require Import Compatibility.
 Require Import MemInv.
+Require Import FulfillStep.
 Require Import Progress.
 Require Import ReorderStep.
 
@@ -64,13 +65,13 @@ Inductive sim_update: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (sc
     lc1_src sc1_src mem1_src
     lc1_tgt sc1_tgt mem1_tgt
     lc2_src
-    lc3_src sc3_src mem3_src
+    lc3_src sc3_src
     (RMW: RegFile.eval_rmw rs rmw1 vr1 = (vret1, vw1))
     (REORDER: reorder_update r1 l1 rmw1 or1 ow1 i2)
     (READ: Local.read_step lc1_src mem1_src l1 from1 vr1 releasedr1 or1 lc2_src)
-    (WRITE: Local.write_step lc2_src sc1_src mem1_src l1 from1 to1 vw1 releasedr1 releasedw1 ow1 lc3_src sc3_src mem3_src Memory.promise_kind_lower)
+    (FULFILL: fulfill_step lc2_src sc1_src l1 from1 to1 vw1 releasedr1 releasedw1 ow1 lc3_src sc3_src)
     (LOCAL: sim_local lc3_src lc1_tgt)
-    (SC: TimeMap.le sc1_src sc1_tgt)
+    (SC: TimeMap.le sc3_src sc1_tgt)
     (MEMORY: Memory.sim mem1_tgt mem1_src)
     (WF_SRC: Local.wf lc1_src mem1_src)
     (WF_TGT: Local.wf lc1_tgt mem1_tgt)
@@ -143,52 +144,57 @@ Lemma sim_update_step
                    st1_tgt lc1_tgt sc1_tgt mem1_tgt.
 Proof.
   inv SIM. ii.
-  assert (SIM_SRC: Memory.sim mem1_src mem3_src).
-  { inv WRITE. inv WRITE0. inv PROMISE. econs 2; eauto. econs 2. eauto. }
+  exploit Local.read_step_released; eauto. i. des.
   exploit Local.read_step_future; eauto. i. des.
-  exploit Local.write_step_future; eauto. i. des.
-  exploit Local.write_step_sc_acqrel; try apply WRITE; eauto.
-  { inv REORDER; etrans; eauto. }
-  i. subst.
+  exploit fulfill_step_future; eauto. i. des.
   inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR; inv REORDER); ss.
   - (* promise *)
     exploit Local.promise_step_future; eauto. i. des.
     exploit sim_local_promise; try apply LOCAL0; (try by etrans; eauto); eauto. i. des.
-    exploit reorder_update_promise; try apply READ; try apply WRITE; try apply STEP_SRC; eauto. i. des.
+    exploit reorder_update_promise; try apply READ; try apply FULFILL; try apply STEP_SRC; eauto.
+    { admit. (* read msg <> promised msg *) }
+    i. des.
     exploit Local.promise_step_future; eauto. i. des.
     esplits.
     + eauto.
     + econs 2. econs 1. econs; eauto.
     + auto.
+    + etrans; eauto.
     + auto.
-    + inv LOCAL0. inv STEP1. eapply memory_sim_promise; eauto.
     + right. econs; eauto.
-      * etrans; eauto.
-      * inv LOCAL0. inv STEP1. eapply memory_sim_promise; eauto.
+      eapply Memory.future_closed_timemap; eauto.
   - (* load *)
     apply RegSet.disjoint_add in REGS. des.
     exploit sim_local_read; try apply LOCAL0; (try by etrans; eauto); eauto; try refl. i. des.
-    exploit reorder_update_read; try apply WRITE; try apply READ; try apply STEP_SRC; eauto. i. des.
+    exploit reorder_update_read; try apply FULFILL; try apply READ; try apply STEP_SRC; eauto. i. des.
+    exploit Local.read_step_future; try exact STEP1; eauto. i. des.
+    exploit Local.read_step_future; try exact STEP2; eauto. i. des.
     esplits.
     + econs 2; eauto. econs.
       * econs 2. econs 2; eauto. econs. econs.
       * auto.
-    + econs 2. econs 2. econs 4; eauto. econs. econs.
-      erewrite RegFile.eq_except_rmw; eauto.
-      * symmetry. eauto.
-      * apply RegFile.eq_except_singleton.
+    + econs 2. econs 2. econs 4; eauto.
+      * econs. econs.
+        erewrite RegFile.eq_except_rmw; eauto.
+        { symmetry. eauto. }
+        { apply RegFile.eq_except_singleton. }
+      * apply fulfill_write; eauto.
     + auto.
-    + etrans; eauto.
-    + etrans; eauto. etrans; eauto.
+    + auto.
+    + auto.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
-      * apply RegFun.add_add. ii. subst. eapply REGS.
-        apply RegSet.Facts.singleton_iff. auto.
-      * etrans; eauto.
+      apply RegFun.add_add. ii. subst. eapply REGS.
+      apply RegSet.Facts.singleton_iff. auto.
   - (* store *)
     guardH ORD2.
     apply RegSet.disjoint_add in REGS. des.
-    exploit sim_local_write; try apply LOCAL0; (try by etrans; eauto); eauto; try refl; try by committac. i. des.
-    hexploit reorder_update_write; try apply READ; try apply WRITE; try apply STEP_SRC; eauto. i. des.
+    exploit sim_local_write; try exact LOCAL0; try exact LOCAL; try exact SC; try exact WF2; try refl; eauto; try by committac. i. des.
+    hexploit reorder_update_write; try apply READ; try apply FULFILL; try apply STEP_SRC; eauto; try by committac.
+    { admit. (* from <> to *) }
+    i. des.
+    exploit Local.write_step_future; try exact STEP1; eauto; try by committac. i. des.
+    exploit Local.read_step_released; try exact STEP2; eauto. i. des.
+    exploit Local.read_step_future; try exact STEP2; eauto; try by committac. i. des.
     esplits.
     + econs 2; eauto. econs.
       * econs 2. econs 3; eauto. econs.
@@ -197,7 +203,9 @@ Proof.
         { econs. }
         { ii. apply RegSet.singleton_spec in LHS. subst. congr. }
       * auto.
-    + econs 2. econs 2. econs 4; eauto. econs. econs. eauto.
+    + econs 2. econs 2. econs 4; eauto.
+      * econs. econs. eauto.
+      * apply fulfill_write; eauto.
     + auto.
     + etrans; eauto.
     + etrans; eauto.
@@ -210,13 +218,17 @@ Proof.
     exploit Local.read_step_future; try apply LOCAL1; eauto. i. des.
     exploit sim_local_read; try apply LOCAL1; (try by etrans; eauto); eauto; try refl. i. des.
     exploit Local.read_step_future; try apply STEP_SRC; eauto. i. des.
-    exploit sim_local_write; try apply LOCAL2; try apply LOCAL0; (try by etrans; eauto); eauto; try refl; try by committac.
-    { inv STEP_SRC. eapply CLOSED2; eauto. }
-    { inv STEP_SRC. eapply CLOSED2; eauto. }
-    { inv LOCAL1. eapply MEM_TGT; eauto. }
+    exploit sim_local_write; try apply LOCAL2; try apply LOCAL0; eauto;
+      try by eapply Local.read_step_released; eauto.
     i. des.
-    hexploit ReorderStep.reorder_update_update;
-      try apply LOC; try apply READ; try apply WRITE; try apply STEP_SRC; try apply STEP_SRC0; eauto. i. des.
+    hexploit ReorderStep.reorder_update_update; try exact FULFILL; try exact READ; try exact STEP_SRC0; eauto.
+    { admit. (* from <> to *) }
+    i. des.
+    exploit Local.read_step_released; try exact STEP1; eauto. i. des.
+    exploit Local.read_step_future; try exact STEP1; eauto. i. des.
+    exploit Local.write_step_future; try exact STEP2; eauto. i. des.
+    exploit Local.read_step_released; try exact STEP3; eauto. i. des.
+    exploit Local.read_step_future; try exact STEP3; eauto. i. des.
     esplits.
     + econs 2; eauto. econs.
       * econs 2. econs 4; eauto. econs. econs.
@@ -224,18 +236,20 @@ Proof.
         { symmetry. apply RegFile.eq_except_singleton. }
         { ii. apply RegSet.singleton_spec in LHS. subst. contradict REGS. apply RegSet.add_spec. auto. }
       * auto.
-    + econs 2. econs 2. econs 4; eauto. econs. econs.
-      erewrite RegFile.eq_except_rmw; cycle 2.
-      * apply RegFile.eq_except_singleton.
-      * eauto.
-      * ii. apply RegSet.singleton_spec in LHS. subst. congr.
+    + econs 2. econs 2. econs 4; eauto.
+      * econs. econs.
+        erewrite RegFile.eq_except_rmw; cycle 2.
+        { apply RegFile.eq_except_singleton. }
+        { eauto. }
+        { ii. apply RegSet.singleton_spec in LHS. subst. congr. }
+      * apply fulfill_write; eauto.
     + auto.
     + etrans; eauto.
     + etrans; eauto.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
       * apply RegFun.add_add. ii. subst. apply REGS. apply RegSet.add_spec. auto.
       * etrans; eauto.
-Qed.
+Admitted.
 
 Lemma sim_update_sim_thread:
   sim_update <8= (sim_thread (sim_terminal eq)).

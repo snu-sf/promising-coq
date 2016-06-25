@@ -63,7 +63,7 @@ Lemma merge_write_read1
 Proof.
   inv STEP. econs; eauto.
   - inv WRITE.
-    hexploit Memory.promise_future; try apply PROMISE; try apply WF0; eauto. i. des.
+    hexploit Memory.promise_future0; try apply PROMISE; try apply WF0; eauto; try by committac. i. des.
     hexploit Memory.promise_get2; eauto.
   - inv WRITABLE. econs; repeat (try condtac; aggrtac); (try by left; eauto).
     + etrans; [|left; eauto]. apply WF0.
@@ -89,7 +89,7 @@ Lemma merge_write_read2
 Proof.
   inv STEP. econs; eauto.
   - inv WRITE.
-    hexploit Memory.promise_future; try apply PROMISE; try apply WF0; eauto. i. des.
+    hexploit Memory.promise_future0; try apply PROMISE; try apply WF0; eauto; try by committac. i. des.
     hexploit Memory.promise_get2; eauto.
   - inv WRITABLE. econs; repeat (try condtac; aggrtac); (try by left; eauto).
     etrans; [|left; eauto]. apply WF0.
@@ -123,14 +123,13 @@ Lemma merge_write_write_relaxed
     <<MEM3: Memory.sim mem3 mem3'>>.
 Proof.
   inv STEP. inv WRITE.
-  exploit Memory.promise_future; try apply PROMISE; try apply WF0; eauto. i. des.
+  exploit Memory.promise_future0 ; try apply PROMISE; try apply WF0; eauto; try by committac. i. des.
   exploit MergeMemory.remove_promise_remove_remove; try apply REMOVE; eauto. i. des.
   esplits.
-  - econs; eauto.
+  - econs; eauto. eapply Local.promise_closed_capability; try apply PROMISE; try apply WF0; eauto.
   - econs; eauto.
     + admit. (* writable *)
     + econs; eauto.
-    + admit. (* released closed *)
     + i. destruct ord; inv ORD; inv H.
   - econs; eauto.
     + admit. (* writable *)
@@ -139,17 +138,6 @@ Proof.
       * admit. (* promsie *)
       * unfold Local.commit at 1 3 4.
         admit. (* remove *)
-    + exploit Memory.promise_future; try apply SPLIT; eauto.
-      { eapply promise_closed_capability; try apply SPLIT; eauto.
-        - eapply Memory.future_closed_timemap; eauto.
-        - eapply Commit.future_closed; eauto. apply WF0.
-        - eapply Memory.future_closed_capability; eauto.
-      }
-      i. des.
-      repeat (try condtac; aggrtac; try apply WF0).
-      * eapply Memory.future_closed_capability; eauto. etrans; eauto.
-      * eapply Memory.future_closed_capability; try apply WF0. etrans; eauto.
-      * eapply Memory.future_closed_capability; try apply WF0. etrans; eauto.
     + i. destruct ord; inv ORD; inv H.
   - repeat (try condtac; aggrtac; try apply WF0).
   - s. econs; ss.
@@ -233,10 +221,12 @@ Lemma merge_write_write_bot
 Proof.
   exploit merge_write_write; try apply TS12; eauto. i. des.
   - exploit Local.promise_step_future; eauto. i. des.
+    exploit Memory.future_closed_capability; eauto. i.
     exploit Local.write_step_future; try apply STEP2; eauto. i. des.
     exploit sim_local_write; try apply STEP3;
       try apply Capability.bot_spec; try refl; eauto; committac.
     { admit. (* write_step's released is wf *) }
+    { admit. (* write_step's released is closed *) }
     i. des.
     esplits; cycle 1; eauto; try (etrans; eauto).
   - inv STEP1.
@@ -244,6 +234,7 @@ Proof.
     exploit sim_local_write; try apply STEP3;
       try apply Capability.bot_spec; try refl; eauto; committac.
     { admit. (* write_step's released is wf *) }
+    { admit. (* write_step's released is closed *) }
     i. des.
     esplits; cycle 1; eauto; try (etrans; eauto).
 Admitted.

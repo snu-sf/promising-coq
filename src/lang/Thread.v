@@ -101,12 +101,11 @@ Module Local.
   .
 
   Inductive write_step (lc1:t) (sc1:TimeMap.t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (releasedm released:Capability.t) (ord:Ordering.t): forall (lc2:t) (sc2:TimeMap.t) (mem2:Memory.t) (kind:Memory.promise_kind), Prop :=
-  | step_write_intro
+  | step_write
       promises2 mem2 kind
-      (RELEASED: released = Capability.join releasedm ((Commit.write_commit lc1.(commit) sc1 loc to ord).(Commit.rel) loc))
+      (RELEASED: released = (Capability.join releasedm ((Commit.write_commit lc1.(commit) sc1 loc to ord).(Commit.rel) loc)))
       (WRITABLE: Commit.writable lc1.(commit) sc1 loc to ord)
       (WRITE: Memory.write lc1.(promises) mem1 loc from to val released promises2 mem2 kind)
-      (CLOSED: Memory.closed_capability released mem2)
       (RELEASE: Ordering.le Ordering.acqrel ord ->
                 lc1.(promises) loc = Cell.bot /\
                 kind = Memory.promise_kind_add):
@@ -141,6 +140,16 @@ Module Local.
     - eapply Memory.future_closed_timemap; eauto.
   Qed.
 
+  Lemma read_step_released
+        lc1 mem1 loc ts val released ord lc2
+        (STEP: Local.read_step lc1 mem1 loc ts val released ord lc2)
+        (MEM: Memory.closed mem1):
+    <<WF: Capability.wf released>> /\
+    <<CLOSED: Memory.closed_capability released mem1>>.
+  Proof.
+    inv STEP. inv MEM. exploit CLOSED; eauto. i. des. auto.
+  Qed.
+
   Lemma read_step_future lc1 mem1 loc ts val released ord lc2
         (STEP: read_step lc1 mem1 loc ts val released ord lc2)
         (WF1: wf lc1 mem1)
@@ -153,8 +162,67 @@ Module Local.
     i. des. econs; eauto.
   Qed.
 
+  Lemma promise_closed_capability
+        promises1 mem1 commit1 sc1 loc from to val releasedm released ord promises2 mem2 kind
+        (PROMISES: Memory.le promises1 mem1)
+        (CLOSED0: Memory.closed_timemap sc1 mem1)
+        (CLOSED1: Memory.closed mem1)
+        (CLOSED2: Commit.closed commit1 mem1)
+        (CLOSED3: Memory.closed_capability releasedm mem1)
+        (PROMISE: Memory.promise promises1 mem1 loc from to val released promises2 mem2 kind):
+    Memory.closed_capability
+      (Capability.join
+         releasedm
+         (Commit.rel (Commit.write_commit commit1 sc1 loc to ord) loc))
+      mem2.
+  Proof.
+    exploit Memory.promise_future0; eauto; try by committac. i. des.
+    repeat (try condtac; committac).
+    - eapply Memory.future_closed_capability; eauto.
+    - eapply Memory.future_closed_capability; eauto. apply CLOSED2.
+    - eapply Memory.future_closed_capability; eauto. apply CLOSED2.
+    - eapply LE_PROMISES2. eapply Memory.promise_get2. apply PROMISE.
+    - econs; committac. eapply Memory.future_closed_timemap; eauto.
+  Qed.
+
+  Lemma write_closed_capability
+        promises1 mem1 commit1 sc1 loc from to val releasedm released ord promises2 mem2 kind
+        (PROMISES: Memory.le promises1 mem1)
+        (CLOSED0: Memory.closed_timemap sc1 mem1)
+        (CLOSED1: Memory.closed mem1)
+        (CLOSED2: Commit.closed commit1 mem1)
+        (CLOSED3: Memory.closed_capability releasedm mem1)
+        (WRITE: Memory.write promises1 mem1 loc from to val released promises2 mem2 kind):
+    Memory.closed_capability
+      (Capability.join
+         releasedm
+         (Commit.rel (Commit.write_commit commit1 sc1 loc to ord) loc))
+      mem2.
+  Proof.
+    inv WRITE. eapply promise_closed_capability; eauto.
+  Qed.
+
+  Lemma write_step_released
+        lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind
+        (WF1: Local.wf lc1 mem1)
+        (SC1: Memory.closed_timemap sc1 mem1)
+        (MEM1: Memory.closed mem1)
+        (REL_WF: Capability.wf releasedm)
+        (REL_CLOSED: Memory.closed_capability releasedm mem1)
+        (STEP: Local.write_step lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind)
+        (MEM: Memory.closed mem1):
+    <<WF: Capability.wf released>> /\
+    <<CLOSED: Memory.closed_capability released mem2>>.
+  Proof.
+    inv STEP. esplits.
+    - repeat (try condtac; committac; try apply WF1).
+    - eapply write_closed_capability; try apply WF1; eauto.
+  Qed.
+
   Lemma write_step_future lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind
         (STEP: write_step lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind)
+        (REL_WF: Capability.wf releasedm)
+        (REL_CLOSED: Memory.closed_capability releasedm mem1)
         (WF1: wf lc1 mem1)
         (SC1: Memory.closed_timemap sc1 mem1)
         (CLOSED1: Memory.closed mem1):
@@ -164,12 +232,13 @@ Module Local.
     <<SC_FUTURE: TimeMap.le sc1 sc2>> /\
     <<MEM_FUTURE: Memory.future mem1 mem2>>.
   Proof.
-    inv WF1. inv STEP. 
-    exploit Memory.write_future; eauto. i. des.
+    exploit write_step_released; eauto. i. des.
+    inv WF1. inv STEP.
+    exploit Memory.write_future; try apply WRITE; eauto. i. des.
+    exploit Memory.write_get2; try apply WRITE; eauto; try by committac. i.
     exploit CommitFacts.write_future; eauto.
     { eapply Commit.future_closed; eauto. }
     { eapply Memory.future_closed_timemap; eauto. }
-    { eapply Memory.write_get2; try apply WRITE; committac. }
     i. des. splits; eauto.
     - econs; ss.
     - apply CommitFacts.write_sc_incr.
@@ -233,9 +302,9 @@ Module Local.
     <<WF: wf lc mem2>>.
   Proof.
     inv WF1. inv DISJOINT1. inversion WF. inv STEP.
-    exploit Memory.write_future; try apply WRITE; eauto. i. des.
+    exploit Memory.write_future0; try apply WRITE; eauto; try by committac. i. des.
     exploit Memory.write_disjoint; try apply WRITE; eauto. i. des.
-    splits; ss. econs ;eauto. eapply Commit.future_closed; eauto.
+    splits; ss. econs; eauto. eapply Commit.future_closed; eauto.
   Qed.
 
   Lemma fence_step_disjoint
@@ -273,7 +342,7 @@ Module Thread.
     }.
 
     Inductive promise_step: forall (e:ThreadEvent.t) (e1 e2:t), Prop :=
-    | promise_promise_intro
+    | promise_step_intro
         st lc1 sc1 mem1
         loc from to val released kind
         lc2 mem2
@@ -396,8 +465,9 @@ Module Thread.
       inv STEP; ss.
       - splits; eauto; refl.
       - exploit Local.read_step_future; eauto. i. splits; ss; refl.
-      - exploit Local.write_step_future; eauto.
+      - exploit Local.write_step_future; eauto; committac.
       - exploit Local.read_step_future; eauto. i.
+        exploit Local.read_step_released; eauto. i. des.
         exploit Local.write_step_future; eauto.
       - exploit Local.fence_step_future; eauto. i. des. splits; ss. refl.
       - exploit Local.fence_step_future; eauto. i. des. splits; ss. refl.
@@ -485,10 +555,11 @@ Module Thread.
       - ss.
       - exploit Local.read_step_future; eauto. i.
         exploit Local.read_step_disjoint; eauto.
-      - exploit Local.write_step_future; eauto. i. des.
+      - exploit Local.write_step_future; eauto; try by committac. i. des.
         exploit Local.write_step_disjoint; eauto.
       - exploit Local.read_step_future; eauto. i.
         exploit Local.read_step_disjoint; eauto. i.
+        exploit Local.read_step_released; eauto. i. des.
         exploit Local.write_step_future; eauto. i. des.
         exploit Local.write_step_disjoint; eauto.
       - exploit Local.fence_step_future; eauto. i.

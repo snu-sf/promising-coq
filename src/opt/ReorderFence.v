@@ -107,7 +107,7 @@ Proof.
     exploit sim_local_write; try apply SC; eauto; try refl; committac.
     { eapply Local.fence_step_future; eauto. }
     i. des.
-    exploit reorder_fence_write; try apply x0; try apply STEP_SRC; eauto. i. des.
+    exploit reorder_fence_write; try apply x0; try apply STEP_SRC; eauto; try by committac. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 3; eauto. econs. econs.
@@ -115,7 +115,7 @@ Proof.
     + econs 2. econs 2. econs 5; eauto. econs. econs.
     + auto.
     + etrans; eauto.
-    + auto.
+    + etrans; eauto.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
       etrans; eauto.
 Qed.

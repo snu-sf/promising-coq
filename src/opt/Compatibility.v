@@ -18,12 +18,14 @@ Require Import Commit.
 Require Import Thread.
 Require Import Configuration.
 Require Import Simulation.
+Require Import FulfillStep.
 Require Import MemInv.
 
 Require Import Syntax.
 Require Import Semantics.
 
 Set Implicit Arguments.
+
 
 Lemma sim_local_cell_bot
       loc lc_src lc_tgt
@@ -132,56 +134,16 @@ Proof.
     + eapply MEM1_TGT. eauto.
 Qed.
 
-Lemma promise_closed_capability
-      promises1 mem1 commit1 sc1 loc from to val releasedm released ord promises2 mem2 kind
-      (PROMISES: Memory.le promises1 mem1)
-      (CLOSED0: Memory.closed_timemap sc1 mem1)
-      (CLOSED1: Memory.closed mem1)
-      (CLOSED2: Commit.closed commit1 mem1)
-      (CLOSED3: Memory.closed_capability releasedm mem1)
-      (PROMISE: Memory.promise promises1 mem1 loc from to val released promises2 mem2 kind):
-  Memory.closed_capability
-    (Capability.join
-       releasedm
-       (Commit.rel (Commit.write_commit commit1 sc1 loc to ord) loc))
-    mem2.
-Proof.
-  exploit Memory.promise_future0; eauto; try by committac. i. des.
-  repeat (try condtac; committac).
-  - eapply Memory.future_closed_capability; eauto.
-  - eapply Memory.future_closed_capability; eauto. apply CLOSED2.
-  - eapply Memory.future_closed_capability; eauto. apply CLOSED2.
-  - eapply LE_PROMISES2. eapply Memory.promise_get2. apply PROMISE.
-  - econs; committac. eapply Memory.future_closed_timemap; eauto.
-Qed.
-
-Lemma write_closed_capability
-      promises1 mem1 commit1 sc1 loc from to val releasedm released ord promises2 mem2 kind
-      (PROMISES: Memory.le promises1 mem1)
-      (CLOSED0: Memory.closed_timemap sc1 mem1)
-      (CLOSED1: Memory.closed mem1)
-      (CLOSED2: Commit.closed commit1 mem1)
-      (CLOSED3: Memory.closed_capability releasedm mem1)
-      (WRITE: Memory.write promises1 mem1 loc from to val released promises2 mem2 kind):
-  Memory.closed_capability
-    (Capability.join
-       releasedm
-       (Commit.rel (Commit.write_commit commit1 sc1 loc to ord) loc))
-    mem2.
-Proof.
-  inv WRITE. eapply promise_closed_capability; eauto.
-Qed.
-
-Lemma sim_local_write
+Lemma sim_local_fulfill
       lc1_src sc1_src mem1_src
       lc1_tgt sc1_tgt mem1_tgt
-      lc2_tgt sc2_tgt mem2_tgt
-      loc from to val releasedm_src releasedm_tgt released_tgt ord kind
+      lc3_tgt sc3_tgt
+      loc from to val releasedm_src releasedm_tgt released_tgt ord
       (RELM_LE: Capability.le releasedm_src releasedm_tgt)
       (RELM_WF: Capability.wf releasedm_src)
       (RELM_CLOSED: Memory.closed_capability releasedm_src mem1_src)
       (WF_RELM_TGT: Capability.wf releasedm_tgt)
-      (STEP_TGT: Local.write_step lc1_tgt sc1_tgt mem1_tgt loc from to val releasedm_tgt released_tgt ord lc2_tgt sc2_tgt mem2_tgt kind)
+      (STEP_TGT: fulfill_step lc1_tgt sc1_tgt loc from to val releasedm_tgt released_tgt ord lc3_tgt sc3_tgt)
       (LOCAL1: sim_local lc1_src lc1_tgt)
       (SC1: TimeMap.le sc1_src sc1_tgt)
       (MEM1: Memory.sim mem1_tgt mem1_src)
@@ -191,12 +153,13 @@ Lemma sim_local_write
       (SC1_TGT: Memory.closed_timemap sc1_tgt mem1_tgt)
       (MEM1_SRC: Memory.closed mem1_src)
       (MEM1_TGT: Memory.closed mem1_tgt):
-  exists released_src lc2_src sc2_src mem2_src,
-    <<STEP_SRC: Local.write_step lc1_src sc1_src mem1_src loc from to val releasedm_src released_src ord lc2_src sc2_src mem2_src kind>> /\
+  exists released_src lc2_src lc3_src sc3_src mem3_src,
+    <<STEP1_SRC: Local.promise_step lc1_src mem1_src loc from to val released_src lc2_src mem3_src Memory.promise_kind_lower>> /\
+    <<STEP2_SRC: fulfill_step lc2_src sc1_src loc from to val releasedm_src released_src ord lc3_src sc3_src>> /\
     <<REL2: Capability.le released_src released_tgt>> /\
-    <<LOCAL2: sim_local lc2_src lc2_tgt>> /\
-    <<SC2: TimeMap.le sc2_src sc2_tgt>> /\
-    <<MEM2: Memory.sim mem2_tgt mem2_src>>.
+    <<LOCAL2: sim_local lc3_src lc3_tgt>> /\
+    <<SC2: TimeMap.le sc3_src sc3_tgt>> /\
+    <<MEM2: Memory.sim mem1_tgt mem3_src>>.
 Proof.
   inv STEP_TGT.
   assert (REL_LE:
@@ -239,23 +202,65 @@ Proof.
            (Commit.write_commit (Local.commit lc1_src) sc1_src loc to
               ord) loc))).
   { repeat (try condtac; committac; try apply WF1_SRC). }
-  exploit MemInv.write; try apply WRITE; eauto.
+  exploit MemInv.remove; try apply REMOVE; eauto.
+  { repeat (try condtac; committac; try apply WF1_TGT). }
   { apply LOCAL1. }
   { apply LOCAL1. }
   { apply WF1_SRC. }
   { apply WF1_TGT. }
   i. des. esplits; eauto.
   - econs; eauto.
-    + eapply CommitFacts.writable_mon; eauto. apply LOCAL1. refl.
-    + eapply write_closed_capability; try apply WRITE_SRC; try apply WF1_SRC; eauto.
-    + i. exploit RELEASE; eauto. i. des.
-      splits; auto. eapply sim_local_cell_bot; eauto.
+    eapply Local.promise_closed_capability; try apply LOWER_SRC; try apply WF1_SRC; eauto.
+  - econs; eauto.
+    eapply CommitFacts.writable_mon; eauto. apply LOCAL1. refl.
   - econs; eauto. s. apply CommitFacts.write_commit_mon; auto.
     + apply LOCAL1.
     + apply WF1_TGT.
     + refl.
   - apply CommitFacts.write_sc_mon; auto. refl.
 Qed.
+
+Lemma sim_local_write
+      lc1_src sc1_src mem1_src
+      lc1_tgt sc1_tgt mem1_tgt
+      lc2_tgt sc2_tgt mem2_tgt
+      loc from to val releasedm_src releasedm_tgt released_tgt ord kind
+      (RELM_LE: Capability.le releasedm_src releasedm_tgt)
+      (RELM_SRC_WF: Capability.wf releasedm_src)
+      (RELM_SRC_CLOSED: Memory.closed_capability releasedm_src mem1_src)
+      (RELM_TGT_WF: Capability.wf releasedm_tgt)
+      (RELM_TGT_CLOSED: Memory.closed_capability releasedm_tgt mem1_tgt)
+      (STEP_TGT: Local.write_step lc1_tgt sc1_tgt mem1_tgt loc from to val releasedm_tgt released_tgt ord lc2_tgt sc2_tgt mem2_tgt kind)
+      (LOCAL1: sim_local lc1_src lc1_tgt)
+      (SC1: TimeMap.le sc1_src sc1_tgt)
+      (MEM1: Memory.sim mem1_tgt mem1_src)
+      (WF1_SRC: Local.wf lc1_src mem1_src)
+      (WF1_TGT: Local.wf lc1_tgt mem1_tgt)
+      (SC1_SRC: Memory.closed_timemap sc1_src mem1_src)
+      (SC1_TGT: Memory.closed_timemap sc1_tgt mem1_tgt)
+      (MEM1_SRC: Memory.closed mem1_src)
+      (MEM1_TGT: Memory.closed mem1_tgt):
+  exists released_src lc2_src sc2_src mem2_src,
+    <<STEP_SRC: Local.write_step lc1_src sc1_src mem1_src loc from to val releasedm_src released_src ord lc2_src sc2_src mem2_src kind>> /\
+    <<REL2: Capability.le released_src released_tgt>> /\
+    <<LOCAL2: sim_local lc2_src lc2_tgt>> /\
+    <<SC2: TimeMap.le sc2_src sc2_tgt>> /\
+    <<MEM2: Memory.sim mem2_tgt mem2_src>>.
+Proof.
+  exploit write_promise_fulfill; eauto. i. des.
+  exploit Local.promise_step_future; eauto. i. des.
+  exploit sim_local_promise; eauto. i. des.
+  exploit Local.promise_step_future; eauto. i. des.
+  exploit sim_local_fulfill; try apply STEP2;
+    try apply LOCAL2; try apply MEM2; eauto.
+  { eapply Memory.future_closed_capability; eauto. }
+  i. des.
+  esplits; eauto.
+  eapply promise_fulfill_write; eauto.
+  - admit. (* promise_kind + promise_lower <= promise_kind *)
+  - i. exploit ORD; eauto. i. des.
+    splits; auto. eapply sim_local_cell_bot; eauto.
+Admitted.
 
 Lemma sim_local_update
       lc1_src sc1_src mem1_src
@@ -288,10 +293,8 @@ Proof.
   exploit Local.read_step_future; eauto. i. des.
   exploit sim_local_read; eauto. i. des.
   exploit Local.read_step_future; eauto. i. des.
-  exploit sim_local_write; eauto.
-  { inv STEP_SRC. eapply MEM1_SRC. eauto. }
-  { inv STEP_SRC. eapply MEM1_SRC. eauto. }
-  { inv STEP1_TGT. eapply MEM1_TGT; eauto. }
+  exploit sim_local_write; eauto;
+    try by eapply Local.read_step_released; eauto.
   i. des. esplits; eauto.
 Qed.
 
@@ -731,10 +734,8 @@ Proof.
       * (* update *)
         inv STATE.
         exploit sim_local_read; eauto; try refl. i. des.
-        exploit sim_local_write; try apply SC; eauto.
-        { inv STEP_SRC. eapply MEM_SRC. eauto. }
-        { inv STEP_SRC. eapply MEM_SRC. eauto. }
-        { inv LOCAL1. ss. eapply MEM_TGT. eauto. }
+        exploit sim_local_write; try apply SC; eauto;
+          try by eapply Local.read_step_released; eauto.
         { eapply Local.read_step_future; eauto. }
         { eapply Local.read_step_future; eauto. }
         i. des.
