@@ -325,52 +325,6 @@ Proof.
     + apply WF1_TGT.
 Qed.
 
-Lemma future_read_step
-      lc1 mem1 mem1' loc ts val released ord lc2
-      (WF: Local.wf lc1 mem1)
-      (MEM: Memory.closed mem1)
-      (FUTURE: Memory.future mem1 mem1')
-      (STEP: Local.read_step lc1 mem1 loc ts val released ord lc2):
-  exists released' lc2',
-    <<STEP: Local.read_step lc1 mem1' loc ts val released' ord lc2'>> /\
-    <<REL: Capability.le released' released>> /\
-    <<LOCAL: sim_local lc2' lc2>>.
-Proof.
-  inv STEP. exploit Memory.future_get; eauto. i. des.
-  esplits.
-  - econs; eauto. eapply CommitFacts.readable_mon; eauto; refl.
-  - auto.
-  - econs; s.
-    + apply CommitFacts.read_commit_mon; auto.
-      * refl.
-      * apply WF.
-      * eapply MEM. eauto.
-      * refl.
-    + apply MemInv.sem_bot.
-    + refl.
-Qed.
-
-Lemma future_fulfill_step
-      lc1 sc1 sc1' loc from to val releasedm releasedm' released ord lc2 sc2
-      (SC: TimeMap.le sc1 sc1')
-      (ORD: Ordering.le ord Ordering.relaxed)
-      (REL_LE: Capability.le releasedm' releasedm)
-      (STEP: fulfill_step lc1 sc1 loc from to val releasedm released ord lc2 sc2):
-  fulfill_step lc1 sc1' loc from to val releasedm' released ord lc2 sc1'.
-Proof.
-  assert (COMMIT: Commit.write_commit (Local.commit lc1) sc1 loc to ord = Commit.write_commit (Local.commit lc1) sc1' loc to ord).
-  { unfold Commit.write_commit. repeat (condtac; committac). }
-  assert (SC_EQ: sc1' = Commit.write_sc sc1' loc to ord).
-  { i. unfold Commit.write_sc. apply TimeMap.antisym; repeat (condtac; aggrtac). }
-  inversion STEP. subst lc2 sc2. esplits.
-  - rewrite COMMIT. rewrite SC_EQ at 3. econs; eauto.
-    + etrans; eauto. apply Capability.join_spec.
-      * rewrite <- Capability.join_l. auto.
-      * rewrite <- Capability.join_r. rewrite COMMIT. refl.
-    + econs; try apply WRITABLE.
-      i. destruct ord; inversion H; inversion ORD.
-Qed.
-
 Definition SIM_REGS := forall (rs_src rs_tgt:RegFile.t), Prop.
 
 Inductive sim_terminal

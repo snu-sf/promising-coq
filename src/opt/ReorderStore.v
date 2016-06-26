@@ -127,7 +127,31 @@ Lemma sim_store_future
     <<SIM2: sim_store st_src lc'_src sc2_src mem2_src
                       st_tgt lc_tgt sc2_tgt mem2_tgt>>.
 Proof.
-Admitted.
+  inv SIM1.
+  exploit fulfill_step_future; eauto; try by committac. i. des.
+  exploit fulfill_step_future; try exact WF_SRC; eauto; try by committac. i. des.
+  exploit future_fulfill_step; try exact FULFILL; eauto; try refl; try by committac.
+  { by inv REORDER. }
+  i. des.
+  exploit sim_local_future; try exact MEM1; eauto.
+  { inv LOCAL. apply MemInv.sem_bot_inv in PROMISES; auto. rewrite <- PROMISES.
+    apply MemInv.sem_bot.
+  }
+  { inv LOCAL. rewrite PROMISES_LE. refl. }
+  i. des. esplits; eauto.
+  - etrans.
+    + apply Memory.max_timemap_spec; eauto. committac.
+    + apply Memory.sim_max_timemap; eauto. committac.
+  - etrans.
+    + apply Memory.max_timemap_spec; eauto. committac.
+    + apply Memory.future_max_timemap; eauto.
+  - apply Memory.max_timemap_closed. committac.
+  - econs; eauto.
+    + etrans.
+      * apply Memory.max_timemap_spec; eauto. committac.
+      * apply Memory.sim_max_timemap; eauto. committac.
+    + apply Memory.max_timemap_closed. committac.
+Qed.
 
 Lemma sim_store_step
       st1_src lc1_src sc1_src mem1_src

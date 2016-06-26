@@ -113,8 +113,18 @@ Proof.
   exploit future_fulfill_step; try exact FULFILL; eauto.
   { by inv REORDER. }
   i. des.
-  
-Admitted.
+  exploit sim_local_fulfill; try apply x0; try exact LOCAL0; try refl;
+    try exact WF0; try by committac.
+  { econs.
+    - apply WF2.
+    - eapply Commit.future_closed; eauto. apply WF2.
+    - inv READ. apply WF_SRC.
+  }
+  i. des.
+  econs; eauto.
+  - etrans; eauto.
+  - etrans; eauto.
+Qed.
 
 Lemma sim_update_future
       st_src lc_src sc1_src mem1_src
@@ -140,7 +150,53 @@ Lemma sim_update_future
     <<SIM2: sim_update st_src lc'_src sc2_src mem2_src
                        st_tgt lc_tgt sc2_tgt mem2_tgt>>.
 Proof.
-Admitted.
+  inv SIM1.
+  exploit Local.read_step_future; eauto. i. des.
+  exploit fulfill_step_future; eauto; try by committac. i. des.
+  exploit future_read_step; try exact READ; eauto. i. des.
+  exploit Local.read_step_future; eauto. i. des.
+  exploit future_fulfill_step; try exact FULFILL; eauto; try refl; try by committac.
+  { by inv REORDER. }
+  i. des.
+  exploit fulfill_step_future; try apply x0; try exact WF1; eauto; try by committac.
+  { econs.
+    - apply WF2.
+    - eapply Commit.future_closed; eauto. apply WF2.
+    - inv READ. apply WF_SRC.
+  }
+  i. des.
+  exploit sim_local_fulfill; try exact x0; try exact LOCAL0; try refl; eauto.
+  { econs.
+    - apply WF2.
+    - eapply Commit.future_closed; eauto. apply WF2.
+    - inv READ. apply WF_SRC.
+  }
+  i. des.
+  exploit fulfill_step_future; eauto. i. des.
+  exploit sim_local_future; try apply MEM1; eauto.
+  { inv LOCAL. apply MemInv.sem_bot_inv in PROMISES; auto. rewrite <- PROMISES.
+    apply MemInv.sem_bot.
+  }
+  { inv LOCAL. rewrite PROMISES_LE. refl. }
+  i. des. esplits.
+  - etrans.
+    + apply Memory.max_timemap_spec; eauto. committac.
+    + apply Memory.sim_max_timemap; eauto. committac.
+  - eauto.
+  - etrans.
+    + apply Memory.max_timemap_spec; eauto. committac.
+    + apply Memory.future_max_timemap; eauto.
+  - auto.
+  - auto.
+  - apply Memory.max_timemap_closed. committac.
+  - auto.
+  - econs; eauto.
+    + etrans; eauto.
+    + etrans.
+      * apply Memory.max_timemap_spec; eauto. committac.
+      * apply Memory.sim_max_timemap; eauto. committac.
+    + apply Memory.max_timemap_closed. committac.
+Qed.
 
 Lemma sim_update_step
       st1_src lc1_src sc1_src mem1_src

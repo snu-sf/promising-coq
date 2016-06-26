@@ -69,6 +69,67 @@ Grab Existential Variables.
   { auto. }
 Qed.
 
+
+Lemma promise_step_promise_step
+      loc from to val released1 released2 kind
+      lc0 mem0
+      lc1 mem1
+      lc2 mem2
+      (PROMISE1: Local.promise_step lc0 mem0 loc from to val released1 lc1 mem1 kind)
+      (PROMISE2: Local.promise_step lc1 mem1 loc from to val released2 lc2 mem2 Memory.promise_kind_lower):
+  Local.promise_step lc0 mem0 loc from to val released2 lc2 mem2 kind.
+Proof.
+  inv PROMISE1. inv PROMISE2. ss.
+  econs; eauto.
+  admit.
+Admitted.
+
+Lemma future_read_step
+      lc1 mem1 mem1' loc ts val released ord lc2
+      (WF: Local.wf lc1 mem1)
+      (MEM: Memory.closed mem1)
+      (FUTURE: Memory.future mem1 mem1')
+      (STEP: Local.read_step lc1 mem1 loc ts val released ord lc2):
+  exists released' lc2',
+    <<STEP: Local.read_step lc1 mem1' loc ts val released' ord lc2'>> /\
+    <<REL: Capability.le released' released>> /\
+    <<LOCAL: sim_local lc2' lc2>>.
+Proof.
+  inv STEP. exploit Memory.future_get; eauto. i. des.
+  esplits.
+  - econs; eauto. eapply CommitFacts.readable_mon; eauto; refl.
+  - auto.
+  - econs; s.
+    + apply CommitFacts.read_commit_mon; auto.
+      * refl.
+      * apply WF.
+      * eapply MEM. eauto.
+      * refl.
+    + apply MemInv.sem_bot.
+    + refl.
+Qed.
+
+Lemma future_fulfill_step
+      lc1 sc1 sc1' loc from to val releasedm releasedm' released ord lc2 sc2
+      (ORD: Ordering.le ord Ordering.relaxed)
+      (REL_LE: Capability.le releasedm' releasedm)
+      (STEP: fulfill_step lc1 sc1 loc from to val releasedm released ord lc2 sc2):
+  fulfill_step lc1 sc1' loc from to val releasedm' released ord lc2 sc1'.
+Proof.
+  assert (COMMIT: Commit.write_commit (Local.commit lc1) sc1 loc to ord = Commit.write_commit (Local.commit lc1) sc1' loc to ord).
+  { unfold Commit.write_commit. repeat (condtac; committac). }
+  assert (SC_EQ: sc1' = Commit.write_sc sc1' loc to ord).
+  { i. unfold Commit.write_sc. apply TimeMap.antisym; repeat (condtac; aggrtac). }
+  inversion STEP. subst lc2 sc2. esplits.
+  - rewrite COMMIT. rewrite SC_EQ at 3. econs; eauto.
+    + etrans; eauto. apply Capability.join_spec.
+      * rewrite <- Capability.join_l. auto.
+      * rewrite <- Capability.join_r. rewrite COMMIT. refl.
+    + econs; try apply WRITABLE.
+      i. destruct ord; inversion H; inversion ORD.
+Qed.
+
+
 Lemma reorder_read_read
       loc1 ts1 val1 released1 ord1
       loc2 ts2 val2 released2 ord2
@@ -159,21 +220,6 @@ Proof.
     + apply MemInv.sem_bot.
     + refl.
 Qed.
-
-(* TODO *)
-Lemma promise_step_promise_step
-      loc from to val released1 released2 kind
-      lc0 mem0
-      lc1 mem1
-      lc2 mem2
-      (PROMISE1: Local.promise_step lc0 mem0 loc from to val released1 lc1 mem1 kind)
-      (PROMISE2: Local.promise_step lc1 mem1 loc from to val released2 lc2 mem2 Memory.promise_kind_lower):
-  Local.promise_step lc0 mem0 loc from to val released2 lc2 mem2 kind.
-Proof.
-  inv PROMISE1. inv PROMISE2. ss.
-  econs; eauto.
-  admit.
-Admitted.
 
 Lemma reorder_read_write
       loc1 ts1 val1 released1 ord1
