@@ -23,7 +23,7 @@ Module ThreadEvent.
   Inductive t :=
   | promise (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:Capability.t)
   | silent
-  | read (loc:Loc.t) (ts:Time.t) (val:Const.t) (ord:Ordering.t)
+  | read (loc:Loc.t) (ts:Time.t) (val:Const.t) (released:Capability.t) (ord:Ordering.t)
   | write (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:Capability.t) (ord:Ordering.t)
   | update (loc:Loc.t) (tsr tsw:Time.t) (valr valw:Const.t) (releasedr releasedw:Capability.t) (ordr ordw:Ordering.t)
   | fence (ordr ordw:Ordering.t)
@@ -36,17 +36,17 @@ Module ThreadEvent.
     | _ => None
     end.
 
-  Definition is_reading (e:t): option (Loc.t * Time.t * Const.t * Ordering.t) :=
+  Definition is_reading (e:t): option (Loc.t * Time.t * Const.t * Capability.t * Ordering.t) :=
     match e with
-    | read loc ts val ord => Some (loc, ts, val, ord)
-    | update loc tsr _ valr _ _ _ ordr _ => Some (loc, tsr, valr, ordr)
+    | read loc ts val released ord => Some (loc, ts, val, released, ord)
+    | update loc tsr _ valr _ releasedr _ ordr _ => Some (loc, tsr, valr, releasedr, ordr)
     | _ => None
     end.
 
-  Definition is_writing (e:t): option (Loc.t * Time.t * Time.t * Const.t * Ordering.t * Capability.t) :=
+  Definition is_writing (e:t): option (Loc.t * Time.t * Time.t * Const.t * Capability.t * Ordering.t) :=
     match e with
-    | write loc from to val released ord => Some (loc, from, to, val, ord, released)
-    | update loc tsr tsw _ valw _ releasedw _ ordw => Some (loc, tsr, tsw, valw, ordw, releasedw)
+    | write loc from to val released ord => Some (loc, from, to, val, released, ord)
+    | update loc tsr tsw _ valw _ releasedw _ ordw => Some (loc, tsr, tsw, valw, releasedw, ordw)
     | _ => None
     end.
 End ThreadEvent.
@@ -370,7 +370,7 @@ Module Thread.
         st2 loc ts val released ord lc2
         (STATE: lang.(Language.step) (Some (ProgramEvent.read loc val ord)) st1 st2)
         (LOCAL: Local.read_step lc1 mem1 loc ts val released ord lc2):
-        program_step (ThreadEvent.read loc ts val ord) (mk st1 lc1 sc1 mem1) (mk st2 lc2 sc1 mem1)
+        program_step (ThreadEvent.read loc ts val released ord) (mk st1 lc1 sc1 mem1) (mk st2 lc2 sc1 mem1)
     | step_write
         st1 lc1 sc1 mem1
         st2 loc from to val released ord lc2 sc2 mem2 kind
