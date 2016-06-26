@@ -379,33 +379,27 @@ Module MemInv.
 
   Lemma remove
         inv
-        loc from to val released_src released_tgt
+        loc from to val released
         promises1_src mem1_src
-        promises1_tgt mem1_tgt promises3_tgt
-        (REL_LE: Capability.le released_src released_tgt)
-        (REL_WF_SRC: Capability.wf released_src)
-        (REL_WF_TGT: Capability.wf released_tgt)
+        promises1_tgt mem1_tgt promises2_tgt
+        (REL_WF: Capability.wf released)
         (TIME: Time.lt from to)
-        (REMOVE_TGT: Memory.remove promises1_tgt loc from to val released_tgt promises3_tgt)
+        (REMOVE_TGT: Memory.remove promises1_tgt loc from to val released promises2_tgt)
         (INV1: sem inv promises1_src promises1_tgt)
         (LE1: Memory.le promises1_tgt promises1_src)
         (SIM1: Memory.sim mem1_tgt mem1_src)
         (LE1_SRC: Memory.le promises1_src mem1_src)
         (LE1_TGT: Memory.le promises1_tgt mem1_tgt):
-    exists promises2_src mem3_src promises3_src,
-      <<LOWER_SRC: Memory.promise promises1_src mem1_src loc from to val released_src promises2_src mem3_src Memory.promise_kind_lower>> /\
-      <<REMOVE_SRC: Memory.remove promises2_src loc from to val released_src promises3_src>> /\
-      <<INV3: sem inv promises3_src promises3_tgt>> /\
-      <<LE3: Memory.le promises3_tgt promises3_src>> /\
-      <<SIM3: Memory.sim mem1_tgt mem3_src>>.
+    exists promises2_src,
+      <<REMOVE_SRC: Memory.remove promises1_src loc from to val released promises2_src>> /\
+      <<INV3: sem inv promises2_src promises2_tgt>> /\
+      <<LE3: Memory.le promises2_tgt promises2_src>>.
   Proof.
     hexploit Memory.remove_future; try apply REMOVE_TGT; eauto. i. des.
     exploit remove_tgt; eauto. i. des.
     exploit remove_src; try apply set_eq; eauto. i. des.
-    exploit remove_promise_remove; try apply REMOVE_SRC; eauto. i. des.
     esplits; eauto.
-    - rewrite unset_set in INV0; auto.
-    - etrans; eauto.
+    rewrite unset_set in INV0; auto.
   Qed.
 
   Lemma write_promise

@@ -137,13 +137,13 @@ Qed.
 Lemma sim_local_fulfill
       lc1_src sc1_src mem1_src
       lc1_tgt sc1_tgt mem1_tgt
-      lc3_tgt sc3_tgt
-      loc from to val releasedm_src releasedm_tgt released_tgt ord
+      lc2_tgt sc2_tgt
+      loc from to val releasedm_src releasedm_tgt released ord
       (RELM_LE: Capability.le releasedm_src releasedm_tgt)
       (RELM_WF: Capability.wf releasedm_src)
       (RELM_CLOSED: Memory.closed_capability releasedm_src mem1_src)
       (WF_RELM_TGT: Capability.wf releasedm_tgt)
-      (STEP_TGT: fulfill_step lc1_tgt sc1_tgt loc from to val releasedm_tgt released_tgt ord lc3_tgt sc3_tgt)
+      (STEP_TGT: fulfill_step lc1_tgt sc1_tgt loc from to val releasedm_tgt released ord lc2_tgt sc2_tgt)
       (LOCAL1: sim_local lc1_src lc1_tgt)
       (SC1: TimeMap.le sc1_src sc1_tgt)
       (MEM1: Memory.sim mem1_tgt mem1_src)
@@ -153,16 +153,13 @@ Lemma sim_local_fulfill
       (SC1_TGT: Memory.closed_timemap sc1_tgt mem1_tgt)
       (MEM1_SRC: Memory.closed mem1_src)
       (MEM1_TGT: Memory.closed mem1_tgt):
-  exists released_src lc2_src lc3_src sc3_src mem3_src,
-    <<STEP1_SRC: Local.promise_step lc1_src mem1_src loc from to val released_src lc2_src mem3_src Memory.promise_kind_lower>> /\
-    <<STEP2_SRC: fulfill_step lc2_src sc1_src loc from to val releasedm_src released_src ord lc3_src sc3_src>> /\
-    <<REL2: Capability.le released_src released_tgt>> /\
-    <<LOCAL2: sim_local lc3_src lc3_tgt>> /\
-    <<SC2: TimeMap.le sc3_src sc3_tgt>> /\
-    <<MEM2: Memory.sim mem1_tgt mem3_src>>.
+  exists lc2_src sc2_src,
+    <<STEP_SRC: fulfill_step lc1_src sc1_src loc from to val releasedm_src released ord lc2_src sc2_src>> /\
+    <<LOCAL2: sim_local lc2_src lc2_tgt>> /\
+    <<SC2: TimeMap.le sc2_src sc2_tgt>>.
 Proof.
   inv STEP_TGT.
-  assert (REL_LE:
+  assert (RELT_LE:
    Capability.le
      (Capability.join releasedm_src
         (Commit.rel
@@ -195,24 +192,22 @@ Proof.
         rewrite <- Capability.join_r.
         econs; try refl. ss.
   }
-  assert (REL_WF:
+  assert (RELT_WF:
    Capability.wf
      (Capability.join releasedm_src
         (Commit.rel
            (Commit.write_commit (Local.commit lc1_src) sc1_src loc to
               ord) loc))).
   { repeat (try condtac; committac; try apply WF1_SRC). }
-  exploit MemInv.remove; try apply REMOVE; eauto.
-  { repeat (try condtac; committac; try apply WF1_TGT). }
+  exploit MemInv.remove; try exact REMOVE; eauto.
   { apply LOCAL1. }
   { apply LOCAL1. }
   { apply WF1_SRC. }
   { apply WF1_TGT. }
-  i. des. esplits; eauto.
+  i. des. esplits.
   - econs; eauto.
-    eapply Local.promise_closed_capability; try apply LOWER_SRC; try apply WF1_SRC; eauto.
-  - econs; eauto.
-    eapply CommitFacts.writable_mon; eauto. apply LOCAL1. refl.
+    + etrans; eauto.
+    + eapply CommitFacts.writable_mon; eauto. apply LOCAL1. refl.
   - econs; eauto. s. apply CommitFacts.write_commit_mon; auto.
     + apply LOCAL1.
     + apply WF1_TGT.
@@ -255,12 +250,12 @@ Proof.
     try apply LOCAL2; try apply MEM2; eauto.
   { eapply Memory.future_closed_capability; eauto. }
   i. des.
-  esplits; eauto.
-  eapply promise_fulfill_write; eauto.
-  - admit. (* promise_kind + promise_lower <= promise_kind *)
-  - i. exploit ORD; eauto. i. des.
+  exploit promise_fulfill_write; try exact STEP_SRC; try exact STEP_SRC0; eauto.
+  { i. exploit ORD; eauto. i. des.
     splits; auto. eapply sim_local_cell_bot; eauto.
-Admitted.
+  }
+  i. des. esplits; eauto. etrans; eauto.
+Qed.
 
 Lemma sim_local_update
       lc1_src sc1_src mem1_src
@@ -355,6 +350,26 @@ Proof.
     + refl.
 Qed.
 
+Lemma future_fulfill_step
+      lc1 sc1 sc1' loc from to val releasedm releasedm' released ord lc2 sc2
+      (SC: TimeMap.le sc1 sc1')
+      (ORD: Ordering.le ord Ordering.relaxed)
+      (REL_LE: Capability.le releasedm' releasedm)
+      (STEP: fulfill_step lc1 sc1 loc from to val releasedm released ord lc2 sc2):
+  fulfill_step lc1 sc1' loc from to val releasedm' released ord lc2 sc1'.
+Proof.
+  assert (COMMIT: Commit.write_commit (Local.commit lc1) sc1 loc to ord = Commit.write_commit (Local.commit lc1) sc1' loc to ord).
+  { unfold Commit.write_commit. repeat (condtac; committac). }
+  assert (SC_EQ: sc1' = Commit.write_sc sc1' loc to ord).
+  { i. unfold Commit.write_sc. apply TimeMap.antisym; repeat (condtac; aggrtac). }
+  inversion STEP. subst lc2 sc2. esplits.
+  - rewrite COMMIT. rewrite SC_EQ at 3. econs; eauto.
+    + etrans; eauto. apply Capability.join_spec.
+      * rewrite <- Capability.join_l. auto.
+      * rewrite <- Capability.join_r. rewrite COMMIT. refl.
+    + econs; try apply WRITABLE.
+      i. destruct ord; inversion H; inversion ORD.
+Qed.
 
 Definition SIM_REGS := forall (rs_src rs_tgt:RegFile.t), Prop.
 
