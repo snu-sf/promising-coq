@@ -1265,66 +1265,6 @@ Module Memory.
     eexists. econs; eauto.
   Qed.
 
-  Lemma add_lower_add
-        mem1 loc from to val released released' mem2
-        (ADD: add mem1 loc from to val released mem2)
-        (REL_LE: Capability.le released' released)
-        (REL_WF: Capability.wf released'):
-    exists mem2', add mem1 loc from to val released' mem2'.
-  Proof.
-    apply add_exists; auto.
-    - inv ADD. inv ADD0. eauto.
-    - inv ADD. inv ADD0. auto.
-  Qed.
-
-  Lemma split_lower_split
-        mem1 loc from to1 to2 val released released' mem2
-        (SPLIT: split mem1 loc from to1 to2 val released mem2)
-        (REL_LE: Capability.le released' released)
-        (REL_WF: Capability.wf released'):
-    exists mem2', split mem1 loc from to1 to2 val released' mem2'.
-  Proof.
-    exploit split_get0; eauto. i. des.
-    eapply split_exists; eauto.
-    - inv SPLIT. inv SPLIT0. auto.
-    - inv SPLIT. inv SPLIT0. auto.
-  Qed.
-
-  Lemma lower_lower_lower
-        mem1 loc from to val released0 released released' mem2
-        (LOWER: lower mem1 loc from to val released0 released mem2)
-        (REL_LE: Capability.le released' released)
-        (REL_WF: Capability.wf released'):
-    exists mem2', lower mem1 loc from to val released0 released' mem2'.
-  Proof.
-    inv LOWER.
-    exploit add_lower_add; eauto. i. des.
-    esplits. econs; eauto.
-    etrans; eauto.
-  Qed.
-
-  Lemma promise_lower_promise
-        promises1 mem1 loc from to val released released' promises2 mem2 kind
-        (PROMISE: promise promises1 mem1 loc from to val released promises2 mem2 kind)
-        (REL_LE: Capability.le released' released)
-        (REL_WF: Capability.wf released'):
-    exists promises2' mem2',
-      promise promises1 mem1 loc from to val released' promises2' mem2' kind.
-  Proof.
-    inv PROMISE.
-    - exploit add_lower_add; try apply PROMISES; eauto. i. des.
-      exploit add_lower_add; try apply MEM; eauto. i. des.
-      esplits. econs; eauto.
-      etrans; eauto. apply REL_LE.
-    - exploit split_lower_split; try apply PROMISES; eauto. i. des.
-      exploit split_lower_split; try apply MEM; eauto. i. des.
-      esplits. econs; eauto.
-      etrans; eauto. apply REL_LE.
-    - exploit lower_lower_lower; try apply PROMISES; eauto. i. des.
-      exploit lower_lower_lower; try apply MEM; eauto. i. des.
-      esplits. econs; eauto.
-  Qed.
-
   Lemma promise_add_exists
         promises1 mem1 loc from to val released mem2
         (LE_PROMISES1: le promises1 mem1)
@@ -1395,20 +1335,6 @@ Module Memory.
       ii. des. subst. exploit lower_get2; eauto. i. congr.
     }
     auto.
-  Qed.
-
-  Lemma write_lower_write
-        promises1 mem1 loc from to val released released' promises2 mem2 kind
-        (WRITE: write promises1 mem1 loc from to val released promises2 mem2 kind)
-        (REL_LE: Capability.le released' released)
-        (REL_WF: Capability.wf released'):
-    exists promises2' mem2',
-      write promises1 mem1 loc from to val released' promises2' mem2' kind.
-  Proof.
-    inv WRITE. exploit promise_lower_promise; eauto. i. des.
-    exploit promise_get2; eauto. i.
-    exploit remove_exists; eauto. i. des.
-    esplits. econs; eauto.
   Qed.
 
   Lemma promise_exists_same

@@ -293,9 +293,8 @@ Proof.
   exploit Local.read_step_future; eauto. i. des.
   exploit sim_local_read; eauto. i. des.
   exploit Local.read_step_future; eauto. i. des.
-  exploit sim_local_write; eauto;
-    try by eapply Local.read_step_released; eauto.
-  i. des. esplits; eauto.
+  exploit sim_local_write; eauto. i. des.
+  esplits; eauto.
 Qed.
 
 Lemma sim_local_fence
@@ -733,12 +732,10 @@ Proof.
         { apply rclo9_step. apply ctx_nil; auto. }
       * (* update *)
         inv STATE.
+        exploit Local.read_step_future; eauto. i. des.
         exploit sim_local_read; eauto; try refl. i. des.
-        exploit sim_local_write; try apply SC; eauto;
-          try by eapply Local.read_step_released; eauto.
-        { eapply Local.read_step_future; eauto. }
-        { eapply Local.read_step_future; eauto. }
-        i. des.
+        exploit Local.read_step_future; eauto. i. des.
+        exploit sim_local_write; try apply SC; eauto. i. des.
         exploit RegFile.eq_except_instr; eauto. i. des.
         esplits; eauto.
         { econs 2. econs 2. econs 4; eauto. s. econs. eauto. }

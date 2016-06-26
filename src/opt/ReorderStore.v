@@ -140,8 +140,8 @@ Proof.
   inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR; inv REORDER); ss.
   - (* promise *)
     exploit Local.promise_step_future; eauto. i. des.
-    exploit sim_local_promise; try apply LOCAL0; (try by etrans; eauto); eauto. i. des.
-    exploit reorder_fulfill_promise; try apply FULFILL; try apply STEP_SRC; eauto. i. des.
+    exploit sim_local_promise; try exact LOCAL0; (try by etrans; eauto); eauto. i. des.
+    exploit reorder_fulfill_promise; try exact FULFILL; try exact STEP_SRC; eauto. i. des.
     exploit Local.promise_step_future; eauto. i. des.
     esplits.
     + eauto.
@@ -152,9 +152,9 @@ Proof.
     + right. econs; eauto.
       eapply Memory.future_closed_timemap; eauto.
   - (* load *)
-    exploit sim_local_read; try apply LOCAL0; (try by etrans; eauto); eauto; try refl. i. des.
-    exploit reorder_fulfill_read; try apply FULFILL; try apply STEP_SRC; eauto. i. des.
-    exploit Local.read_step_future; try apply STEP1; eauto. i. des.
+    exploit sim_local_read; try exact LOCAL0; (try by etrans; eauto); eauto; try refl. i. des.
+    exploit reorder_fulfill_read; try exact FULFILL; try exact STEP_SRC; eauto. i. des.
+    exploit Local.read_step_future; try exact STEP1; eauto. i. des.
     esplits.
     + econs 2; eauto. econs.
       * econs 2. econs 2; eauto. econs. econs.
@@ -170,9 +170,9 @@ Proof.
     + auto.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
   - (* store *)
-    exploit sim_local_write; try apply LOCAL0; eauto; try refl; try by committac. i. des.
+    exploit sim_local_write; try exact LOCAL0; eauto; try refl; try by committac. i. des.
     exploit reorder_fulfill_write; try exact FULFILL; try exact STEP_SRC; eauto; try by committac. i. des.
-    exploit Local.write_step_future; try apply STEP1; eauto; try by committac. i. des.
+    exploit Local.write_step_future; try exact STEP1; eauto; try by committac. i. des.
     esplits.
     + econs 2; eauto. econs.
       * econs 2. econs 3; eauto. econs. econs.
@@ -186,16 +186,12 @@ Proof.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
       etrans; eauto.
   - (* update *)
-    exploit fulfill_step_future; try apply FULFILL; eauto. i. des.
-    exploit Local.read_step_released; try apply LOCAL1; eauto; try by committac. i. des.
-    exploit Local.read_step_future; try apply LOCAL1; eauto. i. des.
-    exploit sim_local_read; try apply LOCAL1; (try by etrans; eauto); eauto; try refl. i. des.
-    exploit Local.read_step_future; try apply STEP_SRC; eauto. i. des.
-    exploit sim_local_write; try apply LOCAL2; eauto; try refl;
-      try by eapply Local.read_step_released; eauto.
-    i. des.
-    hexploit reorder_fulfill_update; try apply FULFILL; try apply STEP_SRC; try apply STEP_SRC0; eauto; try by committac. i. des.
-    exploit Local.read_step_released; try apply STEP1; eauto. i. des.
+    exploit fulfill_step_future; try exact FULFILL; eauto; try by committac. i. des.
+    exploit Local.read_step_future; try exact LOCAL1; eauto; try by committac. i. des.
+    exploit sim_local_read; try exact LOCAL1; (try by etrans; eauto); eauto; try refl. i. des.
+    exploit Local.read_step_future; try exact STEP_SRC; eauto. i. des.
+    exploit sim_local_write; try exact LOCAL2; eauto; try by committac. i. des.
+    hexploit reorder_fulfill_update; try exact FULFILL; try exact STEP_SRC; try exact STEP_SRC0; eauto; try by committac. i. des.
     exploit Local.read_step_future; try apply STEP1; eauto. i. des.
     exploit Local.write_step_future; try apply STEP2; eauto. i. des.
     esplits.

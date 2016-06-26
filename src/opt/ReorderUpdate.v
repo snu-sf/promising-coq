@@ -144,14 +144,13 @@ Lemma sim_update_step
                    st1_tgt lc1_tgt sc1_tgt mem1_tgt.
 Proof.
   inv SIM. ii.
-  exploit Local.read_step_released; eauto. i. des.
   exploit Local.read_step_future; eauto. i. des.
   exploit fulfill_step_future; eauto. i. des.
   inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR; inv REORDER); ss.
   - (* promise *)
     exploit Local.promise_step_future; eauto. i. des.
     exploit sim_local_promise; try apply LOCAL0; (try by etrans; eauto); eauto. i. des.
-    exploit reorder_update_promise; try apply READ; try apply FULFILL; try apply STEP_SRC; eauto.
+    exploit reorder_update_promise; try exact READ; try exact FULFILL; try exact STEP_SRC; eauto.
     { admit. (* read msg <> promised msg *) }
     i. des.
     exploit Local.promise_step_future; eauto. i. des.
@@ -166,7 +165,7 @@ Proof.
   - (* load *)
     apply RegSet.disjoint_add in REGS. des.
     exploit sim_local_read; try apply LOCAL0; (try by etrans; eauto); eauto; try refl. i. des.
-    exploit reorder_update_read; try apply FULFILL; try apply READ; try apply STEP_SRC; eauto. i. des.
+    exploit reorder_update_read; try exact FULFILL; try exact READ; try exact STEP_SRC; eauto. i. des.
     exploit Local.read_step_future; try exact STEP1; eauto. i. des.
     exploit Local.read_step_future; try exact STEP2; eauto. i. des.
     esplits.
@@ -188,12 +187,11 @@ Proof.
   - (* store *)
     guardH ORD2.
     apply RegSet.disjoint_add in REGS. des.
-    exploit sim_local_write; try exact LOCAL0; try exact LOCAL; try exact SC; try exact WF2; try refl; eauto; try by committac. i. des.
-    hexploit reorder_update_write; try apply READ; try apply FULFILL; try apply STEP_SRC; eauto; try by committac.
-    { admit. (* from <> to *) }
+    exploit sim_local_write; try exact LOCAL0; try exact LOCAL; try exact SC; try exact WF0; try refl; eauto; try by committac. i. des.
+    hexploit reorder_update_write; try exact READ; try exact FULFILL; try exact STEP_SRC; eauto; try by committac.
+    { ii. subst. inv FULFILL. eapply Time.lt_strorder. eauto. }
     i. des.
     exploit Local.write_step_future; try exact STEP1; eauto; try by committac. i. des.
-    exploit Local.read_step_released; try exact STEP2; eauto. i. des.
     exploit Local.read_step_future; try exact STEP2; eauto; try by committac. i. des.
     esplits.
     + econs 2; eauto. econs.
@@ -215,19 +213,16 @@ Proof.
     guardH ORDW2.
     apply RegSet.disjoint_add in REGS. des.
     symmetry in REGS0. apply RegSet.disjoint_add in REGS0. des.
-    exploit Local.read_step_future; try apply LOCAL1; eauto. i. des.
-    exploit sim_local_read; try apply LOCAL1; (try by etrans; eauto); eauto; try refl. i. des.
-    exploit Local.read_step_future; try apply STEP_SRC; eauto. i. des.
-    exploit sim_local_write; try apply LOCAL2; try apply LOCAL0; eauto;
-      try by eapply Local.read_step_released; eauto.
-    i. des.
+    exploit fulfill_step_future; try exact FULFILL; eauto; try by committac. i. des.
+    exploit Local.read_step_future; try exact LOCAL1; eauto; try by committac. i. des.
+    exploit sim_local_read; try exact LOCAL1; (try by etrans; eauto); eauto; try refl. i. des.
+    exploit Local.read_step_future; try exact STEP_SRC; eauto. i. des.
+    exploit sim_local_write; try exact LOCAL2; eauto; try by committac. i. des.
     hexploit ReorderStep.reorder_update_update; try exact FULFILL; try exact READ; try exact STEP_SRC0; eauto.
-    { admit. (* from <> to *) }
+    { ii. subst. inv FULFILL. eapply Time.lt_strorder. eauto. }
     i. des.
-    exploit Local.read_step_released; try exact STEP1; eauto. i. des.
     exploit Local.read_step_future; try exact STEP1; eauto. i. des.
     exploit Local.write_step_future; try exact STEP2; eauto. i. des.
-    exploit Local.read_step_released; try exact STEP3; eauto. i. des.
     exploit Local.read_step_future; try exact STEP3; eauto. i. des.
     esplits.
     + econs 2; eauto. econs.

@@ -91,8 +91,9 @@ Lemma write_promise_fulfill
            Local.promises lc0 loc = Cell.bot /\
            kind = Memory.promise_kind_add>>.
 Proof.
+  exploit Local.write_step_future; eauto. i. des.
   inv WRITE. inv WRITE0. esplits; eauto.
-  - econs; eauto. eapply Local.promise_closed_capability; try apply WF0; eauto.
+  - econs; eauto.
   - refine (step_fulfill _ _ _ _ _); auto.
     eapply promise_time_lt. eauto.
 Qed.

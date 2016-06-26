@@ -122,11 +122,12 @@ Lemma merge_write_write_relaxed
     <<SC3: TimeMap.le sc3' sc3>> /\
     <<MEM3: Memory.sim mem3 mem3'>>.
 Proof.
+  exploit Local.write_step_future; eauto. i. des.
   inv STEP. inv WRITE.
   exploit Memory.promise_future0 ; try apply PROMISE; try apply WF0; eauto; try by committac. i. des.
   exploit MergeMemory.remove_promise_remove_remove; try apply REMOVE; eauto. i. des.
   esplits.
-  - econs; eauto. eapply Local.promise_closed_capability; try apply PROMISE; try apply WF0; eauto.
+  - econs; eauto.
   - econs; eauto.
     + admit. (* writable *)
     + econs; eauto.
@@ -224,20 +225,14 @@ Proof.
     exploit Memory.future_closed_capability; eauto. i.
     exploit Local.write_step_future; try apply STEP2; eauto. i. des.
     exploit sim_local_write; try apply STEP3;
-      try apply Capability.bot_spec; try refl; eauto; committac.
-    { admit. (* write_step's released is wf *) }
-    { admit. (* write_step's released is closed *) }
-    i. des.
+      try apply Capability.bot_spec; try refl; eauto; committac. i. des.
     esplits; cycle 1; eauto; try (etrans; eauto).
   - inv STEP1.
     exploit Local.write_step_future; try apply STEP2; eauto. i. des.
     exploit sim_local_write; try apply STEP3;
-      try apply Capability.bot_spec; try refl; eauto; committac.
-    { admit. (* write_step's released is wf *) }
-    { admit. (* write_step's released is closed *) }
-    i. des.
+      try apply Capability.bot_spec; try refl; eauto; committac. i. des.
     esplits; cycle 1; eauto; try (etrans; eauto).
-Admitted.
+Qed.
 
 Lemma merge_fence_fence
       ordr ordw

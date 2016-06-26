@@ -321,6 +321,15 @@ Module CommitFacts.
            | [|- Memory.closed_timemap (TimeMap.singleton _ _) _] =>
              eapply Memory.singleton_closed_timemap; eauto
 
+           | [H1: Memory.closed_capability ?c ?m1,
+              H2: Memory.future ?m1 ?m2 |-
+              Memory.closed_capability ?c ?m2] =>
+             eapply Memory.future_closed_capability; [exact H1|exact H2]
+           | [H1: Memory.closed_timemap ?tm ?m1,
+              H2: Memory.future ?m1 ?m2 |-
+              Memory.closed_timemap ?tm ?m2] =>
+             eapply Memory.future_closed_timemap; [exact H1|exact H2]
+
            | [|- Capability.wf (Capability.join _ _)] =>
              eapply Capability.join_wf; eauto
            | [|- Capability.wf (Capability.singleton_ur _ _)] =>

@@ -13,6 +13,7 @@ Require Import Time.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
+Require Import MemoryFacts.
 Require Import Commit.
 Require Import Thread.
 
@@ -69,14 +70,11 @@ Proof.
 Qed.
 
 Lemma merge_load_load_sim_stmts
-      l
-      r1 o1
-      r2 o2
-      o
-      (O1: Ordering.le o1 o)
-      (O2: Ordering.le o2 o):
+      l o
+      r1
+      r2:
   sim_stmts eq
-            [Stmt.instr (Instr.load r1 l o1); Stmt.instr (Instr.load r2 l o2)]
+            [Stmt.instr (Instr.load r1 l o); Stmt.instr (Instr.load r2 l o)]
             [Stmt.instr (Instr.load r1 l o); Stmt.instr (Instr.assign r2 (Instr.expr_val (Value.reg r1)))]
             eq.
 Proof.
@@ -102,11 +100,8 @@ Proof.
     + econs 2. econs 1. econs. eauto.
     + auto.
   - (* load *)
-    exploit Local.read_step_future; eauto. i. des.
-    exploit merge_read_read; try apply LOCAL0; eauto. i. des.
-    exploit sim_local_read; try apply LOCAL0; try apply O1; eauto. i. des.
-    exploit Local.read_step_future; eauto. i. des.
-    exploit sim_local_read; try apply x1; try apply O2; eauto. i. des.
+    exploit sim_local_read; try exact LOCAL0; eauto; try refl. i. des.
+    exploit merge_read_read; try exact STEP_SRC; eauto. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 2; eauto. econs. econs.
@@ -152,11 +147,8 @@ Proof.
     + econs 2. econs 1. econs. eauto.
     + auto.
   - (* store *)
-    exploit merge_write_read1; eauto. i. des.
-    exploit Local.write_step_future; eauto; try by committac. i. des.
-    exploit sim_local_write; try apply SC; try apply STEP1; eauto; try refl; committac. i. des.
-    exploit Local.write_step_future; eauto; try by committac. i. des.
-    exploit sim_local_read; try apply STEP2; eauto; try refl. i. des.
+    exploit sim_local_write; try exact LOCAL0; try exact SC; eauto; try refl; try by committac. i. des.
+    exploit merge_write_read1; try exact STEP_SRC; eauto. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 3; eauto. econs. econs.
@@ -200,23 +192,12 @@ Proof.
     esplits; try apply SC; eauto.
     econs 2. econs 1; eauto. econs; eauto. eauto.
   - (* store *)
-    assert (FROMTO: Time.lt from to).
-    { (* TODO *)
-      inv LOCAL0. inv WRITE. inv PROMISE.
-      - inv MEM. inv ADD. auto.
-      - inv MEM. inv SPLIT. auto.
-      - inv MEM. inv ADD. inv ADD0. auto.
-    }
-    exploit Time.middle_spec; eauto. i. des.
-    exploit merge_write_write_bot; try apply x0; eauto; committac. i. des.
-    + exploit Local.promise_step_future; eauto. i. des.
-      exploit Local.write_step_future; try apply STEP2; eauto; try by committac. i. des.
-      exploit sim_local_promise; try apply SC; try apply STEP1; eauto; try refl; committac. i. des.
-      exploit Local.promise_step_future; eauto. i. des.
-      exploit sim_local_write; try apply SC; try apply STEP2; eauto; try refl; committac. i. des.
-      exploit Local.write_step_future; eauto; try by committac. i. des.
-      exploit sim_local_write; try apply STEP3; try exact WF3; eauto; try refl; committac. i. des.
-      esplits.
+    exploit Time.middle_spec; eauto.
+    { inv LOCAL0. eapply write_time_lt. eauto. }
+    i. des.
+    exploit sim_local_write; try exact LOCAL0; try exact SC; eauto; try refl; try by committac. i. des.
+    exploit merge_write_write_bot; try exact STEP_SRC; eauto; try by committac. i. des.
+    + esplits.
       * econs 2; [|econs 2; eauto].
         { econs. econs 1. econs; eauto. auto. }
         { econs. econs 2. econs 3; eauto.
@@ -231,12 +212,8 @@ Proof.
         { apply sim_stmts_nil; eauto. etrans; eauto. }
         { ii. inv PR. }
     + inv STEP1.
-      exploit Local.write_step_future; try apply STEP2; eauto; try by committac. i. des.
-      exploit sim_local_write; try apply SC; try apply STEP2; eauto; try refl; committac. i. des.
-      exploit Local.write_step_future; eauto; try by committac. i. des.
-      exploit sim_local_write; try apply STEP3; try exact WF3; eauto; try refl; committac. i. des.
       esplits.
-      * econs 2; eauto. econs. econs 2. econs 3; eauto.
+      * econs 2; eauto. econs. econs 2. econs 3; try exact STEP2; eauto.
         { econs. econs. }
         { auto. }
       * econs 2. econs 2. econs 3; eauto. econs. econs.
@@ -279,28 +256,14 @@ Proof.
     esplits; try apply SC; eauto.
     econs 2. econs 1; eauto. econs; eauto. eauto.
   - (* store *)
-    assert (FROMTO: Time.lt from to).
-    { (* TODO *)
-      inv LOCAL0. inv WRITE. inv PROMISE.
-      - inv MEM. inv ADD. auto.
-      - inv MEM. inv SPLIT. auto.
-      - inv MEM. inv ADD. inv ADD0. auto.
-    }
-    exploit Time.middle_spec; eauto. i. des.
-    exploit merge_write_write; try apply x0; eauto; committac. i. des.
-    + exploit Local.promise_step_future; eauto. i. des.
-      exploit Local.write_step_future; try apply STEP2; eauto; try by committac. i. des.
-      exploit sim_local_promise; try apply SC; try apply STEP1; eauto; try refl; committac. i. des.
-      exploit Local.promise_step_future; eauto; try by committac. i. des.
-      exploit sim_local_write; try apply SC; try apply STEP2; eauto; try refl; committac. i. des.
-      exploit Local.write_step_future; eauto; try by committac. i. des.
-      exploit sim_local_write; try apply STEP3; try exact WF3; eauto; try refl; committac.
-      { admit. (* write_step released wf *) }
-      { admit. (* write_step released closed *) }
-      { admit. (* write_step released wf *) }
-      { admit. (* write_step released closed *) }
-      i. des.
-      esplits.
+    exploit Time.middle_spec; eauto.
+    { inv LOCAL0. eapply MemoryFacts.write_time_lt. eauto. }
+    i. des.
+    exploit sim_local_write; try exact LOCAL0; try exact SC; eauto; try refl; try by committac. i. des.
+    exploit merge_write_write; try exact STEP_SRC; eauto; try by committac. i. des.
+    exploit Local.promise_step_future; eauto. i. des.
+    exploit Local.write_step_future; try apply STEP2; eauto; try by committac. i. des.
+    + esplits.
       * econs 2; [|econs 2; eauto].
         { econs. econs 1. econs; eauto. auto. }
         { econs. econs 2. econs 3; eauto.
@@ -309,7 +272,7 @@ Proof.
         }
       * econs 2. econs 2. econs 4; eauto.
         { econs. econs. s. rewrite ? Const.add_0_r. eauto. }
-        { eapply merge_write_read1; try apply STEP_SRC0; eauto; committac. }
+        { eapply merge_write_read1; try exact STEP2; eauto. }
       * auto.
       * etrans; eauto.
       * etrans; eauto.
@@ -317,41 +280,30 @@ Proof.
         { apply assign_sim_thread; eauto. etrans; eauto. }
         { i. inv PR. }
     + inv STEP1.
-      exploit Local.write_step_future; try apply STEP2; eauto; try by committac. i. des.
-      exploit sim_local_write; try apply SC; try apply STEP2; eauto; try refl; committac. i. des.
-      exploit Local.write_step_future; eauto; try by committac. i. des.
-      exploit sim_local_write; try apply STEP3; try exact WF3; eauto; try refl; committac.
-      { admit. (* write_step released wf *) }
-      { admit. (* write_step released closed *) }
-      { admit. (* write_step released wf *) }
-      { admit. (* write_step released closed *) }
-      i. des.
       esplits.
-      * econs 2; eauto. econs. econs 2. econs 3; eauto.
+      * econs 2; eauto. econs. econs 2. econs 3; try exact STEP2; eauto.
         { econs. econs. }
         { auto. }
       * econs 2. econs 2. econs 4; eauto.
         { econs. econs. s. rewrite ? Const.add_0_r. eauto. }
-        { eapply merge_write_read1; try apply STEP_SRC; eauto; committac. }
+        { eapply merge_write_read1; try apply STEP_SRC; eauto. }
       * auto.
       * etrans; eauto.
       * etrans; eauto.
       * left. eapply paco9_mon.
         { apply assign_sim_thread; eauto. etrans; eauto. }
         { i. inv PR. }
-Admitted.
+Qed.
 
 Lemma merge_update_load_sim_stmts
       l
-      r1 v1 or1 ow1
+      r1 v1 or ow
       r2 or2
-      or
-      (O2_RLX: Ordering.le or2 Ordering.relaxed)
-      (OR1: Ordering.le or1 or)
-      (OR2: Ordering.le or2 or):
+      (OR2: Ordering.le or2 or)
+      (OR2_RLX: Ordering.le or2 Ordering.relaxed):
   sim_stmts eq
-            [Stmt.instr (Instr.update r1 l (Instr.fetch_add v1) or1 ow1); Stmt.instr (Instr.load r2 l or2)]
-            [Stmt.instr (Instr.update r1 l (Instr.fetch_add v1) or ow1); Stmt.instr (Instr.assign r2 r1)]
+            [Stmt.instr (Instr.update r1 l (Instr.fetch_add v1) or ow); Stmt.instr (Instr.load r2 l or2)]
+            [Stmt.instr (Instr.update r1 l (Instr.fetch_add v1) or ow); Stmt.instr (Instr.assign r2 r1)]
             eq.
 Proof.
   pcofix CIH. ii. subst. pfold. ii. splits.
@@ -375,23 +327,21 @@ Proof.
     esplits; try apply SC; eauto.
     econs 2. econs 1; eauto. econs; eauto. eauto.
   - (* update *)
-    exploit Local.read_step_released; eauto. i. des.
     exploit Local.read_step_future; eauto. i. des.
     exploit Local.write_step_future; eauto. i. des.
-    exploit merge_write_read2; try apply LOCAL2; eauto;
-      try by eapply Local.read_step_released; eauto.
+    exploit merge_write_read2; try apply LOCAL2; eauto.
     { i. inv LOCAL1. s. rewrite <- ? Capability.join_r. condtac; committac.
-        by destruct ordr, or2; inv O2_RLX; inv OR2; inv COND.
+        by destruct ordr, or2; inv OR2_RLX; inv OR2; inv COND.
     }
     i. des.
-    exploit sim_local_read; try apply LOCAL1; try apply OR1; eauto. i. des.
-    exploit Local.read_step_released; try exact STEP_SRC; eauto. i. des.
+    exploit sim_local_read; try exact LOCAL1;
+      try match goal with
+          | [|- is_true (Ordering.le _ _)] => refl
+          end; eauto; try refl; try by committac. i. des.
     exploit Local.read_step_future; eauto; try by committac. i. des.
-    hexploit sim_local_write; try apply SC; try apply LOCAL2; eauto;
-      try by eapply Local.read_step_released; eauto.
-    i. des.
+    hexploit sim_local_write; try apply SC; try apply LOCAL2; eauto. i. des.
     exploit Local.write_step_future; try apply STEP_SRC; eauto; try by committac. i. des.
-    exploit sim_local_read; try apply x1; eauto; try refl. i. des.
+    exploit sim_local_read; try exact x0; eauto; try refl. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 4; eauto. econs. econs. eauto.
@@ -437,58 +387,34 @@ Proof.
     esplits; try apply SC; eauto.
     econs 2. econs 1; eauto. econs; eauto. eauto.
   - (* update *)
-    assert (FROMTO: Time.lt tsr tsw).
-    { (* TODO *)
-      inv LOCAL2. inv WRITE. inv PROMISE.
-      - inv MEM. inv ADD. auto.
-      - inv MEM. inv SPLIT. auto.
-      - inv MEM. inv ADD. inv ADD0. auto.
-    }
-    exploit Time.middle_spec; eauto. i. des.
-    exploit Local.read_step_released; eauto. i. des.
-    exploit Local.read_step_future; eauto. i. des.
-    exploit merge_write_write; try apply LOCAL2; eauto; committac;
-      try by eapply Local.read_step_released; eauto.
+    exploit Time.middle_spec; eauto.
+    { inv LOCAL2. eapply write_time_lt. eauto. }
     i. des.
+    exploit Local.read_step_future; eauto. i. des.
+    exploit sim_local_read; try exact LOCAL1;
+      try match goal with
+          | [|- is_true (Ordering.le _ _)] => refl
+          end; eauto; try refl; try by committac. i. des.
+    exploit Local.read_step_future; eauto. i. des.
+    exploit sim_local_write; try exact LOCAL2; try exact SC; eauto. i. des.
+    exploit merge_write_write; try exact STEP_SRC0; eauto. i. des.
     + exploit Local.promise_step_future; eauto. i. des.
-      exploit Local.write_step_future; try apply STEP2; eauto.
-      { eapply Memory.future_closed_capability; eauto. }
-      i. des.
-      exploit sim_local_read; try apply SC; try apply LOCAL1;
-        try match goal with
-            | [|- is_true (Ordering.le _ _)] => refl
-            end; eauto; try refl; committac. i. des.
-      exploit Local.read_step_released; eauto. i. des.
-      exploit Local.read_step_future; eauto. i. des.
-      exploit sim_local_promise; try apply SC; try apply STEP1; eauto; try refl; committac. i. des.
-      exploit reorder_read_promise; try apply STEP_SRC; try apply STEP_SRC0; eauto.
-      { admit. (* tsr <> tsw *) }
-      i. des.
-      exploit Local.promise_step_future; eauto. i. des.
-      exploit Local.read_step_future; eauto. i. des.
-      exploit sim_local_write; try apply STEP2; try exact SC; try exact x4; eauto.
-      { eapply Memory.future_closed_capability; eauto. }
-      { eapply Memory.future_closed_capability; eauto. }
-      i. des.
-      exploit Local.write_step_future; eauto.
-      { eapply Memory.future_closed_capability; eauto. }
-      i. des.
-      exploit sim_local_write; try apply STEP3; try exact LOCAL5; eauto.
-      { admit. (* write_step released wf *) }
-      { admit. (* write_step released closed *) }
-      { admit. (* write_step released wf *) }
-      { admit. (* write_step released closed *) }
+      exploit Local.write_step_future; try apply STEP2; eauto; try by committac. i. des.
+      exploit reorder_read_promise; try exact STEP_SRC; try exact STEP1; eauto.
+      { inv LOCAL2. exploit write_time_lt; eauto. ii. inv H.
+        eapply Time.lt_strorder. eauto.
+      }
       i. des.
       esplits.
       * econs 2; [|econs 2; eauto].
         { econs. econs 1. econs; eauto. auto. }
-        { econs. econs 2. econs 4; try apply STEP4; try apply STEP_SRC1; eauto.
+        { econs. econs 2. econs 4; try exact STEP4; try exact STEP_SRC0; eauto.
           - econs. econs. s. eauto.
           - auto.
         }
-      * econs 2. econs 2. econs 4; try apply STEP_SRC2; eauto.
+      * econs 2. econs 2. econs 4; eauto.
         { econs. econs. s. rewrite ? Const.add_0_r. eauto. }
-        { inv RMW. eapply merge_write_read2; try apply STEP_SRC1; committac.
+        { inv RMW. eapply merge_write_read2; try exact STEP2; committac.
           inv STEP4. s. condtac; committac.
           destruct or2, ordr; inv H; inv OR; inv COND.
         }
@@ -497,34 +423,20 @@ Proof.
       * etrans; eauto.
       * left. eapply paco9_mon.
         { apply assign_sim_thread; eauto.
-          - s. unfold RegFun.find. condtac; [|congr]. auto.
+          - s. unfold RegFun.find. unfold RegFun.add at 4. condtac; [|congr]. auto.
           - etrans; eauto.
         }
         { i. inv PR. }
     + inv STEP1.
-      exploit Local.write_step_future; try apply STEP2; eauto. i. des.
-      exploit sim_local_read; try apply SC; try apply LOCAL1;
-        try match goal with
-            | [|- is_true (Ordering.le _ _)] => refl
-            end; eauto; try refl; committac. i. des.
-      exploit Local.read_step_released; eauto. i. des.
-      exploit Local.read_step_future; eauto. i. des.
-      exploit sim_local_write; try apply STEP2; try exact SC; eauto. i. des.
-      exploit Local.write_step_future; eauto. i. des.
-      exploit sim_local_write; try apply STEP3; eauto.
-      { admit. (* write_step released wf *) }
-      { admit. (* write_step released closed *) }
-      { admit. (* write_step released wf *) }
-      { admit. (* write_step released closed *) }
-      i. des.
+      exploit Local.write_step_future; try apply STEP2; eauto; try by committac. i. des.
       esplits.
       * econs 2; eauto.
-        econs. econs 2. econs 4; try apply STEP4; try apply STEP_SRC0; eauto.
+        econs. econs 2. econs 4; try exact STEP_SRC; try exact STEP2; eauto.
         { econs. econs. s. eauto. }
         { auto. }
-      * econs 2. econs 2. econs 4; try apply STEP_SRC1; eauto.
+      * econs 2. econs 2. econs 4; eauto.
         { econs. econs. s. rewrite ? Const.add_0_r. eauto. }
-        { inv RMW. eapply merge_write_read2; try apply STEP_SRC0; committac.
+        { inv RMW. eapply merge_write_read2; try exact STEP2; committac.
           inv STEP_SRC. s. condtac; committac.
           destruct or2, ordr; inv H; inv OR; inv COND.
         }
@@ -533,22 +445,16 @@ Proof.
       * etrans; eauto.
       * left. eapply paco9_mon.
         { apply assign_sim_thread; eauto.
-          - s. unfold RegFun.find. condtac; [|congr]. auto.
+          - s. unfold RegFun.find. unfold RegFun.add at 4. condtac; [|congr]. auto.
           - etrans; eauto.
         }
         { i. inv PR. }
-Admitted.
+Qed.
 
 Lemma merge_fence_fence_sim_stmts
-      ordr1 ordw1
-      ordr2 ordw2
-      ordr ordw
-      (ORDR1: Ordering.le ordr1 ordr)
-      (ORDR2: Ordering.le ordr2 ordr)
-      (ORDW1: Ordering.le ordw1 ordw)
-      (ORDW2: Ordering.le ordw2 ordw):
+      ordr ordw:
   sim_stmts eq
-            [Stmt.instr (Instr.fence ordr1 ordw1); Stmt.instr (Instr.fence ordr2 ordw2)]
+            [Stmt.instr (Instr.fence ordr ordw); Stmt.instr (Instr.fence ordr ordw)]
             [Stmt.instr (Instr.fence ordr ordw)]
             eq.
 Proof.
@@ -573,12 +479,8 @@ Proof.
     esplits; try apply SC; eauto.
     econs 2. econs 1; eauto. econs; eauto. eauto.
   - (* fence *)
-    exploit merge_fence_fence; try apply LOCAL0; eauto. i. des.
-    exploit sim_local_fence; try apply SC; try apply STEP1; try apply ORDR1; try apply ORDW1; eauto. i. des.
-    exploit sim_local_fence; try apply SC0; try apply STEP2; try apply ORDR2; try apply ORDW2; eauto.
-    { eapply Local.fence_step_future; eauto. }
-    { eapply Local.fence_step_future; eauto. }
-    i. des.
+    exploit sim_local_fence; try exact LOCAL0; try exact SC; eauto; try refl. i. des.
+    exploit merge_fence_fence; try exact STEP_SRC; eauto. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 5; eauto. econs. econs.

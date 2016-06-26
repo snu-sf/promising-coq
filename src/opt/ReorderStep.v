@@ -54,11 +54,9 @@ Proof.
       { apply Memory.closed_capability_bot. apply MEM1. }
       i. des. esplits. econs 3; eauto. econs. econs.
     + hexploit progress_read_step; eauto. i. des.
-      exploit Local.read_step_future; eauto. i.
+      exploit Local.read_step_future; eauto. i. des.
       hexploit progress_write_step; eauto.
       { apply Time.incr_spec. }
-      { inv H. inv MEM1. exploit CLOSED; eauto. i. des. eauto. }
-      { inv H. inv MEM1. exploit CLOSED; eauto. i. des. eauto. }
       { inv H. auto. }
       i. des. esplits. econs 4; eauto. econs. econs. apply surjective_pairing.
     + hexploit progress_fence_step; eauto. i. des.
@@ -148,14 +146,15 @@ Lemma reorder_read_fulfill
     <<RELEASED2: Capability.le released2' released2>>.
 Proof.
   guardH ORD.
+  exploit Local.read_step_future; eauto. i. des.
   inv STEP1. inv STEP2.
-  assert (REL_WF: Capability.wf
+  assert (REL'_WF: Capability.wf
      (Capability.join releasedm2
         (Commit.rel
            (Commit.write_commit (Local.commit lc0)
               sc0 loc2 to2 ord2) loc2))).
   { repeat (try condtac; aggrtac; try apply WF0). }
-  assert (REL_LE: Capability.le
+  assert (REL'_LE: Capability.le
      (Capability.join releasedm2
         (Commit.rel
            (Commit.write_commit (Local.commit lc0)
@@ -165,9 +164,9 @@ Proof.
            (Commit.write_commit
               (Commit.read_commit (Local.commit lc0) loc1 ts1
                  released1 ord1) sc0 loc2 to2 ord2) loc2))).
-  { repeat (try condtac; aggrtac; try apply WF0). eapply MEM0. eauto. }
+  { repeat (try condtac; aggrtac; try apply WF0). }
   exploit remove_promise_remove; try exact REMOVE; eauto; try apply WF0.
-  { repeat (try condtac; aggrtac; try apply WF0). eapply MEM0. eauto. }
+  { repeat (try condtac; aggrtac; try apply WF0). }
   i. des.
   esplits; eauto.
   - econs; eauto. eapply Local.promise_closed_capability; try apply PROMISE; try apply WF0; eauto.
@@ -180,7 +179,7 @@ Proof.
       econs; repeat (try condtac; aggrtac; try apply WF0; eauto; unfold TimeMap.singleton).
         by destruct ord1, ord2; inv H; inv COND; inv ORD.
   - s. econs; s.
-    + apply ReorderCommit.read_write_commit; try apply WF0; auto. eapply MEM0. eauto.
+    + apply ReorderCommit.read_write_commit; try apply WF0; auto.
     + apply MemInv.sem_bot.
     + refl.
 Admitted.
@@ -216,9 +215,7 @@ Proof.
   { ii. inv H. congr. }
   i. des.
   exploit Local.promise_step_future; eauto. i. des.
-  exploit reorder_read_fulfill; try exact STEP5; try exact STEP3; eauto.
-  { eapply Memory.future_closed_capability; eauto. }
-  i. des.
+  exploit reorder_read_fulfill; try exact STEP5; try exact STEP3; eauto; try by committac. i. des.
   esplits; eauto.
   eapply promise_fulfill_write; eauto.
   - admit. (* promise_kind + promise_lower <= promise_kind *)
@@ -257,9 +254,7 @@ Proof.
   exploit Local.read_step_future; try apply STEP2; eauto. i. des.
   exploit reorder_read_read; try apply STEP1; try apply STEP2; eauto; try congr. i. des.
   exploit Local.read_step_future; try apply STEP0; eauto. i. des.
-  hexploit reorder_read_write; try apply STEP4; try apply STEP_SRC; eauto;
-    try by eapply Local.read_step_released; eauto.
-  i. des.
+  hexploit reorder_read_write; try apply STEP4; try apply STEP_SRC; eauto. i. des.
   esplits; eauto.
 Qed.
 
@@ -283,6 +278,7 @@ Lemma reorder_read_fence
     <<LOCAL: sim_local lc2' lc2>> /\
     <<SC: TimeMap.le sc2' sc2>>.
 Proof.
+  exploit Local.read_step_future; eauto. i. des.
   inv STEP1. inv STEP2. ss.
   esplits.
   - econs; eauto.
@@ -292,11 +288,9 @@ Proof.
   - s. econs; s.
     + etrans.
       * apply ReorderCommit.read_write_fence_commit; auto.
-        { eapply CommitFacts.read_fence_future; apply WF0. }
-        { eapply MEM0. eauto. }
+        eapply CommitFacts.read_fence_future; apply WF0.
       * apply CommitFacts.write_fence_commit_mon; try refl.
         apply ReorderCommit.read_read_fence_commit; try apply WF0; auto.
-        eapply MEM0. eauto.
     + apply MemInv.sem_bot.
     + refl.
   - unfold Commit.write_fence_sc, Commit.read_fence_commit.
@@ -466,14 +460,8 @@ Proof.
   exploit Local.promise_step_future; eauto. i. des.
   exploit reorder_fulfill_promise; try apply STEP1; eauto. i. des.
   exploit Local.promise_step_future; eauto. i. des.
-  exploit fulfill_step_future; try apply STEP5; try apply WF3; eauto.
-  { eapply Memory.future_closed_capability; eauto. }
-  { eapply Memory.future_closed_timemap; eauto. }
-  i. des.
-  exploit reorder_fulfill_fulfill; try apply STEP5; eauto.
-  { eapply Memory.future_closed_timemap; eauto. }
-  { eapply Memory.future_closed_capability; eauto. }
-  i. des.
+  exploit fulfill_step_future; try apply STEP5; try apply WF3; eauto; try by committac. i. des.
+  exploit reorder_fulfill_fulfill; try apply STEP5; eauto; try by committac. i. des.
   esplits; eauto. eapply promise_fulfill_write; eauto.
   - admit. (* promise_kind + promise_lower <= promise_kind *)
   - i. exploit ORD; eauto. i. des.
@@ -513,12 +501,8 @@ Proof.
   exploit reorder_fulfill_read; try apply STEP1; try apply STEP2; eauto. i. des.
   exploit Local.read_step_future; try apply STEP0; eauto. i. des.
   exploit fulfill_step_future; try apply STEP4; eauto. i. des.
-  exploit sim_local_write; try apply STEP3; try exact LOCAL; try refl; eauto;
-    try by eapply Local.read_step_released; eauto.
-  i. des.
-  exploit reorder_fulfill_write; try apply STEP4; try apply STEP_SRC; eauto;
-    try by eapply Local.read_step_released; eauto.
-  i. des.
+  exploit sim_local_write; try apply STEP3; try exact LOCAL; try refl; eauto. i. des.
+  exploit reorder_fulfill_write; try apply STEP4; try apply STEP_SRC; eauto. i. des.
   esplits; eauto.
   - etrans; eauto.
   - etrans; eauto.
@@ -549,9 +533,7 @@ Lemma reorder_update_read
     <<STEP3: fulfill_step lc2' sc0 loc1 from2 to2 val2 released1 released2 ord2 lc3 sc2>>.
 Proof.
   exploit Local.read_step_future; try apply STEP1; eauto. i. des.
-  exploit fulfill_step_future; try apply STEP2; eauto;
-    try by eapply Local.read_step_released; eauto.
-  i. des.
+  exploit fulfill_step_future; try apply STEP2; eauto. i. des.
   exploit reorder_fulfill_read; try apply STEP2; try apply STEP3; eauto. i. des.
   exploit Local.read_step_future; try apply STEP0; eauto. i. des.
   exploit reorder_read_read; try apply STEP1; try apply STEP0; eauto; try congr. i. des.
@@ -578,7 +560,6 @@ Lemma reorder_update_promise
     <<STEP2: Local.read_step lc1' mem3 loc1 ts1 val1 released1 ord1 lc2'>> /\
     <<STEP3: fulfill_step lc2' sc0 loc1 from2 to2 val2 released1 released2 ord2 lc3 sc2>>.
 Proof.
-  exploit Local.read_step_released; try apply STEP1; eauto. i. des.
   exploit Local.read_step_future; try apply STEP1; eauto. i. des.
   exploit fulfill_step_future; try apply STEP2; eauto. i. des.
   exploit reorder_fulfill_promise; try apply STEP2; try apply STEP3; eauto. i. des.
@@ -618,40 +599,26 @@ Lemma reorder_update_fulfill
     <<MEM: Memory.sim mem0 mem1'>>.
 Proof.
   guardH ORD3.
-  exploit Local.read_step_released; try apply STEP1; eauto. i. des.
   exploit Local.read_step_future; try apply STEP1; eauto. i. des.
   exploit fulfill_step_future; try apply STEP2; eauto. i. des.
   exploit reorder_fulfill_fulfill; try apply STEP2; try apply STEP3; eauto. i. des.
   exploit Local.promise_step_future; try apply STEP0; eauto. i. des.
-  exploit fulfill_step_future; try exact STEP4; try exact WF1; eauto.
-  { eapply Memory.future_closed_capability; eauto. }
-  { eapply Memory.future_closed_timemap; eauto. }
-  i. des.
+  exploit fulfill_step_future; try exact STEP4; try exact WF3; eauto; try by committac. i. des.
   exploit reorder_read_promise; try apply STEP1; try apply STEP0; eauto; [congr|]. i. des.
   exploit Local.promise_step_future; try apply STEP6; eauto. i. des.
-  exploit reorder_read_fulfill; try apply STEP7; try apply STEP4; eauto.
-  { eapply Memory.future_closed_capability; eauto. }
-  { eapply Memory.future_closed_timemap; eauto. }
-  i. des.
+  exploit reorder_read_fulfill; try apply STEP7; try apply STEP4; eauto; try by committac. i. des.
   exploit Local.promise_step_future; try apply STEP8; eauto. i. des.
-  exploit fulfill_step_future; try exact STEP9; try exact WF5; eauto.
-  { eapply Memory.future_closed_capability; eauto. etrans; eauto. }
-  { eapply Memory.future_closed_timemap; eauto. etrans; eauto. }
-  i. des.
+  generalize FUTURE0. i. rewrite FUTURE1 in FUTURE2.
+  exploit fulfill_step_future; try exact STEP9; try exact WF6; eauto; try by committac. i. des.
   exploit Local.read_step_future; try exact STEP10; eauto. i. des.
-  exploit sim_local_fulfill; try exact STEP5; try exact LOCAL0; try exact WF3; try exact x1; try refl; eauto.
-  { eapply Memory.future_closed_capability; eauto. etrans; eauto. }
-  i. des.
+  exploit sim_local_fulfill; try exact STEP5;
+    try exact LOCAL0; try exact WF4; try exact WF8; try refl; eauto; try by committac. i. des.
   exploit reorder_read_promise; try apply STEP10; try apply STEP1_SRC; eauto.
   { ii. inv H. congr. }
   i. des.
   exploit reorder_fulfill_promise; try apply STEP9; try apply STEP11; eauto. i. des.
-  esplits; cycle 1; eauto.
-  - etrans; eauto.
-  - etrans; eauto.
-  - etrans; eauto.
-  - etrans; eauto.
-  - admit. (* promise_kind + promise_lower <= promise_kind *)
+  esplits; cycle 1; eauto; try by etrans; eauto.
+  admit. (* promise_kind + promise_lower <= promise_kind *)
 Admitted.
 
 Lemma reorder_update_write
@@ -685,7 +652,6 @@ Lemma reorder_update_write
     <<MEM: Memory.sim mem3 mem1'>>.
 Proof.
   guardH ORD3.
-  exploit Local.read_step_released; eauto. i. des.
   exploit Local.read_step_future; eauto. i. des.
   exploit fulfill_step_future; eauto. i. des.
   exploit write_promise_fulfill; eauto. i. des.
@@ -693,15 +659,10 @@ Proof.
   { ii. inv H. congr. }
   i. des.
   exploit Local.promise_step_future; eauto. i. des.
-  hexploit reorder_update_fulfill; try exact STEP6; try exact STEP7; try exact STEP4; eauto.
-  { eapply Memory.future_closed_capability; eauto. }
-  { eapply Memory.future_closed_timemap; eauto. }
-  i. des.
+  hexploit reorder_update_fulfill; try exact STEP6; try exact STEP7; try exact STEP4; eauto; try by committac. i. des.
   exploit Local.promise_step_future; try exact STEP8; eauto. i. des.
-  exploit fulfill_step_future; try exact STEP9; try exact WF3; eauto.
-  { eapply Memory.future_closed_capability; eauto. etrans; eauto. }
-  { eapply Memory.future_closed_timemap; eauto. etrans; eauto. }
-  i. des.
+  generalize FUTURE. i. rewrite FUTURE0 in FUTURE1.
+  exploit fulfill_step_future; try exact STEP9; try exact WF4; eauto; try by committac. i. des.
   esplits; eauto.
   eapply promise_fulfill_write; eauto.
   - admit. (* promise_kind + promise_lower <= promise_kind *)
@@ -744,7 +705,6 @@ Lemma reorder_update_update
 Proof.
   guardH ORD.
   exploit reorder_update_read; try exact STEP2; try exact STEP1; try exact STEP3; eauto. i. des.
-  exploit Local.read_step_released; try exact STEP0; eauto. i. des.
   exploit Local.read_step_future; try exact STEP0; eauto. i. des.
   hexploit reorder_update_write; try exact STEP5; try exact STEP6; try exact STEP4; eauto. i. des.
   esplits; eauto.
@@ -872,10 +832,7 @@ Proof.
   exploit write_promise_fulfill; eauto. i. des.
   exploit reorder_fence_promise; try exact STEP1; try exact STEP0; eauto. i. des.
   exploit Local.promise_step_future; eauto. i. des.
-  exploit reorder_fence_fulfill; try exact STEP5; try exact STEP3; eauto.
-  { eapply Memory.future_closed_timemap; eauto. }
-  { eapply Memory.future_closed_capability; eauto. }
-  i. des.
+  exploit reorder_fence_fulfill; try exact STEP5; try exact STEP3; eauto; try by committac. i. des.
   esplits; eauto.
   eapply promise_fulfill_write; eauto.
   - admit. (* promise_kind + promise_lower <= promise_kind *)

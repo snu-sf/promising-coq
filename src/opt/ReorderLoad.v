@@ -105,7 +105,7 @@ Lemma sim_load_mon
   sim_load st_src lc_src sc2_src mem2_src
            st_tgt lc_tgt sc2_tgt mem2_tgt.
 Proof.
-  inv SIM1. exploit future_read_step; try apply READ; eauto. i. des.
+  inv SIM1. exploit future_read_step; try exact READ; eauto. i. des.
   econs; eauto. etrans; eauto.
 Qed.
 
@@ -134,7 +134,7 @@ Lemma sim_load_future
                      st_tgt lc_tgt sc2_tgt mem2_tgt>>.
 Proof.
   inv SIM1.
-  exploit future_read_step; try apply READ; eauto. i. des.
+  exploit future_read_step; try exact READ; eauto. i. des.
   exploit sim_local_future; try apply MEM1; eauto.
   { inv LOCAL. apply MemInv.sem_bot_inv in PROMISES; auto. rewrite <- PROMISES.
     inv READ. ss. apply MemInv.sem_bot.
@@ -168,13 +168,12 @@ Lemma sim_load_step
                    st1_tgt lc1_tgt sc1_tgt mem1_tgt.
 Proof.
   inv SIM. ii.
+  exploit Local.read_step_future; eauto. i. des.
   inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR; inv REORDER); ss.
   - (* promise *)
     exploit Local.promise_step_future; eauto. i. des.
-    exploit sim_local_promise; (try by etrans; eauto); eauto.
-    { eapply Local.read_step_future; eauto. }
-    i. des.
-    exploit reorder_read_promise; try apply x0; try apply STEP_SRC; eauto.
+    exploit sim_local_promise; eauto. i. des.
+    exploit reorder_read_promise; try exact READ; try exact STEP_SRC; eauto.
     { admit. (* read msg <> promised msg *) }
     i. des.
     exploit Local.promise_step_future; eauto. i. des.
@@ -183,10 +182,8 @@ Proof.
     + eauto.
     + right. econs; eauto.
   - (* load *)
-    exploit sim_local_read; (try by etrans; eauto); eauto; try refl.
-    { eapply Local.read_step_future; eauto. }
-    i. des.
-    exploit reorder_read_read; try apply READ; try apply STEP_SRC; eauto. i. des.
+    exploit sim_local_read; (try by etrans; eauto); eauto; try refl. i. des.
+    exploit reorder_read_read; try exact READ; try exact STEP_SRC; eauto. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 2; eauto. econs. econs.
@@ -201,10 +198,9 @@ Proof.
       * apply RegSet.singleton_spec. eauto.
   - (* store *)
     guardH ORD.
-    exploit sim_local_write; try apply SC; try apply LOCAL1; (try by etrans; eauto); eauto; try refl; committac.
-    { eapply Local.read_step_future; eauto. }
-    i. des.
-    exploit reorder_read_write; try apply STEP; try apply STEP_SRC; eauto; try by committac. i. des.
+    exploit sim_local_write; try exact LOCAL0; try exact SC;
+      try exact WF2; try refl; eauto; try by committac. i. des.
+    exploit reorder_read_write; try exact READ; try exact STEP_SRC; eauto; try by committac. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 3; eauto. econs.
@@ -219,21 +215,13 @@ Proof.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss. etrans; eauto.
   - (* update *)
     guardH ORDW2.
-    exploit Local.read_step_released; try exact LOCAL1; eauto. i. des.
-    exploit sim_local_read; (try by etrans; eauto); eauto; try refl.
-    { eapply Local.read_step_future; eauto. }
-    i. des.
-    exploit reorder_read_read; try apply READ; try apply STEP_SRC; eauto; try congr. i. des.
-    exploit Local.read_step_released; try exact STEP1; eauto. i. des.
-    exploit sim_local_write; try apply SC; try apply LOCAL1; (try by etrans; eauto); eauto.
-    { eapply Local.read_step_future; eauto.
-      eapply Local.read_step_future; eauto.
-    }
-    { eapply Local.read_step_future; eauto. }
-    i. des.
-    exploit reorder_read_write; try apply STEP2; try apply STEP_SRC0; eauto.
-    { eapply Local.read_step_future; eauto. }
-    i. des.
+    exploit Local.read_step_future; try exact LOCAL1; eauto. i. des.
+    exploit sim_local_read; try exact LOCAL1; eauto; try refl. i. des.
+    exploit Local.read_step_future; try exact STEP_SRC; eauto. i. des.
+    exploit sim_local_write; try exact LOCAL2; try exact SC; eauto. i. des.
+    exploit reorder_read_read; try exact READ; try exact STEP_SRC; eauto; try congr. i. des.
+    exploit Local.read_step_future; try exact STEP1; eauto. i. des.
+    exploit reorder_read_write; try exact STEP2; try exact STEP_SRC0; eauto; try congr. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 4; eauto. econs. econs.
@@ -252,10 +240,8 @@ Proof.
         { apply RegSet.add_spec. eauto. }
       * etrans; eauto.
   - (* fence *)
-    exploit sim_local_fence; try apply SC; try apply LOCAL1; (try by etrans; eauto); eauto; try refl.
-    { eapply Local.read_step_future; eauto. }
-    i. des.
-    exploit reorder_read_fence; try apply x0; try apply STEP_SRC; eauto. i. des.
+    exploit sim_local_fence; try exact LOCAL1; try exact SC; eauto; try refl. i. des.
+    exploit reorder_read_fence; try exact READ; try exact STEP_SRC; eauto. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 5; eauto. econs. econs.
