@@ -135,26 +135,3 @@ Proof.
   econs; eauto.
   admit. (* promise_kind + promise_lower <= promise_kind *)
 Admitted.
-
-Lemma promise_fulfill_write_exact
-      lc0 sc0 mem0 loc from to val releasedm released ord lc1 lc2 sc2 mem2 kind
-      (PROMISE: Local.promise_step lc0 mem0 loc from to val released lc1 mem2 kind)
-      (FULFILL: fulfill_step lc1 sc0 loc from to val releasedm released ord lc2 sc2)
-      (REL_WF: Capability.wf releasedm)
-      (REL_CLOSED: Memory.closed_capability releasedm mem0)
-      (REL: released = Capability.join releasedm
-              (Commit.rel
-                (Commit.write_commit (Local.commit lc0) sc0 loc to ord)
-                loc))
-      (ORD: Ordering.le Ordering.acqrel ord -> lc0.(Local.promises) loc = Cell.bot /\
-                                              kind = Memory.promise_kind_add)
-      (WF0: Local.wf lc0 mem0)
-      (SC0: Memory.closed_timemap sc0 mem0)
-      (MEM0: Memory.closed mem0):
-         Local.write_step lc0 sc0 mem0 loc from to val releasedm released ord lc2 sc2 mem2 kind.
-Proof.
-  exploit Local.promise_step_future; eauto. i. des.
-  inv PROMISE. inv FULFILL.
-  refine (Local.step_write _ _ _ _ _); eauto.
-  econs; eauto.
-Qed.

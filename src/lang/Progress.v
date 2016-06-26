@@ -28,7 +28,7 @@ Lemma write_step_promise
 Proof.
   inv STEP. rewrite PROMISES in *. s.
   apply Memory.ext. i. rewrite Memory.bot_get.
-  destruct (Memory.get loc0 ts promises2) as [[]|] eqn:X; auto.
+  destruct (Memory.get loc0 ts promises2) as [[? []]|] eqn:X; auto.
   inv WRITE.
   exploit Memory.remove_get_inv; eauto. i. des.
   exploit Memory.promise_promises_get2; eauto. i. des.
@@ -138,15 +138,15 @@ Proof.
                           LT).
   { apply Memory.ext. i.
     rewrite Memory.singleton_get. repeat condtac; subst.
-    - destruct (Memory.get loc to promises2) as [[]|] eqn:X.
+    - destruct (Memory.get loc to promises2) as [[? []]|] eqn:X.
       + exploit Memory.promise_promises_get2; eauto. i. des; subst; eauto.
         contradict x0. auto.
       + exploit Memory.promise_get2; eauto. i. congr.
-    - destruct (Memory.get loc ts promises2) as [[]|] eqn:X; [|done].
+    - destruct (Memory.get loc ts promises2) as [[? []]|] eqn:X; [|done].
       exploit Memory.promise_promises_get2; eauto. i. des; subst; eauto.
       + congr.
       + rewrite PROMISES1, Memory.bot_get in *. congr.
-    - destruct (Memory.get loc0 ts promises2) as [[]|] eqn:X; [|done].
+    - destruct (Memory.get loc0 ts promises2) as [[? []]|] eqn:X; [|done].
       exploit Memory.promise_promises_get2; eauto. i. des; subst; eauto.
       + congr.
       + rewrite PROMISES1, Memory.bot_get in *. congr.

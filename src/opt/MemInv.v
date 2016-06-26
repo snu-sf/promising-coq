@@ -23,6 +23,88 @@ Require Import Configuration.
 
 Set Implicit Arguments.
 
+  Inductive sim_imm (mem1 mem2:t): Prop :=
+  | sim_imm_split
+      loc from1 to1 to2 val1 released1
+      (UPDATE: split mem1 loc from1 to1 to2 val1 released1 mem2)
+  | sim_imm_lower
+      loc from1 to1 val1 released1 released2
+      (LOWER: lower mem1 loc from1 to1 val1 released1 released2 mem2)
+  .
+
+  Definition sim := rtc sim_imm.
+
+  Lemma sim_future: sim <2= future.
+  Proof.
+    i. induction PR.
+    - econs 1.
+    - econs 2; eauto. inv H.
+      + econs 2; eauto.
+      + econs 3; eauto.
+  Qed.
+
+  Lemma sim_get
+        loc from to val released mem1 mem2
+        (LE: sim mem1 mem2)
+        (GET: get loc to mem1 = Some (from, Message.mk val released)):
+    exists from' released',
+      <<GET: get loc to mem2 = Some (from', Message.mk val released')>> /\
+      <<RELEASED: Capability.le released' released>>.
+  Proof.
+    eapply future_get; eauto. apply sim_future. auto.
+  Qed.
+
+
+  Lemma sim_imm_max_timemap
+        mem1 mem2
+        (INHABITED1: inhabited mem1)
+        (SIM: sim_imm mem1 mem2):
+    TimeMap.le (max_timemap mem2) (max_timemap mem1).
+  Proof.
+    assert (inhabited mem2).
+    { inv SIM.
+      - eapply update_inhabited; eauto.
+      - eapply lower_inhabited; eauto.
+    }
+    apply max_timemap_spec'; auto. i.
+    exploit max_timemap_closed; eauto. i. des.
+    inv SIM.
+    - exploit update_get_inv; eauto. i. des.
+      + inv x4.
+        exploit update_get0; eauto. i. des. destruct msg2.
+        esplits; eauto. inv UPDATE. inv UPDATE0. left. auto.
+      + subst.
+        exploit update_get0; eauto. i. des. destruct msg2.
+        esplits; eauto. refl.
+      + esplits; eauto. refl.
+    - exploit lower_get_inv; eauto. i. des.
+      + inv x4.
+        exploit lower_disjoint; eauto. i. des.
+        esplits; eauto. refl.
+      + esplits; eauto. refl.
+  Qed.
+
+  Lemma sim_max_timemap
+        mem1 mem2
+        (INHABITED1: inhabited mem1)
+        (SIM: sim mem1 mem2):
+    TimeMap.le (max_timemap mem2) (max_timemap mem1).
+  Proof.
+    revert INHABITED1. induction SIM.
+    - refl.
+    - i. rewrite IHSIM.
+      + apply sim_imm_max_timemap; auto.
+      + inv H.
+        * eapply update_inhabited; eauto.
+        * eapply lower_inhabited; eauto.
+  Qed.
+
+
+
+
+
+
+
 Lemma memory_sim_add
       mem1_src mem1_tgt
       mem2_src mem2_tgt
