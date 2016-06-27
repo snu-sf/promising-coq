@@ -59,7 +59,7 @@ Section Consistency.
 (** ** Additional derived relations for simulation *)
 (******************************************************************************)
 
-  Definition rfhbsc := clos_refl rf ;; clos_refl (hb ;; <| is_fence |>) ;; sc.
+  Definition rfhbsc := clos_refl (clos_refl rf ;; hb ;; <| is_fence |>) ;; sc.
 
   Definition urr := 
     <| fun a => In a acts |> ;; clos_refl (rfhbsc ;; <| is_fence |>) ;; clos_refl hb.
@@ -94,10 +94,8 @@ Section Consistency.
     tmr ;; rel.
                              
   Definition S_tmr l := 
-    <| fun x => is_write x /\ loc x = Some l |> ;; <| fun x => In x acts |> ;; 
-    <| is_sc |> +++
     <| fun x => is_write x /\ loc x = Some l |> ;; <| fun x => In x acts |> ;;
-    clos_refl rf ;; hb ;; <| is_fence |> ;; <| is_sc |>.
+    clos_refl (clos_refl rf ;; hb ;; <| is_fence |>) ;; <| is_sc |>.
 
   Definition S_tm l := dom_rel (S_tmr l).
 
@@ -821,9 +819,7 @@ Proof. right; repeat (eexists; splits; eauto); eapply rf_acta; eauto. Qed.
 Lemma S_tm_sc a b c l (S_TM: S_tmr l a b) (SC: sc b c) (WRITE: is_write c) : scr a c.
 Proof.
   red; red; red in S_TM; unfold eqv_rel, seq, union in *; desc; subst; desf.
-    by right; repeat (eexists; splits; eauto).
-  right; exists c; splits; eauto. 
-  red; unfold seq, eqv_rel, clos_refl; eauto 12.
+  by right; repeat (eexists; splits; eauto).
 Qed. 
 
 (******************************************************************************)
@@ -861,7 +857,7 @@ Proof.
     apply rf_domb in RF_INV; eauto.
     by destruct c as [??[]]; simpls; destruct o; ins.
   unfold rfhbsc, seq, clos_refl, eqv_rel in *; desc; subst.
-  assert (sc z2 c).
+  assert (sc z1 c).
     destruct H1; subst; eauto using sc_hb.
   cdes COH; cdes WF; cdes WF_SC.
   desf; eapply Csc; try edone; eauto using hb_trans.
