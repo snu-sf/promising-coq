@@ -15,11 +15,14 @@ Require Import Cell.
 Require Import Memory.
 Require Import Commit.
 Require Import Thread.
-
 Require Import Configuration.
-Require Import Simulation.
+
+Require Import SimMemory.
+Require Import SimPromises.
+Require Import SimLocal.
 Require Import Compatibility.
-Require Import MemInv.
+Require Import Simulation.
+
 Require Import ReorderStep.
 
 Require Import Syntax.
@@ -44,7 +47,7 @@ Inductive sim_fence: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (sc1
     lc1_tgt sc1_tgt mem1_tgt
     lc2_src sc2_src
     (REORDER: reorder_fence or1 ow1 i2)
-    (FENCE: Local.fence_step lc1_src sc1_src mem1_src or1 ow1 lc2_src sc2_src)
+    (FENCE: Local.fence_step lc1_src sc1_src or1 ow1 lc2_src sc2_src)
     (LOCAL: sim_local lc2_src lc1_tgt):
     sim_fence
       (State.mk rs [Stmt.instr i2; Stmt.instr (Instr.fence or1 ow1)]) lc1_src sc1_src mem1_src
@@ -55,8 +58,8 @@ Lemma future_fence_step lc1 sc1 sc1' mem1 mem1' ordr ordw lc2 sc2
       (ORDW: Ordering.le ordw Ordering.acqrel)
       (SC_FUTURE: TimeMap.le sc1 sc1')
       (MEM_FUTURE: Memory.future mem1 mem1')
-      (STEP: Local.fence_step lc1 sc1 mem1 ordr ordw lc2 sc2):
-  Local.fence_step lc1 sc1' mem1' ordr ordw lc2 sc1'.
+      (STEP: Local.fence_step lc1 sc1 ordr ordw lc2 sc2):
+  Local.fence_step lc1 sc1' ordr ordw lc2 sc1'.
 Proof.
   inv STEP.
   erewrite CommitFacts.write_fence_commit_acqrel; auto.
@@ -72,7 +75,7 @@ Lemma sim_fence_step
   forall sc1_src sc1_tgt
     mem1_src mem1_tgt
     (SC: TimeMap.le sc1_src sc1_tgt)
-    (MEMORY: Memory.sim mem1_tgt mem1_src)
+    (MEMORY: sim_memory mem1_src mem1_tgt)
     (SC_FUTURE_SRC: TimeMap.le sc0_src sc1_src)
     (SC_FUTURE_TGT: TimeMap.le sc0_tgt sc1_tgt)
     (MEM_FUTURE_SRC: Memory.future mem0_src mem1_src)
@@ -126,27 +129,26 @@ Proof.
   pcofix CIH. i. pfold. ii. ss. splits; ss.
   - i. inv TERMINAL_TGT. inv PR; ss.
   - i. inv PR. exploit sim_local_future; try apply LOCAL; eauto.
-    { eapply Local.fence_step_future; eauto.
-      eapply future_fence_step; eauto.
+    { eapply Local.fence_step_future; try exact SC_SRC; eauto.
+      eapply future_fence_step; try apply FENCE; eauto.
       inv REORDER. etrans; eauto.
     }
-    { eapply Local.fence_step_future; eauto.
+    { eapply Local.fence_step_future; try apply SC_SRC0; eauto.
       eapply future_fence_step; try apply FENCE; eauto.
       - inv REORDER. etrans; eauto.
-      - etrans; eauto.
       - etrans; eauto.
     }
     i. des. esplits; eauto.
     + etrans.
       * apply Memory.max_timemap_spec; eauto. committac.
-      * apply Memory.sim_max_timemap; eauto. committac.
+      * apply sim_memory_max_timemap; eauto.
     + etrans.
       * apply Memory.max_timemap_spec; eauto. committac.
       * apply Memory.future_max_timemap; eauto.
     + apply Memory.max_timemap_closed. committac.
   - i. esplits; eauto.
     inv PR. inversion FENCE. subst lc2_src. inversion LOCAL. ss.
-    apply MemInv.sem_bot_inv in PROMISES; auto. rewrite PROMISES. auto.
+    apply SimPromises.sem_bot_inv in PROMISES; auto. rewrite PROMISES. auto.
   - ii. exploit sim_fence_step; try apply PR; try apply SC; eauto. i. des.
     + esplits; eauto.
       left. eapply paco9_mon; eauto. ss.

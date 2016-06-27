@@ -15,11 +15,11 @@ Require Import Cell.
 Require Import Memory.
 Require Import Commit.
 Require Import Thread.
-
 Require Import Configuration.
-Require Import Simulation.
+
+Require Import SimPromises.
 Require Import Compatibility.
-Require Import MemInv.
+Require Import Simulation.
 
 Require Import Syntax.
 Require Import Semantics.

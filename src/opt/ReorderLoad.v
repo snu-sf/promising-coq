@@ -15,11 +15,14 @@ Require Import Cell.
 Require Import Memory.
 Require Import Commit.
 Require Import Thread.
-
 Require Import Configuration.
-Require Import Simulation.
+
+Require Import SimMemory.
+Require Import SimPromises.
+Require Import SimLocal.
 Require Import Compatibility.
-Require Import MemInv.
+Require Import Simulation.
+
 Require Import ReorderStep.
 
 Require Import Syntax.
@@ -71,7 +74,7 @@ Inductive sim_load: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (sc1_
     (READ: Local.read_step lc1_src mem1_src l1 ts1 v1 released1 o1 lc2_src)
     (LOCAL: sim_local lc2_src lc1_tgt)
     (SC: TimeMap.le sc1_src sc1_tgt)
-    (MEMORY: Memory.sim mem1_tgt mem1_src)
+    (MEMORY: sim_memory mem1_src mem1_tgt)
     (WF_SRC: Local.wf lc1_src mem1_src)
     (WF_TGT: Local.wf lc1_tgt mem1_tgt)
     (SC_SRC: Memory.closed_timemap sc1_src mem1_src)
@@ -95,7 +98,7 @@ Lemma sim_load_mon
       (MEM_FUTURE_SRC: Memory.future mem1_src mem2_src)
       (MEM_FUTURE_TGT: Memory.future mem1_tgt mem2_tgt)
       (SC1: TimeMap.le sc2_src sc2_tgt)
-      (MEM1: Memory.sim mem2_tgt mem2_src)
+      (MEM1: sim_memory mem2_src mem2_tgt)
       (WF_SRC: Local.wf lc_src mem2_src)
       (WF_TGT: Local.wf lc_tgt mem2_tgt)
       (SC_SRC: Memory.closed_timemap sc2_src mem2_src)
@@ -114,7 +117,7 @@ Lemma sim_load_future
       st_tgt lc_tgt sc1_tgt mem1_tgt
       sc2_src mem2_src
       (SC1: TimeMap.le sc1_src sc1_tgt)
-      (MEM1: Memory.sim mem1_tgt mem1_src)
+      (MEM1: sim_memory mem1_src mem1_tgt)
       (SIM1: sim_load st_src lc_src sc1_src mem1_src
                       st_tgt lc_tgt sc1_tgt mem1_tgt)
       (SC_FUTURE_SRC: TimeMap.le sc1_src sc2_src)
@@ -124,7 +127,7 @@ Lemma sim_load_future
       (MEM_SRC: Memory.closed mem2_src):
   exists lc'_src sc2_tgt mem2_tgt,
     <<SC2: TimeMap.le sc2_src sc2_tgt>> /\
-    <<MEM2: Memory.sim mem2_tgt mem2_src>> /\
+    <<MEM2: sim_memory mem2_src mem2_tgt>> /\
     <<SC_FUTURE_TGT: TimeMap.le sc1_tgt sc2_tgt>> /\
     <<MEM_FUTURE_TGT: Memory.future mem1_tgt mem2_tgt>> /\
     <<WF_TGT: Local.wf lc_tgt mem2_tgt>> /\
@@ -136,16 +139,13 @@ Proof.
   inv SIM1.
   exploit future_read_step; try exact READ; eauto. i. des.
   exploit sim_local_future; try apply MEM1; eauto.
-  { inv LOCAL. apply MemInv.sem_bot_inv in PROMISES; auto. rewrite <- PROMISES.
-    inv READ. ss. apply MemInv.sem_bot.
-  }
-  { inv LOCAL. rewrite PROMISES_LE.
-    inv READ. ss.
+  { inv LOCAL. apply SimPromises.sem_bot_inv in PROMISES; auto. rewrite <- PROMISES.
+    inv READ. ss. apply SimPromises.sem_bot.
   }
   i. des. esplits; eauto.
   - etrans.
     + apply Memory.max_timemap_spec; eauto. committac.
-    + apply Memory.sim_max_timemap; eauto. committac.
+    + apply sim_memory_max_timemap; eauto.
   - etrans.
     + apply Memory.max_timemap_spec; eauto. committac.
     + apply Memory.future_max_timemap; eauto.
@@ -154,7 +154,7 @@ Proof.
     + etrans; eauto.
     + etrans.
       * apply Memory.max_timemap_spec; eauto. committac.
-      * apply Memory.sim_max_timemap; eauto. committac.
+      * apply sim_memory_max_timemap; eauto.
     + apply Memory.max_timemap_closed. committac.
 Qed.
 
@@ -264,7 +264,7 @@ Proof.
     esplits; eauto.
   - esplits; eauto.
     inv PR. inv READ. inv LOCAL. ss.
-    apply MemInv.sem_bot_inv in PROMISES; auto. rewrite PROMISES. auto.
+    apply SimPromises.sem_bot_inv in PROMISES; auto. rewrite PROMISES. auto.
   - exploit sim_load_mon; eauto. i. des.
     exploit sim_load_step; eauto. i. des.
     + esplits; eauto.

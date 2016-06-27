@@ -1,5 +1,3 @@
-Require Import RelationClasses.
-
 Require Import sflib.
 Require Import paco.
 
@@ -13,7 +11,10 @@ Require Import Memory.
 Require Import Commit.
 Require Import Thread.
 Require Import Configuration.
-Require Import MemInv.
+
+Require Import SimMemory.
+Require Import SimPromises.
+Require Import SimLocal.
 
 Set Implicit Arguments.
 
@@ -23,26 +24,6 @@ Section SimulationLocal.
 
   Definition SIM_TERMINAL :=
     forall (st_src:lang_src.(Language.state)) (st_tgt:lang_tgt.(Language.state)), Prop.
-
-  Definition SIM_LOCAL := forall (lc_src lc_tgt:Local.t), Prop.
-
-  Inductive sim_local (lc_src lc_tgt:Local.t): Prop :=
-  | sim_local_intro
-      (COMMIT: Commit.le lc_src.(Local.commit) lc_tgt.(Local.commit))
-      (PROMISES: MemInv.sem MemInv.bot lc_src.(Local.promises) lc_tgt.(Local.promises))
-      (PROMISES_LE: Memory.le lc_tgt.(Local.promises) lc_src.(Local.promises))
-  .
-
-  Global Program Instance sim_local_PreOrder: PreOrder sim_local.
-  Next Obligation.
-    econs; try refl. apply MemInv.sem_bot.
-  Qed.
-  Next Obligation.
-    ii. inv H. inv H0. econs; try etrans; eauto.
-    apply MemInv.sem_bot_inv in PROMISES; auto.
-    apply MemInv.sem_bot_inv in PROMISES0; auto.
-    rewrite PROMISES, PROMISES0. apply MemInv.sem_bot.
-  Qed.
 
   Definition SIM_THREAD :=
     forall (sim_terminal: SIM_TERMINAL)
@@ -68,7 +49,7 @@ Section SimulationLocal.
                                   (Thread.mk _ st3_src lc3_src sc3_src mem3_src)>> /\
       <<EVENT: ThreadEvent.get_event e_src = ThreadEvent.get_event e_tgt>> /\
       <<SC3: TimeMap.le sc3_src sc3_tgt>> /\
-      <<MEMORY3: Memory.sim mem3_tgt mem3_src>> /\
+      <<MEMORY3: sim_memory mem3_src mem3_tgt>> /\
       <<SIM: sim_thread st3_src lc3_src sc3_src mem3_src st3_tgt lc3_tgt sc3_tgt mem3_tgt>>.
 
   Definition _sim_thread
@@ -79,7 +60,7 @@ Section SimulationLocal.
     forall sc1_src mem1_src
       sc1_tgt mem1_tgt
       (SC: TimeMap.le sc1_src sc1_tgt)
-      (MEMORY: Memory.sim mem1_tgt mem1_src)
+      (MEMORY: sim_memory mem1_src mem1_tgt)
       (SC_FUTURE_SRC: TimeMap.le sc0_src sc1_src)
       (SC_FUTURE_TGT: TimeMap.le sc0_tgt sc1_tgt)
       (MEM_FUTURE_SRC: Memory.future mem0_src mem1_src)
@@ -97,7 +78,7 @@ Section SimulationLocal.
                        (Thread.mk _ st1_src lc1_src sc1_src mem1_src)
                        (Thread.mk _ st2_src lc2_src sc2_src mem2_src)>> /\
           <<SC: TimeMap.le sc2_src sc1_tgt>> /\
-          <<MEMORY: Memory.sim mem1_tgt mem2_src>> /\
+          <<MEMORY: sim_memory mem2_src mem1_tgt>> /\
           <<TERMINAL_SRC: lang_src.(Language.is_terminal) st2_src>> /\
           <<LOCAL: sim_local lc2_src lc1_tgt>> /\
           <<TERMINAL: sim_terminal st2_src st1_tgt>>>> /\
@@ -110,7 +91,7 @@ Section SimulationLocal.
           (MEM_SRC: Memory.closed mem2_src),
         exists sc2_tgt mem2_tgt,
           <<SC: TimeMap.le sc2_src sc2_tgt>> /\
-          <<MEMORY: Memory.sim mem2_tgt mem2_src>> /\
+          <<MEMORY: sim_memory mem2_src mem2_tgt>> /\
           <<SC_FUTURE_TGT: TimeMap.le sc1_tgt sc2_tgt>> /\
           <<MEM_FUTURE_TGT: Memory.future mem1_tgt mem2_tgt>> /\
           <<WF_TGT: Local.wf lc1_tgt mem2_tgt>> /\
@@ -167,7 +148,7 @@ Section Simulation.
     forall sc1_src mem1_src
       sc1_tgt mem1_tgt
       (SC1: TimeMap.le sc1_src sc1_tgt)
-      (MEMORY1: Memory.sim mem1_tgt mem1_src)
+      (MEMORY1: sim_memory mem1_src mem1_tgt)
       (WF_SRC: Configuration.wf (Configuration.mk ths1_src sc1_src mem1_src))
       (WF_TGT: Configuration.wf (Configuration.mk ths1_tgt sc1_tgt mem1_tgt))
       (CONSISTENT_SRC: Configuration.consistent (Configuration.mk ths1_src sc1_src mem1_src))
@@ -181,7 +162,7 @@ Section Simulation.
         exists ths2_src sc2_src mem2_src,
           <<STEPS: rtc Configuration.tau_step (Configuration.mk ths1_src sc1_src mem1_src) (Configuration.mk ths2_src sc2_src mem2_src)>> /\
           <<SC: TimeMap.le sc2_src sc1_tgt>> /\
-          <<MEMORY: Memory.sim mem1_tgt mem2_src>> /\
+          <<MEMORY: sim_memory mem2_src mem1_tgt>> /\
           <<TERMINAL_SRC: Threads.is_terminal ths2_src>>>> /\
       <<STEP:
         forall e tid_tgt ths3_tgt sc3_tgt mem3_tgt
@@ -190,7 +171,7 @@ Section Simulation.
           <<STEPS: rtc Configuration.tau_step (Configuration.mk ths1_src sc1_src mem1_src) (Configuration.mk ths2_src sc2_src mem2_src)>> /\
           <<STEP_SRC: Configuration.opt_step e tid_src (Configuration.mk ths2_src sc2_src mem2_src) (Configuration.mk ths3_src sc3_src mem3_src)>> /\
           <<SC3: TimeMap.le sc3_src sc3_tgt>> /\
-          <<MEMORY3: Memory.sim mem3_tgt mem3_src>> /\
+          <<MEMORY3: sim_memory mem3_src mem3_tgt>> /\
           <<SIM: sim ths3_src sc3_src mem3_src ths3_tgt sc3_tgt mem3_tgt>>>>.
 
   Lemma _sim_mon: monotone6 _sim.
@@ -298,7 +279,7 @@ Lemma sim_step
                           (Thread.mk _ st1_tgt lc1_tgt sc1_tgt mem1_tgt)
                           (Thread.mk _ st3_tgt lc3_tgt sc3_tgt mem3_tgt))
       (SC: TimeMap.le sc1_src sc1_tgt)
-      (MEMORY: Memory.sim mem1_tgt mem1_src)
+      (MEMORY: sim_memory mem1_src mem1_tgt)
       (WF_SRC: Local.wf lc1_src mem1_src)
       (WF_TGT: Local.wf lc1_tgt mem1_tgt)
       (SC_SRC: Memory.closed_timemap sc1_src mem1_src)
@@ -315,7 +296,7 @@ Lemma sim_step
                             (Thread.mk _ st3_src lc3_src sc3_src mem3_src)>> /\
     <<EVENT: ThreadEvent.get_event e_src = ThreadEvent.get_event e_tgt>> /\
     <<SC: TimeMap.le sc3_src sc3_tgt>> /\
-    <<MEMORY: Memory.sim mem3_tgt mem3_src>> /\
+    <<MEMORY: sim_memory mem3_src mem3_tgt>> /\
     <<WF_SRC: Local.wf lc3_src mem3_src>> /\
     <<WF_TGT: Local.wf lc3_tgt mem3_tgt>> /\
     <<SC_SRC: Memory.closed_timemap sc3_src mem3_src>> /\
@@ -343,7 +324,7 @@ Lemma sim_opt_step
                               (Thread.mk _ st1_tgt lc1_tgt sc1_tgt mem1_tgt)
                               (Thread.mk _ st3_tgt lc3_tgt sc3_tgt mem3_tgt))
       (SC: TimeMap.le sc1_src sc1_tgt)
-      (MEMORY: Memory.sim mem1_tgt mem1_src)
+      (MEMORY: sim_memory mem1_src mem1_tgt)
       (WF_SRC: Local.wf lc1_src mem1_src)
       (WF_TGT: Local.wf lc1_tgt mem1_tgt)
       (SC_SRC: Memory.closed_timemap sc1_src mem1_src)
@@ -360,7 +341,7 @@ Lemma sim_opt_step
                             (Thread.mk _ st3_src lc3_src sc3_src mem3_src)>> /\
     <<EVENT: ThreadEvent.get_event e_src = ThreadEvent.get_event e_tgt>> /\
     <<SC: TimeMap.le sc3_src sc3_tgt>> /\
-    <<MEMORY: Memory.sim mem3_tgt mem3_src>> /\
+    <<MEMORY: sim_memory mem3_src mem3_tgt>> /\
     <<WF_SRC: Local.wf lc3_src mem3_src>> /\
     <<WF_TGT: Local.wf lc3_tgt mem3_tgt>> /\
     <<SC_SRC: Memory.closed_timemap sc3_src mem3_src>> /\
@@ -381,7 +362,7 @@ Lemma sim_rtc_step
       e1_tgt e2_tgt
       (STEPS: rtc (@Thread.tau_step lang_tgt) e1_tgt e2_tgt)
       (SC: TimeMap.le sc1_src e1_tgt.(Thread.sc))
-      (MEMORY: Memory.sim e1_tgt.(Thread.memory) mem1_src)
+      (MEMORY: sim_memory mem1_src e1_tgt.(Thread.memory))
       (WF_SRC: Local.wf lc1_src mem1_src)
       (WF_TGT: Local.wf e1_tgt.(Thread.local) e1_tgt.(Thread.memory))
       (SC_SRC: Memory.closed_timemap sc1_src mem1_src)
@@ -394,7 +375,7 @@ Lemma sim_rtc_step
                  (Thread.mk _ st1_src lc1_src sc1_src mem1_src)
                  (Thread.mk _ st2_src lc2_src sc2_src mem2_src)>> /\
     <<SC: TimeMap.le sc2_src e2_tgt.(Thread.sc)>> /\
-    <<MEMORY: Memory.sim e2_tgt.(Thread.memory) mem2_src>> /\
+    <<MEMORY: sim_memory mem2_src e2_tgt.(Thread.memory)>> /\
     <<WF_SRC: Local.wf lc2_src mem2_src>> /\
     <<WF_TGT: Local.wf e2_tgt.(Thread.local) e2_tgt.(Thread.memory)>> /\
     <<SC_SRC: Memory.closed_timemap sc2_src mem2_src>> /\
@@ -423,7 +404,7 @@ Lemma sim_thread_consistent
       st_tgt lc_tgt sc_tgt mem_tgt
       (SIM: sim_thread sim_terminal st_src lc_src sc_src mem_src st_tgt lc_tgt sc_tgt mem_tgt)
       (SC: TimeMap.le sc_src sc_tgt)
-      (MEMORY: Memory.sim mem_tgt mem_src)
+      (MEMORY: sim_memory mem_src mem_tgt)
       (WF_SRC: Local.wf lc_src mem_src)
       (WF_TGT: Local.wf lc_tgt mem_tgt)
       (SC_SRC: Memory.closed_timemap sc_src mem_src)
@@ -473,17 +454,15 @@ Proof.
         econs. rewrite <- TAU. econs; ss; eauto.
         { eapply IdentMap.singleton_eq. }
         { ii. eexists. splits; eauto. ss.
-          eapply MemInv.sem_bot_inv.
-          - inv THREAD. rewrite <- PROMISES0. apply LOCAL.
-          - apply Memory.bot_le.
+          eapply SimPromises.sem_bot_inv.
+          inv THREAD. rewrite <- PROMISES0. apply LOCAL.
         }
       * inv X. s. erewrite IdentMap.singleton_add. econs.
     + ii. ss. rewrite IdentMap.singleton_add in *.
       apply IdentMap.singleton_find_inv in FIND. des. subst.
       splits; Configuration.simplify. econs; eauto.
-      eapply MemInv.sem_bot_inv.
-      * inv THREAD. rewrite <- PROMISES0. apply LOCAL.
-      * apply Memory.bot_le.
+      eapply SimPromises.sem_bot_inv.
+      inv THREAD. rewrite <- PROMISES0. apply LOCAL.
   - i. inv STEP_TGT. ss.
     apply IdentMap.singleton_find_inv in TID. des.
     Configuration.simplify.

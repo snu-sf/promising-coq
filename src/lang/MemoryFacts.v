@@ -16,9 +16,6 @@ Require Import Memory.
 
 Set Implicit Arguments.
 
-(* TODO *)
-Inductive sim_memory (mem_src mem_tgt:Memory.t): Prop :=
-.
 
 Lemma add_update_add
       mem0 loc from1 from2 to val released1 released2 mem1 mem2
@@ -54,7 +51,6 @@ Qed.
 Lemma remove_promise_remove
       promises0 mem0 loc from to val released1 released2 promises2
       (PRMOISES: Memory.le promises0 mem0)
-      (MEM: Memory.closed mem0)
       (REL_LE: Capability.le released2 released1)
       (REL_WF1: Capability.wf released1)
       (REL_WF2: Capability.wf released2)
@@ -62,8 +58,7 @@ Lemma remove_promise_remove
       (REMOVE: Memory.remove promises0 loc from to val released1 promises2):
   exists promises1' mem1',
     <<PROMISE: Memory.promise promises0 mem0 loc from to val released2 promises1' mem1' (Memory.promise_kind_update from released1)>> /\
-    <<REMOVE: Memory.remove promises1' loc from to val released2 promises2>> /\
-    <<MEM: sim_memory mem1' mem0>>.
+    <<REMOVE: Memory.remove promises1' loc from to val released2 promises2>>.
 Proof.
 Admitted.
 

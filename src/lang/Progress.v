@@ -161,13 +161,11 @@ Proof.
 Qed.
 
 Lemma progress_fence_step
-      lc1 sc1 mem1
+      lc1 sc1
       ordr ordw
-      (WF1: Local.wf lc1 mem1)
-      (MEM1: Memory.closed mem1)
       (PROMISES1: lc1.(Local.promises) = Memory.bot):
   exists lc2 sc2,
-    Local.fence_step lc1 sc1 mem1 ordr ordw lc2 sc2.
+    Local.fence_step lc1 sc1 ordr ordw lc2 sc2.
 Proof.
   esplits. econs; eauto.
 Qed.

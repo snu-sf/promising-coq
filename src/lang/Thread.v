@@ -115,12 +115,12 @@ Module Local.
                  mem2 kind
   .
 
-  Inductive fence_step (lc1:t) (sc1:TimeMap.t) (mem1:Memory.t) (ordr ordw:Ordering.t): forall (lc2:t) (sc2:TimeMap.t), Prop :=
+  Inductive fence_step (lc1:t) (sc1:TimeMap.t) (ordr ordw:Ordering.t): forall (lc2:t) (sc2:TimeMap.t), Prop :=
   | step_fence
       commit2
       (READ: Commit.read_fence_commit lc1.(commit) ordr = commit2)
       (RELEASE: Ordering.le Ordering.acqrel ordw -> lc1.(promises) = Memory.bot):
-      fence_step lc1 sc1 mem1 ordr ordw (mk (Commit.write_fence_commit commit2 sc1 ordw) lc1.(promises)) (Commit.write_fence_sc commit2 sc1 ordw)
+      fence_step lc1 sc1 ordr ordw (mk (Commit.write_fence_commit commit2 sc1 ordw) lc1.(promises)) (Commit.write_fence_sc commit2 sc1 ordw)
   .
 
   Lemma promise_step_future lc1 sc1 mem1 loc from to val released lc2 mem2 kind
@@ -225,7 +225,7 @@ Module Local.
   Qed.
 
   Lemma fence_step_future lc1 sc1 mem1 ordr ordw lc2 sc2
-        (STEP: fence_step lc1 sc1 mem1 ordr ordw lc2 sc2)
+        (STEP: fence_step lc1 sc1 ordr ordw lc2 sc2)
         (WF1: wf lc1 mem1)
         (SC1: Memory.closed_timemap sc1 mem1)
         (CLOSED1: Memory.closed mem1):
@@ -289,7 +289,7 @@ Module Local.
 
   Lemma fence_step_disjoint
         lc1 sc1 mem1 lc2 sc2 ordr ordw lc
-        (STEP: fence_step lc1 sc1 mem1 ordr ordw lc2 sc2)
+        (STEP: fence_step lc1 sc1 ordr ordw lc2 sc2)
         (WF1: wf lc1 mem1)
         (SC1: Memory.closed_timemap sc1 mem1)
         (DISJOINT1: disjoint lc1 lc)
@@ -370,13 +370,13 @@ Module Thread.
         st1 lc1 sc1 mem1
         st2 ordr ordw lc2 sc2
         (STATE: lang.(Language.step) (Some (ProgramEvent.fence ordr ordw)) st1 st2)
-        (LOCAL: Local.fence_step lc1 sc1 mem1 ordr ordw lc2 sc2):
+        (LOCAL: Local.fence_step lc1 sc1 ordr ordw lc2 sc2):
         program_step (ThreadEvent.fence ordr ordw) (mk st1 lc1 sc1 mem1) (mk st2 lc2 sc2 mem1)
     | step_syscall
         st1 lc1 sc1 mem1
         st2 e lc2 sc2
         (STATE: lang.(Language.step) (Some (ProgramEvent.syscall e)) st1 st2)
-        (LOCAL: Local.fence_step lc1 sc1 mem1 Ordering.unordered Ordering.seqcst lc2 sc2):
+        (LOCAL: Local.fence_step lc1 sc1 Ordering.unordered Ordering.seqcst lc2 sc2):
         program_step (ThreadEvent.syscall e) (mk st1 lc1 sc1 mem1) (mk st2 lc2 sc2 mem1)
     .
 

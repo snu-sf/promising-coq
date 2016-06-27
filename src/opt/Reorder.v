@@ -16,13 +16,16 @@ Require Import Memory.
 Require Import MemoryFacts.
 Require Import Commit.
 Require Import Thread.
-
 Require Import Configuration.
-Require Import Simulation.
-Require Import Compatibility.
-Require Import MemInv.
-Require Import FulfillStep.
 Require Import Progress.
+
+Require Import FulfillStep.
+Require Import SimMemory.
+Require Import SimPromises.
+Require Import SimLocal.
+Require Import Compatibility.
+Require Import Simulation.
+
 Require Import ReorderStep.
 Require Import ReorderLoad.
 Require Import ReorderStore.
@@ -66,14 +69,14 @@ Proof.
     esplits; eauto.
     - etrans.
       + apply Memory.max_timemap_spec; eauto. committac.
-      + apply Memory.sim_max_timemap; eauto. committac.
+      + apply sim_memory_max_timemap; eauto.
     - etrans.
       + apply Memory.max_timemap_spec; eauto. committac.
       + apply Memory.future_max_timemap; eauto.
     - apply Memory.max_timemap_closed. committac.
   }
   { esplits; eauto.
-    inv LOCAL. apply MemInv.sem_bot_inv in PROMISES; auto. rewrite PROMISES. auto.
+    inv LOCAL. apply SimPromises.sem_bot_inv in PROMISES; auto. rewrite PROMISES. auto.
   }
   inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR; inv REORDER); ss.
   - (* promise *)

@@ -17,13 +17,15 @@ Require Import Memory.
 Require Import MemoryFacts.
 Require Import Commit.
 Require Import Thread.
-
 Require Import Configuration.
-Require Import Simulation.
-Require Import FulfillStep.
-Require Import Compatibility.
-Require Import MemInv.
 Require Import Progress.
+
+Require Import FulfillStep.
+Require Import SimMemory.
+Require Import SimPromises.
+Require Import SimLocal.
+Require Import Compatibility.
+Require Import Simulation.
 
 Require ReorderMemory.
 Require ReorderCommit.
@@ -71,18 +73,18 @@ Qed.
 
 
 Lemma promise_step_promise_step
-      loc from to val released1 released2 kind
+      loc from1 from2 to val released1 released2 kind
       lc0 mem0
       lc1 mem1
       lc2 mem2
-      (PROMISE1: Local.promise_step lc0 mem0 loc from to val released1 lc1 mem1 kind)
-      (PROMISE2: Local.promise_step lc1 mem1 loc from to val released2 lc2 mem2 Memory.promise_kind_lower):
-  Local.promise_step lc0 mem0 loc from to val released2 lc2 mem2 kind.
+      (PROMISE1: Local.promise_step lc0 mem0 loc from1 to val released1 lc1 mem1 kind)
+      (PROMISE2: Local.promise_step lc1 mem1 loc from2 to val released2 lc2 mem2 (Memory.promise_kind_update from1 released1)):
+  Local.promise_step lc0 mem0 loc from2 to val released2 lc2 mem2 kind.
 Proof.
   inv PROMISE1. inv PROMISE2. ss.
+  exploit promise_promise_promise; try exact PROMISE; eauto. i.
   econs; eauto.
-  admit.
-Admitted.
+Qed.
 
 Lemma future_read_step
       lc1 mem1 mem1' loc ts val released ord lc2
@@ -105,8 +107,7 @@ Proof.
       * apply WF.
       * eapply MEM. eauto.
       * refl.
-    + apply MemInv.sem_bot.
-    + refl.
+    + apply SimPromises.sem_bot.
 Qed.
 
 Lemma future_fulfill_step
@@ -217,8 +218,7 @@ Proof.
       by destruct ord1, ord2; inv H; inv COND; inv ORD.
   - s. econs; s.
     + apply ReorderCommit.read_write_commit; try apply WF0; auto.
-    + apply MemInv.sem_bot.
-    + refl.
+    + apply SimPromises.sem_bot.
 Qed.
 
 Lemma reorder_read_write
@@ -242,7 +242,7 @@ Lemma reorder_read_write
     <<STEP2: Local.read_step lc1' mem2' loc1 ts1 val1 released1 ord1 lc2'>> /\
     <<LOCAL: sim_local lc2' lc2>> /\
     <<RELEASED: Capability.le released2' released2>> /\
-    <<MEM: Memory.sim mem2 mem2'>>.
+    <<MEM: sim_memory mem2' mem2>>.
 Proof.
   guardH ORD.
   exploit Local.read_step_future; eauto. i. des.
@@ -287,7 +287,7 @@ Lemma reorder_read_update
     <<STEP3: Local.read_step lc2' mem3' loc1 ts1 val1 released1 ord1 lc3'>> /\
     <<LOCAL: sim_local lc3' lc3>> /\
     <<RELEASED: Capability.le released3' released3>> /\
-    <<MEM: Memory.sim mem3 mem3'>>.
+    <<MEM: sim_memory mem3' mem3>>.
 Proof.
   guardH ORD3.
   exploit Local.read_step_future; try exact STEP1; eauto. i. des.
@@ -311,9 +311,9 @@ Lemma reorder_read_fence
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
       (STEP1: Local.read_step lc0 mem0 loc1 ts1 val1 released1 ord1 lc1)
-      (STEP2: Local.fence_step lc1 sc0 mem0 ordr2 ordw2 lc2 sc2):
+      (STEP2: Local.fence_step lc1 sc0 ordr2 ordw2 lc2 sc2):
   exists lc1' lc2' sc2',
-    <<STEP1: Local.fence_step lc0 sc0 mem0 ordr2 ordw2 lc1' sc2'>> /\
+    <<STEP1: Local.fence_step lc0 sc0 ordr2 ordw2 lc1' sc2'>> /\
     <<STEP2: Local.read_step lc1' mem0 loc1 ts1 val1 released1 ord1 lc2'>> /\
     <<LOCAL: sim_local lc2' lc2>> /\
     <<SC: TimeMap.le sc2' sc2>>.
@@ -331,8 +331,7 @@ Proof.
         eapply CommitFacts.read_fence_future; apply WF0.
       * apply CommitFacts.write_fence_commit_mon; try refl.
         apply ReorderCommit.read_read_fence_commit; try apply WF0; auto.
-    + apply MemInv.sem_bot.
-    + refl.
+    + apply SimPromises.sem_bot.
   - unfold Commit.write_fence_sc, Commit.read_fence_commit.
     repeat condtac; aggrtac.
 Qed.
@@ -436,7 +435,8 @@ Proof.
       * eapply TimeFacts.le_lt_lt; [|apply SC1; auto]. committac.
       * eapply TimeFacts.le_lt_lt; [|apply SC2; auto]. committac.
   - s. econs; ss.
-    apply ReorderCommit.write_write_commit; auto. apply WF0.
+    + apply ReorderCommit.write_write_commit; auto. apply WF0.
+    + apply SimPromises.sem_bot.
   - apply ReorderCommit.write_write_sc; auto.
 Qed.
 
@@ -463,7 +463,7 @@ Lemma reorder_fulfill_write
     <<RELEASED2: Capability.le released2' released2>> /\
     <<LOCAL: sim_local lc2' lc2>> /\
     <<SC: TimeMap.le sc2' sc2>> /\
-    <<MEM: Memory.sim mem2 mem2'>>.
+    <<MEM: sim_memory mem2' mem2>>.
 Proof.
   exploit fulfill_step_future; eauto. i. des.
   exploit write_promise_fulfill; eauto. i. des.
@@ -506,7 +506,7 @@ Lemma reorder_fulfill_update
     <<LOCAL: sim_local lc3' lc3>> /\
     <<RELEASED: Capability.le released3' released3>> /\
     <<SC: TimeMap.le sc3' sc3>> /\
-    <<MEM: Memory.sim mem3 mem2'>>.
+    <<MEM: sim_memory mem2' mem3>>.
 Proof.
   exploit fulfill_step_future; try exact STEP1; eauto. i. des.
   exploit Local.read_step_future; try exact STEP2; eauto. i. des.
@@ -648,7 +648,7 @@ Lemma reorder_update_write
     <<RELEASED2: Capability.le released2' released2>> /\
     <<RELEASED3: Capability.le released3' released3>> /\
     <<SC: TimeMap.le sc3' sc3>> /\
-    <<MEM: Memory.sim mem3 mem1'>>.
+    <<MEM: sim_memory mem1' mem3>>.
 Proof.
   guardH ORD3.
   exploit Local.read_step_future; eauto. i. des.
@@ -702,7 +702,7 @@ Lemma reorder_update_update
     <<RELEASED2: Capability.le released2' released2>> /\
     <<RELEASED4: Capability.le released4' released4>> /\
     <<SC: TimeMap.le sc4' sc4>> /\
-    <<MEM: Memory.sim mem4 mem2'>>.
+    <<MEM: sim_memory mem2' mem4>>.
 Proof.
   guardH ORD.
   exploit reorder_update_read; try exact STEP2; try exact STEP1; try exact STEP3; eauto. i. des.
@@ -722,11 +722,11 @@ Lemma reorder_fence_promise
       (ORDW1: Ordering.le ordw1 Ordering.relaxed)
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
-      (STEP1: Local.fence_step lc0 sc0 mem0 ordr1 ordw1 lc1 sc1)
+      (STEP1: Local.fence_step lc0 sc0 ordr1 ordw1 lc1 sc1)
       (STEP2: Local.promise_step lc1 mem0 loc2 from2 to2 val2 released2 lc2 mem2 kind):
   exists lc1',
     <<STEP1: Local.promise_step lc0 mem0 loc2 from2 to2 val2 released2 lc1' mem2 kind>> /\
-    <<STEP2: Local.fence_step lc1' sc0 mem2 ordr1 ordw1 lc2 sc1>>.
+    <<STEP2: Local.fence_step lc1' sc0 ordr1 ordw1 lc2 sc1>>.
 Proof.
   inv STEP1. inv STEP2. ss.
   esplits.
@@ -747,11 +747,11 @@ Lemma reorder_fence_fulfill
       (MEM0: Memory.closed mem0)
       (REL2_WF: Capability.wf releasedm2)
       (REL2_CLOSED: Memory.closed_capability releasedm2 mem0)
-      (STEP1: Local.fence_step lc0 sc0 mem0 ordr1 ordw1 lc1 sc1)
+      (STEP1: Local.fence_step lc0 sc0 ordr1 ordw1 lc1 sc1)
       (STEP2: fulfill_step lc1 sc1 loc2 from2 to2 val2 releasedm2 released2 ord2 lc2 sc2):
-  exists lc1' lc2' sc1' sc2' mem1',
+  exists lc1' lc2' sc1' sc2',
     <<STEP1: fulfill_step lc0 sc0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc1' sc1'>> /\
-    <<STEP2: Local.fence_step lc1' sc1' mem1' ordr1 ordw1 lc2' sc2'>> /\
+    <<STEP2: Local.fence_step lc1' sc1' ordr1 ordw1 lc2' sc2'>> /\
     <<LOCAL: sim_local lc2' lc2>> /\
     <<SC: TimeMap.le sc2' sc2>>.
 Proof.
@@ -783,8 +783,7 @@ Proof.
       * apply ReorderCommit.write_fence_write_commit; auto.
       * apply CommitFacts.write_commit_mon; auto; try refl.
         apply CommitFacts.write_fence_sc_incr.
-    + apply MemInv.sem_bot.
-    + refl.
+    + apply SimPromises.sem_bot.
   - etrans.
     + apply CommitFacts.write_fence_sc_mon; [|refl|refl].
       apply ReorderCommit.read_fence_write_commit; auto. apply WF0.
@@ -804,15 +803,15 @@ Lemma reorder_fence_write
       (MEM0: Memory.closed mem0)
       (REL2_WF: Capability.wf releasedm2)
       (REL2_CLOSED: Memory.closed_capability releasedm2 mem0)
-      (STEP1: Local.fence_step lc0 sc0 mem0 ordr1 ordw1 lc1 sc1)
+      (STEP1: Local.fence_step lc0 sc0 ordr1 ordw1 lc1 sc1)
       (STEP2: Local.write_step lc1 sc1 mem0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc2 sc2 mem2 kind):
   exists released2' lc1' lc2' sc1' sc2' mem1',
     <<STEP1: Local.write_step lc0 sc0 mem0 loc2 from2 to2 val2 releasedm2 released2' ord2 lc1' sc1' mem1' kind>> /\
-    <<STEP2: Local.fence_step lc1' sc1' mem1' ordr1 ordw1 lc2' sc2'>> /\
+    <<STEP2: Local.fence_step lc1' sc1' ordr1 ordw1 lc2' sc2'>> /\
     <<LOCAL: sim_local lc2' lc2>> /\
     <<RELEASED2: Capability.le released2' released2>> /\
     <<SC: TimeMap.le sc2' sc2>> /\
-    <<MEM: Memory.sim mem2 mem1'>>.
+    <<MEM: sim_memory mem1' mem2>>.
 Proof.
   exploit Local.fence_step_future; eauto. i. des.
   exploit write_promise_fulfill; eauto. i. des.
@@ -825,5 +824,4 @@ Proof.
   }
   i. des.
   esplits; eauto.
-  inv STEP7. econs; auto.
 Qed.
