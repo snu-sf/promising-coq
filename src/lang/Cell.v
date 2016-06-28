@@ -92,16 +92,16 @@ Module Cell.
     | add_intro
         (DISJOINT: forall to2 from2 msg2
                      (GET2: DOMap.find to2 cell1 = Some (from2, msg2)),
-            to <> from2 /\ Interval.disjoint (from, to) (from2, to2))
-        (TO1: Time.lt from to):
+            Interval.disjoint (from, to) (from2, to2))
+        (TO: Time.lt from to):
         add cell1 from to val released (DOMap.add to (from, (Message.mk val released)) cell1)
     .
 
     Lemma add_wf
-          cell1 from to val released rhs
-          (ADD: add cell1 from to val released rhs)
+          cell1 from to val released cell2
+          (ADD: add cell1 from to val released cell2)
           (CELL1: wf cell1):
-      wf rhs.
+      wf cell2.
     Proof.
       inv ADD. inv CELL1. econs; i.
       - rewrite DOMap.Facts.add_o in *.
@@ -116,25 +116,26 @@ Module Cell.
         + eapply DISJOINT0; eauto.
     Qed.
 
-    Inductive split (cell1:t) (from to1 to2:Time.t) (val1:Const.t) (released1:Capability.t): forall (rhs:t), Prop :=
-    | split_intro
-        msg2
-        (GET2: DOMap.find to2 cell1 = Some (from, msg2))
-        (TO1: Time.lt from to1)
-        (TO2: Time.lt to1 to2):
-        split cell1 from to1 to2 val1 released1
-              (DOMap.add to1 (from, Message.mk val1 released1) (DOMap.add to2 (to1, msg2) cell1))
+    Inductive update (cell1:t) (from1 from2 to:Time.t) (val:Const.t) (released1 released2:Capability.t): forall (cell2:t), Prop :=
+    | update_intro
+        (GET2: DOMap.find to cell1 = Some (from1, Message.mk val released1))
+        (FROM1: Time.le from1 from2)
+        (FROM2: Time.lt from2 to)
+        (REL_WF: Capability.wf released2)
+        (REL_LE: Capability.le released2 released1):
+        update cell1 from1 from2 to val released1 released2
+               (DOMap.add to (from2, Message.mk val released2) cell1)
     .
 
-    Lemma split_wf
-          cell1 from1 to1 to2 val1 released1 cell2
-          (SPLIT: split cell1 from1 to1 to2 val1 released1 cell2)
+    Lemma update_wf
+          cell1 from1 from2 to val released1 released2 cell2
+          (UPDATE: update cell1 from1 from2 to val released1 released2 cell2)
           (CELL1: wf cell1):
       wf cell2.
     Proof.
-      inv SPLIT. inv CELL1. econs; i.
+      inv UPDATE. inv CELL1. econs; i.
       - rewrite ? DOMap.Facts.add_o in *.
-        revert GET. repeat condtac; i; try by inv GET; auto.
+        revert GET. condtac; i; try by inv GET; auto.
         eapply VOLUME. eauto.
       - rewrite ? DOMap.Facts.add_o in *.
         revert GET1 GET0. repeat condtac; i; repeat subst; try congr;
@@ -142,33 +143,25 @@ Module Cell.
                  | [H: Some _ = Some _ |- _] => inv H
                   end);
           (try by eapply DISJOINT; eauto).
-        + apply Interval.disjoint_imm.
-        + ii. eapply (DISJOINT to3 to2); eauto.
+        + ii. eapply (DISJOINT to1 to2); eauto.
           eapply Interval.le_mem; try apply LHS.
-          econs; s. refl. apply Time.le_lteq. auto.
-        + symmetry. apply Interval.disjoint_imm.
-        + ii. eapply (DISJOINT to3 to0); eauto.
-          eapply Interval.le_mem; try apply LHS.
-          econs; s. apply Time.le_lteq. auto. refl.
-        + ii. eapply (DISJOINT to0 to2); eauto.
+          econs; ss. refl.
+        + ii. eapply (DISJOINT to2 to1); eauto.
           eapply Interval.le_mem; try apply RHS.
-          econs; s. refl. apply Time.le_lteq. auto.
-        + ii. eapply (DISJOINT to0 to3); eauto.
-          eapply Interval.le_mem; try apply RHS.
-          econs; s. apply Time.le_lteq. auto. refl.
+          econs; ss. refl.
     Qed.
 
-    Inductive remove (cell1:t) (from to:Time.t) (val:Const.t) (released:Capability.t): forall (rhs:t), Prop :=
+    Inductive remove (cell1:t) (from to:Time.t) (val:Const.t) (released:Capability.t): forall (cell2:t), Prop :=
     | remove_intro
         (GET: DOMap.find to cell1 = Some (from, Message.mk val released)):
         remove cell1 from to val released (DOMap.remove to cell1)
     .
 
     Lemma remove_wf
-          cell1 from to val released rhs
-          (REMOVE: remove cell1 from to val released rhs)
+          cell1 from to val released cell2
+          (REMOVE: remove cell1 from to val released cell2)
           (CELL1: wf cell1):
-      wf rhs.
+      wf cell2.
     Proof.
       inv REMOVE. inv CELL1. econs; i.
       - revert GET0. rewrite DOMap.Facts.remove_o.
@@ -278,14 +271,14 @@ Module Cell.
 
   Definition init: t := mk Raw.init_wf.
 
-  Definition add (cell1:t) (from1 to1:Time.t) (val1:Const.t) (released1:Capability.t) (cell2:t): Prop :=
-    Raw.add cell1 from1 to1 val1 released1 cell2.
+  Definition add (cell1:t) (from to:Time.t) (val:Const.t) (released:Capability.t) (cell2:t): Prop :=
+    Raw.add cell1 from to val released cell2.
 
-  Definition split (cell1:t) (from1 to1 to2:Time.t) (val1:Const.t) (released1:Capability.t) (cell2:t): Prop :=
-    Raw.split cell1 from1 to1 to2 val1 released1 cell2.
+  Definition update (cell1:t) (from1 from2 to:Time.t) (val:Const.t) (released1 released2:Capability.t) (cell2:t): Prop :=
+    Raw.update cell1 from1 from2 to val released1 released2 cell2.
 
-  Definition remove (cell1:t) (from1 to1:Time.t) (val1:Const.t) (released1:Capability.t) (cell2:t): Prop :=
-    Raw.remove cell1 from1 to1 val1 released1 cell2.
+  Definition remove (cell1:t) (from to:Time.t) (val:Const.t) (released:Capability.t) (cell2:t): Prop :=
+    Raw.remove cell1 from to val released cell2.
 
   Definition max_ts (cell:t): Time.t :=
     DOMap.max_key _ cell.(raw).
@@ -310,7 +303,7 @@ Module Cell.
         cell1 from to val released
         (DISJOINT: forall to2 from2 msg2
                      (GET2: get to2 cell1 = Some (from2, msg2)),
-            to <> from2 /\ Interval.disjoint (from, to) (from2, to2))
+            Interval.disjoint (from, to) (from2, to2))
         (TO1: Time.lt from to):
     exists cell2, add cell1 from to val released cell2.
   Proof.
@@ -326,12 +319,9 @@ Module Cell.
     exists cell2, add cell1 (max_ts cell1) to val released cell2.
   Proof.
     apply add_exists; auto. i.
-    exploit max_ts_spec; eauto. i. des. splits.
-    - ii. subst. destruct cell1.(Cell.WF). exploit VOLUME; try apply GET2; eauto. i. des.
-      + inv x. inv TO.
-      + rewrite x in TO. eapply Time.lt_strorder. eapply TimeFacts.le_lt_lt; eauto.
-    - ii. inv LHS. inv RHS. ss.
-      rewrite MAX in TO1. eapply Time.lt_strorder. eapply TimeFacts.le_lt_lt; eauto.
+    exploit max_ts_spec; eauto. i. des.
+    ii. inv LHS. inv RHS. ss.
+    rewrite MAX in TO1. eapply Time.lt_strorder. eapply TimeFacts.le_lt_lt; eauto.
   Qed.
 
   Lemma add_exists_le
@@ -344,42 +334,43 @@ Module Cell.
     eapply DISJOINT. eauto.
   Qed.
 
-  Lemma split_exists
-        cell1 from to1 to2 val released msg2
-        (GET2: get to2 cell1 = Some (from, msg2))
-        (TO1: Time.lt from to1)
-        (TO2: Time.lt to1 to2):
-    exists cell2, split cell1 from to1 to2 val released cell2.
+  Lemma update_exists
+        cell1 from1 from2 to val released1 released2
+        (GET2: get to cell1 = Some (from1, Message.mk val released1))
+        (FROM1: Time.le from1 from2)
+        (FROM2: Time.lt from2 to)
+        (REL_WF: Capability.wf released2)
+        (REL_LE: Capability.le released2 released1):
+    exists cell2, update cell1 from1 from2 to val released1 released2 cell2.
   Proof.
-    destruct cell1. eexists (mk _). unfold split. econs; eauto.
+    destruct cell1. eexists (mk _). unfold update. econs; eauto.
   Grab Existential Variables.
-    eapply Raw.split_wf; eauto. econs; eauto.
+    eapply Raw.update_wf; eauto. econs; eauto.
   Qed.
 
-  Lemma split_exists_le
-        promises1 cell1 from to1 to2 val released promises2
+  Lemma update_exists_le
+        promises1 cell1 from1 from2 to val released1 released2 promises2
         (LE: le promises1 cell1)
-        (SPLIT: split promises1 from to1 to2 val released promises2):
-    exists cell2, split cell1 from to1 to2 val released cell2.
+        (UPDATE: update promises1 from1 from2 to val released1 released2 promises2):
+    exists cell2, update cell1 from1 from2 to val released1 released2 cell2.
   Proof.
-    inv SPLIT. eapply split_exists; eauto.
+    inv UPDATE. eapply update_exists; eauto.
   Qed.
 
-  (* Lemmas on add, split & remove *)
+  (* Lemmas on add, update & remove *)
 
-  Lemma add_disjoint
+  Lemma add_get0
         cell1 from1 to1 val1 released1 cell2
         (ADD: add cell1 from1 to1 val1 released1 cell2):
     get to1 cell1 = None.
   Proof.
     inv ADD. unfold get.
     destruct (DOMap.find to1 (raw cell1)) as [[]|] eqn:X; auto.
-    exfalso. exploit DISJOINT; eauto. i. des.
-    eapply x0.
+    exfalso. exploit DISJOINT; eauto.
     - apply Interval.mem_ub. auto.
     - apply Interval.mem_ub.
       destruct cell1.(Cell.WF). exploit VOLUME; eauto. i. des; ss.
-      inv x1. congr.
+      inv x. inv TO.
   Qed.
 
   Lemma add_get1
@@ -389,7 +380,7 @@ Module Cell.
         (GET: get t cell1 = Some (f, m)):
     get t cell2 = Some (f, m).
   Proof.
-    exploit add_disjoint; eauto. i.
+    exploit add_get0; eauto. i.
     unfold get in *. inv ADD.
     rewrite DOMap.gsspec. condtac; auto. subst.
     congr.
@@ -444,103 +435,79 @@ Module Cell.
     - eapply max_ts_spec. erewrite add_get2; eauto.
   Qed.
 
-  Lemma split_disjoint
-        cell1 from1 to1 to2 val1 released1 cell2
-        (SPLIT: split cell1 from1 to1 to2 val1 released1 cell2):
-    get to1 cell1 = None.
+  Lemma update_get0
+        cell1 from1 from2 to val released1 released2 cell2
+        (UPDATE: update cell1 from1 from2 to val released1 released2 cell2):
+    get to cell1 = Some (from1, Message.mk val released1).
   Proof.
-    unfold get in *. destruct cell1, cell2. inv SPLIT. ss. subst.
-    destruct (DOMap.find to1 raw0) as [[]|] eqn:X; [|done].
-    exfalso. inv WF0. eapply DISJOINT; [apply GET2|apply X| | |].
-    - ii. subst. eapply Time.lt_strorder. eauto.
-    - econs; eauto. apply Time.le_lteq. auto.
-    - apply Interval.mem_ub.
-      exploit VOLUME; eauto. i. des; ss.
-      inv x. inv TO1.
+    inv UPDATE. unfold get.
+    destruct (DOMap.find to (raw cell1)) as [[]|] eqn:X; auto.
   Qed.
 
-  Lemma split_get0
-        cell1 from1 to1 to2 val1 released1 cell2
-        (SPLIT: split cell1 from1 to1 to2 val1 released1 cell2):
-    exists msg2, get to2 cell1 = Some (from1, msg2).
-  Proof.
-    inv SPLIT. eauto.
-  Qed.
-
-  Lemma split_get1
-        cell1 from1 to1 to2 val1 released1 cell2
+  Lemma update_get1
+        cell1 from1 from2 to val released1 released2 cell2
         t f m
-        (SPLIT: split cell1 from1 to1 to2 val1 released1 cell2)
+        (UPDATE: update cell1 from1 from2 to val released1 released2 cell2)
         (GET: get t cell1 = Some (f, m)):
-    (f = from1 /\ t = to2 /\ get t cell2 = Some (to1, m)) \/
-    (~ (t = to2) /\
-     get t cell2 = Some (f, m)).
+    (f = from1 /\ t = to /\ m = Message.mk val released1 /\ get t cell2 = Some (from2, Message.mk val released2)) \/
+    (~ (t = to) /\ get t cell2 = Some (f, m)).
   Proof.
-    unfold get in *. destruct cell1, cell2. inv SPLIT. ss. subst.
-    rewrite ? DOMap.gsspec. repeat condtac; subst; ss.
-    - destruct WF0.
-      exfalso. eapply DISJOINT; [apply GET2|apply GET| | |].
-      + ii. subst. eapply Time.lt_strorder. eauto.
-      + econs; eauto. apply Time.le_lteq. auto.
-      + apply Interval.mem_ub.
-        exploit VOLUME; eauto. i. des; ss.
-        inv x. inv TO1.
-    - rewrite GET2 in *. inv GET. eauto.
-    - rewrite GET. right. splits; eauto.
+    unfold get in *. destruct cell1, cell2. inv UPDATE. ss. subst.
+    rewrite ? DOMap.gsspec. condtac; subst; auto.
+    rewrite GET2 in GET. inv GET. auto.
   Qed.
 
-  Lemma split_get1'
-        cell1 from1 to1 to2 val1 released1 cell2
-        t f m
-        (SPLIT: split cell1 from1 to1 to2 val1 released1 cell2)
-        (GET: get t cell1 = Some (f, m)):
-    exists f', get t cell2 = Some (f', m).
+  Lemma update_get1'
+        cell1 from1 from2 to val released1 released2 cell2
+        t f v r
+        (UPDATE: update cell1 from1 from2 to val released1 released2 cell2)
+        (GET: get t cell1 = Some (f, Message.mk v r)):
+    exists f' r', get t cell2 = Some (f', Message.mk v r').
   Proof.
-    exploit split_get1; eauto. i. des; eauto.
+    exploit update_get1; eauto. i. des; eauto.
+    inv x2. esplits; eauto.
   Qed.
 
-  Lemma split_get2
-        cell1 from1 to1 to2 val1 released1 cell2
-        (SPLIT: split cell1 from1 to1 to2 val1 released1 cell2):
-    get to1 cell2 = Some (from1, Message.mk val1 released1).
+  Lemma update_get2
+        cell1 from1 from2 to val released1 released2 cell2
+        (UPDATE: update cell1 from1 from2 to val released1 released2 cell2):
+    get to cell2 = Some (from2, Message.mk val released2).
   Proof.
-    unfold get in *. destruct cell1, cell2. inv SPLIT. ss. subst.
+    unfold get in *. destruct cell1, cell2. inv UPDATE. ss. subst.
     apply DOMap.gss.
   Qed.
 
-  Lemma split_get_inv
-        cell1 from1 to1 to2 val1 released1 cell2
-        t f m
-        (SPLIT: split cell1 from1 to1 to2 val1 released1 cell2)
-        (GET: get t cell2 = Some (f, m)):
-    (t = to1 /\ f = from1 /\ m = Message.mk val1 released1) \/
-    (t = to2 /\ f = to1 /\ get t cell1 = Some (from1, m)) \/
-    (~ (t = to1) /\
-     ~ (t = to2) /\
-     get t cell1 = Some (f, m)).
+  Lemma update_get_inv
+        cell1 from1 from2 to val released1 released2 cell2
+        t f v r
+        (UPDATE: update cell1 from1 from2 to val released1 released2 cell2)
+        (GET: get t cell2 = Some (f, Message.mk v r)):
+    (t = to /\ f = from2 /\ v = val /\ r = released2) \/
+    (t <> to /\ get t cell1 = Some (f, Message.mk v r)).
   Proof.
-    unfold get in *. destruct cell1, cell2. inv SPLIT. ss. subst.
-    revert GET. rewrite ? DOMap.gsspec. repeat condtac; subst; i; inv GET; auto.
+    unfold get in *. destruct cell1, cell2. inv UPDATE. ss. subst.
+    revert GET. rewrite ? DOMap.gsspec. condtac; subst; i; inv GET; auto.
   Qed.
 
-  Lemma split_get_inv'
-        cell1 from1 to1 to2 val1 released1 cell2
-        t f m
-        (SPLIT: split cell1 from1 to1 to2 val1 released1 cell2)
-        (GET: get t cell2 = Some (f, m)):
-    (t = to1 /\ f = from1 /\ m = Message.mk val1 released1) \/ exists f', get t cell1 = Some (f', m).
+  Lemma update_get_inv'
+        cell1 from1 from2 to val released1 released2 cell2
+        t f v r
+        (UPDATE: update cell1 from1 from2 to val released1 released2 cell2)
+        (GET: get t cell2 = Some (f, Message.mk v r)):
+    exists f' r', get t cell1 = Some (f', Message.mk v r').
   Proof.
-    exploit split_get_inv; eauto. i. des; eauto.
+    exploit update_get_inv; eauto. i. des; eauto.
+    subst. esplits. eapply update_get0. eauto.
   Qed.
 
-  Lemma split_inhabited
-        cell1 cell2 from to1 to2 val released
-        (SPLIT: split cell1 from to1 to2 val released cell2)
+  Lemma update_inhabited
+        cell1 from1 from2 to val released1 released2 cell2
+        (UPDATE: update cell1 from1 from2 to val released1 released2 cell2)
         (INHABITED: get Time.bot cell1 = Some (Time.bot, Message.elt)):
     <<INHABITED: get Time.bot cell2 = Some (Time.bot, Message.elt)>>.
   Proof.
-    des. exploit split_get1; eauto. i. des; auto.
-    subst. inv SPLIT. inv TO2.
+    des. exploit update_get1; eauto. i. des; auto.
+    subst. inv UPDATE. inv FROM2.
   Qed.
 
   Lemma remove_singleton

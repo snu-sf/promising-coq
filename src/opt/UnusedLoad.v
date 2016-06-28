@@ -15,12 +15,14 @@ Require Import Cell.
 Require Import Memory.
 Require Import Commit.
 Require Import Thread.
-
 Require Import Configuration.
-Require Import Simulation.
-Require Import Compatibility.
-Require Import MemInv.
 Require Import Progress.
+
+Require Import SimMemory.
+Require Import SimPromises.
+Require Import SimLocal.
+Require Import Compatibility.
+Require Import Simulation.
 
 Require Import Syntax.
 Require Import Semantics.
@@ -94,7 +96,7 @@ Proof.
     esplits; eauto.
     - etrans.
       + apply Memory.max_timemap_spec; eauto. committac.
-      + apply Memory.sim_max_timemap; eauto. committac.
+      + apply sim_memory_max_timemap; eauto.
     - etrans.
       + apply Memory.max_timemap_spec; eauto. committac.
       + apply Memory.future_max_timemap; eauto.

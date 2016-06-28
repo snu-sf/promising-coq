@@ -11,9 +11,10 @@ Require Import Memory.
 Require Import Commit.
 Require Import Thread.
 Require Import Configuration.
-Require Import MemInv.
-Require Import Simulation.
 Require Import Behavior.
+
+Require Import SimMemory.
+Require Import Simulation.
 
 Lemma rtc_tau_step_behavior
   c1 c2 b
@@ -33,7 +34,7 @@ Lemma sim_adequacy
       (CONSISTENT_SRC: Configuration.consistent (Configuration.mk ths_src sc_src mem_src))
       (CONSISTENT_TGT: Configuration.consistent (Configuration.mk ths_tgt sc_tgt mem_tgt))
       (SC: TimeMap.le sc_src sc_tgt)
-      (MEMORY: Memory.sim mem_tgt mem_src)
+      (MEMORY: sim_memory mem_src mem_tgt)
       (SIM: sim ths_src sc_src mem_src ths_tgt sc_tgt mem_tgt):
   behaviors (Configuration.mk ths_tgt sc_tgt mem_tgt) <1=
   behaviors (Configuration.mk ths_src sc_src mem_src).
