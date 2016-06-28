@@ -71,7 +71,20 @@ Lemma sim_memory_max_timemap
       (SIM: sim_memory mem_src mem_tgt):
   TimeMap.le (Memory.max_timemap mem_src) (Memory.max_timemap mem_tgt).
 Proof.
-Admitted.
+  apply Memory.max_timemap_spec'; try by apply CLOSED_TGT; auto. i.
+  destruct (Time.le_lt_dec (Memory.max_timemap mem_src loc) Time.bot).
+  { esplits; eauto. apply CLOSED_TGT. }
+  exploit Memory.max_timemap_closed; try apply CLOSED_SRC; eauto.
+  instantiate (1 := loc). i. des.
+  inv SIM. destruct (COVER loc (Memory.max_timemap mem_src loc)) as [C1 C2].
+  exploit C1; eauto.
+  { econs; eauto. apply Interval.mem_ub.
+    destruct (mem_src loc).(Cell.WF). exploit VOLUME; eauto. i. des; auto.
+    inv x. rewrite H1 in *. inv l.
+  }
+  i. inv x. inv ITV. destruct msg. ss.
+  esplits; eauto.
+Qed.
 
 Lemma sim_memory_add
       mem1_src mem1_tgt
@@ -82,7 +95,29 @@ Lemma sim_memory_add
       (SIM: sim_memory mem1_src mem1_tgt):
   sim_memory mem2_src mem2_tgt.
 Proof.
-Admitted.
+  inv SIM. econs.
+  - econs; i.
+    + inv H.
+      exploit Memory.add_get_inv; try exact GET; eauto. i. des.
+      * subst. exploit Memory.add_get2; try exact TGT; eauto. i.
+        econs; eauto.
+      * destruct (COVER loc0 ts) as [C1 C2]. exploit C1; eauto.
+        { econs; eauto. }
+        i. inv x. exploit Memory.add_get1; try exact GET0; eauto. i. econs; eauto.
+    + inv H.
+      exploit Memory.add_get_inv; try exact GET; eauto. i. des.
+      * subst. exploit Memory.add_get2; try exact SRC; eauto. i.
+        econs; eauto.
+      * destruct (COVER loc0 ts) as [C1 C2]. exploit C2; eauto.
+        { econs; eauto. }
+        i. inv x. exploit Memory.add_get1; try exact GET0; eauto. i. econs; eauto.
+  - i. exploit Memory.add_get_inv; eauto. i. des.
+    + inv x3. esplits.
+      * eapply Memory.add_get2. eauto.
+      * refl.
+    + exploit MSG; eauto. i. des.
+      esplits; eauto. eapply Memory.add_get1; eauto.
+Qed.
 
 Lemma sim_memory_update
       mem1_src mem1_tgt
@@ -93,7 +128,46 @@ Lemma sim_memory_update
       (SIM: sim_memory mem1_src mem1_tgt):
   sim_memory mem2_src mem2_tgt.
 Proof.
-Admitted.
+  inv SIM. econs.
+  - econs; i.
+    + inv H. destruct msg.
+      exploit Memory.update_get_inv; try exact GET; eauto. i. des.
+      * subst. exploit Memory.update_get2; try exact TGT; eauto. i.
+        econs; eauto.
+      * destruct (COVER loc0 ts) as [C1 C2]. exploit C1; eauto.
+        { econs; eauto. }
+        i. inv x. exploit Memory.update_get1; try exact GET0; eauto. i. des.
+        { subst. contradict x0. splits; auto.
+          exploit Memory.update_get0; try exact SRC; eauto. i.
+          destruct (mem1_src loc).(Cell.WF).
+          destruct (Time.eq_dec to0 to); auto. exfalso.
+          eapply DISJOINT; try exact n; eauto.
+        }
+        { econs; eauto. }
+    + inv H. destruct msg.
+      exploit Memory.update_get_inv; try exact GET; eauto. i. des.
+      * subst. exploit Memory.update_get2; try exact SRC; eauto. i.
+        econs; eauto.
+      * destruct (COVER loc0 ts) as [C1 C2]. exploit C2; eauto.
+        { econs; eauto. }
+        i. inv x. exploit Memory.update_get1; try exact GET0; eauto. i. des.
+        { subst. contradict x0. splits; auto.
+          exploit Memory.update_get0; try exact TGT; eauto. i.
+          destruct (mem1_tgt loc).(Cell.WF).
+          destruct (Time.eq_dec to0 to); auto. exfalso.
+          eapply DISJOINT; try exact n; eauto.
+        }
+        { econs; eauto. }
+  - i. exploit Memory.update_get_inv; eauto. i. des.
+    + subst. esplits.
+      * eapply Memory.update_get2. eauto.
+      * refl.
+    + exploit MSG; eauto. i. des.
+      exploit Memory.update_get1; try exact GET0; eauto. i. des.
+      * inv x5. esplits; eauto. etrans; eauto.
+        inv SRC. inv UPDATE. auto.
+      * esplits; eauto.
+Qed.
 
 Lemma sim_memory_promise
       loc from to val released kind
