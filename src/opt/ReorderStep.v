@@ -27,7 +27,6 @@ Require Import SimLocal.
 Require Import Compatibility.
 Require Import Simulation.
 
-Require ReorderMemory.
 Require ReorderCommit.
 
 Require Import Syntax.
@@ -82,7 +81,7 @@ Lemma promise_step_promise_step
   Local.promise_step lc0 mem0 loc from2 to val released2 lc2 mem2 kind.
 Proof.
   inv PROMISE1. inv PROMISE2. ss.
-  exploit promise_promise_promise; try exact PROMISE; eauto. i.
+  exploit MemoryFacts.merge_promise_promise_promise; try exact PROMISE; eauto. i.
   econs; eauto.
 Qed.
 
@@ -182,7 +181,7 @@ Proof.
   esplits; eauto.
   - econs; eauto.
   - econs; eauto.
-    eapply promise_get1_diff; eauto.
+    eapply MemoryFacts.promise_get1_diff; eauto.
 Qed.
 
 Lemma reorder_read_fulfill
@@ -261,8 +260,8 @@ Proof.
   i. des.
   esplits; eauto.
   inv STEP7. econs; eauto.
-  inv STEP. inv WRITE. eapply promise_get1_diff; eauto.
-  - inv STEP0. eapply promise_get_inv_diff; eauto. ii. inv H. congr.
+  inv STEP. inv WRITE. eapply MemoryFacts.promise_get1_diff; eauto.
+  - inv STEP0. eapply MemoryFacts.promise_get_inv_diff; eauto. ii. inv H. congr.
   - ii. inv H. congr.
 Qed.
 
@@ -391,7 +390,7 @@ Proof.
   inv STEP1. inv STEP2.
   hexploit Memory.remove_future; try apply WF0; eauto. i. des.
   hexploit Memory.promise_future; eauto. i. des.
-  exploit ReorderMemory.remove_promise; try apply WF0; eauto. i. des.
+  exploit MemoryFacts.reorder_remove_promise; try apply WF0; eauto. i. des.
   esplits.
   - econs; eauto.
   - econs; eauto.
@@ -420,7 +419,7 @@ Lemma reorder_fulfill_fulfill
 Proof.
   inv STEP1. inv STEP2.
   hexploit Memory.remove_future; try apply WF0; eauto. i. des.
-  exploit ReorderMemory.remove_remove; try apply REMOVE; try apply REMOVE0; eauto. i. des.
+  exploit MemoryFacts.reorder_remove_remove; try apply REMOVE; try apply REMOVE0; eauto. i. des.
   unfold Local.promises in REMOVE0.
   esplits.
   - econs; eauto.
@@ -673,8 +672,8 @@ Proof.
   i. des.
   esplits; eauto; try refl.
   inv STEP9. econs; eauto.
-  inv STEP. inv WRITE. eapply promise_get1_diff; eauto.
-  - inv STEP0. eapply promise_get_inv_diff; eauto. ii. inv H. congr.
+  inv STEP. inv WRITE. eapply MemoryFacts.promise_get1_diff; eauto.
+  - inv STEP0. eapply MemoryFacts.promise_get_inv_diff; eauto. ii. inv H. congr.
   - ii. inv H. congr.
 Qed.
 

@@ -195,7 +195,7 @@ Proof.
     econs 2. econs 1; eauto. econs; eauto. eauto.
   - (* store *)
     exploit Time.middle_spec; eauto.
-    { inv LOCAL0. eapply write_time_lt. eauto. }
+    { inv LOCAL0. eapply MemoryFacts.write_time_lt. eauto. }
     i. des.
     exploit sim_local_write; try exact LOCAL0; try exact SC; eauto; try refl; try by committac. i. des.
     exploit merge_write_write_bot; try exact STEP_SRC; eauto; try by committac. i. des.
@@ -390,7 +390,7 @@ Proof.
     econs 2. econs 1; eauto. econs; eauto. eauto.
   - (* update *)
     exploit Time.middle_spec; eauto.
-    { inv LOCAL2. eapply write_time_lt. eauto. }
+    { inv LOCAL2. eapply MemoryFacts.write_time_lt. eauto. }
     i. des.
     exploit Local.read_step_future; eauto. i. des.
     exploit sim_local_read; try exact LOCAL1;
@@ -403,7 +403,7 @@ Proof.
     + exploit Local.promise_step_future; eauto. i. des.
       exploit Local.write_step_future; try apply STEP2; eauto; try by committac. i. des.
       exploit reorder_read_promise; try exact STEP_SRC; try exact STEP1; eauto.
-      { inv LOCAL2. exploit write_time_lt; eauto. ii. inv H.
+      { inv LOCAL2. exploit MemoryFacts.write_time_lt; eauto. ii. inv H.
         eapply Time.lt_strorder. eauto.
       }
       i. des.

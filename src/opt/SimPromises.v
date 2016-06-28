@@ -419,14 +419,14 @@ Module SimPromises.
     exploit Memory.promise_future0; try apply PROMISE; eauto; try committac. i. des.
     exploit promise; eauto. i. des.
     exploit Memory.promise_future0; try apply PROMISE_SRC; eauto; try committac. i. des.
-    exploit remove; eauto; try eapply promise_time_lt; eauto. i. des.
-    exploit remove_promise_remove; try exact REMOVE_SRC; eauto; try refl.
+    exploit remove; eauto; try eapply MemoryFacts.promise_time_lt; eauto. i. des.
+    exploit MemoryFacts.split_remove_promise_remove; try exact REMOVE_SRC; eauto; try refl.
     { by inv PROMISE. }
-    { eapply promise_time_lt. eauto. }
+    { eapply MemoryFacts.promise_time_lt. eauto. }
     i. des.
     esplits.
     - econs; eauto.
-      eapply promise_promise_promise; eauto.
+      eapply MemoryFacts.merge_promise_promise_promise; eauto.
     - auto.
     - etrans; eauto. eapply promise_sim_memory. eauto.
   Qed.

@@ -83,7 +83,7 @@ Proof.
   - econs; eauto.
   - refine (step_fulfill _ _ _ _ _ _); auto.
     + refl.
-    + eapply promise_time_lt. eauto.
+    + eapply MemoryFacts.promise_time_lt. eauto.
 Qed.
 
 Lemma fulfill_write
@@ -101,7 +101,8 @@ Lemma fulfill_write
     <<MEM: sim_memory mem2' mem1>>.
 Proof.
   inv FULFILL.
-  exploit remove_promise_remove; try exact REMOVE; eauto; try apply WF1; try refl.
+  exploit MemoryFacts.split_remove_promise_remove;
+    try exact REMOVE; eauto; try apply WF1; try refl.
   { repeat (try condtac; committac; try apply WF1). }
   { eapply MEM1. apply WF1. eapply Memory.remove_get0. eauto. }
   i. des.
@@ -130,14 +131,15 @@ Lemma promise_fulfill_write
 Proof.
   exploit Local.promise_step_future; eauto. i. des.
   inv PROMISE. inv FULFILL.
-  exploit remove_promise_remove; try exact REMOVE; eauto; try apply WF2; try refl.
+  exploit MemoryFacts.split_remove_promise_remove;
+    try exact REMOVE; eauto; try apply WF2; try refl.
   { repeat (try condtac; committac; try apply WF2). }
   { by inv PROMISE0. }
   i. des.
   esplits; eauto.
   - refine (Local.step_write _ _ _ _ _); eauto.
     econs; eauto.
-    eapply promise_promise_promise; eauto.
+    eapply MemoryFacts.merge_promise_promise_promise; eauto.
   - eapply promise_sim_memory. eauto.
 Qed.
 

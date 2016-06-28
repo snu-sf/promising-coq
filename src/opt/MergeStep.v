@@ -132,7 +132,7 @@ Proof.
   inv STEP1. inv STEP2.
   exploit MergeMemory.remove_promise_remove_remove; try apply WF2; eauto. i. des.
   exploit STEPS; eauto. i. des.
-  hexploit remove_promise_remove; try eexact STEP4.
+  hexploit MemoryFacts.split_remove_promise_remove; try eexact STEP4.
   { admit. (* promise_future *) }
   { admit. }
   { repeat (try condtac; aggrtac; try apply WF0). }
@@ -143,7 +143,7 @@ Proof.
   i. des.
   esplits.
   - econs.
-    + eapply promise_promise_promise; eauto.
+    + eapply MemoryFacts.merge_promise_promise_promise; eauto.
     + admit. (* closed capability *)
   - econs; eauto.
     + admit. (* writable *)
