@@ -353,7 +353,7 @@ Lemma reorder_fulfill_read
     <<STEP1: Local.read_step lc0 mem0 loc2 ts2 val2 released2 ord2 lc1'>> /\
     <<STEP2: fulfill_step lc1' sc0 loc1 from1 to1 val1 releasedm1 released1 ord1 lc2 sc1>>.
 Proof.
-  inv STEP1. inv STEP2. 
+  inv STEP1. inv STEP2.
   hexploit Memory.remove_future; try apply REMOVE; try apply WF0; eauto. i. des.
   esplits.
   - econs; eauto.
@@ -477,7 +477,7 @@ Proof.
     splits; auto. admit. (* promises = cell.bot; fulfill_step *)
   }
   i. des.
-  esplits; eauto. 
+  esplits; eauto.
 Admitted.
 
 Lemma reorder_fulfill_update

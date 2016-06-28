@@ -405,7 +405,7 @@ Module Memory.
       + inv x3. exploit IHLE; eauto. i. des.
         inv UPDATE. inv UPDATE0.
         esplits; eauto.
-        * etrans; eauto. 
+        * etrans; eauto.
         * etrans; eauto.
       + eapply IHLE; eauto.
   Qed.

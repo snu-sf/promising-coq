@@ -39,7 +39,7 @@ Lemma promise_promise_promise
       (PROMISE2: Memory.promise promises1 mem1 loc from2 to val released2 promises2 mem2 (Memory.promise_kind_update from1 released1)):
   Memory.promise promises0 mem0 loc from2 to val released2 promises2 mem2 kind.
 Proof.
-  inv PROMISE2. inv PROMISE1. 
+  inv PROMISE2. inv PROMISE1.
   - econs; eauto.
     + eapply add_update_add; eauto.
     + eapply add_update_add; eauto.
