@@ -238,8 +238,8 @@ Proof.
 Qed.
 
 Lemma sim_memory_split
-      mem0 loc ts1 ts2 ts3 val2 val3 released2 released3 mem1 mem2
-      (STEP1: Memory.update mem0 loc ts1 ts2 ts3 val3 released3 released3 mem1)
+      mem0 loc ts1 ts2 ts3 val2 val3 released2 released3 released3' mem1 mem2
+      (STEP1: Memory.update mem0 loc ts1 ts2 ts3 val3 released3 released3' mem1)
       (STEP2: Memory.add mem1 loc ts1 ts2 val2 released2 mem2):
   sim_memory mem2 mem0.
 Proof.
@@ -267,6 +267,7 @@ Proof.
       exploit Memory.add_get1; eauto. i.
       econs; eauto.
   - i. exploit Memory.update_get1; eauto. i. des.
-    + inv x3. exploit Memory.add_get1; eauto. i. esplits; eauto. refl.
+    + inv x3. exploit Memory.add_get1; eauto. i. esplits; eauto.
+      inv STEP1. inv UPDATE. auto.
     + exploit Memory.add_get1; eauto. i. esplits; eauto. refl.
 Qed.

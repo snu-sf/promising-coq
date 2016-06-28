@@ -14,6 +14,7 @@ Require Import View.
 Require Import Cell.
 Require Import Memory.
 Require Import MemoryFacts.
+Require Import TEMP.
 Require Import Commit.
 Require Import Thread.
 Require Import Configuration.
@@ -27,7 +28,6 @@ Require Import Compatibility.
 Require Import Simulation.
 
 Require MergeCommit.
-Require MergeMemory.
 Require ReorderCommit.
 
 Require Import Syntax.
@@ -130,19 +130,20 @@ Proof.
   exploit Local.promise_step_future; eauto. i. des.
   exploit fulfill_step_future; try exact STEP2; try exact WF2; eauto; try by committac. i. des.
   inv STEP1. inv STEP2.
-  
-  
-
-  exploit MergeMemory.remove_promise_remove_remove; try apply WF2; eauto. i. des.
-  exploit STEPS; eauto. i. des.
-  hexploit MemoryFacts.split_remove_promise_remove; try eexact STEP4.
-  { admit. (* promise_future *) }
-  { admit. }
-  { repeat (try condtac; aggrtac; try apply WF0). }
-  { admit. }
-  { by inv STEP1. }
+  exploit split_remove_promise_promise_remove_remove;
+    try exact TS12; try exact TS23; try exact REMOVE.
+  { admit. (* released wf *) }
+  { admit. (* released wf *) }
   { refl. }
-  { apply TS23. }
+  { admit. (* released ts *) }
+  { admit. (* released ts *) }
+  { apply WF2. }
+  i. des.
+  exploit MemoryFacts.split_remove_promise_remove;
+    try exact STEP4; try exact TS23; eauto.
+  { instantiate (1 := mem2). admit. (* Memory.le *) }
+  { admit. (* released ts *) }
+  { refl. }
   i. des.
   esplits.
   - econs.
@@ -150,20 +151,29 @@ Proof.
     + admit. (* closed capability *)
   - econs; eauto.
     + admit. (* writable *)
-    + econs; eauto.
+    + unfold Local.commit at 2. econs; eauto.
     + i. destruct ord; inv ORD; inv H.
   - econs; eauto.
     + admit. (* writable *)
-    + econs; eauto.
+    + unfold Local.commit at 1 in PROMISE0.
+      unfold Local.commit at 1 in REMOVE0.
+      econs.
+      * unfold Local.commit at 1 3 5 6.
+        unfold Local.promises at 1.
+        admit. (* promise *)
+      * unfold Local.commit at 1 3 4.
+        unfold Local.commit at 1 in REMOVE0.
+        unfold Commit.write_sc. condtac; [by committac|].
+        admit. (* remove *)
     + i. destruct ord; inv ORD; inv H.
   - repeat (try condtac; aggrtac; try apply WF0).
   - s. econs; ss.
     + eapply MergeCommit.write_write_commit; eauto. apply WF0.
     + apply SimPromises.sem_bot.
   - eapply MergeCommit.write_write_sc; eauto.
-  - etrans.
-    + eapply sim_memory_promise_lower. eauto.
-    + admit. (* sim_memory *)
+  - eapply sim_memory_split.
+    + inv STEP1. eauto.
+    + inv STEP2. eauto.
 Admitted.
 
 Lemma merge_write_write_add
