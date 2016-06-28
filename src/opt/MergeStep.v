@@ -130,6 +130,9 @@ Proof.
   exploit Local.promise_step_future; eauto. i. des.
   exploit fulfill_step_future; try exact STEP2; try exact WF2; eauto; try by committac. i. des.
   inv STEP1. inv STEP2.
+  
+  
+
   exploit MergeMemory.remove_promise_remove_remove; try apply WF2; eauto. i. des.
   exploit STEPS; eauto. i. des.
   hexploit MemoryFacts.split_remove_promise_remove; try eexact STEP4.
@@ -159,7 +162,7 @@ Proof.
     + apply SimPromises.sem_bot.
   - eapply MergeCommit.write_write_sc; eauto.
   - etrans.
-    + eapply promise_sim_memory. eauto.
+    + eapply sim_memory_promise_lower. eauto.
     + admit. (* sim_memory *)
 Admitted.
 

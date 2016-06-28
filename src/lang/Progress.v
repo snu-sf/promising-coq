@@ -14,6 +14,7 @@ Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
+Require Import MemoryFacts.
 Require Import Commit.
 Require Import Thread.
 
@@ -27,13 +28,14 @@ Lemma write_step_promise
   lc2.(Local.promises) = Memory.bot.
 Proof.
   inv STEP. rewrite PROMISES in *. s.
-  apply Memory.ext. i. rewrite Memory.bot_get.
-  destruct (Memory.get loc0 ts promises2) as [[? []]|] eqn:X; auto.
+  apply Memory.ext. i.
   inv WRITE.
-  exploit Memory.remove_get_inv; eauto. i. des.
-  exploit Memory.promise_promises_get2; eauto. i. des.
-  - subst. contradict x0. auto.
-  - rewrite Memory.bot_get in *. congr.
+  erewrite MemoryFacts.remove_o; eauto.
+  inv PROMISE.
+  - erewrite MemoryFacts.add_o; eauto. condtac; ss.
+    rewrite Memory.bot_get. auto.
+  - erewrite MemoryFacts.update_o; eauto. condtac; ss.
+    rewrite Memory.bot_get. auto.
 Qed.
 
 Lemma program_step_promise
@@ -137,19 +139,9 @@ Proof.
                           (Capability.join releasedm (Commit.rel (Commit.write_commit (Local.commit lc1) sc1 loc to ord) loc))
                           LT).
   { apply Memory.ext. i.
-    rewrite Memory.singleton_get. repeat condtac; subst.
-    - destruct (Memory.get loc to promises2) as [[? []]|] eqn:X.
-      + exploit Memory.promise_promises_get2; eauto. i. des; subst; eauto.
-        contradict x0. auto.
-      + exploit Memory.promise_get2; eauto. i. congr.
-    - destruct (Memory.get loc ts promises2) as [[? []]|] eqn:X; [|done].
-      exploit Memory.promise_promises_get2; eauto. i. des; subst; eauto.
-      + congr.
-      + rewrite PROMISES1, Memory.bot_get in *. congr.
-    - destruct (Memory.get loc0 ts promises2) as [[? []]|] eqn:X; [|done].
-      exploit Memory.promise_promises_get2; eauto. i. des; subst; eauto.
-      + congr.
-      + rewrite PROMISES1, Memory.bot_get in *. congr.
+    inv PROMISE. erewrite MemoryFacts.add_o; eauto.
+    rewrite PROMISES1, Memory.bot_get, Memory.singleton_get.
+    repeat (condtac; unfold fst, snd in *; des; subst; auto; try congr).
   }
   esplits. econs; eauto.
   - econs; i; (try eapply TimeFacts.le_lt_lt; [|eauto]).

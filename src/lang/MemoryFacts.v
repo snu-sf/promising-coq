@@ -18,6 +18,66 @@ Set Implicit Arguments.
 
 
 Module MemoryFacts.
+  Lemma add_o
+        mem2 mem1 loc from to val released
+        l t
+        (ADD: Memory.add mem1 loc from to val released mem2):
+    Memory.get l t mem2 =
+    if loc_ts_eq_dec (l, t) (loc, to)
+    then Some (from, Message.mk val released)
+    else Memory.get l t mem1.
+  Proof.
+    condtac; ss.
+    - des. subst. eapply Memory.add_get2; eauto.
+    - destruct (Memory.get l t mem1) as [[? []]|] eqn:X.
+      { erewrite Memory.add_get1; eauto. }
+      destruct (Memory.get l t mem2) as [[? []]|] eqn:Y.
+      { exploit Memory.add_get_inv; eauto. i. des; congr. }
+      auto.
+  Qed.
+
+  Lemma update_o
+        mem2 mem1 loc from1 from2 to val released1 released2
+        l t
+        (UPDATE: Memory.update mem1 loc from1 from2 to val released1 released2 mem2):
+    Memory.get l t mem2 =
+    if loc_ts_eq_dec (l, t) (loc, to)
+    then Some (from2, Message.mk val released2)
+    else Memory.get l t mem1.
+  Proof.
+    condtac; ss.
+    - des. subst. eapply Memory.update_get2; eauto.
+    - guardH o. destruct (Memory.get l t mem1) as [[? []]|] eqn:X.
+      { exploit Memory.update_get1; eauto. i. des; auto.
+        inv x3. unguardH o. des; congr.
+      }
+      destruct (Memory.get l t mem2) as [[? []]|] eqn:Y.
+      { exploit Memory.update_get_inv; eauto. i. des; try congr.
+        subst. unguardH o. des; congr.
+      }
+      auto.
+  Qed.
+
+  Lemma remove_o
+        mem2 mem1 loc from to val released
+        l t
+        (UPDATE: Memory.remove mem1 loc from to val released mem2):
+    Memory.get l t mem2 =
+    if loc_ts_eq_dec (l, t) (loc, to)
+    then None
+    else Memory.get l t mem1.
+  Proof.
+    condtac; ss.
+    - des. subst. eapply Memory.remove_get2; eauto.
+    - guardH o. destruct (Memory.get l t mem1) as [[? []]|] eqn:X.
+      { exploit Memory.remove_get1; eauto. i. des; auto.
+        inv x3. unguardH o. des; congr.
+      }
+      destruct (Memory.get l t mem2) as [[? []]|] eqn:Y.
+      { exploit Memory.remove_get_inv; eauto. i. des; congr. }
+      auto.
+  Qed.
+
   Lemma merge_add_update_add
         mem0 loc from1 from2 to val released1 released2 mem1 mem2
         (ADD1: Memory.add mem0 loc from1 to val released1 mem1)
@@ -138,26 +198,12 @@ Module MemoryFacts.
     exploit Memory.remove_exists; try eexact x1; eauto. i. des.
     cut (mem3 = mem2); [by i; subst|].
     apply Memory.ext. i.
-    destruct (Memory.get loc ts mem3) as [[? []]|] eqn:X.
-    { exploit Memory.remove_get_inv; try eexact x2; eauto. i. des.
-      exploit Memory.add_get_inv; try eexact ADD1; eauto. i. des.
-      { inv x8. symmetry. eapply Memory.add_get2; eauto. }
-      exploit Memory.remove_get1; try eexact REMOVE1; eauto. i. des.
-      { inv x10. contradict x3. auto. }
-      symmetry. eapply Memory.add_get1; eauto.
-    }
-    destruct (Memory.get loc ts mem2) as [[? []]|] eqn:Y.
-    { exploit Memory.add_get_inv; try eexact ADD2; eauto. i. des.
-      { inv x6. exploit Memory.add_get2; try eexact ADD1; eauto. i.
-        exploit Memory.remove_get1; try eexact x2; eauto. i. des; [|congr].
-        inv x7. exploit Memory.add_get0; try eexact ADD1; eauto. i. congr.
-      }
-      exploit Memory.remove_get_inv; try eexact REMOVE1; eauto. i. des.
-      exploit Memory.add_get1; try eexact ADD1; eauto. i.
-      exploit Memory.remove_get1; try eexact x2; eauto. i. des; [|congr].
-      inv x11. contradict x5. auto.
-    }
-    auto.
+    erewrite remove_o; eauto.
+    erewrite add_o; eauto.
+    erewrite (@add_o mem2); eauto.
+    erewrite (@remove_o mem1); eauto.
+    repeat (condtac; ss). des. subst. subst.
+    exploit Memory.add_get0; try eexact ADD1; eauto. congr.
   Qed.
 
   Lemma reorder_remove_update
@@ -178,28 +224,12 @@ Module MemoryFacts.
     exploit Memory.remove_exists; try eexact x2; eauto. i. des.
     cut (mem3 = mem2); [by i; subst|].
     apply Memory.ext. i.
-    destruct (Memory.get loc ts mem3) as [[? []]|] eqn:X.
-    { exploit Memory.remove_get_inv; try eexact x3; eauto. i. des.
-      exploit Memory.update_get_inv; try eexact UPDATE1; eauto. i. des.
-      { inv x8. symmetry. eapply Memory.update_get2; eauto. }
-      exploit Memory.remove_get1; try eexact REMOVE1; eauto. i. des.
-      { inv x10. contradict x3. auto. }
-      symmetry. exploit Memory.update_get1; try eexact UPDATE2; eauto. i. des; auto.
-      inv x12. contradict x6. auto.
-    }
-    destruct (Memory.get loc ts mem2) as [[? []]|] eqn:Y.
-    { exploit Memory.update_get_inv; try eexact UPDATE2; eauto. i. des.
-      { subst. exploit Memory.update_get2; try eexact UPDATE1; eauto. i.
-        exploit Memory.remove_get1; try eexact x3; eauto. i. des; [|congr].
-        inv x8. contradict x1. auto.
-      }
-      exploit Memory.remove_get_inv; try eexact REMOVE1; eauto. i. des.
-      exploit Memory.update_get1; try eexact UPDATE1; eauto. i. des.
-      { inv x11. contradict x4. auto. }
-      exploit Memory.remove_get1; try eexact x3; eauto. i. des; [|congr].
-      inv x13. contradict x6. auto.
-    }
-    auto.
+    erewrite remove_o; eauto.
+    erewrite update_o; eauto.
+    erewrite (@update_o mem2); eauto.
+    erewrite (@remove_o mem1); eauto.
+    repeat (condtac; ss). des. subst. subst.
+    contradict x1. auto.
   Qed.
 
   Lemma reorder_remove_promise
@@ -226,19 +256,6 @@ Module MemoryFacts.
       esplits; eauto. econs; eauto.
   Qed.
 
-  Lemma reorder_promise_promise
-        promises1 mem1 loc1 from1 to1 val1 released1 kind1
-        promises2 mem2 loc2 from2 to2 val2 released2 kind2
-        promises3 mem3
-        (LE: Memory.le promises1 mem1)
-        (PROMISE1: Memory.promise promises1 mem1 loc1 from1 to1 val1 released1 promises2 mem2 kind1)
-        (PROMISE2: Memory.promise promises2 mem2 loc2 from2 to2 val2 released2 promises3 mem3 kind2):
-    exists promises2' mem2',
-      <<PROMISE1: Memory.promise promises1 mem1 loc2 from2 to2 val2 released2 promises2' mem2' kind2>> /\
-      <<PROMISE2: Memory.promise promises2' mem2' loc1 from1 to1 val1 released1 promises3 mem3 kind1>>.
-  Proof.
-  Admitted. (* reorder promise & promise; WRONG: need a condition *)
-
   Lemma reorder_remove_remove
         promises0 loc1 from1 to1 val1 released1
         promises1 loc2 from2 to2 val2 released2
@@ -258,22 +275,12 @@ Module MemoryFacts.
     cut (mem0 = promises2).
     { esplits; subst; eauto. }
     apply Memory.ext. i.
-    destruct (Memory.get loc ts mem0) as [[]|] eqn:X.
-    { exploit Memory.remove_get_inv; try apply x6; eauto. i. des.
-      exploit Memory.remove_get_inv; try apply x3; eauto. i. des.
-      exploit Memory.remove_get1; try apply REMOVE1; eauto. i. des; [by contradict x7|].
-      exploit Memory.remove_get1; try apply REMOVE2; eauto. i. des; [by contradict x9|].
-      auto.
-    }
-    destruct (Memory.get loc ts promises2) as [[]|] eqn:Y.
-    { exploit Memory.remove_get_inv; try apply REMOVE2; eauto. i. des.
-      exploit Memory.remove_get_inv; try apply REMOVE1; eauto. i. des.
-      exploit Memory.remove_get1; try apply x3; eauto. i. des; [by contradict x7|].
-      exploit Memory.remove_get1; try apply x6; eauto. i. des; [by contradict x9|].
-      congr.
-    }
-    auto.
-  Qed.  
+    erewrite remove_o; eauto.
+    erewrite remove_o; eauto.
+    erewrite (@remove_o promises2); eauto.
+    erewrite (@remove_o promises1); eauto.
+    repeat (condtac; ss).
+  Qed.
 
   Lemma promise_time_lt
         promises1 mem1 loc from to val released promises2 mem2 kind
@@ -347,3 +354,72 @@ Module MemoryFacts.
     apply Cell.ext. i. eapply remove_get_diff; eauto. refl.
   Qed.
 End MemoryFacts.
+
+Lemma remove_update_add_remove_remove
+      mem0 loc ts1 ts2 ts3 val2 val3 released2 released3 mem1 mem2 mem4
+      (REMOVE1: Memory.remove mem0 loc ts1 ts3 val3 released3 mem4)
+      (UPDATE1: Memory.update mem0 loc ts1 ts2 ts3 val3 released3 released3 mem1)
+      (ADD2: Memory.add mem1 loc ts1 ts2 val2 released2 mem2):
+  exists mem3',
+    <<REMOVE3: Memory.remove mem2 loc ts1 ts2 val2 released2 mem3'>> /\
+    <<REMOVE4: Memory.remove mem3' loc ts2 ts3 val3 released3 mem4>>.
+Proof.
+  exploit Memory.add_get2; eauto. i.
+  exploit Memory.remove_exists; eauto. i. des.
+  exploit Memory.update_get2; eauto. i.
+  exploit Memory.add_get1; eauto. i.
+  exploit Memory.remove_get1; eauto. i. des.
+  { inv x7. inv ADD2. inv ADD. exfalso. eapply Time.lt_strorder. eauto. }
+  i. des.
+  exploit Memory.remove_exists; eauto. i. des.
+  esplits; eauto.
+  cut (mem5 = mem4); [by i; subst|].
+  apply Memory.ext. i.
+  erewrite MemoryFacts.remove_o; eauto.
+  erewrite MemoryFacts.remove_o; eauto.
+  erewrite MemoryFacts.add_o; eauto.
+  erewrite MemoryFacts.update_o; eauto.
+  erewrite (@MemoryFacts.remove_o mem4); eauto.
+  repeat (condtac; ss). des; try congr. subst.
+  exploit Memory.update_get0; try eexact UPDATE1; eauto. i.
+  destruct (Memory.get loc ts2 mem0) as [[]|] eqn:X; auto.
+  destruct (mem0 loc).(Cell.WF).
+  exfalso. eapply DISJOINT; try exact o; eauto.
+  - apply Interval.mem_ub.
+    exploit VOLUME; eauto. i. des; auto.
+    inv x. inv ADD2. inv ADD. inv TO.
+  - inv UPDATE1. inv UPDATE. inv ADD2. inv ADD.
+    econs; eauto. left. auto.
+Qed.
+
+Lemma update_add_exists
+      mem0 loc ts1 ts2 ts3 val2 val3 released2 released3
+      (TS12: Time.lt ts1 ts2)
+      (TS23: Time.lt ts2 ts3)
+      (GET: Memory.get loc ts3 mem0 = Some (ts1, Message.mk val3 released3))
+      (WF2: Capability.wf released2)
+      (WF3: Capability.wf released3):
+  exists mem1' mem2',
+    <<STEP1: Memory.update mem0 loc ts1 ts2 ts3 val3 released3 released3 mem1'>> /\
+    <<STEP2: Memory.add mem1' loc ts1 ts2 val2 released2 mem2'>>.
+Proof.
+  exploit Memory.update_exists; eauto.
+  { left. auto. }
+  { refl. }
+  i. des.
+  exploit (Memory.add_exists mem2 loc); try exact TS12; try exact WF2; eauto.
+  { i. destruct msg2.
+    exploit Memory.update_get_inv; eauto. i. des.
+    - subst. ii. inv LHS. inv RHS. ss.
+      eapply Time.lt_strorder. eapply TimeFacts.lt_le_lt; eauto.
+    - assert (to2 <> ts3).
+      { contradict x1. auto. }
+      destruct (mem0 loc).(Cell.WF). 
+      ii. eapply DISJOINT; try exact H; eauto.
+      eapply Interval.le_mem; try exact LHS; eauto. econs; s.
+      + refl.
+      + left. auto.
+  }
+  i. des.
+  esplits; eauto.
+Qed.

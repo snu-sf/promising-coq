@@ -110,7 +110,7 @@ Proof.
   - econs; eauto.
     + econs; eauto.
     + i. destruct ord; inv ORD; inv H.
-  - eapply promise_sim_memory. eauto.
+  - eapply sim_memory_promise_lower. eauto.
 Qed.
 
 Lemma promise_fulfill_write
@@ -140,7 +140,7 @@ Proof.
   - refine (Local.step_write _ _ _ _ _); eauto.
     econs; eauto.
     eapply MemoryFacts.merge_promise_promise_promise; eauto.
-  - eapply promise_sim_memory. eauto.
+  - eapply sim_memory_promise_lower. eauto.
 Qed.
 
 Lemma fulfill_step_promises_diff

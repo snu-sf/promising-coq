@@ -95,14 +95,12 @@ Module SimPromises.
 
   Lemma set_o loc1 ts1 loc2 ts2 promises:
     mem loc1 ts1 (set loc2 ts2 promises) =
-    if Loc.eq_dec loc1 loc2
-    then if Time.eq_dec ts1 ts2
-         then true
-         else mem loc1 ts1 promises
+    if loc_ts_eq_dec (loc1, ts1) (loc2, ts2)
+    then true
     else mem loc1 ts1 promises.
   Proof.
     unfold mem, set, LocFun.add, LocFun.find.
-    repeat condtac; subst; ss.
+    repeat (try condtac; ss; des; subst; try congr).
     - rewrite DOSet.Facts.add_b.
       unfold DOSet.Facts.eqb. rewrite Time.eq_dec_eq. auto.
     - rewrite DOSet.Facts.add_b.
@@ -112,7 +110,7 @@ Module SimPromises.
   Lemma set_eq loc ts promises:
     mem loc ts (set loc ts promises) = true.
   Proof.
-    rewrite set_o, Loc.eq_dec_eq, Time.eq_dec_eq. auto.
+    rewrite set_o. condtac; ss. des; congr.
   Qed.
 
   Lemma set_inv loc1 ts1 loc2 ts2 promises
@@ -127,13 +125,12 @@ Module SimPromises.
 
   Lemma unset_o loc1 ts1 loc2 ts2 promises:
     mem loc1 ts1 (unset loc2 ts2 promises) =
-    if Loc.eq_dec loc1 loc2
-    then if Time.eq_dec ts1 ts2
-         then false
-         else mem loc1 ts1 promises
+    if loc_ts_eq_dec (loc1, ts1) (loc2, ts2)
+    then false
     else mem loc1 ts1 promises.
   Proof.
-    unfold mem, unset, LocFun.add, LocFun.find. repeat condtac; subst; ss.
+    unfold mem, unset, LocFun.add, LocFun.find.
+    repeat (try condtac; ss; des; subst; try congr).
     - rewrite DOSet.Facts.remove_b.
       unfold DOSet.Facts.eqb. rewrite Time.eq_dec_eq.
       apply Bool.andb_false_iff. auto.
@@ -145,16 +142,15 @@ Module SimPromises.
   Lemma unset_eq loc ts promises:
     mem loc ts (unset loc ts promises) = false.
   Proof.
-    rewrite unset_o. rewrite Loc.eq_dec_eq, Time.eq_dec_eq. auto.
+    rewrite unset_o. condtac; ss. des; congr.
   Qed.
 
   Lemma unset_inv loc1 ts1 loc2 ts2 promises
         (MEM: mem loc1 ts1 (unset loc2 ts2 promises)):
     ~ (loc1 = loc2 /\ ts1 = ts2) /\ mem loc1 ts1 promises.
   Proof.
-    revert MEM. rewrite unset_o. repeat condtac; ss; splits; auto.
-    - ii. des. subst. congr.
-    - ii. des. subst. congr.
+    revert MEM. rewrite unset_o. condtac; ss. i.
+    splits; auto. ii. des; auto.
   Qed.
 
   Lemma unset_set loc to inv
@@ -162,7 +158,7 @@ Module SimPromises.
     unset loc to (set loc to inv) = inv.
   Proof.
     apply ext. i.
-    rewrite unset_o, set_o. repeat condtac; ss. subst. auto.
+    rewrite unset_o, set_o.  condtac; ss. des. subst. auto.
   Qed.
 
   Inductive disjoint (lhs rhs:t): Prop :=
@@ -285,23 +281,15 @@ Module SimPromises.
     - econs.
       + ii. exploit Memory.remove_get_inv; eauto. i. des.
         apply LE. auto.
-      + i.
-        rewrite set_o in INV. revert INV. repeat condtac; subst; i.
-        * esplits; eauto.
-          eapply Memory.remove_get2. eauto.
-        * exploit SOUND; eauto. i. des. splits; eauto.
-          destruct (Memory.get loc t0 promises2_tgt) as [[]|] eqn:X; auto.
-          exploit Memory.remove_get_inv; try exact X; eauto. i. des. congr.
-        * exploit SOUND; eauto. i. des. splits; eauto.
-          destruct (Memory.get l t0 promises2_tgt) as [[]|] eqn:X; auto.
-          exploit Memory.remove_get_inv; try exact X; eauto. i. des. congr.
-      + i. rewrite set_o. repeat condtac; subst; auto.
-        * eapply COMPLETE; eauto.
-          destruct (Memory.get loc t0 promises1_tgt) as [[? []]|] eqn:X; auto.
-          exploit Memory.remove_get1; try exact X; eauto. i. des; congr.
-        * eapply COMPLETE; eauto.
-          destruct (Memory.get l t0 promises1_tgt) as [[? []]|] eqn:X; auto.
-          exploit Memory.remove_get1; try exact X; eauto. i. des; congr.
+      + i. erewrite MemoryFacts.remove_o; eauto.
+        revert INV. rewrite set_o.
+        unfold Time.t, DOSet.elt. condtac; ss; i.
+        * des. subst. esplits; eauto.
+        * exploit SOUND; eauto.
+      + i. revert TGT.
+        erewrite MemoryFacts.remove_o; eauto. rewrite set_o.
+        unfold Time.t, DOSet.elt. condtac; ss; i.
+        eapply COMPLETE; eauto.
     - destruct (mem loc to inv) eqn:X; auto.
       exploit SOUND; [eauto|]. i. des. congr.
   Qed.
@@ -328,17 +316,14 @@ Module SimPromises.
     - ii. exploit LE; eauto. i.
       exploit Memory.remove_get1; eauto. i. des; auto.
       subst. exploit SOUND; eauto. i. des. congr.
-    - i. rewrite unset_o in INV. revert INV. repeat condtac; subst.
-      + congr.
-      + i. exploit SOUND; eauto. i. des. splits; eauto.
-        exploit Memory.remove_get1; eauto. i. des; eauto. congr.
-      + i. exploit SOUND; eauto. i. des. splits; eauto.
-        exploit Memory.remove_get1; eauto. i. des; eauto. congr.
+    - i. rewrite unset_o in INV. revert INV. condtac; ss.
+      guardH o.
+      i. exploit SOUND; eauto. i. des. splits; eauto.
+      exploit Memory.remove_get1; eauto. i. des; eauto.
+      inv x5. unguardH o. des; congr.
     - i. exploit Memory.remove_get_inv; eauto. i. des.
-      rewrite unset_o. repeat condtac; subst.
-      + contradict x1. auto.
-      + eapply COMPLETE; eauto.
-      + eapply COMPLETE; eauto.
+      rewrite unset_o. condtac; ss.
+      eapply COMPLETE; eauto.
   Qed.
 
   Lemma remove
@@ -428,7 +413,7 @@ Module SimPromises.
     - econs; eauto.
       eapply MemoryFacts.merge_promise_promise_promise; eauto.
     - auto.
-    - etrans; eauto. eapply promise_sim_memory. eauto.
+    - etrans; eauto. eapply sim_memory_promise_lower. eauto.
   Qed.
 
   Lemma future

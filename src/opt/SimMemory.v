@@ -207,7 +207,7 @@ Proof.
   - eapply sim_memory_closed_timemap; eauto. apply TGT.
 Qed.
 
-Lemma update_sim_memory
+Lemma sim_memory_lower
       mem1 loc from to val released1 released2 mem2
       (UPDATE: Memory.update mem1 loc from from to val released1 released2 mem2):
   sim_memory mem2 mem1.
@@ -229,10 +229,44 @@ Proof.
     + esplits; eauto. refl.
 Qed.
 
-Lemma promise_sim_memory
+Lemma sim_memory_promise_lower
       promises1 mem1 loc from to val released1 released2 promises2 mem2
       (PROMISE: Memory.promise promises1 mem1 loc from to val released2 promises2 mem2 (Memory.promise_kind_update from released1)):
   sim_memory mem2 mem1.
 Proof.
-  inv PROMISE. eapply update_sim_memory. eauto.
+  inv PROMISE. eapply sim_memory_lower. eauto.
+Qed.
+
+Lemma sim_memory_split
+      mem0 loc ts1 ts2 ts3 val2 val3 released2 released3 mem1 mem2
+      (STEP1: Memory.update mem0 loc ts1 ts2 ts3 val3 released3 released3 mem1)
+      (STEP2: Memory.add mem1 loc ts1 ts2 val2 released2 mem2):
+  sim_memory mem2 mem0.
+Proof.
+  econs.
+  - econs; i.
+    + inv H. destruct msg.
+      exploit Memory.update_get0; eauto. i.
+      exploit Memory.add_get_inv; eauto. i. des.
+      { inv x3. econs; eauto. eapply Interval.le_mem; eauto.
+        econs; try refl. inv STEP1. inv UPDATE. left. auto.
+      }
+      exploit Memory.update_get_inv; eauto. i. des.
+      { subst. econs; eauto. eapply Interval.le_mem; eauto.
+        econs; try refl. inv STEP1. inv UPDATE. auto.
+      }
+      econs; eauto.
+    + inv H. destruct msg.
+      exploit Memory.update_get1; eauto. i. des.
+      { inv x3. destruct (Time.le_lt_dec ts ts2).
+        - exploit Memory.add_get2; eauto. i.
+          econs; eauto. inv ITV. econs; auto.
+        - exploit Memory.add_get1; eauto. i.
+          econs; eauto. inv ITV. econs; auto.
+      }
+      exploit Memory.add_get1; eauto. i.
+      econs; eauto.
+  - i. exploit Memory.update_get1; eauto. i. des.
+    + inv x3. exploit Memory.add_get1; eauto. i. esplits; eauto. refl.
+    + exploit Memory.add_get1; eauto. i. esplits; eauto. refl.
 Qed.

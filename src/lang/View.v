@@ -14,6 +14,15 @@ Require Import Time.
 Set Implicit Arguments.
 
 
+Definition loc_ts_eq_dec (lhs rhs:Loc.t * Time.t):
+  {lhs.(fst) = rhs.(fst) /\ lhs.(snd) = rhs.(snd)} +
+  {lhs.(fst) <> rhs.(fst) \/ lhs.(snd) <> rhs.(snd)}.
+Proof.
+  destruct lhs, rhs.
+  destruct (Loc.eq_dec t t1), (Time.eq_dec t0 t2); subst; auto.
+Defined.
+Global Opaque loc_ts_eq_dec.
+
 Module TimeMap <: JoinableType.
   Definition t := Loc.t -> Time.t.
 
