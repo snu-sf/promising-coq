@@ -132,3 +132,33 @@ Proof.
   - eapply sim_memory_closed_timemap; eauto. apply TGT.
   - eapply sim_memory_closed_timemap; eauto. apply TGT.
 Qed.
+
+Lemma update_sim_memory
+      mem1 loc from to val released1 released2 mem2
+      (UPDATE: Memory.update mem1 loc from from to val released1 released2 mem2):
+  sim_memory mem2 mem1.
+Proof.
+  econs.
+  - econs; i.
+    + inv H. destruct msg.
+      exploit Memory.update_get_inv; eauto. i. des.
+      * subst. exploit Memory.update_get0; eauto. i.
+        econs; eauto.
+      * econs; eauto.
+    + inv H. destruct msg.
+      exploit Memory.update_get1; eauto. i. des.
+      * subst. econs; eauto.
+      * econs; eauto.
+  - i. exploit Memory.update_get1; eauto. i. des.
+    + inv x3. esplits; eauto.
+      inv UPDATE. inv UPDATE0. auto.
+    + esplits; eauto. refl.
+Qed.
+
+Lemma promise_sim_memory
+      promises1 mem1 loc from to val released1 released2 promises2 mem2
+      (PROMISE: Memory.promise promises1 mem1 loc from to val released2 promises2 mem2 (Memory.promise_kind_update from released1)):
+  sim_memory mem2 mem1.
+Proof.
+  inv PROMISE. eapply update_sim_memory. eauto.
+Qed.

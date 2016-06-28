@@ -420,12 +420,16 @@ Module SimPromises.
     exploit promise; eauto. i. des.
     exploit Memory.promise_future0; try apply PROMISE_SRC; eauto; try committac. i. des.
     exploit remove; eauto; try eapply promise_time_lt; eauto. i. des.
-    exploit remove_promise_remove; try exact REMOVE_SRC; eauto.
+    exploit remove_promise_remove; try exact REMOVE_SRC; eauto; try refl.
+    { by inv PROMISE. }
     { eapply promise_time_lt. eauto. }
     i. des.
-    esplits; eauto. econs; try exact REMOVE0; eauto.
-    admit. (* promise_kind + promise_lower <= promise_kind *)
-  Admitted.
+    esplits.
+    - econs; eauto.
+      eapply promise_promise_promise; eauto.
+    - auto.
+    - etrans; eauto. eapply promise_sim_memory. eauto.
+  Qed.
 
   Lemma future
         inv

@@ -101,15 +101,16 @@ Lemma fulfill_write
     <<MEM: sim_memory mem2' mem1>>.
 Proof.
   inv FULFILL.
-  exploit remove_promise_remove; try exact REMOVE; eauto; try apply WF1.
+  exploit remove_promise_remove; try exact REMOVE; eauto; try apply WF1; try refl.
   { repeat (try condtac; committac; try apply WF1). }
+  { eapply MEM1. apply WF1. eapply Memory.remove_get0. eauto. }
   i. des.
   esplits; eauto.
   - econs; eauto.
     + econs; eauto.
     + i. destruct ord; inv ORD; inv H.
-  - admit. (* promise w/ same from => sim *)
-Admitted.
+  - eapply promise_sim_memory. eauto.
+Qed.
 
 Lemma promise_fulfill_write
       lc0 sc0 mem0 loc from to val releasedm released ord lc1 lc2 sc2 mem2 kind
@@ -129,12 +130,13 @@ Lemma promise_fulfill_write
 Proof.
   exploit Local.promise_step_future; eauto. i. des.
   inv PROMISE. inv FULFILL.
-  exploit remove_promise_remove; try exact REMOVE; eauto; try apply WF2.
+  exploit remove_promise_remove; try exact REMOVE; eauto; try apply WF2; try refl.
   { repeat (try condtac; committac; try apply WF2). }
+  { by inv PROMISE0. }
   i. des.
   esplits; eauto.
   - refine (Local.step_write _ _ _ _ _); eauto.
     econs; eauto.
-    admit. (* promise_kind + promise_lower <= promise_kind *)
-  - admit. (* promise w/ same from => sim *)
-Admitted.
+    eapply promise_promise_promise; eauto.
+  - eapply promise_sim_memory. eauto.
+Qed.

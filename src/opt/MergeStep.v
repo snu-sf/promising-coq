@@ -137,7 +137,9 @@ Proof.
   { admit. }
   { repeat (try condtac; aggrtac; try apply WF0). }
   { admit. }
-  { eexact TS23. }
+  { by inv STEP1. }
+  { refl. }
+  { apply TS23. }
   i. des.
   esplits.
   - econs.
@@ -156,7 +158,9 @@ Proof.
     + eapply MergeCommit.write_write_commit; eauto. apply WF0.
     + apply SimPromises.sem_bot.
   - eapply MergeCommit.write_write_sc; eauto.
-  - admit. (* sim_memory *)
+  - etrans.
+    + eapply promise_sim_memory. eauto.
+    + admit. (* sim_memory *)
 Admitted.
 
 Lemma merge_write_write_add

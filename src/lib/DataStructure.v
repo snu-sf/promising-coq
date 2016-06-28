@@ -155,6 +155,14 @@ Module UsualFun (A:UsualDecidableType).
       congruence.
     Qed.
 
+    Lemma add_add_eq a b1 b2 f:
+      add a b1 (add a b2 f) = add a b1 f.
+    Proof.
+      apply ext. i.
+      rewrite ? add_spec.
+      destruct (A.eq_dec i a); auto.
+    Qed.
+
     Lemma add_init a b:
       add a b (init b) = init b.
     Proof.
