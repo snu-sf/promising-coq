@@ -873,86 +873,40 @@ Lemma clos_refl_seq_clos_refl R (TR: transitive R) (a b c : event)
   (RSTEPa: clos_refl R a b) (RSTEPb: clos_refl R b c): clos_refl R a c.
 Proof. destruct RSTEPa, RSTEPb; subst; eauto. right; eauto. Qed.
 
-Lemma Coherent_ur_rel a b 
-  (MO: mo a b) (UR: urr_rel b a) : False.
+Lemma Coherent_urr_rel a b c
+  (MO: mo a b) (UR: urr b c) (REL: rel c a) : False.
 Proof.
-unfold urr_rel, urr, seq in *; desc.
-eapply rel_hb_mo in UR0.
-unfold seq in UR0; desc.
-eapply Coherent_ur with (a:=z2) (b:=b) (c:=z2); eauto.
-- eapply clos_refl_seq_step; cdes COH; cdes WF; cdes WF_MO; eauto.
-- exists z0; splits; eauto.
-  exists z1; splits; eauto.
-  eapply clos_refl_seq_clos_refl; eauto using hb_trans.
+unfold urr, seq, eqv_rel in *; desf.
+eapply rel_hb_mo in REL; destruct REL as (d & K & L).
+eapply Coherent_ur with (a:=d) (b:=z); eauto. 
+  by red in L; desf; cdes COH; cdes WF; cdes WF_MO; eauto.
+repeat eexists; eauto using clos_refl_seq_clos_refl, hb_trans.
 Qed.
 
-Lemma Coherent_rw_rel a b 
-  (MO: mo a b) (RW: rwr_rel b a) : False.
+Lemma Coherent_rwr_rel a b c
+  (MO: mo a b) (RW: rwr b c) (REL: rel c a) : False.
 Proof.
-unfold rwr_rel, rwr, seq in *; desc.
+unfold rwr, seq in *; desc.
 destruct RW; desc.
-by eapply Coherent_ur_rel; eauto; exists z; eauto.
-eapply rel_hb_mo in RW0.
-unfold seq in *; desc; subst.
-eapply basic_coherence_lemma with (a:=z1) (b:=b) (c:=z0) (d:=z1); eauto.
-- by cdes COH; cdes WF; cdes WF_MO; red in RW1; desf; eauto.
+by eapply Coherent_urr_rel; eauto.
+eapply rel_hb_mo in REL; destruct REL as (d & K & L).
+eapply basic_coherence_lemma with (a:=d) (b:=b) (c:=z) (d:=d); eauto; vauto.
+- by red in L; cdes COH; cdes WF; cdes WF_MO; desf; eauto.
 - eapply clos_refl_seq_clos_refl; eauto using hb_trans.
 Qed.
 
-
-(*
 Lemma Coherent_scr_rel a b c 
   (MO: mo a b) (SC: scr_rel b a) (RF: rf a c)  (SCc: is_sc c) : False.
 Proof.
-unfold scr_rel, scr, seq, eqv_rel in *; desc; subst.
-destruct SC; desc; subst.
-by eapply Coherent_rw_rel; eauto; exists z; eauto.
-assert (SC0' := SC0).
-eapply rel_hb_mo in SC0.
-unfold seq in *; desc.
-assert (HB: clos_refl hb z1 z0).
-  eauto using clos_refl_seq_clos_refl, hb_trans.
-clear SC0.
-red in H.
-unfold seq in H; desc.
-assert (NEQ: z3 <> c).
-  intro; subst.  
-  red in H0; unfold eqv_rel in *; desf.
-  eapply basic_coherence_lemma with (a:=a) (b:=b) (c:=c) (d:=c); eauto.
-  eapply rf_to_non_read; eauto with acts.
-apply wf_sc_tot in NEQ; eauto.
-- apply rel_in_sb_rf in SC0'.
-  cdes COH; eapply Cnp; eauto.
-  eapply t_rt_trans; vauto.
-  eapply rt_trans; vauto.
- 
-  eapply rt_trans with z0.
-    red in HB; desf; eauto using rt_refl, hb_in_sb_rf_sc, clos_trans_in_rt. 
-    eapply rt_trans with a.
-    red in SC1; desf; vauto. ; desf; eauto using rt_refl, hb_in_sb_rf_sc, clos_trans_in_rt. 
-    
-    SearchAbout clos_refl.
-    red in HB; desf; eauto using rt_refl, hb_in_sb_rf_sc, clos_trans_in_rt. 
-  
-
-  SearchAbout hb.
-SearchAbout clos_refl.
-  vauto.
-  
-  
-  admit. (* use no promises *)
-- eapply sc_acta; eauto.
-- eapply rf_actb; eauto.
-- eapply sc_doma; eauto.
-- intro.
-  red in H0.
-  unfold seq, eqv_rel in H; desc; subst.
-  cdes COH; eapply Csc with (a:=a) (b:=b) (d:=z3) (e:=c); eauto.
-  red in H1; unfold eqv_rel in *; desf; eauto.
-  all: right; splits; eauto using sc_doma.
-  all: eapply sc_doma; eauto.
-Admitted.
- *)
+  destruct SC as (m & SC & REL); ins.
+  destruct SC as [RWR|(k & SC & HB)]; eauto using Coherent_rwr_rel.
+  apply seq_eqv_l in HB; desc.
+  eapply Coherent_scr with (c:=c); eauto.
+  right; exists k; split; ins; apply seq_eqv_l; split; ins.
+  eapply clos_refl_seq_clos_refl; eauto using hb_trans.
+  right; eapply sw_in_hb, rel_rf; eauto.
+  by eapply rf_domb in RF; eauto; destruct c as [??[]]; ins; destruct o.
+Qed.
 
 Lemma Coherent_urr_sb a b c d
   (MO: mo a b) (UR: urr b c) (SB: sb c d) (RF_INV: a=d \/ rf a d) : False.

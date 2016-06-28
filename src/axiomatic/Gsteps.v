@@ -26,6 +26,13 @@ Require Import model.
 Set Implicit Arguments.
 Remove Hints plus_n_O.
 
+Lemma and_or_l P Q R : P /\ (Q \/ R) <-> P /\ Q \/ P /\ R.
+Proof. tauto. Qed.
+
+Lemma or_more P Q P' Q' : (P <-> Q) -> (P' <-> Q') -> (P \/ P' <-> Q \/ Q').
+Proof. tauto. Qed.
+
+
 Lemma union_eq_helper X (rel rel' : relation X) (IN: inclusion rel' rel) :
    rel +++ rel' <--> rel.
 Proof.
@@ -1454,11 +1461,6 @@ Proof.
   rewrite inclusion_seq_eqv_l with (dom := is_acq) at 1; eauto 10 with rel.
 Qed.
 
-Lemma or_more P Q P' Q' : (P <-> Q) -> (P' <-> Q') -> (P \/ P' <-> Q \/ Q').
-Proof. 
-  tauto.
-Qed.
-
 Lemma gstep_t_rel_urr_fence (F: is_fence a) l l' x :
   t_rel urr acts' sb' rmw' rf' sc' (thread a) l l' x <->
   t_rel urr acts sb rmw rf sc (thread a) l l' x \/
@@ -1856,6 +1858,94 @@ Proof.
   exploit S_tmr_actb; ins; eauto; exploit S_tmr_domb; ins; eauto 8.
 Qed.
 
+Lemma gstep_c_cur_urr_write (W: is_write a) l :
+  c_cur (thread a) l (urr acts' sb' rmw' rf' sc') <-->
+  c_cur (thread a) l (urr acts sb rmw rf sc) ;; clos_refl sb_ext +++
+  <| fun x => x = a /\ loc x = Some l |>.
+Proof.
+  rewrite crE; unfold c_cur, c_acq, urr_rel, S_tmr.
+  rewrite gstep_urr_write; ins; relsimp.
+  rewrite !eqv_join, !thr_sb_ext, !thr_sb_ext2.
+  split; repeat apply inclusion_union_l; eauto 10 with rel;
+  unfold eqv_rel; right; desf; desf.
+Qed.
+
+Lemma dom_seq_r2 A (r r': relation A) x :
+  dom_rel (r ;; clos_refl r') x <-> dom_rel r x.
+Proof.
+  unfold clos_refl, seq, dom_rel; split; ins; desf; eauto. 
+Qed.
+
+Hint Rewrite dom_seq_r2 : rel_dom.
+
+Lemma dom_seq_sc_ext r (D: domb r is_sc) (A: domb r (fun x => In x acts)) x :
+  dom_rel (r ;; sc_ext) x <-> dom_rel r x /\ is_sc a.
+Proof.
+  unfold domb, seq, dom_rel, sc_ext in *; split; ins; desf; splits; eauto 12. 
+Qed.
+
+Hint Rewrite dom_seq_sc_ext : rel_dom.
+
+Lemma gstep_t_cur_urr_write (W: is_write a) l x :
+  t_cur urr acts' sb' rmw' rf' sc' (thread a) l x <->
+  t_cur urr acts sb rmw rf sc (thread a) l x \/
+  x = a /\ loc x = Some l.
+Proof.
+  unfold t_cur, t_acq, S_tm; rewrite gstep_c_cur_urr_write; ins.
+  autorewrite with rel_dom; done.
+Qed.
+
+Lemma gstep_c_cur_rwr_write (W: is_write a) l :
+  c_cur (thread a) l (rwr acts' sb' rmw' rf' sc') <-->
+  c_cur (thread a) l (rwr acts sb rmw rf sc) ;; clos_refl sb_ext +++
+  <| fun x => x = a /\ loc x = Some l |>.
+Proof.
+  rewrite crE; unfold c_cur, c_acq, urr_rel, S_tmr.
+  rewrite gstep_rwr_write; ins; relsimp.
+  rewrite !eqv_join, !thr_sb_ext, !thr_sb_ext2.
+  split; repeat apply inclusion_union_l; eauto 10 with rel;
+  unfold eqv_rel; right; desf; desf.
+Qed.
+
+Lemma gstep_t_cur_rwr_write (W: is_write a) l x :
+  t_cur rwr acts' sb' rmw' rf' sc' (thread a) l x <->
+  t_cur rwr acts sb rmw rf sc (thread a) l x \/
+  x = a /\ loc x = Some l.
+Proof.
+  unfold t_cur, t_acq, S_tm; rewrite gstep_c_cur_rwr_write; ins.
+  autorewrite with rel_dom; done.
+Qed.
+
+Lemma gstep_sc_ext_l :
+  <| is_sc |> ;; sc_ext <--> sc_ext.
+Proof.
+  unfold sc_ext; rewrite seq_eqv_l.
+  by split; red; ins; desf; eauto 10.
+Qed.
+
+Lemma gstep_c_cur_scr_write (W: is_write a) l :
+  c_cur (thread a) l (scr acts' sb' rmw' rf' sc') <-->
+  c_cur (thread a) l (scr acts sb rmw rf sc) ;; clos_refl sb_ext +++
+  S_tmr acts sb rmw rf l ;; sc_ext +++
+  <| fun x => x = a /\ loc x = Some l |>.
+Proof.
+  rewrite crE; unfold c_cur, c_acq, urr_rel, S_tmr.
+  rewrite gstep_scr_write; ins; relsimp.
+  rewrite !eqv_join, !thr_sb_ext, !thr_sb_ext2, gstep_sc_ext_l, thr_sc_ext.
+  split; repeat apply inclusion_union_l; eauto 10 with rel;
+  try solve [unfold eqv_rel; right; desf; desf].
+Qed.
+
+Lemma gstep_t_cur_scr_write (W: is_write a) l x :
+  t_cur scr acts' sb' rmw' rf' sc' (thread a) l x <->
+  t_cur scr acts sb rmw rf sc (thread a) l x \/
+  S_tm acts sb rmw rf l x /\ is_sc a \/
+  x = a /\ loc x = Some l.
+Proof.
+  unfold t_cur, t_acq, S_tm; rewrite gstep_c_cur_scr_write; ins.
+  autorewrite with rel_dom; eauto using S_tmr_actb, S_tmr_domb. 
+  split; ins; desf; eauto.
+Qed.
 
 (** Acquire view for non-reads *)
 
@@ -1917,7 +2007,6 @@ Qed.
 
 Lemma gstep_t_acq_urr_read b (RF: rf' b a) l x :
   t_acq urr acts' sb' rmw' rf' sc' (thread a) l x <->
-  t_cur urr acts' sb' rmw' rf' sc' (thread a) l x \/
   t_acq urr acts sb rmw rf sc (thread a) l x \/
   msg_rel urr acts sb rmw rf sc l x b /\ is_rlx_rw a.
 Proof.
@@ -1925,30 +2014,46 @@ Proof.
   rewrite gstep_c_acq_read; try exact urr_mon; eauto with rel rel_max. 
   rewrite !dom_union, eqv_join, seq_eqv_r. 
   unfold singl_rel, dom_rel at 3, seq; split; ins; desf; eauto 8.
+  eapply gstep_t_cur_urr_read in H; unfold c_acq in *; desf; eauto.
+    by rewrite crE; relsimp; rewrite dom_union; eauto.
+  right; split; ins.
+  by eapply rf_domb in RF; eauto; destruct a as [??[]]; ins; destruct o.
 Qed.
 
 Lemma gstep_t_acq_rwr_read b (RF: rf' b a) l x :
   t_acq rwr acts' sb' rmw' rf' sc' (thread a) l x <->
-  t_cur rwr acts' sb' rmw' rf' sc' (thread a) l x \/
   t_acq rwr acts sb rmw rf sc (thread a) l x \/
-  msg_rel rwr acts sb rmw rf sc l x b /\ is_rlx_rw a.
+  msg_rel rwr acts sb rmw rf sc l x b /\ is_rlx_rw a \/
+  x = b /\ loc b = Some l.
 Proof.
   unfold t_acq, msg_rel. 
   rewrite gstep_c_acq_read; try exact rwr_mon; eauto with rel rel_max. 
   rewrite !dom_union, eqv_join, seq_eqv_r. 
   unfold singl_rel, dom_rel at 3, seq; split; ins; desf; eauto 8.
+  eapply gstep_t_cur_rwr_read in H; unfold c_acq in *; desf; desf; eauto.
+    by rewrite crE; relsimp; rewrite dom_union; eauto.
+  right; left; split; ins; desf.
+  by eapply rf_domb in RF; eauto; destruct a as [??[]]; ins; destruct o.
+  by subst; eauto. 
+  by left; left; eapply gstep_t_cur_rwr_read; eauto.
 Qed.
 
 Lemma gstep_t_acq_scr_read b (RF: rf' b a) l x :
   t_acq scr acts' sb' rmw' rf' sc' (thread a) l x <->
-  t_cur scr acts' sb' rmw' rf' sc' (thread a) l x \/
   t_acq scr acts sb rmw rf sc (thread a) l x \/
-  msg_rel scr acts sb rmw rf sc l x b /\ is_rlx_rw a.
+  msg_rel scr acts sb rmw rf sc l x b /\ is_rlx_rw a \/
+  x = b /\ loc b = Some l.
 Proof.
   unfold t_acq, msg_rel. 
   rewrite gstep_c_acq_read; try exact scr_mon; eauto with rel rel_max. 
   rewrite !dom_union, eqv_join, seq_eqv_r. 
   unfold singl_rel, dom_rel at 3, seq; split; ins; desf; eauto 8.
+  eapply gstep_t_cur_scr_read in H; unfold c_acq in *; desf; desf; eauto.
+    by rewrite crE; relsimp; rewrite dom_union; eauto.
+  right; left; split; ins; desf.
+  by eapply rf_domb in RF; eauto; destruct a as [??[]]; ins; destruct o.
+  by subst; eauto. 
+  by left; left; eapply gstep_t_cur_scr_read; eauto.
 Qed.
 
 (** Changes to [S_tmr] *)
@@ -2007,12 +2112,6 @@ Proof.
   by split; red; ins; desf; eauto 10.
 Qed.
 
-Lemma gstep_sc_ext_l :
-  <| is_sc |> ;; sc_ext <--> sc_ext.
-Proof.
-  unfold sc_ext; rewrite seq_eqv_l.
-  by split; red; ins; desf; eauto 10.
-Qed.
 
 Lemma dom_rel_sb_ext r (D: domb r (fun x => In x acts)) x :
   dom_rel (r ;; sb_ext) x <->
@@ -2022,8 +2121,6 @@ Proof.
   split; ins; desf; eauto 8.
 Qed.
 
-Lemma and_or_l P Q R : P /\ (Q \/ R) <-> P /\ Q \/ P /\ R.
-tauto. Qed.
 
 Lemma gstep_S_tm_fence (F: is_fence a) (SC: is_sc a) (ACQ: is_acq a) l x :
   S_tm acts' sb' rmw' rf' l x <->
