@@ -181,8 +181,9 @@ Proof.
   inv STEP1. inv STEP2. ss.
   esplits; eauto.
   - econs; eauto.
-  - econs; eauto. admit. (* get after promise *)
-Admitted.
+  - econs; eauto.
+    eapply promise_get1_diff; eauto.
+Qed.
 
 Lemma reorder_read_fulfill
       loc1 ts1 val1 released1 ord1
@@ -260,8 +261,10 @@ Proof.
   i. des.
   esplits; eauto.
   inv STEP7. econs; eauto.
-  admit. (* read after write *)
-Admitted.
+  inv STEP. inv WRITE. eapply promise_get1_diff; eauto.
+  - inv STEP0. eapply promise_get_inv_diff; eauto. ii. inv H. congr.
+  - ii. inv H. congr.
+Qed.
 
 Lemma reorder_read_update
       loc1 ts1 val1 released1 ord1
@@ -474,11 +477,11 @@ Proof.
   exploit reorder_fulfill_fulfill; try exact STEP5; eauto; try by committac. i. des.
   exploit promise_fulfill_write; eauto.
   { i. exploit ORD; eauto. i. des.
-    splits; auto. admit. (* promises = cell.bot; fulfill_step *)
+    splits; auto. erewrite fulfill_step_promises_diff; eauto.
   }
   i. des.
   esplits; eauto.
-Admitted.
+Qed.
 
 Lemma reorder_fulfill_update
       loc1 from1 to1 val1 releasedm1 released1 ord1
@@ -663,13 +666,17 @@ Proof.
   exploit fulfill_step_future; try exact STEP8; try exact WF3; eauto; try by committac. i. des.
   exploit promise_fulfill_write; eauto.
   { i. exploit ORD; eauto. i. des.
-    splits; auto. admit. (* promises = cell.bot; read_step & fulfill_step *)
+    splits; auto.
+    erewrite Local.read_step_promises; [|eauto].
+    erewrite fulfill_step_promises_diff; eauto.
   }
   i. des.
   esplits; eauto; try refl.
   inv STEP9. econs; eauto.
-  admit. (* read after write *)
-Admitted.
+  inv STEP. inv WRITE. eapply promise_get1_diff; eauto.
+  - inv STEP0. eapply promise_get_inv_diff; eauto. ii. inv H. congr.
+  - ii. inv H. congr.
+Qed.
 
 Lemma reorder_update_update
       loc1 ts1 val1 released1 ord1
@@ -775,7 +782,7 @@ Proof.
         { apply CommitFacts.read_fence_commit_incr. apply WF0. }
         { apply CommitFacts.write_fence_commit_incr. }
       * apply CommitFacts.write_fence_sc_incr.
-  - econs; eauto. s. admit. (* promises bot *)
+  - econs; eauto. i. destruct ordw1; inv H; inv ORDW1.
   - s. econs; s.
     + etrans; [|etrans].
       * apply CommitFacts.write_fence_commit_mon; [|refl|refl].
@@ -788,7 +795,7 @@ Proof.
     + apply CommitFacts.write_fence_sc_mon; [|refl|refl].
       apply ReorderCommit.read_fence_write_commit; auto. apply WF0.
     + eapply ReorderCommit.write_fence_write_sc; auto.
-Admitted.
+Qed.
 
 Lemma reorder_fence_write
       ordr1 ordw1

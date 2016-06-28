@@ -139,3 +139,32 @@ Lemma write_time_lt
 Proof.
   inv WRITE. eapply promise_time_lt. eauto.
 Qed.
+
+Lemma promise_get1_diff
+      promises1 mem1 loc from to val released promises2 mem2 kind
+      l t f v r
+      (PROMISE: Memory.promise promises1 mem1 loc from to val released promises2 mem2 kind)
+      (GET: Memory.get l t mem1 = Some (f, Message.mk v r))
+      (DIFF: (loc, to) <> (l, t)):
+  Memory.get l t mem2 = Some (f, Message.mk v r).
+Proof.
+  inv PROMISE.
+  - exploit Memory.add_get1; eauto.
+  - exploit Memory.update_get1; eauto. i. des; auto.
+    inv x3. congr.
+Qed.
+
+Lemma promise_get_inv_diff
+      promises1 mem1 loc from to val released promises2 mem2 kind
+      l t f v r
+      (PROMISE: Memory.promise promises1 mem1 loc from to val released promises2 mem2 kind)
+      (GET: Memory.get l t mem2 = Some (f, Message.mk v r))
+      (DIFF: (loc, to) <> (l, t)):
+  Memory.get l t mem1 = Some (f, Message.mk v r).
+Proof.
+  inv PROMISE.
+  - exploit Memory.add_get_inv; eauto. i. des; auto.
+    inv x3. congr.
+  - exploit Memory.update_get_inv; eauto. i. des; auto.
+    subst. congr.
+Qed.

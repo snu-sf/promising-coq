@@ -300,13 +300,12 @@ Module Local.
     inv WF1. inv DISJOINT1. inv WF. inv STEP. splits; ss.
   Qed.
 
-  Lemma write_step_sc_acqrel
-        lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind
-        (ORD: Ordering.le ord Ordering.acqrel)
-        (STEP: Local.write_step lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind):
-    sc2 = sc1.
+  Lemma read_step_promises
+        lc1 mem loc to val released ord lc2
+        (READ: read_step lc1 mem loc to val released ord lc2):
+    lc1.(promises) = lc2.(promises).
   Proof.
-    inv STEP. apply CommitFacts.write_sc_acqrel. etrans; eauto.
+    inv READ. auto.
   Qed.
 End Local.
 

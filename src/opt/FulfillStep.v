@@ -140,3 +140,13 @@ Proof.
     eapply promise_promise_promise; eauto.
   - eapply promise_sim_memory. eauto.
 Qed.
+
+Lemma fulfill_step_promises_diff
+      lc1 sc1 loc1 from to val releasedm released ord lc2 sc2 loc2
+      (LOC: loc1 <> loc2)
+      (FULFILL: fulfill_step lc1 sc1 loc1 from to val releasedm released ord lc2 sc2):
+  lc1.(Local.promises) loc2 = lc2.(Local.promises) loc2.
+Proof.
+  inv FULFILL. inv REMOVE. unfold LocFun.add. s.
+  condtac; [congr|]. auto.
+Qed.
