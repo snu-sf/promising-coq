@@ -164,11 +164,8 @@ Module Commit <: JoinableType.
                      (Capability.singleton_ur loc ts))
                   (if Ordering.le Ordering.seqcst ord then Capability.mk TimeMap.bot TimeMap.bot sc1 else Capability.bot)
     in
-    let rel2 := LocFun.add
-                  loc
-                  (Capability.join
-                     (commit1.(Commit.rel) loc)
-                     (if Ordering.le Ordering.acqrel ord then cur2 else Capability.bot))
+    let rel2 := LocFun.add loc
+                     (if Ordering.le Ordering.acqrel ord then cur2 else (commit1.(Commit.rel) loc))
                   commit1.(Commit.rel)
     in
     Commit.mk rel2 cur2 acq2.
@@ -196,18 +193,11 @@ Module Commit <: JoinableType.
   Definition write_fence_commit
              (commit1:t) (sc1:TimeMap.t) (ord:Ordering.t): t :=
     let sc2 := write_fence_sc commit1 sc1 ord in
-    let cur2 := Capability.join
-                  commit1.(Commit.cur)
-                  (if Ordering.le Ordering.seqcst ord then Capability.mk sc2 sc2 sc2 else Capability.bot)
-    in
-    let acq2 := Capability.join
-                  commit1.(Commit.acq)
-                  (if Ordering.le Ordering.seqcst ord then Capability.mk sc2 sc2 sc2 else Capability.bot)
-    in
-    let rel2 := fun l =>
-                  Capability.join
-                    (commit1.(Commit.rel) l)
-                    (if Ordering.le Ordering.acqrel ord then cur2 else Capability.bot)
+	let cur2 := if Ordering.le Ordering.seqcst ord then Capability.mk sc2 sc2 sc2 else commit1.(Commit.cur)
+	in
+	let acq2 := if Ordering.le Ordering.seqcst ord then Capability.mk sc2 sc2 sc2 else commit1.(Commit.acq)
+	in
+	let rel2 := fun l => if Ordering.le Ordering.acqrel ord then cur2 else (commit1.(Commit.rel) l)
     in
     Commit.mk rel2 cur2 acq2.
 
