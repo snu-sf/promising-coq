@@ -131,13 +131,20 @@ Module Local.
     <<WF2: wf lc2 mem2>> /\
     <<SC2: Memory.closed_timemap sc1 mem2>> /\
     <<CLOSED2: Memory.closed mem2>> /\
-    <<FUTURE: Memory.future mem1 mem2>>.
+    <<FUTURE: Memory.future mem1 mem2>> /\
+    <<REL_WF: Capability.wf released>> /\
+    <<REL_TS: Time.le (Capability.rw released loc) to>> /\
+    <<REL_CLOSED: Memory.closed_capability released mem2>>.
   Proof.
     inv WF1. inv STEP.
     exploit Memory.promise_future; eauto. i. des.
     splits; ss.
     - econs; ss. eapply Commit.future_closed; eauto.
     - eapply Memory.future_closed_timemap; eauto.
+    - inv PROMISE.
+      + inv PROMISES0. inv ADD. auto.
+      + inv PROMISES0. inv UPDATE. auto.
+    - by inv PROMISE.
   Qed.
 
   Lemma read_step_future lc1 mem1 loc ts val released ord lc2
@@ -207,10 +214,13 @@ Module Local.
     <<SC_FUTURE: TimeMap.le sc1 sc2>> /\
     <<MEM_FUTURE: Memory.future mem1 mem2>> /\
     <<REL_WF: Capability.wf released>> /\
+    <<REL_TS: Time.le (Capability.rw released loc) to>> /\
     <<REL_CLOSED: Memory.closed_capability released mem2>>.
   Proof.
     assert (REL'_WF: Capability.wf released).
     { inv STEP. repeat (try condtac; committac; try apply WF1). }
+    assert (REL'_TS: Time.le (Capability.rw released loc) to).
+    { inv STEP. inv WRITE. inv PROMISE; auto. }
     assert (REL'_CLOSED: Memory.closed_capability released mem2).
     { inv STEP. eapply write_closed_capability; try apply WF1; eauto. }
     inv WF1. inv STEP.
@@ -425,9 +435,9 @@ Module Thread.
       <<CLOSED2: Memory.closed e2.(memory)>> /\
       <<FUTURE: Memory.future e1.(memory) e2.(memory)>>.
     Proof.
-      inv WF1. inv STEP. s.
+      inv STEP. ss.
       exploit Local.promise_step_future; eauto. i. des.
-      splits; eauto. econs; eauto.
+      splits; eauto.
     Qed.
 
     Lemma program_step_future e e1 e2

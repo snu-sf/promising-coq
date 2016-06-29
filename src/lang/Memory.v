@@ -138,8 +138,7 @@ Module Memory.
   Inductive add (mem1:t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:Capability.t): forall (mem2:t), Prop :=
   | add_intro
       r
-      (ADD: Cell.add (mem1 loc) from to val released r)
-      (WF: Capability.wf released):
+      (ADD: Cell.add (mem1 loc) from to val released r):
       add mem1 loc from to val released (LocFun.add loc r mem1)
   .
 
@@ -614,7 +613,7 @@ Module Memory.
     inv PROMISE.
     - econs; eauto.
       ii. eapply add_get_inv in MSG; eauto. des.
-      + inv MSG2. inv MEM. eauto.
+      + inv MSG2. inv MEM. inv ADD. eauto.
       + inv CLOSED1. exploit CLOSED; eauto. i. des. splits; auto.
         eapply future_closed_capability; eauto.
     - econs; eauto.

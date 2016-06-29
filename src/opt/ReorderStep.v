@@ -475,7 +475,7 @@ Proof.
   exploit reorder_fulfill_promise; try exact STEP1; eauto. i. des.
   exploit Local.promise_step_future; eauto. i. des.
   exploit fulfill_step_future; try exact STEP5; try exact WF3; eauto; try by committac. i. des.
-  exploit reorder_fulfill_fulfill; try exact STEP5; eauto; try by committac. i. des.
+  exploit reorder_fulfill_fulfill; try exact STEP5; try exact STEP3; eauto; try by committac. i. des.
   exploit promise_fulfill_write; eauto.
   { i. exploit ORD; eauto. i. des.
     splits; auto. erewrite fulfill_step_promises_diff; eauto.

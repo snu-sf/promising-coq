@@ -136,7 +136,6 @@ Proof.
   exploit MemorySplit.remove_promise_remove;
     try exact REMOVE; eauto; try apply WF2; try refl.
   { repeat (try condtac; committac; try apply WF2). }
-  { by inv PROMISE0. }
   i. des.
   esplits; eauto.
   - refine (Local.step_write _ _ _ _ _); eauto.
