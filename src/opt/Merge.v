@@ -399,7 +399,9 @@ Proof.
           end; eauto; try refl; try by committac. i. des.
     exploit Local.read_step_future; eauto. i. des.
     exploit sim_local_write; try exact LOCAL2; try exact SC; eauto. i. des.
-    exploit merge_write_write; try exact STEP_SRC0; eauto. i. des.
+    exploit merge_write_write; try exact STEP_SRC0; eauto.
+    { inv STEP_SRC. eapply MEM_SRC. eauto. }
+    i. des.
     + exploit Local.promise_step_future; eauto. i. des.
       exploit Local.write_step_future; try apply STEP2; eauto; try by committac. i. des.
       exploit reorder_read_promise; try exact STEP_SRC; try exact STEP1; eauto.
