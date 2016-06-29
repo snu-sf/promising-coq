@@ -99,11 +99,15 @@ Definition is_sc a : Prop :=
 
 Lemma read_non_write a (A: is_read a) : ~ is_write a.
 Proof. destruct a; destruct lb; ins. Qed.
+Lemma read_non_fence a (A: is_read a) : ~ is_fence a.
+Proof. destruct a; destruct lb; ins. Qed.
 Lemma write_non_read a (A: is_write a) : ~ is_read a.
+Proof. destruct a; destruct lb; ins. Qed.
+Lemma write_non_fence a (A: is_write a) : ~ is_fence a.
 Proof. destruct a; destruct lb; ins. Qed.
 Lemma fence_non_read a (A: is_fence a) : ~ is_read a.
 Proof. destruct a; destruct lb; ins. Qed.
-Lemma write_non_fence a (A: is_write a) : ~ is_fence a.
+Lemma fence_non_write a (A: is_fence a) : ~ is_write a.
 Proof. destruct a; destruct lb; ins. Qed.
 
 
@@ -122,6 +126,8 @@ Lemma read_is_read a l v o (A: lab a = Aload l v o) : is_read a.
 Proof. destruct a; destruct lb; ins. Qed.
 Lemma write_is_write a l v o (A: lab a = Astore l v o) : is_write a.
 Proof. destruct a; destruct lb; ins. Qed.
+Lemma fence_is_fence a or ow (A: lab a = Afence or ow) : is_fence a.
+Proof. destruct a; destruct lb; ins. Qed.
 
 Lemma read_rlx a l v o (A: lab a = Aload l v o) : Ordering.le Ordering.relaxed o -> is_rlx_rw a.
 Proof. destruct a; ins; rewrite A; done. Qed.
@@ -138,8 +144,9 @@ Lemma write_sc a l v o (A: lab a = Astore l v o) : Ordering.le Ordering.seqcst o
 Proof. destruct a; ins; rewrite A; done. Qed.
 
 
-Hint Resolve  read_non_write write_non_read fence_non_read 
+Hint Resolve  read_non_write read_non_fence write_non_read fence_non_read 
      read_is_read read_rlx read_acq read_sc
      write_is_write write_rlx write_rel write_sc 
-     write_non_fence write_non_fence : acts.
+     write_non_fence write_non_fence 
+     fence_is_fence fence_non_write: acts.
 

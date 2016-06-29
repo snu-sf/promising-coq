@@ -32,12 +32,6 @@ Hint Resolve gstep_coh gstep_inc coh_wf.
 Lemma foo (P Q : Prop) : P -> (P -> Q) -> P /\ Q.
 Proof. tauto. Qed.
 
-(* Lemma helper P (a: event) :
-  forall x, (fun x => P x \/ (eq a x)) x <-> P x \/ a = x.
-Proof.
-eauto.
-Qed. *)
-
 Section Monotone.
 
 Definition monotone (mo : event -> event -> Prop) f :=
@@ -216,22 +210,6 @@ Proof.
 unfold TimeMap.singleton, LocFun.add.
 rewrite Loc.eq_dec_eq.
 done.
-Qed.
-
-Lemma tm_singleton2 l l' t (NEQ: l <> l') :
-  TimeMap.singleton l t l' = Time.bot.
-Proof.
-unfold TimeMap.singleton, LocFun.add.
-rewrite Loc.eq_dec_neq.
-by rewrite LocFun.init_spec; done.
-by intro; subst; auto.
-Qed.
-
-Lemma tm_join_singleton_to_if t1 t2 l l' :
-  Time.join t1 (TimeMap.singleton l t2 l') = 
-  Time.join t1 (if (Loc.eq_dec l l') then t2 else Time.bot).
-Proof.
-desf; [by rewrite tm_singleton|by rewrite tm_singleton2].
 Qed.
 
 Lemma time_join_bot a  :
@@ -472,14 +450,14 @@ assert (LOC_B: Gevents.loc b = Some l).
   unfold Gevents.loc; destruct (lab b); ins; desf.
 
 assert (RLXa: is_rlx_rw a <-> Ordering.le Ordering.relaxed o).
-  unfold is_rlx_rw; rewrite LABa; done.
+  by destruct a; ins; desf.
 assert (ACQa: is_acq a <-> Ordering.le Ordering.acqrel o).
-  unfold is_acq; rewrite LABa; done.
+  by destruct a; ins; desf.
 assert (SCa: is_sc a <-> Ordering.le Ordering.seqcst o).
-  unfold is_sc; rewrite LABa; done.
+  by destruct a; ins; desf.
 
 assert (~ is_fence a /\ ~ is_write a).
-  unfold is_write, is_fence; destruct (lab a); ins.
+  by destruct a; ins; desf.
 
 destruct commit; simpl.
 red in COMMIT; desc; red in CUR; red in ACQ; red in REL; desc.
@@ -512,6 +490,29 @@ rewrite (gstep_t_rel_other GSTEP urr (gstep_urr_a COH GSTEP) (urr_mon GSTEP)); a
 rewrite (gstep_t_rel_other GSTEP rwr (gstep_rwr_a COH GSTEP) (rwr_mon GSTEP)); auto.
 rewrite (gstep_t_rel_other GSTEP scr (gstep_scr_a COH GSTEP) (scr_mon GSTEP)); auto.
 Qed.
+
+Lemma memory_step_nonwrite acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0
+  (COH : Coherent acts sb rmw rf mo sc)
+  f (MONOTONE : monotone mo f)
+  a (NW: ~ is_write a) 
+  (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a)
+  mem (SIM_MEM : forall l, sim_cell f acts sb rmw rf sc (mem l) l):
+  sim_mem f acts0 sb0 rmw0 rf0 sc0 mem.
+Proof.
+red; ins.
+specialize (SIM_MEM l); red in SIM_MEM; desf.
+red; splits; eauto; ins.
+specialize (SIMCELL b WRITE LOC from msg CELL).
+unfold sim_cell_helper, sim_msg in *; desc; splits; eauto.
+4: by ins; apply FROMRMW; eapply gstep_rf_rmw with (rf' := rf0); eauto.
+all: ins.
+all: destruct msg; ins.
+all: eapply max_value_same_set; try edone.
+all: simpl.
+admit.
+admit.
+admit. 
+Admitted.
 
 (******************************************************************************)
 (** * Lemmas for the write step   *)
@@ -614,19 +615,246 @@ Lemma Writable_full acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
   f f' (F : forall b, In b acts -> f' b = f b)
   (MON: monotone mo' f')
   l v o (LABa: lab a = Astore l v o)
-  local sc_map
+  commit sc_map
   (SC : forall l : Loc.t, max_value f (S_tm acts sb rmw rf l) (sc_map l))
-  (RWR: max_value f (t_cur rwr acts sb rmw rf sc (thread a) l)
-           (Capability.rw (Commit.cur (Local.commit local)) l))
-  (SCR: max_value f (t_cur scr acts sb rmw rf sc (thread a) l)
-           (Capability.sc (Commit.cur (Local.commit local)) l)):
-  Commit.writable (Local.commit local) sc_map l (f' a) o.
+  (CUR: sim_cur f acts sb rmw rf sc (Commit.cur commit) (thread a)):
+  Commit.writable commit sc_map l (f' a) o.
 Proof.
+red in CUR; desc.
 constructor; try intro.
 eapply Writable_cur_rwr; eauto.
 eapply Writable_cur_scr; eauto with acts.
 eapply Writable_sc_map; eauto with acts.
 Qed.
+
+Lemma commit_step_write acts sb rmw rf mo sc sc_map acts0 sb0 rmw0 rf0 mo0 sc0
+  (COH : Coherent acts sb rmw rf mo sc)
+  f (MONOTONE : monotone mo f)
+  (SIM_SC_MAP : forall l : Loc.t, max_value f (S_tm acts sb rmw rf l) (LocFun.find l sc_map))
+  a l v o (LABa : lab a = Astore l v o)
+  (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a)
+  commit (COMMIT: sim_commit f acts sb rmw rf sc commit (thread a))
+  f' (F : forall b, In b acts -> f' b = f b)
+  (MON : monotone mo0 f'):
+  sim_commit f' acts0 sb0 rmw0 rf0 sc0 (Commit.write_commit commit sc_map l (f' a) o) (thread a).
+Proof.
+
+assert (WRITE: is_write a).
+  eauto with acts.
+assert (NR: ~ is_read a).
+  eauto with acts.
+
+assert (SCa: Ordering.le Ordering.seqcst o <-> is_sc a).
+  by destruct a; ins; desf.
+assert (RAa: Ordering.le Ordering.acqrel o <-> is_rel a).
+  by destruct a; ins; desf.
+
+
+
+  assert (ACQ_URR : forall (l : Loc.t) (x : event),
+          t_acq urr acts0 sb0 rmw0 rf0 sc0 (thread a) l x <->
+          t_acq urr acts sb rmw rf sc (thread a) l x \/
+          x = a /\ loc x = Some l).
+admit.
+assert (ACQ_RWR : forall (l : Loc.t) (x : event),
+          t_acq rwr acts0 sb0 rmw0 rf0 sc0 (thread a) l x <->
+          t_acq rwr acts sb rmw rf sc (thread a) l x \/
+          x = a /\ loc x = Some l).
+admit.
+assert (ACQ_SCR : forall (l : Loc.t) (x : event),
+          t_acq scr acts0 sb0 rmw0 rf0 sc0 (thread a) l x <->
+          t_acq scr acts sb rmw rf sc (thread a) l x \/
+          S_tm acts sb rmw rf l x /\ is_sc a \/ x = a /\ loc x = Some l).
+admit.
+
+assert (LOC_A: Gevents.loc a = Some l). 
+  unfold Gevents.loc; destruct (lab a); ins; desf.
+
+assert (FOO: forall r l l' x,
+  t_rel r acts sb rmw rf sc (thread a) l l' x ->
+  t_cur r acts sb rmw rf sc (thread a) l' x).
+admit.
+
+destruct commit; simpl.
+red in COMMIT; desc; red in CUR; red in ACQ; red in REL; desc.
+unfold sim_commit, sim_acq, sim_cur, sim_rel; splits; ins.
+
+all: try rewrite LocFun.add_spec; desf.
+all: ins.
+all: try rewrite !tm_join_bot.
+all: try rewrite !tm_find_join.
+all: try rewrite !tm_find_singleton; desf.
+all: try rewrite !time_join_bot.
+all: do 2 (try match goal with
+| [|- max_value _ _ (Time.join _ _)] => eapply max_value_join  end).
+all: try match goal with
+         | [|- max_value _ _ (LocFun.find _ _)] => eapply max_value_same_set;
+           try eapply max_value_new_f with (f':=f'); eauto with acts
+         | [|- max_value _ _ _ ] => eapply max_value_singleton; eauto
+       end.
+all: simpl.
+all: try by intro x; split; [intro K; pattern x; exact K|].
+all: intro x.
+
+  all: try rewrite (gstep_t_cur_urr_write COH GSTEP WRITE).
+  all: try rewrite (gstep_t_cur_rwr_write COH GSTEP WRITE).
+  all: try rewrite (gstep_t_cur_scr_write COH GSTEP WRITE).
+  all: try rewrite ACQ_URR.
+  all: try rewrite ACQ_RWR.
+  all: try rewrite ACQ_SCR.
+
+  all: try rewrite (gstep_t_rel_urr_write COH GSTEP WRITE LOC_A).
+  all: try rewrite (gstep_t_rel_rwr_write COH GSTEP WRITE LOC_A).
+  all: try rewrite (gstep_t_rel_scr_write COH GSTEP WRITE LOC_A).
+  all: try rewrite (gstep_t_rel_other GSTEP _ (gstep_urr_a COH GSTEP) (urr_mon GSTEP)).
+  all: try rewrite (gstep_t_rel_other GSTEP _ (gstep_rwr_a COH GSTEP) (rwr_mon GSTEP)).
+  all: try rewrite (gstep_t_rel_other GSTEP _ (gstep_scr_a COH GSTEP) (scr_mon GSTEP)).
+  all: try (repeat right; split; ins; congruence).
+  all: try (split; ins; desf; eauto).
+  all: eauto 8.
+  all: try by exfalso; eauto.
+  by exploit RAa0; try done; destruct a as [??[]]; ins; destruct o0; ins.
+Admitted. 
+
+Lemma sc_map_step_write acts sb rmw rf mo sc sc_map acts0 sb0 rmw0 rf0 mo0 sc0
+  (COH : Coherent acts sb rmw rf mo sc)
+  f (MONOTONE : monotone mo f)
+  (SIM_SC_MAP : forall l, max_value f (S_tm acts sb rmw rf l) (LocFun.find l sc_map))
+  a l v o (LABa : lab a = Astore l v o)
+  (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a)
+  f' (F : forall b, In b acts -> f' b = f b)
+  (MON : monotone mo0 f'):
+  forall l0, max_value f' (S_tm acts0 sb0 rmw0 rf0 l0)
+     (LocFun.find l0 (Commit.write_sc sc_map l (f' a) o)).
+Proof.
+assert (WRITE: is_write a).
+  eauto with acts.
+assert (SCa: Ordering.le Ordering.seqcst o <-> is_sc a).
+  by destruct a; ins; desf.
+    ins.
+    unfold Commit.write_sc; desf; ins.
+    all: try rewrite !tm_find_join.
+    all:  try   rewrite !tm_find_singleton; desf; ins.
+    all:  try   rewrite time_join_bot.
+    all: try eapply max_value_join.
+    all: try match goal with
+             | [|- max_value _ _ (LocFun.find _ _)] => eapply max_value_same_set;
+               try eapply max_value_new_f with (f':=f'); eauto with acts
+             | [|- max_value _ _ _ ] => eapply max_value_singleton; eauto
+           end.
+    all: ins.
+    all: rewrite gstep_S_tm_write; eauto.
+    all: split; ins; desf; eauto.
+    all: try by (exfalso; eauto).
+    right; splits; eauto.
+    by destruct x; ins; desf.
+    by destruct a; ins; desf; exfalso; unfold loc in *; ins; desf; auto.
+Qed.
+
+(******************************************************************************)
+(** * Lemmas for the fence step   *)
+(******************************************************************************)
+Lemma commit_step_fence acts sb rmw rf mo sc sc_map acts0 sb0 rmw0 rf0 mo0 sc0
+  (COH : Coherent acts sb rmw rf mo sc)
+  f (MONOTONE : monotone mo f)
+  (SIM_SC_MAP : forall l : Loc.t, max_value f (S_tm acts sb rmw rf l) (LocFun.find l sc_map))
+  a o_r o_w (LABa : lab a = Afence o_r o_w)
+  (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a)
+  commit (COMMIT: sim_commit f acts sb rmw rf sc commit (thread a)):
+  sim_commit f acts0 sb0 rmw0 rf0 sc0 (Commit.write_fence_commit
+     (Commit.read_fence_commit commit o_r) sc_map o_w) (thread a).
+Proof.
+
+assert (FENCE: is_fence a).
+  by destruct a; ins; desf.
+assert (NR: ~ is_read a).
+  eauto with acts.
+
+assert (SCa: Ordering.le Ordering.seqcst o_w <-> is_sc a).
+  by destruct a; ins; desf.
+assert (RAa: Ordering.le Ordering.acqrel o_r <-> is_acq a).
+  by destruct a; ins; desf.
+assert (RAr: Ordering.le Ordering.acqrel o_w <-> is_rel a).
+  by destruct a; ins; desf.
+
+
+
+assert (forall acts sb rmw rf sc, inclusion (urr acts sb rmw rf sc) (rwr acts sb rmw rf sc)).
+by vauto.
+assert (forall acts sb rmw rf sc, inclusion (rwr acts sb rmw rf sc) (scr acts sb rmw rf sc))
+by vauto.
+
+assert (FOOca: forall r r' l x,
+  t_cur r acts sb rmw rf sc (thread a) l x ->
+  (forall acts sb rmw rf sc, inclusion (r acts sb rmw rf sc) (r' acts sb rmw rf sc)) ->
+  t_acq r' acts sb rmw rf sc (thread a) l x).
+admit.
+
+assert (FOOaa: forall r r' l x,
+  t_acq r acts sb rmw rf sc (thread a) l x ->
+  (forall acts sb rmw rf sc, inclusion (r acts sb rmw rf sc) (r' acts sb rmw rf sc)) ->
+  t_acq r' acts sb rmw rf sc (thread a) l x).
+admit.
+
+assert (FOOcc: forall r r' l x,
+  t_cur r acts sb rmw rf sc (thread a) l x ->
+  (forall acts sb rmw rf sc, inclusion (r acts sb rmw rf sc) (r' acts sb rmw rf sc)) ->
+  t_cur r' acts sb rmw rf sc (thread a) l x).
+admit.
+
+assert (FOOrc: forall r l l' x,
+  t_rel r acts sb rmw rf sc (thread a) l l' x ->
+  t_cur r acts sb rmw rf sc (thread a) l' x).
+admit.
+
+assert (FOOra: forall r l l' x,
+  t_rel r acts sb rmw rf sc (thread a) l l' x ->
+  t_acq r acts sb rmw rf sc (thread a) l' x).
+admit.
+
+destruct commit; simpl.
+unfold Commit.write_fence_commit, Commit.read_fence_commit,
+       Commit.write_fence_sc.
+
+red in COMMIT; desc; red in CUR; red in ACQ; red in REL; desc.
+unfold sim_commit, sim_acq, sim_cur, sim_rel; splits; ins; desf.
+
+all: try rewrite !cap_join_bot.
+all: ins.
+all: try rewrite !tm_join_bot.
+all: try rewrite !tm_find_join.
+all: try rewrite !tm_find_singleton; desf.
+all: try rewrite !time_join_bot.
+all: do 2 (try match goal with
+| [|- max_value _ _ (Time.join _ _)] => eapply max_value_join  end).
+all: try match goal with
+       | [|- max_value _ _ (LocFun.find _ _)] => eapply max_value_same_set; eauto with acts
+       | [|- max_value _ _ _ ] => eapply max_value_singleton; eauto end.
+all: try by intro x; split; [intro K; pattern x; exact K|].
+all: intro x.
+
+all: try rewrite (gstep_t_acq_urr_nonread COH GSTEP NR).
+all: try rewrite (gstep_t_acq_rwr_nonread COH GSTEP NR).
+all: try rewrite (gstep_t_acq_scr_nonread COH GSTEP NR).
+
+all: try rewrite (gstep_t_cur_urr_fence COH GSTEP FENCE).
+all: try rewrite (gstep_t_cur_rwr_fence COH GSTEP FENCE).
+all: try rewrite (gstep_t_cur_scr_fence COH GSTEP FENCE).
+
+all: try rewrite (gstep_t_rel_urr_fence COH GSTEP FENCE).
+all: try rewrite (gstep_t_rel_rwr_fence COH GSTEP FENCE).
+all: try rewrite (gstep_t_rel_scr_fence COH GSTEP FENCE).
+
+
+  all: try (split; ins; desf; eauto).
+  all: try by exfalso; eauto.
+  all: try by destruct o_w.
+  all: eauto using inclusion_refl2.
+  all: eauto 8 using inclusion_refl2, ur_in_sc, ur_in_rw, rw_in_sc.
+all: admit.
+
+
+Admitted.
 
 (******************************************************************************)
 (** * Main Theorem: the operational machine simulates the axiomatic machine   *)
@@ -724,322 +952,43 @@ splits; eauto.
   eapply Readable_full; eauto. 
 - exists f; splits; eauto.
   * rewrite <- gstep_non_write_mo; eauto with acts.
-  * eapply commit_step_read; eauto.
+  * eapply commit_step_read; edone.
   * ins. eapply max_value_same_set; try edone.
     ins; rewrite gstep_S_tm_other; eauto with acts.
-  * red; ins.
-    specialize (SIM_MEM0 l0); red in SIM_MEM0; desf.
-    red; splits; eauto; ins.
-    specialize (SIMCELL b0 WRITE LOC from0 msg CELL).
-    unfold sim_cell_helper, sim_msg in *; desc; splits; eauto.
-    4: by ins; apply FROMRMW0; eapply gstep_rf_rmw with (rf' := rf0); eauto.
-    all: ins.
-    all: destruct msg; ins.
-    all:  eapply max_value_same_set; try edone.
-    all: simpl.
-    admit.
-    admit.
-    admit. 
+  * eapply memory_step_nonwrite; eauto with acts.
 }
 { (** Write **)
-
 generalize (new_f GSTEP MONOTONE); intro; desc.
-
-assert (LOC_A: Gevents.loc a = Some l). 
-  unfold Gevents.loc; destruct (lab a); ins; desf.
-
-
 eexists _,_,_,_,_,_,_. splits; eauto.
-eapply Thread.step_write; eauto.
-econstructor; eauto.
-eapply Writable_full; eauto.
-
-{
-admit.
-
+- eapply Thread.step_write; eauto.
+  econstructor; eauto.
+  * red in TID; desc.
+    eapply Writable_full; eauto.
+  * admit.
+- exists f'; splits; try done.
+  * eapply commit_step_write; eauto.
+  * eapply sc_map_step_write; eauto.
+  * admit. 
 }
-
-assert (WRITE: is_write a).
-  eauto with acts.
-assert (NR: ~ is_read a).
-  eauto with acts.
-
-assert (SCa: Ordering.le Ordering.seqcst o <-> is_sc a).
-  split; eauto with acts. unfold is_sc; destruct (lab a); ins; desf.
-assert (RAa: Ordering.le Ordering.acqrel o <-> is_rel a).
-  split; eauto with acts. unfold is_rel; destruct (lab a); ins; desf.
-
-
-
-
-destruct op_st; ins.
-
-exists f'; splits; try done.
-{
-destruct commit; simpl.
-unfold Commit.write_commit.
-
-all: unfold sim_commit; splits; ins.
-- generalize (gstep_t_cur_urr_write COH GSTEP WRITE); intro CUR_URR.
-  generalize (gstep_t_cur_rwr_write COH GSTEP WRITE); intro CUR_RWR.
-  generalize (gstep_t_cur_scr_write COH GSTEP WRITE); intro CUR_SCR.
-  destruct cur as [cur_ur cur_rw cur_sc]; unfold sim_cur; splits; ins.
-  all: try rewrite !tm_find_join.
-  all: try rewrite !tm_find_singleton; desf; ins.
-  all: try rewrite !time_join_bot.
-  all: try eapply max_value_join; try eapply max_value_join.
-  all: try match goal with
-         | [|- max_value _ _ (LocFun.find _ _)] => eapply max_value_same_set;
-           try eapply max_value_new_f with (f':=f'); eauto with acts
-         | [|- max_value _ _ _ ] => eapply max_value_singleton; eauto
-       end.
-  all: try by intro x; split; [intro K; pattern x; exact K|].
-  all: ins.
-  all: try rewrite CUR_URR.
-  all: try rewrite CUR_RWR.
-  all: try rewrite CUR_SCR.
-  all: split; ins; desf; try by eauto.
-  all: by exfalso; eauto.
-
-- 
-
-  assert (ACQ_URR : forall (l : Loc.t) (x : event),
-          t_acq urr acts0 sb0 rmw0 rf0 sc0 (thread a) l x <->
-          t_acq urr acts sb rmw rf sc (thread a) l x \/
-          x = a /\ loc x = Some l).
-admit.
-assert (ACQ_RWR : forall (l : Loc.t) (x : event),
-          t_acq rwr acts0 sb0 rmw0 rf0 sc0 (thread a) l x <->
-          t_acq rwr acts sb rmw rf sc (thread a) l x \/
-          x = a /\ loc x = Some l).
-admit.
-assert (ACQ_SCR : forall (l : Loc.t) (x : event),
-          t_acq scr acts0 sb0 rmw0 rf0 sc0 (thread a) l x <->
-          t_acq scr acts sb rmw rf sc (thread a) l x \/
-          S_tm acts sb rmw rf l x /\ is_sc a \/ x = a /\ loc x = Some l).
-admit.
-destruct acq as [acq_ur acq_rw acq_sc]; unfold sim_acq; splits; ins.
-
-  all: try rewrite !tm_find_join.
-  all: try rewrite !tm_find_singleton; desf; ins.
-  all: try rewrite !time_join_bot.
-  all: try eapply max_value_join; try eapply max_value_join.
-  all: try match goal with
-         | [|- max_value _ _ (LocFun.find _ _)] => eapply max_value_same_set;
-           try eapply max_value_new_f with (f':=f'); eauto with acts
-         | [|- max_value _ _ _ ] => eapply max_value_singleton; eauto
-       end.
-  all: try by intro x; split; [intro K; pattern x; exact K|].
-
-  all: ins.
-  all: try rewrite ACQ_URR.
-  all: try rewrite ACQ_RWR.
-  all: try rewrite ACQ_SCR.
-  all: split; ins; desf; try by eauto.
-  all: try by exfalso; eauto.
-
-- generalize (gstep_t_rel_urr_write COH GSTEP WRITE LOC_A); intro REL_URR.
-  generalize (gstep_t_rel_rwr_write COH GSTEP WRITE LOC_A); intro REL_RWR.
-  generalize (gstep_t_rel_scr_write COH GSTEP WRITE LOC_A); intro REL_SCR.
-(*  assert (REL_URR': forall (l0 l' : Loc.t), ~ is_rel a \/ Some l <> Some l0 -> 
-            forall x, t_rel urr acts0 sb0 rmw0 rf0 sc0 (thread a) l0 l' x <->
-                      t_rel urr acts sb rmw rf sc (thread a) l0 l' x).
-    ins; rewrite gstep_t_rel_other; eauto.
-    eapply gstep_urr_a; eauto.
-    eapply urr_mon; eauto.
-    desf; eauto.
-    right; right; right; splits; eauto.
-    ins; intro; subst; destruct (loc a); ins; desf; auto.
- *)
-
-assert (FOO: forall r l l' x,
-  t_rel r acts sb rmw rf sc (thread a) l l' x ->
-  t_cur r acts sb rmw rf sc (thread a) l' x).
-admit.
-
-unfold sim_rel; splits; ins.
-
-all: try rewrite LocFun.add_spec; desf; ins.
-  all: try rewrite !tm_join_bot.
-
-  all: try rewrite !tm_find_join.
-  all: try rewrite !tm_find_singleton; desf; ins.
-  all: try rewrite !time_join_bot.
-
-  all: try eapply max_value_join; try eapply max_value_join.
-  all: try match goal with
-         | [|- max_value _ _ (LocFun.find _ _)] => eapply max_value_same_set;
-           try eapply max_value_new_f with (f':=f'); eauto with acts
-         | [|- max_value _ _ _ ] => eapply max_value_singleton; eauto
-       end.
-  all: try by intro x; split; [intro K; pattern x; exact K|].
-
-  all: ins.
-  all: try rewrite REL_URR.
-  all: try rewrite REL_RWR.
-  all: try rewrite REL_SCR.
-  all: try rewrite (gstep_t_rel_other GSTEP _ (gstep_urr_a COH GSTEP) (urr_mon GSTEP)).
-  all: try rewrite (gstep_t_rel_other GSTEP _ (gstep_rwr_a COH GSTEP) (rwr_mon GSTEP)).
-  all: try rewrite (gstep_t_rel_other GSTEP _ (gstep_scr_a COH GSTEP) (scr_mon GSTEP)).
-  all: try (repeat right; split; ins; congruence).
-  all: try (split; ins; desf; eauto).
-  all: eauto 8.
-  all: try by exfalso; eauto.
-
-  by exploit RAa0; try done; destruct a as [??[]]; ins; destruct o0; ins.
-}
-{
-ins.
-unfold Commit.write_sc; desf; ins.
-all: try rewrite !tm_find_join.
-all:  try   rewrite !tm_find_singleton; desf; ins.
-all:  try   rewrite time_join_bot.
-all: try eapply max_value_join.
-all: try match goal with
-         | [|- max_value _ _ (LocFun.find _ _)] => eapply max_value_same_set;
-           try eapply max_value_new_f with (f':=f'); eauto with acts
-         | [|- max_value _ _ _ ] => eapply max_value_singleton; eauto
-       end.
-all: ins.
-all: rewrite gstep_S_tm_write; eauto.
-all: split; ins; desf; eauto.
-all: try by (exfalso; eauto).
-}
-{
-admit.
-}
-}
-{
-(** Update **)
+{ (** Update **)
 admit.
 }
 {
 (** Fence **)
-
-assert (FENCE: is_fence a).
-  by destruct a; ins; desf.
-assert (NR: ~ is_read a).
-  eauto with acts.
-
-assert (SCa: Ordering.le Ordering.seqcst o_w <-> is_sc a).
-  by destruct a; ins; desf.
-assert (RAa: Ordering.le Ordering.acqrel o_r <-> is_acq a).
-  by destruct a; ins; desf.
-assert (RAr: Ordering.le Ordering.acqrel o_w <-> is_rel a).
-  by destruct a; ins; desf.
-
-
-destruct op_st as [threads sc_map mem]; ins.
-
-eexists _,_,_,_,_,_,_.
-splits; eauto.
+eexists _,_,_,_,_,_,_. splits; eauto.
 eapply Thread.step_fence; eauto.
 econstructor; eauto.
 exists f; splits; eauto.
-
 * rewrite <- gstep_non_write_mo; eauto with acts.
-  intro; unfold is_write in *; destruct (lab a); ins.
-* simpl.
-
-assert (forall acts sb rmw rf sc, inclusion (urr acts sb rmw rf sc) (rwr acts sb rmw rf sc)).
-by vauto.
-assert (forall acts sb rmw rf sc, inclusion (rwr acts sb rmw rf sc) (scr acts sb rmw rf sc))
-by vauto.
-
-assert (FOOca: forall r r' l x,
-  t_cur r acts sb rmw rf sc (thread a) l x ->
-  (forall acts sb rmw rf sc, inclusion (r acts sb rmw rf sc) (r' acts sb rmw rf sc)) ->
-  t_acq r' acts sb rmw rf sc (thread a) l x).
-admit.
-
-assert (FOOaa: forall r r' l x,
-  t_acq r acts sb rmw rf sc (thread a) l x ->
-  (forall acts sb rmw rf sc, inclusion (r acts sb rmw rf sc) (r' acts sb rmw rf sc)) ->
-  t_acq r' acts sb rmw rf sc (thread a) l x).
-admit.
-
-assert (FOOcc: forall r r' l x,
-  t_cur r acts sb rmw rf sc (thread a) l x ->
-  (forall acts sb rmw rf sc, inclusion (r acts sb rmw rf sc) (r' acts sb rmw rf sc)) ->
-  t_cur r' acts sb rmw rf sc (thread a) l x).
-admit.
-
-assert (FOOrc: forall r l l' x,
-  t_rel r acts sb rmw rf sc (thread a) l l' x ->
-  t_cur r acts sb rmw rf sc (thread a) l' x).
-admit.
-
-assert (FOOra: forall r l l' x,
-  t_rel r acts sb rmw rf sc (thread a) l l' x ->
-  t_acq r acts sb rmw rf sc (thread a) l' x).
-admit.
-
-
-destruct commit; ins.
-unfold Commit.write_fence_commit, Commit.read_fence_commit,
-       Commit.write_fence_sc; ins; desf.
-all: try rewrite !cap_join_bot.
-all: unfold sim_commit, sim_acq, sim_cur, sim_rel; splits; ins.
-
-all: desf.
-all: try rewrite !tm_join_bot.
-all: try rewrite !tm_find_join.
-all: try rewrite !tm_find_singleton; desf.
-all: try rewrite !time_join_bot.
-all: do 2 (try match goal with
-| [|- max_value _ _ (Time.join _ _)] => eapply max_value_join  end).
-all: try match goal with
-       | [|- max_value _ _ (LocFun.find _ _)] => eapply max_value_same_set; eauto with acts
-       | [|- max_value _ _ _ ] => eapply max_value_singleton; eauto end.
-  all: try by intro x; split; [intro K; pattern x; exact K|].
-all: simpl.
-all: intro x.
-
-all: try rewrite (gstep_t_acq_urr_nonread COH GSTEP NR).
-all: try rewrite (gstep_t_acq_rwr_nonread COH GSTEP NR).
-all: try rewrite (gstep_t_acq_scr_nonread COH GSTEP NR).
-
-all: try rewrite (gstep_t_cur_urr_fence COH GSTEP FENCE).
-all: try rewrite (gstep_t_cur_rwr_fence COH GSTEP FENCE).
-all: try rewrite (gstep_t_cur_scr_fence COH GSTEP FENCE).
-
-all: try rewrite (gstep_t_rel_urr_fence COH GSTEP FENCE).
-all: try rewrite (gstep_t_rel_rwr_fence COH GSTEP FENCE).
-all: try rewrite (gstep_t_rel_scr_fence COH GSTEP FENCE).
-
-
-  all: try (split; ins; desf; eauto).
-  all: try by exfalso; eauto.
-  all: try by destruct o_w.
-  all: eauto using inclusion_refl2.
-  all: eauto 8 using inclusion_refl2, ur_in_sc, ur_in_rw, rw_in_sc.
-all: admit.
-
-* ins. eapply max_value_same_set; try edone.
-ins; rewrite gstep_S_tm_other; eauto with acts.
-* red; ins.
-  specialize (SIM_MEM0 l0); red in SIM_MEM0; desf.
-  red; splits; eauto; ins.
-  specialize (SIMCELL b0 WRITE LOC from0 msg CELL).
-  unfold sim_cell_helper, sim_msg in *; desc; splits; eauto.
-  4: by ins; apply FROMRMW0; eapply gstep_rf_rmw with (rf' := rf0); eauto.
-  all: ins.
-  all: destruct msg; ins.
-  all:  eapply max_value_same_set; try edone.
-  all: simpl.
-  admit.
-  admit.
-  admit. 
+* eapply commit_step_fence; eauto.
+* admit.
+* eapply memory_step_nonwrite; eauto with acts.
 }
-
-admit.
-}
-
 Admitted.
 
-Lemma ax_sim_op :
+(* Lemma ax_sim_op :
   forall op_st ax_st (SIM: sim op_st ax_st) op_st' e tid (OPSTEP: Configuration.step tid e op_st op_st'),
   exists ax_st', m_step ax_st ax_st' /\ sim op_st' ax_st'.
-Proof.
+Proof. *)
 
-Admitted.
+
