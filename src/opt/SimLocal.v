@@ -196,28 +196,17 @@ Proof.
         (Commit.rel
            (Commit.write_commit (Local.commit lc1_tgt) sc1_tgt loc to
               ord) loc))).
-  { committac.
-    - etrans; eauto. committac.
+  { repeat (try condtac; aggrtac).
     - rewrite <- Capability.join_r.
-      rewrite <- Capability.join_l.
+      rewrite <- ? Capability.join_l.
       apply LOCAL1.
-    - condtac; committac; try apply WF1_TGT.
-      + rewrite <- Capability.join_r.
-        rewrite <- Capability.join_r.
-        rewrite <- Capability.join_l.
-        rewrite <- Capability.join_l.
-        apply LOCAL1.
-      + condtac; committac.
-      + etrans; [|apply TimeMap.join_r].
-        etrans; [|apply TimeMap.join_r].
-        etrans; [|apply TimeMap.join_l].
-        etrans; [|apply TimeMap.join_r].
-        unfold TimeMap.singleton, LocFun.add. condtac; [refl|congr].
-      + condtac; committac.
-        rewrite <- Capability.join_r.
-        rewrite <- Capability.join_r.
-        rewrite <- Capability.join_r.
-        econs; try refl. ss.
+    - rewrite <- Capability.join_r.
+      rewrite <- ? Capability.join_l.
+      apply LOCAL1.
+    - apply WF1_TGT.
+    - econs; aggrtac.
+    - rewrite <- Capability.join_r.
+      apply LOCAL1.
   }
   assert (RELT_WF:
    Capability.wf
@@ -345,6 +334,7 @@ Proof.
     apply CommitFacts.read_fence_commit_mon; auto; try refl.
     + apply LOCAL1.
     + apply WF1_TGT.
+    + eapply CommitFacts.read_fence_future; apply WF1_SRC.
   - apply CommitFacts.write_fence_sc_mon; auto; try refl.
     apply CommitFacts.read_fence_commit_mon; auto; try refl.
     + apply LOCAL1.

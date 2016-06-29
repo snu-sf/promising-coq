@@ -179,9 +179,9 @@ Module Local.
     exploit Memory.promise_future0; eauto; try by committac. i. des.
     repeat (try condtac; committac).
     - eapply Memory.future_closed_capability; eauto. apply CLOSED2.
-    - eapply Memory.future_closed_capability; eauto. apply CLOSED2.
     - eapply LE_PROMISES2. eapply Memory.promise_get2. apply PROMISE.
     - econs; committac.
+    - eapply Memory.future_closed_capability; eauto. apply CLOSED2.
   Qed.
 
   Lemma write_closed_capability

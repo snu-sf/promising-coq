@@ -94,7 +94,7 @@ Module Cell.
                      (GET2: DOMap.find to2 cell1 = Some (from2, msg2)),
             Interval.disjoint (from, to) (from2, to2))
         (TO: Time.lt from to)
-        (REL_WF: Capability.wf released):
+        (WF: Capability.wf released):
         add cell1 from to val released (DOMap.add to (from, (Message.mk val released)) cell1)
     .
 
@@ -306,7 +306,7 @@ Module Cell.
                      (GET2: get to2 cell1 = Some (from2, msg2)),
             Interval.disjoint (from, to) (from2, to2))
         (TO1: Time.lt from to)
-        (REL_LE: Capability.wf released):
+        (WF: Capability.wf released):
     exists cell2, add cell1 from to val released cell2.
   Proof.
     destruct cell1. eexists (mk _). unfold add. econs; eauto.

@@ -104,15 +104,8 @@ Lemma read_write_fence_commit
        (Commit.read_commit commit0 loc1 ts1 released1 ord1)
        sc0 ord2).
 Proof.
-  econs; aggrtac;
-    (try by apply WF0);
-    (try by condtac; aggrtac).
-  - unfold Commit.write_fence_sc;
-    repeat (condtac; aggrtac).
-  - unfold Commit.write_fence_sc.
-    repeat (condtac; aggrtac).
-  - unfold Commit.write_fence_sc.
-    repeat (condtac; aggrtac).
+  unfold Commit.write_fence_commit, Commit.write_fence_sc.
+  econs; repeat (try condtac; aggrtac; try apply WF0).
 Qed.
 
 Lemma write_read_commit
@@ -198,15 +191,7 @@ Lemma read_fence_write_commit
        (Commit.read_fence_commit commit0 ord1)
        sc0 loc2 ts2 ord2).
 Proof.
-  econs; aggrtac;
-    (try by apply WF0);
-    (repeat (condtac; aggrtac; try apply WF0)).
-  - rewrite <- Capability.join_r.
-    rewrite <- ? Capability.join_l.
-    apply WF0.
-  - rewrite <- Capability.join_r.
-    rewrite <- ? Capability.join_l.
-    apply WF0.
+  econs; repeat (try condtac; aggrtac; try apply WF0).
 Qed.
 
 Lemma write_fence_write_commit
@@ -261,29 +246,14 @@ Lemma read_fence_write_fence_commit
        (Commit.read_fence_commit commit0 ord1)
        sc0 ord2).
 Proof.
-  econs; aggrtac;
-    (try by apply WF0);
-    (try by condtac; aggrtac).
-  - condtac; aggrtac.
-    + condtac; aggrtac.
-      rewrite <- Capability.join_r.
-      rewrite <- Capability.join_l.
-      apply WF0.
-    + condtac; aggrtac.
-      rewrite <- ? Capability.join_r.
-      unfold Commit.write_fence_sc. repeat (condtac; aggrtac).
-      rewrite <- TimeMap.join_r. apply WF0.
-  - condtac; aggrtac.
-    + condtac; aggrtac.
-      rewrite <- ? Capability.join_r.
-      unfold Commit.write_fence_sc. repeat (condtac; aggrtac).
-      rewrite <- TimeMap.join_r. apply WF0.
-    + condtac; aggrtac.
-      rewrite <- Capability.join_r.
-      unfold Commit.write_fence_sc. repeat (condtac; aggrtac).
-  - condtac; aggrtac.
-    rewrite <- ? Capability.join_r.
-    unfold Commit.write_fence_sc. repeat (condtac; aggrtac).
+  unfold Commit.write_fence_commit, Commit.write_fence_sc.
+  econs; repeat (try condtac; aggrtac; try apply WF0).
+  - rewrite <- TimeMap.join_r. apply WF0.
+  - rewrite <- TimeMap.join_r. apply WF0.
+  - rewrite <- TimeMap.join_r. apply WF0.
+  - rewrite <- Capability.join_r. committac.
+    rewrite <- TimeMap.join_r. apply WF0.
+  - rewrite <- Capability.join_r. committac.
     rewrite <- TimeMap.join_r. apply WF0.
 Qed.
 

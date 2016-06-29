@@ -53,16 +53,7 @@ Lemma write_read_commit
                         ord2)
     (Commit.write_commit commit0 sc0 loc ts ord1).
 Proof.
-  econs; aggrtac;
-    (try by apply WF0).
-  - repeat condtac; aggrtac.
-  - repeat condtac; aggrtac;
-      rewrite <- ? Capability.join_l; apply WF0.
-  - condtac; committac.
-  - condtac; committac.
-    { rewrite <- ? Capability.join_l. etrans; apply WF0. }
-    repeat condtac; aggrtac; try apply WF0;
-      rewrite <- ? Capability.join_l; apply WF0.
+  econs; repeat (try condtac; aggrtac; try apply WF0).
 Qed.
 
 Lemma write_write_commit

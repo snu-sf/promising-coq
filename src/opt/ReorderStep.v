@@ -335,6 +335,8 @@ Proof.
         eapply CommitFacts.read_fence_future; apply WF0.
       * apply CommitFacts.write_fence_commit_mon; try refl.
         apply ReorderCommit.read_read_fence_commit; try apply WF0; auto.
+        exploit CommitFacts.read_fence_future; try apply WF0; eauto. i. des.
+        eapply CommitFacts.read_future; eauto.
     + apply SimPromises.sem_bot.
   - unfold Commit.write_fence_sc, Commit.read_fence_commit.
     repeat condtac; aggrtac.
@@ -362,7 +364,7 @@ Proof.
   esplits.
   - econs; eauto.
     eapply CommitFacts.readable_mon; try apply READABLE; eauto; try refl.
-    apply CommitFacts.write_commit_incr.
+    apply CommitFacts.write_commit_incr. apply WF0.
   - unfold Local.commit at 2.
     unfold Local.promises at 2.
     rewrite ReorderCommit.read_write_commit_eq; eauto; try apply WF0; cycle 1.
@@ -429,7 +431,7 @@ Proof.
       econs; try by committac. s.
       rewrite <- ? TimeMap.join_r. apply CommitFacts.write_sc_incr.
     + eapply CommitFacts.writable_mon; eauto; try refl.
-      * apply CommitFacts.write_commit_incr.
+      * apply CommitFacts.write_commit_incr. apply WF0.
       * apply CommitFacts.write_sc_incr.
   - econs; eauto.
     + etrans; eauto. repeat (try condtac; aggrtac; try apply WF0).
@@ -773,21 +775,28 @@ Proof.
       * rewrite <- Capability.join_r.
         apply CommitFacts.write_commit_mon; eauto; try refl.
         { etrans.
-          - apply CommitFacts.write_fence_commit_incr.
-          - apply CommitFacts.write_fence_commit_mon; try refl.
+          - apply CommitFacts.write_fence_commit_incr. apply WF0.
+          - apply CommitFacts.write_fence_commit_mon; try refl; try apply WF0.
             apply CommitFacts.read_fence_commit_incr. apply WF0.
         }
         { apply CommitFacts.write_fence_sc_incr. }
     + eapply CommitFacts.writable_mon; eauto; try refl.
       * etrans.
         { apply CommitFacts.read_fence_commit_incr. apply WF0. }
-        { apply CommitFacts.write_fence_commit_incr. }
+        { apply CommitFacts.write_fence_commit_incr.
+          eapply CommitFacts.read_fence_future; apply WF0.
+        }
       * apply CommitFacts.write_fence_sc_incr.
   - econs; eauto. i. destruct ordw1; inv H; inv ORDW1.
   - s. econs; s.
     + etrans; [|etrans].
-      * apply CommitFacts.write_fence_commit_mon; [|refl|refl].
-        apply ReorderCommit.read_fence_write_commit; auto. apply WF0.
+      * apply CommitFacts.write_fence_commit_mon; [|refl|refl|].
+        { apply ReorderCommit.read_fence_write_commit; auto. apply WF0. }
+        { exploit Memory.remove_get0; eauto. s. i.
+          inv WF0. exploit PROMISES; eauto. i.
+          exploit CommitFacts.write_future; try exact x; try exact SC0; eauto. i. des.
+          eapply CommitFacts.read_fence_future; eauto.
+        }
       * apply ReorderCommit.write_fence_write_commit; auto.
       * apply CommitFacts.write_commit_mon; auto; try refl.
         apply CommitFacts.write_fence_sc_incr.

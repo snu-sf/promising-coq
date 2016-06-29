@@ -164,11 +164,8 @@ Module Commit <: JoinableType.
                      (Capability.singleton_ur loc ts))
                   (if Ordering.le Ordering.seqcst ord then Capability.mk TimeMap.bot TimeMap.bot sc1 else Capability.bot)
     in
-    let rel2 := LocFun.add
-                  loc
-                  (Capability.join
-                     (commit1.(Commit.rel) loc)
-                     (if Ordering.le Ordering.acqrel ord then cur2 else Capability.bot))
+    let rel2 := LocFun.add loc
+                     (if Ordering.le Ordering.acqrel ord then cur2 else (commit1.(Commit.rel) loc))
                   commit1.(Commit.rel)
     in
     Commit.mk rel2 cur2 acq2.
@@ -189,25 +186,20 @@ Module Commit <: JoinableType.
 
   Definition write_fence_sc
              (commit1:t) (sc1:TimeMap.t) (ord:Ordering.t): TimeMap.t :=
-    TimeMap.join
-      sc1
-      (if Ordering.le Ordering.seqcst ord then commit1.(Commit.cur).(Capability.sc) else TimeMap.bot).
+    if Ordering.le Ordering.seqcst ord
+    then TimeMap.join sc1 commit1.(Commit.cur).(Capability.sc)
+    else sc1.
 
   Definition write_fence_commit
              (commit1:t) (sc1:TimeMap.t) (ord:Ordering.t): t :=
     let sc2 := write_fence_sc commit1 sc1 ord in
-    let cur2 := Capability.join
-                  commit1.(Commit.cur)
-                  (if Ordering.le Ordering.seqcst ord then Capability.mk sc2 sc2 sc2 else Capability.bot)
-    in
-    let acq2 := Capability.join
+	  let cur2 := if Ordering.le Ordering.seqcst ord then Capability.mk sc2 sc2 sc2 else commit1.(Commit.cur)
+	  in
+	  let acq2 := Capability.join
                   commit1.(Commit.acq)
-                  (if Ordering.le Ordering.seqcst ord then Capability.mk sc2 sc2 sc2 else Capability.bot)
-    in
-    let rel2 := fun l =>
-                  Capability.join
-                    (commit1.(Commit.rel) l)
-                    (if Ordering.le Ordering.acqrel ord then cur2 else Capability.bot)
+				          (if Ordering.le Ordering.seqcst ord then Capability.mk sc2 sc2 sc2 else Capability.bot)
+	  in
+	  let rel2 := fun l => if Ordering.le Ordering.acqrel ord then cur2 else (commit1.(Commit.rel) l)
     in
     Commit.mk rel2 cur2 acq2.
 
@@ -224,6 +216,17 @@ Module Commit <: JoinableType.
 End Commit.
 
 Module CommitFacts.
+  Lemma sc_le_capability_le
+        c tm
+        (WF: Capability.wf c)
+        (SC: TimeMap.le c.(Capability.sc) tm):
+    Capability.le c (Capability.mk tm tm tm).
+  Proof.
+    econs; auto.
+    - etrans; eauto. etrans; apply WF.
+    - etrans; eauto. apply WF.
+  Qed.
+
   Ltac tac :=
     repeat
       (try match goal with
@@ -254,6 +257,18 @@ Module CommitFacts.
              apply Memory.closed_capability_bot
            | [|- Memory.closed_timemap TimeMap.bot ?m] =>
              apply Memory.closed_timemap_bot
+           | [WF: Commit.wf ?c |- Capability.le (?c.(Commit.rel) ?l) ?c.(Commit.cur)] =>
+             apply WF
+           | [WF: Commit.wf ?c |- Capability.le (?c.(Commit.rel) ?l) ?c.(Commit.acq)] =>
+             etrans; apply WF
+           | [WF: Commit.wf ?c |- Capability.le ?c.(Commit.cur) ?c.(Commit.acq)] =>
+             apply WF
+           | [WF: Capability.wf ?c |- TimeMap.le ?c.(Capability.ur) ?c.(Capability.rw)] =>
+             apply WF
+           | [WF: Capability.wf ?c |- TimeMap.le ?c.(Capability.ur) ?c.(Capability.sc)] =>
+             etrans; apply WF
+           | [WF: Capability.wf ?c |- TimeMap.le ?c.(Capability.rw) ?c.(Capability.sc)] =>
+             apply WF
 
            | [H1: is_true (Ordering.le ?o Ordering.relaxed),
               H2: Ordering.le Ordering.acqrel ?o = true |- _] =>
@@ -380,6 +395,9 @@ Module CommitFacts.
            | [|- Time.le _ (TimeMap.join _ _ _)] =>
              try (by etrans; [|by apply Time.join_l]; aggrtac);
              try (by etrans; [|by apply Time.join_r]; aggrtac)
+
+           | [|- Capability.le _ (Capability.mk ?tm ?tm ?tm)] =>
+             apply sc_le_capability_le
            end).
 
   Lemma read_commit_incr
@@ -392,13 +410,11 @@ Module CommitFacts.
   Qed.
 
   Lemma write_commit_incr
-        commit1 sc1 loc ts ord:
+        commit1 sc1 loc ts ord
+        (WF1: Commit.wf commit1):
     Commit.le commit1 (Commit.write_commit commit1 sc1 loc ts ord).
   Proof.
-    econs; tac.
-    - condtac; tac.
-    - rewrite <- ? Capability.join_l. refl.
-    - rewrite <- ? Capability.join_l. refl.
+    econs; repeat (try condtac; aggrtac).
   Qed.
 
   Lemma write_sc_incr
@@ -413,14 +429,17 @@ Module CommitFacts.
         (WF1: Commit.wf commit1):
     Commit.le commit1 (Commit.read_fence_commit commit1 ord).
   Proof.
-    econs; tac. condtac; tac. apply WF1.
+    econs; tac. condtac; tac.
   Qed.
 
   Lemma write_fence_commit_incr
-        commit1 sc1 ord:
+        commit1 sc1 ord
+        (WF1: Commit.wf commit1):
     Commit.le commit1 (Commit.write_fence_commit commit1 sc1 ord).
   Proof.
-    econs; tac.
+    unfold Commit.write_fence_commit, Commit.write_fence_sc.
+    econs; repeat (try condtac; aggrtac; try apply WF1).
+    rewrite <- TimeMap.join_r. apply WF1.
   Qed.
 
   Lemma write_fence_sc_incr
@@ -519,14 +538,14 @@ Module CommitFacts.
       (try by etrans; [apply COMMIT|aggrtac]);
       (try by rewrite <- ? Capability.join_r; aggrtac;
        rewrite <- ? TimeMap.join_r; apply COMMIT).
-    etrans; [apply COMMIT|apply WF2].
   Qed.
 
   Lemma write_fence_commit_mon
         commit1 commit2 sc1 sc2 ord1 ord2
         (COMMIT: Commit.le commit1 commit2)
         (SC: TimeMap.le sc1 sc2)
-        (ORD: Ordering.le ord1 ord2):
+        (ORD: Ordering.le ord1 ord2)
+        (WF1: Commit.wf commit1):
     Commit.le
       (Commit.write_fence_commit commit1 sc1 ord1)
       (Commit.write_fence_commit commit2 sc2 ord2).
@@ -535,7 +554,10 @@ Module CommitFacts.
     econs; repeat (condtac; aggrtac);
       (try by etrans; [apply COMMIT|aggrtac]);
       (try by rewrite <- ? Capability.join_r; aggrtac;
-       rewrite <- ? TimeMap.join_r; apply COMMIT).
+       rewrite <- ? TimeMap.join_r; apply COMMIT);
+      (try by apply WF1).
+    - rewrite <- TimeMap.join_r. etrans; [apply WF1|]. apply COMMIT.
+    - etrans; [apply WF1|]. apply COMMIT.
   Qed.
 
   Lemma write_fence_sc_mon
@@ -578,7 +600,6 @@ Module CommitFacts.
     Commit.write_fence_sc commit sc ordw = sc.
   Proof.
     unfold Commit.write_fence_sc. condtac; tac.
-    apply TimeMap.antisym; tac.
   Qed.
 
   Lemma write_fence_commit_acqrel
@@ -675,8 +696,9 @@ Module CommitFacts.
       + repeat condtac; tac; try apply WF_COMMIT.
       + repeat condtac; tac; try apply WF_COMMIT.
       + repeat condtac; tac.
-      + repeat condtac; tac; rewrite <- Capability.join_l; apply WF_COMMIT.
-      + repeat condtac; tac.
+      + repeat (try condtac; aggrtac; try apply WF_COMMIT).
+        unfold Commit.write_fence_sc. condtac; tac.
+        rewrite <- TimeMap.join_r. apply WF_COMMIT.
       + repeat condtac; tac; rewrite <- Capability.join_l; apply WF_COMMIT.
     - econs; tac; try apply CLOSED_COMMIT.
       + unfold Commit.write_fence_sc.

@@ -78,7 +78,6 @@ Proof.
     apply Commit.antisym; econs;
       repeat (try condtac; aggrtac; rewrite <- ? Capability.join_l; try apply WF0).
     + etrans; apply WF0.
-    + etrans; apply WF0.
 Qed.
 
 Lemma merge_write_read2
@@ -102,7 +101,6 @@ Proof.
   - unfold Commit.read_commit, Commit.write_commit. s.
     apply Commit.antisym; econs;
       repeat (try condtac; aggrtac; rewrite <- ? Capability.join_l; try apply WF0; eauto).
-    + etrans; apply WF0.
     + etrans; apply WF0.
 Qed.
 
@@ -205,8 +203,8 @@ Proof.
   { refl. }
   { unfold released1'. repeat (try condtac; aggrtac).
     - etrans; eauto. left. auto.
-    - etrans; [apply WF0|]. etrans; eauto. left. auto.
     - etrans; eauto. left. auto.
+    - etrans; [apply WF0|]. etrans; eauto. left. auto.
   }
   { auto. }
   { apply WF0. }
@@ -217,9 +215,9 @@ Proof.
   assert (REL1'_CLOSED: Memory.closed_capability released1' mem2).
   { unfold released1'. repeat (try condtac; aggrtac; try by apply WF0).
     - eapply Memory.future_closed_capability; eauto. apply WF0.
-    - eapply Memory.future_closed_capability; eauto. apply WF0.
     - apply LE_PROMISES0. eapply Memory.promise_get2. eauto.
     - econs; committac.
+    - eapply Memory.future_closed_capability; eauto. apply WF0.
   }
   esplits.
   - econs; eauto.
@@ -370,7 +368,7 @@ Proof.
   - condtac; ss.
     erewrite MemoryFacts.update_o; eauto. condtac; ss.
     unfold Memory.get. rewrite PROMISES, Cell.bot_get. auto.
-Qed.    
+Qed.
 
 Lemma merge_write_write_add
       loc ts1 ts2 ts3 val1 val2 released0 released2 ord
@@ -406,10 +404,10 @@ Proof.
     repeat (try condtac; aggrtac).
     - eapply Memory.future_closed_capability; eauto.
       inv STEP1. apply WF0.
-    - eapply Memory.future_closed_capability; eauto.
-      inv STEP1. apply WF0.
     - inv PROMISE1. eapply Memory.add_get2. eauto.
     - econs; committac.
+    - eapply Memory.future_closed_capability; eauto.
+      inv STEP1. apply WF0.
   }
   i. des.
   exploit Local.promise_step_future; try eexact STEP6; eauto. i. des.
@@ -515,23 +513,10 @@ Proof.
   inv STEP. esplits.
   - econs; eauto.
   - econs; eauto.
-  - s. econs; ss. etrans; [etrans|].
-    + apply CommitFacts.write_fence_commit_mon; [|refl|refl].
-      apply ReorderCommit.read_fence_write_fence_commit; eauto.
-      eapply CommitFacts.read_fence_future; apply WF0.
-    + apply CommitFacts.write_fence_commit_mon; [|refl|refl].
-      apply CommitFacts.write_fence_commit_mon; [|refl|refl].
-      apply MergeCommit.read_fence_read_fence_commit; eauto. apply WF0.
-    + eapply MergeCommit.write_fence_write_fence_commit; eauto.
-      eapply CommitFacts.read_fence_future; apply WF0.
+  - s. econs; ss.
+    + unfold Commit.read_fence_commit, Commit.write_fence_commit, Commit.write_fence_sc.
+      econs; repeat (try condtac; aggrtac; try apply WF0).
     + apply SimPromises.sem_bot.
-  - s. etrans; [etrans|].
-    + apply CommitFacts.write_fence_sc_mon; [|refl|refl].
-      eapply ReorderCommit.read_fence_write_fence_commit.
-      eapply CommitFacts.read_fence_future; apply WF0.
-    + apply CommitFacts.write_fence_sc_mon; [|refl|refl].
-      apply CommitFacts.write_fence_commit_mon; [|refl|refl].
-      apply MergeCommit.read_fence_read_fence_commit; eauto. apply WF0.
-    + apply MergeCommit.write_fence_write_fence_sc; eauto; try refl.
-      eapply CommitFacts.read_fence_future; apply WF0.
+  - unfold Commit.read_fence_commit, Commit.write_fence_commit, Commit.write_fence_sc.
+    repeat (try condtac; aggrtac; try apply WF0).
 Qed.
