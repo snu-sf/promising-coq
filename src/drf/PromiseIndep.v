@@ -637,9 +637,10 @@ Proof.
     esplits; s; eauto.
     + edestruct ordering_relaxed_dec; eauto.
       apply RELEASE in H. des. ss. by rewrite H, Cell.bot_get in TH1.
-    + inv WRITABLE. inv READABLE. ss.
-      move TS at bottom. admit.
-Admitted. (* Done *)
+    + inv WRITABLE. inv READABLE. ss. move TS at bottom.
+      eapply TimeFacts.le_lt_lt; eauto.
+      repeat (etrans; [|apply Time.join_l]). refl.
+Qed.
 
 Inductive can_fulfill (tid: Ident.t) loc ts (c1 c4: Configuration.t) : Prop :=
 | can_fulfill_intro
@@ -704,10 +705,13 @@ Proof.
   inv STEP. eapply rtc_small_step_commit_future in STEPS; eauto.
   inv STEP0; inv STEP; inv EVENT.
   + inv LOCAL. inv WRITABLE.
-    move STEPS at bottom. move TS at bottom. admit.
+    move STEPS at bottom. move TS at bottom.
+    eapply TimeFacts.le_lt_lt; eauto. apply STEPS.
   + inv LOCAL1. inv READABLE. inv LOCAL2. inv WRITABLE.
-    ss. move STEPS at bottom. move TS at bottom. admit.
-Admitted. (* Done *)
+    ss. move STEPS at bottom. move TS at bottom.
+    eapply TimeFacts.le_lt_lt; eauto.
+    repeat (etrans; [|apply Time.join_l]). apply STEPS.
+Qed.
 
 (* Lemma thread_step_unset_promises *)
 (*       lang loc e from ts msg (th1 th2:Thread.t lang) *)
@@ -794,7 +798,8 @@ Proof.
   - rewrite IdentMap.gss in IHSTEPS.
     exploit IHSTEPS; eauto.
     intro LT. move STEP0 at bottom.
-    admit. (* with STEP0, LT *)
+    eapply TimeFacts.le_lt_lt; eauto.
+    admit. (* with STEP0 *)
   - eapply thread_step_unset_promises in STEP0; eauto.
 Admitted.
 
@@ -1019,6 +1024,7 @@ Proof.
   - apply Operators_Properties.clos_rt1n_step in STEP.
     eauto using rtc_small_step_unset_promises.
   - eapply FULFILL in PROMISE2; eauto.
+    eapply TimeFacts.le_lt_lt; eauto.
     admit. (* trivial *)
 Admitted.
 
@@ -1558,7 +1564,7 @@ Proof.
   rewrite IdentMap.gss in THREAD4. depdes THREAD4.
 
   exploit IHPI_STEPS; eauto using promise_consistent_small_step.
-  { admit. (* with TIMELT, STEP0 *) }
+  { eapply TimeFacts.le_lt_lt; eauto. admit. (* with STEP0 *) }
   i; des. clear IHPI_STEPS.
   rewrite THS4 in TID0. depdes TID0.
 
@@ -1648,9 +1654,11 @@ Proof.
     inv THREAD. rewrite PRM in PROMISE. 
     exploit PRCONSIS; eauto.
     intro LT. move COM at bottom.
-    admit. (* with LT, COM *) }
+    eapply TimeFacts.le_lt_lt; eauto. apply COM.
+  }
   { move TIMELT at bottom. move COM at bottom.
-    admit. (* with TIMELT, COM *) }
+    eapply TimeFacts.le_lt_lt; eauto. apply COM.
+  }
   i; des.
 
   destruct lcx as [comx prmx].
