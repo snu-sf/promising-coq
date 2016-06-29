@@ -86,6 +86,21 @@ Proof.
   esplits; eauto.
 Qed.
 
+Lemma cover_disjoint
+      mem1 mem2 loc from to
+      (COVER: forall loc ts, covered loc ts mem1 -> covered loc ts mem2)
+      (DISJOINT: forall to2 from2 msg2
+                   (GET2: Memory.get loc to2 mem2 = Some (from2, msg2)),
+          Interval.disjoint (from, to) (from2, to2)):
+  forall to2 from2 msg2
+    (GET2: Memory.get loc to2 mem1 = Some (from2, msg2)),
+    Interval.disjoint (from, to) (from2, to2).
+Proof.
+  ii. exploit COVER; eauto.
+  { econs; eauto. }
+  i. inv x0. eapply DISJOINT; eauto.
+Qed.
+
 Lemma sim_memory_add
       mem1_src mem1_tgt
       mem2_src mem2_tgt

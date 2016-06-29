@@ -205,7 +205,10 @@ Module SimPromises.
   Proof.
     inv PROMISE_TGT.
     - exploit (@Memory.add_exists mem1_src loc from to val released).
-      { admit. (* m1 sim m2 means m1 and m2 takes the same intervals *) }
+      { eapply cover_disjoint.
+        - apply SIM1.
+        - inv MEM. inv ADD. auto.
+      }
       { inv MEM. inv ADD. auto. }
       { inv MEM. inv ADD. auto. }
       i. des.
@@ -261,7 +264,7 @@ Module SimPromises.
             destruct (Memory.get l t0 promises1_tgt) as [[? []]|] eqn:X; auto.
             exploit Memory.update_get1; try exact X; eauto. i. des; congr.
           }
-  Admitted.
+  Qed.
 
   Lemma remove_tgt
         inv
@@ -353,71 +356,6 @@ Module SimPromises.
     rewrite unset_set in INV0; auto.
   Qed.
 
-  Lemma write_promise
-        inv
-        loc from to val released
-        promises1_src mem1_src
-        promises1_tgt mem1_tgt promises2_tgt mem2_tgt
-        kind
-        (WRITE_TGT: Memory.write promises1_tgt mem1_tgt loc from to val released promises2_tgt mem2_tgt kind)
-        (REL: Capability.wf released)
-        (INV1: sem inv promises1_src promises1_tgt)
-        (SIM1: sim_memory mem1_src mem1_tgt)
-        (LE1_SRC: Memory.le promises1_src mem1_src)
-        (LE1_TGT: Memory.le promises1_tgt mem1_tgt)
-        (MEM1_SEC: Memory.closed mem1_src)
-        (MEM1_TGT: Memory.closed mem1_tgt):
-    exists promises2_src mem2_src,
-      <<PROMISE_SRC: Memory.promise promises1_src mem1_src loc from to val released promises2_src mem2_src kind>> /\
-      <<INV2: sem (set loc to inv) promises2_src promises2_tgt>> /\
-      <<INV2': mem loc to inv = false>> /\
-      <<SIM2: sim_memory mem2_src mem2_tgt>>.
-  Proof.
-    inv WRITE_TGT.
-    exploit Memory.promise_future0; try apply PROMISE; eauto; try committac. i. des.
-    exploit promise; eauto. i. des.
-    exploit Memory.promise_future0; try apply PROMISE_SRC; eauto; try committac. i. des.
-    exploit remove_tgt; eauto; try refl. i. des.
-    esplits; eauto.
-  Qed.
-
-  Lemma write
-        inv
-        loc from to val released_src released_tgt
-        promises1_src mem1_src
-        promises1_tgt mem1_tgt promises2_tgt mem2_tgt
-        kind
-        (REL_LE: Capability.le released_src released_tgt)
-        (REL_WF_SRC: Capability.wf released_src)
-        (REL_WF_TGT: Capability.wf released_tgt)
-        (WRITE_TGT: Memory.write promises1_tgt mem1_tgt loc from to val released_tgt promises2_tgt mem2_tgt kind)
-        (INV1: sem inv promises1_src promises1_tgt)
-        (SIM1: sim_memory mem1_src mem1_tgt)
-        (LE1_SRC: Memory.le promises1_src mem1_src)
-        (LE1_TGT: Memory.le promises1_tgt mem1_tgt)
-        (CLOSED1_SEC: Memory.closed mem1_src)
-        (CLOSED1_TGT: Memory.closed mem1_tgt):
-    exists promises2_src mem2_src,
-      <<WRITE_SRC: Memory.write promises1_src mem1_src loc from to val released_src promises2_src mem2_src kind>> /\
-      <<INV2: sem inv promises2_src promises2_tgt>> /\
-      <<SIM2: sim_memory mem2_src mem2_tgt>>.
-  Proof.
-    inv WRITE_TGT.
-    exploit Memory.promise_future0; try apply PROMISE; eauto; try committac. i. des.
-    exploit promise; eauto. i. des.
-    exploit Memory.promise_future0; try apply PROMISE_SRC; eauto; try committac. i. des.
-    exploit remove; eauto; try eapply MemoryFacts.promise_time_lt; eauto. i. des.
-    exploit MemorySplit.remove_promise_remove; try exact REMOVE_SRC; eauto; try refl.
-    { by inv PROMISE. }
-    { eapply MemoryFacts.promise_time_lt. eauto. }
-    i. des.
-    esplits.
-    - econs; eauto.
-      eapply MemoryMerge.promise_promise_promise; eauto.
-    - auto.
-    - etrans; eauto. eapply sim_memory_promise_lower. eauto.
-  Qed.
-
   Lemma future
         inv
         promises_src mem1_src mem2_src
@@ -440,7 +378,16 @@ Module SimPromises.
     induction FUTURE_SRC; i.
     { esplits; eauto. refl. }
     inv H.
-    - admit.
+    - exploit (@Memory.add_exists mem1_tgt loc from1 to1 val1 released1).
+      { eapply cover_disjoint.
+        - apply SIM1.
+        - inv ADD. inv ADD0. auto.
+      }
+      { inv ADD. inv ADD0. auto. }
+      { inv ADD. inv ADD0. auto. }
+      i. des.
+      exploit sim_memory_add; try exact SIM1; eauto. i.
+      admit.
     - admit.
   Admitted.
 
