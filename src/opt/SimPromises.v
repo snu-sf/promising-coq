@@ -22,6 +22,8 @@ Require Import Thread.
 Require Import Configuration.
 
 Require Import SimMemory.
+Require Import MemorySplit.
+Require Import MemoryMerge.
 
 Set Implicit Arguments.
 
@@ -405,13 +407,13 @@ Module SimPromises.
     exploit promise; eauto. i. des.
     exploit Memory.promise_future0; try apply PROMISE_SRC; eauto; try committac. i. des.
     exploit remove; eauto; try eapply MemoryFacts.promise_time_lt; eauto. i. des.
-    exploit MemoryFacts.split_remove_promise_remove; try exact REMOVE_SRC; eauto; try refl.
+    exploit MemorySplit.remove_promise_remove; try exact REMOVE_SRC; eauto; try refl.
     { by inv PROMISE. }
     { eapply MemoryFacts.promise_time_lt. eauto. }
     i. des.
     esplits.
     - econs; eauto.
-      eapply MemoryFacts.merge_promise_promise_promise; eauto.
+      eapply MemoryMerge.promise_promise_promise; eauto.
     - auto.
     - etrans; eauto. eapply sim_memory_promise_lower. eauto.
   Qed.

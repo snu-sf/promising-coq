@@ -14,7 +14,6 @@ Require Import View.
 Require Import Cell.
 Require Import Memory.
 Require Import MemoryFacts.
-Require Import TEMP.
 Require Import Commit.
 Require Import Thread.
 Require Import Configuration.
@@ -29,6 +28,8 @@ Require Import Simulation.
 
 Require MergeCommit.
 Require ReorderCommit.
+Require Import MemorySplit.
+Require Import MemoryMerge.
 
 Require Import Syntax.
 Require Import Semantics.
@@ -130,7 +131,7 @@ Proof.
   exploit Local.promise_step_future; eauto. i. des.
   exploit fulfill_step_future; try exact STEP2; try exact WF2; eauto; try by committac. i. des.
   inv STEP1. inv STEP2.
-  exploit split_remove_promise_promise_remove_remove;
+  exploit MemorySplit.remove_promise_promise_remove_remove;
     try exact TS12; try exact TS23; try exact REMOVE.
   { admit. (* released wf *) }
   { admit. (* released wf *) }
@@ -139,7 +140,7 @@ Proof.
   { admit. (* released ts *) }
   { apply WF2. }
   i. des.
-  exploit MemoryFacts.split_remove_promise_remove;
+  exploit MemorySplit.remove_promise_remove;
     try exact STEP4; try exact TS23; eauto.
   { instantiate (1 := mem2). admit. (* Memory.le *) }
   { admit. (* released ts *) }
@@ -147,7 +148,7 @@ Proof.
   i. des.
   esplits.
   - econs.
-    + eapply MemoryFacts.merge_promise_promise_promise; eauto.
+    + eapply MemoryMerge.promise_promise_promise; eauto.
     + admit. (* closed capability *)
   - econs; eauto.
     + admit. (* writable *)

@@ -19,6 +19,8 @@ Require Import Commit.
 Require Import Thread.
 
 Require Import SimMemory.
+Require Import MemorySplit.
+Require Import MemoryMerge.
 
 Require Import Syntax.
 Require Import Semantics.
@@ -101,7 +103,7 @@ Lemma fulfill_write
     <<MEM: sim_memory mem2' mem1>>.
 Proof.
   inv FULFILL.
-  exploit MemoryFacts.split_remove_promise_remove;
+  exploit MemorySplit.remove_promise_remove;
     try exact REMOVE; eauto; try apply WF1; try refl.
   { repeat (try condtac; committac; try apply WF1). }
   { eapply MEM1. apply WF1. eapply Memory.remove_get0. eauto. }
@@ -131,7 +133,7 @@ Lemma promise_fulfill_write
 Proof.
   exploit Local.promise_step_future; eauto. i. des.
   inv PROMISE. inv FULFILL.
-  exploit MemoryFacts.split_remove_promise_remove;
+  exploit MemorySplit.remove_promise_remove;
     try exact REMOVE; eauto; try apply WF2; try refl.
   { repeat (try condtac; committac; try apply WF2). }
   { by inv PROMISE0. }
@@ -139,7 +141,7 @@ Proof.
   esplits; eauto.
   - refine (Local.step_write _ _ _ _ _); eauto.
     econs; eauto.
-    eapply MemoryFacts.merge_promise_promise_promise; eauto.
+    eapply MemoryMerge.promise_promise_promise; eauto.
   - eapply sim_memory_promise_lower. eauto.
 Qed.
 

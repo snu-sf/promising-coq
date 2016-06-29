@@ -28,6 +28,8 @@ Require Import Compatibility.
 Require Import Simulation.
 
 Require ReorderCommit.
+Require Import MemoryReorder.
+Require Import MemoryMerge.
 
 Require Import Syntax.
 Require Import Semantics.
@@ -81,7 +83,7 @@ Lemma promise_step_promise_step
   Local.promise_step lc0 mem0 loc from2 to val released2 lc2 mem2 kind.
 Proof.
   inv PROMISE1. inv PROMISE2. ss.
-  exploit MemoryFacts.merge_promise_promise_promise; try exact PROMISE; eauto. i.
+  exploit MemoryMerge.promise_promise_promise; try exact PROMISE; eauto. i.
   econs; eauto.
 Qed.
 
@@ -390,7 +392,7 @@ Proof.
   inv STEP1. inv STEP2.
   hexploit Memory.remove_future; try apply WF0; eauto. i. des.
   hexploit Memory.promise_future; eauto. i. des.
-  exploit MemoryFacts.reorder_remove_promise; try apply WF0; eauto. i. des.
+  exploit MemoryReorder.remove_promise; try apply WF0; eauto. i. des.
   esplits.
   - econs; eauto.
   - econs; eauto.
@@ -419,7 +421,7 @@ Lemma reorder_fulfill_fulfill
 Proof.
   inv STEP1. inv STEP2.
   hexploit Memory.remove_future; try apply WF0; eauto. i. des.
-  exploit MemoryFacts.reorder_remove_remove; try apply REMOVE; try apply REMOVE0; eauto. i. des.
+  exploit MemoryReorder.remove_remove; try apply REMOVE; try apply REMOVE0; eauto. i. des.
   unfold Local.promises in REMOVE0.
   esplits.
   - econs; eauto.
