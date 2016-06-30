@@ -30,18 +30,20 @@ Module MemoryReorder.
       <<ADD2: Memory.add mem1' loc1 from1 to1 val1 released1 mem2>>.
   Proof.
     exploit (@Memory.add_exists mem0 loc2 from2 to2).
-    { i. exploit Memory.add_get1; try exact ADD1; eauto. i. des.
-      inv ADD2. inv ADD. eauto.
+    { i. inv ADD2. inv ADD. eapply DISJOINT.
+      etrans; [eapply Memory.add_o; eauto|]. condtac; ss; eauto.
+      des. subst. erewrite Memory.add_get0 in GET2; eauto. congr.
     }
     { inv ADD2. inv ADD. auto. }
     { inv ADD2. inv ADD. eauto. }
     i. des.
     exploit (@Memory.add_exists mem3 loc1 from1 to1).
-    { i. exploit Memory.add_get_inv; try exact x0; eauto. i. des.
-      { subst. exploit Memory.add_get2; try exact ADD1; eauto. i.
-        inv ADD2. inv ADD. symmetry. eauto.
-      }
-      inv ADD1. inv ADD. eauto.
+    { i. revert GET2. erewrite Memory.add_o; eauto. condtac; ss.
+      - des. subst. i. inv GET2.
+        exploit Memory.add_get0; try exact ADD2; eauto.
+        inv ADD2. inv ADD. symmetry. eapply DISJOINT.
+        etrans; [eapply Memory.add_o; eauto|]. condtac; ss. des; congr.
+      - guardH o. i. inv ADD1. inv ADD. eapply DISJOINT; eauto.
     }
     { inv ADD1. inv ADD. auto. }
     { inv ADD1. inv ADD. eauto. }
@@ -49,13 +51,11 @@ Module MemoryReorder.
     esplits; eauto.
     cut (mem4 = mem2); [by i; subst; eauto|].
     apply Memory.ext. i.
-    erewrite MemoryFacts.add_o; eauto.
-    erewrite MemoryFacts.add_o; eauto.
-    erewrite (@MemoryFacts.add_o mem2); eauto.
-    erewrite (@MemoryFacts.add_o mem1); eauto.
+    erewrite Memory.add_o; eauto. erewrite Memory.add_o; eauto.
+    erewrite (@Memory.add_o mem2); eauto. erewrite (@Memory.add_o mem1); eauto.
     repeat (condtac; ss). des. repeat subst.
-    exploit Memory.add_get2; try exact ADD1; eauto. i.
-    exploit Memory.add_get0; try exact ADD2; eauto. i. congr.
+    exploit Memory.add_get0; try exact ADD2; eauto.
+    erewrite Memory.add_o; eauto. condtac; ss.
   Qed.
 
   Lemma promise_add_promise_add
@@ -89,13 +89,14 @@ Module MemoryReorder.
       <<REMOVE1: Memory.remove mem0 loc2 from2 to2 val2 released2 mem1'>> /\
       <<ADD2: Memory.add mem1' loc1 from1 to1 val1 released1 mem2>>.
   Proof.
-    exploit Memory.remove_get0; try exact REMOVE2; eauto. i.
-    exploit Memory.add_get_inv; try exact ADD1; eauto. i. des.
-    { inv x4. contradict DIFF. auto. }
-    exploit Memory.remove_exists; try exact x2; eauto. i. des.
+    exploit Memory.remove_get0; try exact REMOVE2; eauto.
+    erewrite Memory.add_o; eauto. condtac; ss.
+    { des. subst. congr. }
+    guardH o. i.
+    exploit Memory.remove_exists; eauto. i. des.
     exploit (@Memory.add_exists mem3 loc1 from1 to1); eauto.
-    { i. exploit Memory.remove_get_inv; try exact x3; eauto. i. des.
-      inv ADD1. inv ADD. eauto.
+    { i. revert GET2. erewrite Memory.remove_o; eauto. condtac; ss. i.
+      inv ADD1. inv ADD. eapply DISJOINT. eauto.
     }
     { inv ADD1. inv ADD. auto. }
     { inv ADD1. inv ADD. eauto. }
@@ -103,10 +104,8 @@ Module MemoryReorder.
     esplits; eauto.
     cut (mem4 = mem2); [by i; subst; eauto|].
     apply Memory.ext. i.
-    erewrite MemoryFacts.add_o; eauto.
-    erewrite MemoryFacts.remove_o; eauto.
-    erewrite (@MemoryFacts.remove_o mem2); eauto.
-    erewrite (@MemoryFacts.add_o mem1); eauto.
+    erewrite Memory.add_o; eauto. erewrite Memory.remove_o; eauto.
+    erewrite (@Memory.remove_o mem2); eauto. erewrite (@Memory.add_o mem1); eauto.
     repeat (condtac; ss). des. repeat subst.
     exploit Memory.add_get0; try exact x0; eauto. congr.
   Qed.
@@ -140,42 +139,76 @@ Module MemoryReorder.
     Memory.remove mem1' loc1 from1 to1 val1 released1 mem2.
   Proof.
     exploit Memory.remove_get0; try eexact REMOVE1; eauto. i.
-    exploit Memory.add_get1; try eexact ADD1; eauto. i.
-    exploit Memory.remove_exists; try eexact x1; eauto. i. des.
+    exploit (@Memory.remove_exists mem1' loc1 from1 to1 val1 released1); eauto.
+    { erewrite Memory.add_o; eauto. condtac; ss; eauto.
+      des. subst. erewrite Memory.add_get0 in x0; eauto. congr.
+    }
+    i. des.
     cut (mem3 = mem2); [by i; subst|].
     apply Memory.ext. i.
-    erewrite MemoryFacts.remove_o; eauto.
-    erewrite MemoryFacts.add_o; eauto.
-    erewrite (@MemoryFacts.add_o mem2); eauto.
-    erewrite (@MemoryFacts.remove_o mem1); eauto.
+    erewrite Memory.remove_o; eauto. erewrite Memory.add_o; eauto.
+    erewrite (@Memory.add_o mem2); eauto. erewrite (@Memory.remove_o mem1); eauto.
     repeat (condtac; ss). des. subst. subst.
     exploit Memory.add_get0; try eexact ADD1; eauto. congr.
   Qed.
 
-  Lemma remove_update
+  Lemma remove_split
         mem0 loc1 from1 to1 val1 released1
-        mem1 loc2 from2' from2 to2 val2 released2' released2
+        mem1 loc2 ts21 ts22 ts23 val22 val23 released22 released23
         mem2
         mem1'
         (REMOVE1: Memory.remove mem0 loc1 from1 to1 val1 released1 mem1)
-        (UPDATE2: Memory.update mem1 loc2 from2' from2 to2 val2 released2' released2 mem2)
-        (UPDATE1: Memory.update mem0 loc2 from2' from2 to2 val2 released2' released2 mem1'):
+        (SPLIT2: Memory.split mem1 loc2 ts21 ts22 ts23 val22 val23 released22 released23 mem2)
+        (SPLIT1: Memory.split mem0 loc2 ts21 ts22 ts23 val22 val23 released22 released23 mem1'):
     Memory.remove mem1' loc1 from1 to1 val1 released1 mem2.
   Proof.
     exploit Memory.remove_get0; try eexact REMOVE1; eauto. i.
-    exploit Memory.update_get1; try eexact UPDATE1; eauto. i. des.
-    { inv x4. exploit Memory.remove_get2; try eexact REMOVE1; eauto. i.
-      exploit Memory.update_get0; try eexact UPDATE2; eauto. i. congr.
+    exploit Memory.split_get0; try exact SPLIT1; eauto. i. des.
+    exploit (@Memory.remove_exists mem1' loc1 from1 to1 val1 released1); eauto.
+    { erewrite Memory.split_o; eauto. repeat condtac; ss.
+      - des. subst. congr.
+      - guardH o. des. subst. rewrite GET3 in x0. inv x0.
+        exploit Memory.split_get0; try exact SPLIT2; eauto. i. des.
+        revert GET1. erewrite Memory.remove_o; eauto. condtac; ss.
     }
-    exploit Memory.remove_exists; try eexact x2; eauto. i. des.
+    i. des.
     cut (mem3 = mem2); [by i; subst|].
     apply Memory.ext. i.
-    erewrite MemoryFacts.remove_o; eauto.
-    erewrite MemoryFacts.update_o; eauto.
-    erewrite (@MemoryFacts.update_o mem2); eauto.
-    erewrite (@MemoryFacts.remove_o mem1); eauto.
-    repeat (condtac; ss). des. subst. subst.
-    contradict x1. auto.
+    erewrite Memory.remove_o; eauto. erewrite Memory.split_o; eauto.
+    erewrite (@Memory.split_o mem2); eauto. erewrite (@Memory.remove_o mem1); eauto.
+    repeat (condtac; ss).
+    - des; congr.
+    - guardH o. des. repeat subst. rewrite GET3 in x0. inv x0.
+      exploit Memory.remove_get0; try exact x1; eauto.
+      erewrite Memory.split_o; eauto. repeat condtac; ss. i. inv x0.
+      inv SPLIT1. inv SPLIT. exfalso. eapply Time.lt_strorder. eauto.
+  Qed.
+
+  Lemma remove_lower
+        mem0 loc1 from1 to1 val1 released1
+        mem1 loc2 from2 to2 val2 released2' released2
+        mem2
+        mem1'
+        (REMOVE1: Memory.remove mem0 loc1 from1 to1 val1 released1 mem1)
+        (LOWER2: Memory.lower mem1 loc2 from2 to2 val2 released2' released2 mem2)
+        (LOWER1: Memory.lower mem0 loc2 from2 to2 val2 released2' released2 mem1'):
+    Memory.remove mem1' loc1 from1 to1 val1 released1 mem2.
+  Proof.
+    exploit Memory.remove_get0; try eexact REMOVE1; eauto. i.
+    exploit (@Memory.remove_exists mem1' loc1 from1 to1 val1 released1); eauto.
+    { erewrite Memory.lower_o; eauto. condtac; ss.
+      des. subst.
+      exploit Memory.lower_get0; try exact LOWER2; eauto.
+      erewrite Memory.remove_o; eauto. condtac; ss.
+    }
+    i. des.
+    cut (mem3 = mem2); [by i; subst|].
+    apply Memory.ext. i.
+    erewrite Memory.remove_o; eauto. erewrite Memory.lower_o; eauto.
+    erewrite (@Memory.lower_o mem2); eauto. erewrite (@Memory.remove_o mem1); eauto.
+    repeat (condtac; ss). des. repeat subst.
+    exploit Memory.lower_get0; try exact LOWER2; eauto.
+    erewrite Memory.remove_o; eauto. condtac; ss.
   Qed.
 
   Lemma remove_promise
@@ -195,10 +228,15 @@ Module MemoryReorder.
     - exploit Memory.add_exists_le; eauto. i. des.
       exploit remove_add; eauto. i.
       esplits; eauto. econs; eauto.
-    - exploit Memory.update_get0; try eexact PROMISES; eauto. i.
-      exploit Memory.remove_get_inv; try eexact REMOVE; eauto. i. des.
-      exploit Memory.update_exists; eauto; try by inv PROMISES; inv UPDATE; eauto. i. des.
-      exploit remove_update; eauto. i.
+    - exploit Memory.split_get0; try eexact PROMISES; eauto. i. des.
+      revert GET3. erewrite Memory.remove_o; eauto. condtac; ss. i. guardH o.
+      exploit Memory.split_exists; eauto; try by inv PROMISES; inv SPLIT; eauto. i. des.
+      exploit remove_split; eauto. i.
+      esplits; eauto. econs; eauto.
+    - exploit Memory.lower_get0; try eexact PROMISES; eauto.
+      erewrite Memory.remove_o; eauto. condtac; ss. i. guardH o.
+      exploit Memory.lower_exists; eauto; try by inv PROMISES; inv LOWER; eauto. i. des.
+      exploit remove_lower; eauto. i.
       esplits; eauto. econs; eauto.
   Qed.
 
@@ -212,19 +250,18 @@ Module MemoryReorder.
       <<REMOVE1: Memory.remove promises0 loc2 from2 to2 val2 released2 promises1'>> /\
       <<REMOVE2: Memory.remove promises1' loc1 from1 to1 val1 released1 promises2>>.
   Proof.
-    exploit Memory.remove_get0; try apply REMOVE2; eauto. i.
-    exploit Memory.remove_get_inv; try apply REMOVE1; eauto. i. des.
+    exploit Memory.remove_get0; try apply REMOVE2; eauto.
+    erewrite Memory.remove_o; eauto. condtac; ss. i. guardH o.
     exploit Memory.remove_exists; eauto. i. des.
     exploit Memory.remove_get0; try apply REMOVE1; eauto. i.
-    exploit Memory.remove_get1; try apply x3; eauto. i. des; [by contradict x1|].
-    exploit Memory.remove_exists; eauto. i. des.
-    cut (mem0 = promises2).
-    { esplits; subst; eauto. }
+    exploit (@Memory.remove_exists mem2 loc1 from1 to1 val1 released1); eauto.
+    { erewrite Memory.remove_o; eauto. condtac; ss. des. subst. congr. }
+    i. des.
+    esplits; eauto.
+    cut (mem0 = promises2); [by i; subst|].
     apply Memory.ext. i.
-    erewrite MemoryFacts.remove_o; eauto.
-    erewrite MemoryFacts.remove_o; eauto.
-    erewrite (@MemoryFacts.remove_o promises2); eauto.
-    erewrite (@MemoryFacts.remove_o promises1); eauto.
+    erewrite Memory.remove_o; eauto. erewrite Memory.remove_o; eauto.
+    erewrite (@Memory.remove_o promises2); eauto. erewrite (@Memory.remove_o promises1); eauto.
     repeat (condtac; ss).
   Qed.
 End MemoryReorder.

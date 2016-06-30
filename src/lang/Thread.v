@@ -143,7 +143,8 @@ Module Local.
     - eapply Memory.future_closed_timemap; eauto.
     - inv PROMISE.
       + inv PROMISES0. inv ADD. auto.
-      + inv PROMISES0. inv UPDATE. auto.
+      + inv PROMISES0. inv SPLIT. auto.
+      + inv PROMISES0. inv LOWER. auto.
     - by inv PROMISE.
   Qed.
 

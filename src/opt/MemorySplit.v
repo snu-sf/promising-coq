@@ -97,11 +97,11 @@ Module MemorySplit.
     esplits; eauto.
     cut (mem5 = mem4); [by i; subst|].
     apply Memory.ext. i.
-    erewrite MemoryFacts.remove_o; eauto.
-    erewrite MemoryFacts.remove_o; eauto.
-    erewrite MemoryFacts.add_o; eauto.
+    erewrite Memory.remove_o; eauto.
+    erewrite Memory.remove_o; eauto.
+    erewrite Memory.add_o; eauto.
     erewrite MemoryFacts.update_o; eauto.
-    erewrite (@MemoryFacts.remove_o mem4); eauto.
+    erewrite (@Memory.remove_o mem4); eauto.
     repeat (condtac; ss). des; try congr. subst.
     exploit Memory.update_get0; try eexact UPDATE1; eauto. i.
     destruct (Memory.get loc ts2 mem0) as [[]|] eqn:X; auto.

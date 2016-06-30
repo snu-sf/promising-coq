@@ -286,13 +286,13 @@ Module SimPromises.
     - econs.
       + ii. exploit Memory.remove_get_inv; eauto. i. des.
         apply LE. auto.
-      + i. erewrite MemoryFacts.remove_o; eauto.
+      + i. erewrite Memory.remove_o; eauto.
         revert INV. rewrite set_o.
         unfold Time.t, DOSet.elt. condtac; ss; i.
         * des. subst. esplits; eauto.
         * exploit SOUND; eauto.
       + i. revert TGT.
-        erewrite MemoryFacts.remove_o; eauto. rewrite set_o.
+        erewrite Memory.remove_o; eauto. rewrite set_o.
         unfold Time.t, DOSet.elt. condtac; ss; i.
         eapply COMPLETE; eauto.
     - destruct (mem loc to inv) eqn:X; auto.

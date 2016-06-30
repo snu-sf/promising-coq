@@ -376,9 +376,9 @@ Lemma write_step_promise
 Proof.
   inv STEP. inv WRITE. s.
   apply Cell.ext. i. rewrite Cell.bot_get.
-  etrans; [eapply MemoryFacts.remove_o; eauto|].
+  etrans; [eapply Memory.remove_o; eauto|].
   inv PROMISE.
-  - erewrite MemoryFacts.add_o; eauto. condtac; ss.
+  - erewrite Memory.add_o; eauto. condtac; ss.
     unfold Memory.get. rewrite PROMISES, Cell.bot_get. auto.
   - condtac; ss.
     erewrite MemoryFacts.update_o; eauto. condtac; ss.

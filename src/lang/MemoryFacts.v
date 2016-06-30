@@ -18,66 +18,6 @@ Set Implicit Arguments.
 
 
 Module MemoryFacts.
-  Lemma add_o
-        mem2 mem1 loc from to val released
-        l t
-        (ADD: Memory.add mem1 loc from to val released mem2):
-    Memory.get l t mem2 =
-    if loc_ts_eq_dec (l, t) (loc, to)
-    then Some (from, Message.mk val released)
-    else Memory.get l t mem1.
-  Proof.
-    condtac; ss.
-    - des. subst. eapply Memory.add_get2; eauto.
-    - destruct (Memory.get l t mem1) as [[? []]|] eqn:X.
-      { erewrite Memory.add_get1; eauto. }
-      destruct (Memory.get l t mem2) as [[? []]|] eqn:Y.
-      { exploit Memory.add_get_inv; eauto. i. des; congr. }
-      auto.
-  Qed.
-
-  Lemma update_o
-        mem2 mem1 loc from1 from2 to val released1 released2
-        l t
-        (UPDATE: Memory.update mem1 loc from1 from2 to val released1 released2 mem2):
-    Memory.get l t mem2 =
-    if loc_ts_eq_dec (l, t) (loc, to)
-    then Some (from2, Message.mk val released2)
-    else Memory.get l t mem1.
-  Proof.
-    condtac; ss.
-    - des. subst. eapply Memory.update_get2; eauto.
-    - guardH o. destruct (Memory.get l t mem1) as [[? []]|] eqn:X.
-      { exploit Memory.update_get1; eauto. i. des; auto.
-        inv x3. unguardH o. des; congr.
-      }
-      destruct (Memory.get l t mem2) as [[? []]|] eqn:Y.
-      { exploit Memory.update_get_inv; eauto. i. des; try congr.
-        subst. unguardH o. des; congr.
-      }
-      auto.
-  Qed.
-
-  Lemma remove_o
-        mem2 mem1 loc from to val released
-        l t
-        (UPDATE: Memory.remove mem1 loc from to val released mem2):
-    Memory.get l t mem2 =
-    if loc_ts_eq_dec (l, t) (loc, to)
-    then None
-    else Memory.get l t mem1.
-  Proof.
-    condtac; ss.
-    - des. subst. eapply Memory.remove_get2; eauto.
-    - guardH o. destruct (Memory.get l t mem1) as [[? []]|] eqn:X.
-      { exploit Memory.remove_get1; eauto. i. des; auto.
-        inv x3. unguardH o. des; congr.
-      }
-      destruct (Memory.get l t mem2) as [[? []]|] eqn:Y.
-      { exploit Memory.remove_get_inv; eauto. i. des; congr. }
-      auto.
-  Qed.
-
   Lemma promise_time_lt
         promises1 mem1 loc from to val released promises2 mem2 kind
         (PROMISE: Memory.promise promises1 mem1 loc from to val released promises2 mem2 kind):
@@ -85,7 +25,8 @@ Module MemoryFacts.
   Proof.
     inv PROMISE.
     - inv MEM. inv ADD. auto.
-    - inv MEM. inv UPDATE. auto.
+    - inv MEM. inv SPLIT. auto.
+    - inv MEM. inv LOWER. auto.
   Qed.
 
   Lemma write_time_lt
@@ -102,13 +43,22 @@ Module MemoryFacts.
         (PROMISE: Memory.promise promises1 mem1 loc from to val released promises2 mem2 kind)
         (GET: Memory.get l t mem1 = Some (f, Message.mk v r))
         (DIFF: (loc, to) <> (l, t)):
-    Memory.get l t mem2 = Some (f, Message.mk v r).
+    exists f', Memory.get l t mem2 = Some (f', Message.mk v r).
   Proof.
     inv PROMISE.
-    - exploit Memory.add_get1; eauto.
-    - exploit Memory.update_get1; eauto. i. des; auto.
-      inv x3. congr.
-  Qed.
+    - erewrite Memory.add_o; eauto. condtac; ss.
+      + des. subst. congr.
+      + esplits; eauto.
+    - erewrite Memory.split_o; eauto. repeat condtac; ss.
+      + des. subst. congr.
+      + guardH o. des. subst.
+        exploit Memory.split_get0; eauto. i. des.
+        rewrite GET3 in GET. inv GET. esplits; eauto.
+      + esplits; eauto.
+    - erewrite Memory.lower_o; eauto. condtac; ss.
+      + des. subst. congr.
+      + esplits; eauto.
+  Qed.        
 
   Lemma promise_get_inv_diff
         promises1 mem1 loc from to val released promises2 mem2 kind
@@ -116,14 +66,21 @@ Module MemoryFacts.
         (PROMISE: Memory.promise promises1 mem1 loc from to val released promises2 mem2 kind)
         (GET: Memory.get l t mem2 = Some (f, Message.mk v r))
         (DIFF: (loc, to) <> (l, t)):
-    Memory.get l t mem1 = Some (f, Message.mk v r).
+    exists f', Memory.get l t mem1 = Some (f', Message.mk v r).
   Proof.
-    inv PROMISE.
-    - exploit Memory.add_get_inv; eauto. i. des; auto.
-      inv x3. congr.
-    - exploit Memory.update_get_inv; eauto. i. des; auto.
-      subst. congr.
-  Qed.
+    revert GET. inv PROMISE.
+    - erewrite Memory.add_o; eauto. condtac; ss.
+      + des. subst. congr.
+      + i. inv GET. esplits; eauto.
+    - erewrite Memory.split_o; eauto. repeat condtac; ss.
+      + des. subst. congr.
+      + guardH o. des. subst. i. inv GET.
+        exploit Memory.split_get0; eauto. i. des. esplits; eauto.
+      + i. esplits; eauto.
+    - erewrite Memory.lower_o; eauto. condtac; ss.
+      + des. subst. congr.
+      + i. inv GET. esplits; eauto.
+  Qed.        
 
   Lemma remove_get_diff
         promises0 mem0 loc from to val released promises1
@@ -133,11 +90,8 @@ Module MemoryFacts.
         (REMOVE: Memory.remove promises0 loc from to val released promises1):
     Memory.get l t promises1 = Memory.get l t promises0.
   Proof.
-    destruct (Memory.get l t promises1) as [[]|] eqn:Y.
-    { exploit Memory.remove_get_inv; try apply REMOVE; eauto. i. des. congr. }
-    destruct (Memory.get l t promises0) as [[]|] eqn:X.
-    { exploit Memory.remove_get1; try apply REMOVE; eauto. i. des; congr. }
-    auto.
+    erewrite Memory.remove_o; eauto. condtac; ss.
+    des. subst. congr.
   Qed.
 
   Lemma remove_cell_diff
