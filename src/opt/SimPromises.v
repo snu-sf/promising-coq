@@ -213,7 +213,7 @@ Module SimPromises.
       { inv MEM. inv ADD. auto. }
       i. des.
       exploit Memory.add_exists_le; try apply LE1_SRC; eauto. i. des.
-      exploit sim_memory_add; try apply SIM1; eauto. i.
+      exploit sim_memory_add; try apply SIM1; try refl; eauto. i.
       esplits; eauto.
       + econs; eauto.
       + econs.
@@ -241,7 +241,7 @@ Module SimPromises.
       { inv PROMISES. inv UPDATE. auto. }
       i. des.
       exploit Memory.update_exists_le; try apply LE1_SRC; eauto. i. des.
-      exploit sim_memory_update; try apply SIM1; eauto. i.
+      exploit sim_memory_update; try apply SIM1; try refl; eauto. i.
       esplits; eauto.
       + econs; eauto.
       + econs.
@@ -366,11 +366,11 @@ Module SimPromises.
         (LE1_SRC: Memory.le promises_src mem1_src)
         (LE1_TGT: Memory.le promises_tgt mem1_tgt)
         (LE2_SRC: Memory.le promises_src mem2_src)
+        (CLOSED1_SRC: Memory.closed mem1_src)
         (CLOSED1_TGT: Memory.closed mem1_tgt):
     exists mem2_tgt,
       <<FUTURE_TGT: Memory.future mem1_tgt mem2_tgt>> /\
       <<LE2_TGT: Memory.le promises_tgt mem2_tgt>> /\
-      <<CLOSED2_TGT: Memory.closed mem2_tgt>> /\
       <<SIM2: sim_memory mem2_src mem2_tgt>>.
   Proof.
     revert INV1 SIM1 LE1_SRC LE1_TGT LE2_SRC CLOSED1_TGT.
@@ -378,16 +378,27 @@ Module SimPromises.
     induction FUTURE_SRC; i.
     { esplits; eauto. refl. }
     inv H.
-    - exploit (@Memory.add_exists mem1_tgt loc from1 to1 val1 released1).
+    - exploit (@Memory.add_exists mem1_tgt loc from to val (Memory.max_released mem1_tgt loc to)).
       { eapply cover_disjoint.
         - apply SIM1.
         - inv ADD. inv ADD0. auto.
       }
       { inv ADD. inv ADD0. auto. }
-      { inv ADD. inv ADD0. auto. }
+      { eapply Memory.max_released_wf; eauto. }
       i. des.
-      exploit sim_memory_add; try exact SIM1; eauto. i.
-      admit.
+      exploit sim_memory_add; try exact SIM1; eauto.
+      { erewrite Memory.max_released_spec; try exact ADD; eauto.
+        apply sim_memory_max_released; auto.
+      }
+      i.
+      exploit Memory.max_released_closed; eauto. i. des.
+      exploit IHFUTURE_SRC; eauto.
+      { eapply Memory.add_closed; try exact ADD; eauto. }
+      { admit. }
+      { admit. }
+      { eapply Memory.add_closed; try exact x1; eauto. }
+      i. des.
+      esplits; eauto. etrans; eauto. econs 2; eauto. econs 1; eauto.
     - admit.
   Admitted.
 

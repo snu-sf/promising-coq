@@ -158,13 +158,15 @@ Module Memory.
 
   Inductive future_imm (mem1 mem2:t): Prop :=
   | future_imm_add
-      loc from1 to1 val1 released1
-      (ADD: add mem1 loc from1 to1 val1 released1 mem2)
-      (CLOSED: closed_capability released1 mem2)
+      loc from to val released
+      (ADD: add mem1 loc from to val released mem2)
+      (CLOSED: closed_capability released mem2)
+      (TS: Time.le (Capability.rw released loc) to)
   | future_imm_update
       loc from1 from2 to val released1 released2
       (UPDATE: update mem1 loc from1 from2 to val released1 released2 mem2)
       (CLOSED: closed_capability released2 mem2)
+      (TS: Time.le (Capability.rw released2 loc) to)
   .
 
   Definition future := rtc future_imm.
@@ -468,6 +470,23 @@ Module Memory.
     - eapply add_closed_timemap; eauto.
   Qed.
 
+  Lemma add_closed
+        mem1 loc from to val released mem2
+        (CLOSED: closed mem1)
+        (REL_CLOSED: closed_capability released mem2)
+        (REL_TS: Time.le (Capability.rw released loc) to)
+        (ADD: add mem1 loc from to val released mem2):
+    closed mem2.
+  Proof.
+    econs.
+    - i. exploit add_get_inv; eauto. i. des.
+      + inv x3. splits; eauto.
+        inv ADD. inv ADD0. auto.
+      + inv CLOSED. exploit CLOSED0; eauto. i. des. splits; auto.
+        eapply add_closed_capability; eauto.
+    - eapply add_inhabited; eauto. apply CLOSED.
+  Qed.
+
   Lemma update_closed_timemap
         times
         mem1 loc from1 from2 to val released1 released2 mem2
@@ -492,6 +511,23 @@ Module Memory.
     - eapply update_closed_timemap; eauto.
     - eapply update_closed_timemap; eauto.
     - eapply update_closed_timemap; eauto.
+  Qed.
+
+  Lemma update_closed
+        mem1 loc from1 from2 to val released1 released2 mem2
+        (CLOSED: closed mem1)
+        (REL_CLOSED: closed_capability released2 mem2)
+        (REL_TS: Time.le (Capability.rw released2 loc) to)
+        (UPDATE: update mem1 loc from1 from2 to val released1 released2 mem2):
+    closed mem2.
+  Proof.
+    econs.
+    - i. exploit update_get_inv; eauto. i. des.
+      + subst. splits; eauto.
+        inv UPDATE. inv UPDATE0. auto.
+      + inv CLOSED. exploit CLOSED0; eauto. i. des. splits; auto.
+        eapply update_closed_capability; eauto.
+    - eapply update_inhabited; eauto. apply CLOSED.
   Qed.
 
   Lemma promise_closed_timemap
@@ -540,6 +576,18 @@ Module Memory.
     apply IHFUTURE. inv H.
     - eapply add_closed_capability; eauto.
     - eapply update_closed_capability; eauto.
+  Qed.
+
+  Lemma future_closed
+        mem1 mem2
+        (CLOSED: closed mem1)
+        (FUTURE: future mem1 mem2):
+    closed mem2.
+  Proof.
+    revert CLOSED. induction FUTURE; auto. i. apply IHFUTURE.
+    inv H.
+    - eapply add_closed; eauto.
+    - eapply update_closed; eauto.
   Qed.
 
   Lemma singleton_closed_timemap
@@ -689,17 +737,9 @@ Module Memory.
       - econs 1; eauto.
       - econs 2; eauto.
     }
-    inversion PROMISE.
-    - econs; eauto.
-      ii. eapply add_get_inv in MSG; eauto. des.
-      + inv MSG2. inv MEM. inv ADD. eauto.
-      + inv CLOSED1. exploit CLOSED; eauto. i. des. splits; auto.
-        eapply promise_closed_capability; eauto.
-    - econs; eauto.
-      ii. eapply update_get_inv in MSG; eauto. des.
-      + subst. splits; auto. inv PROMISES. inv UPDATE. auto.
-      + inv CLOSED1. exploit CLOSED; eauto. i. des. splits; auto.
-        eapply promise_closed_capability; eauto.
+    inv PROMISE.
+    - eapply add_closed; eauto.
+    - eapply update_closed; eauto.
   Qed.
 
   Lemma promise_disjoint
@@ -910,8 +950,8 @@ Module Memory.
   Qed.
 
   Lemma add_max_timemap
-        mem1 mem2 loc to val released
-        (ADD: add mem1 loc (max_ts loc mem1) to val released mem2)
+        mem1 mem2 loc from to val released
+        (ADD: add mem1 loc from to val released mem2)
         (INHABITED: inhabited mem1):
     max_timemap mem2 = TimeMap.join (max_timemap mem1) (TimeMap.singleton loc to).
   Proof.
@@ -932,8 +972,8 @@ Module Memory.
   Qed.
 
   Lemma add_max_capability
-        mem1 mem2 loc to val released
-        (ADD: add mem1 loc (max_ts loc mem1) to val released mem2)
+        mem1 mem2 loc from to val released
+        (ADD: add mem1 loc from to val released mem2)
         (INHABITED: inhabited mem1):
     max_capability mem2 = Capability.join (max_capability mem1) (Capability.singleton_ur loc to).
   Proof.
@@ -941,6 +981,76 @@ Module Memory.
     - eapply add_max_timemap; eauto.
     - eapply add_max_timemap; eauto.
     - eapply add_max_timemap; eauto.
+  Qed.
+
+  Lemma closed_timemap_add
+        loc from to val released mem tm
+        (GET: get loc to mem = Some (from, Message.mk val released))
+        (CLOSED: closed_timemap tm mem):
+    closed_timemap (TimeMap.add loc to tm) mem.
+  Proof.
+    ii. unfold TimeMap.add. condtac.
+    - subst. esplits; eauto.
+    - apply CLOSED.
+  Qed.
+
+  Definition max_released
+             mem loc ts :=
+    let sc := TimeMap.join (max_timemap mem) (TimeMap.singleton loc ts) in
+    let rw := TimeMap.add loc ts sc in
+    Capability.mk rw rw sc.
+
+  Lemma  max_released_wf
+         mem1 loc to:
+    Capability.wf (max_released mem1 loc to).
+  Proof.
+    econs; [refl|]. s.
+    ii. unfold TimeMap.join, TimeMap.singleton, TimeMap.add, TimeMap.get, LocFun.add. condtac.
+    - subst. etrans; [|apply Time.join_r]. refl.
+    - refl.
+  Qed.
+
+  Lemma max_released_closed
+        mem1 loc from to val released mem2
+        (CLOSED: Memory.closed mem1)
+        (ADD: add mem1 loc from to val released mem2):
+    <<CLOSED: closed_capability (max_released mem1 loc to) mem2>> /\
+    <<REL_TS: Time.le (Capability.rw (max_released mem1 loc to) loc) to>>.
+  Proof.
+    splits.
+    - unfold max_released.
+      erewrite <- add_max_timemap; eauto; cycle 1.
+      { apply CLOSED. }
+      hexploit add_inhabited; try apply CLOSED; eauto. i. des.
+      econs; ss.
+      + eapply closed_timemap_add.
+        * eapply add_get2. eauto.
+        * apply max_timemap_closed. auto.
+      + eapply closed_timemap_add.
+        * eapply add_get2. eauto.
+        * apply max_timemap_closed. auto.
+      + apply max_timemap_closed. auto.
+    - ss. unfold TimeMap.add. condtac; [|congr]. refl.
+  Qed.
+
+  Lemma max_released_spec
+        mem1 loc from to val released mem2
+        (CLOSED: Memory.closed mem1)
+        (ADD: add mem1 loc from to val released mem2)
+        (REL_CLOSED: closed_capability released mem2)
+        (REL_TS: Time.le (Capability.rw released loc) to):
+    Capability.le released (max_released mem1 loc to).
+  Proof.
+    hexploit add_inhabited; try apply CLOSED; eauto. i. des.
+    exploit max_capability_spec; eauto. i.
+    erewrite add_max_capability in x0; try apply CLOSED; eauto.
+    inv x0. ss.
+    unfold max_released. econs; ss.
+    - ii. unfold TimeMap.add. destruct (Loc.eq_dec loc0 loc); eauto.
+      subst. etrans; [|exact REL_TS].
+      inv ADD. inv ADD0. apply WF.
+    - ii. unfold TimeMap.add. destruct (Loc.eq_dec loc0 loc); eauto.
+      subst. auto.
   Qed.
 
   Lemma add_exists

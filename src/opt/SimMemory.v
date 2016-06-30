@@ -86,6 +86,34 @@ Proof.
   esplits; eauto.
 Qed.
 
+Lemma sim_memory_max_capability
+      mem_src mem_tgt
+      (CLOSED_SRC: Memory.closed mem_src)
+      (CLOSED_TGT: Memory.closed mem_tgt)
+      (SIM: sim_memory mem_src mem_tgt):
+  Capability.le (Memory.max_capability mem_src) (Memory.max_capability mem_tgt).
+Proof.
+  econs; apply sim_memory_max_timemap; auto.
+Qed.
+
+Lemma sim_memory_max_released
+      mem_src mem_tgt loc ts
+      (CLOSED_SRC: Memory.closed mem_src)
+      (CLOSED_TGT: Memory.closed mem_tgt)
+      (SIM: sim_memory mem_src mem_tgt):
+  Capability.le (Memory.max_released mem_src loc ts) (Memory.max_released mem_tgt loc ts).
+Proof.
+  unfold Memory.max_released. econs; s.
+  - ii. unfold TimeMap.add. condtac; [refl|].
+    unfold TimeMap.get. aggrtac.
+    etrans; [|apply Time.join_l]. eapply sim_memory_max_timemap; eauto.
+  - ii. unfold TimeMap.add. condtac; [refl|].
+    unfold TimeMap.get. aggrtac.
+    etrans; [|apply Time.join_l]. eapply sim_memory_max_timemap; eauto.
+  - unfold TimeMap.get. aggrtac.
+    etrans; [|apply TimeMap.join_l]. eapply sim_memory_max_timemap; eauto.
+Qed.
+
 Lemma cover_disjoint
       mem1 mem2 loc from to
       (COVER: forall loc ts, covered loc ts mem1 -> covered loc ts mem2)
@@ -102,11 +130,12 @@ Proof.
 Qed.
 
 Lemma sim_memory_add
-      mem1_src mem1_tgt
-      mem2_src mem2_tgt
-      loc from to val released
-      (SRC: Memory.add mem1_src loc from to val released mem2_src)
-      (TGT: Memory.add mem1_tgt loc from to val released mem2_tgt)
+      mem1_src mem1_tgt released_src
+      mem2_src mem2_tgt released_tgt
+      loc from to val
+      (REL_LE: Capability.le released_src released_tgt)
+      (SRC: Memory.add mem1_src loc from to val released_src mem2_src)
+      (TGT: Memory.add mem1_tgt loc from to val released_tgt mem2_tgt)
       (SIM: sim_memory mem1_src mem1_tgt):
   sim_memory mem2_src mem2_tgt.
 Proof.
@@ -127,9 +156,7 @@ Proof.
         { econs; eauto. }
         i. inv x. exploit Memory.add_get1; try exact GET0; eauto. i. econs; eauto.
   - i. exploit Memory.add_get_inv; eauto. i. des.
-    + inv x3. esplits.
-      * eapply Memory.add_get2. eauto.
-      * refl.
+    + inv x3. esplits; eauto. eapply Memory.add_get2. eauto.
     + exploit MSG; eauto. i. des.
       esplits; eauto. eapply Memory.add_get1; eauto.
 Qed.
@@ -137,9 +164,10 @@ Qed.
 Lemma sim_memory_update
       mem1_src mem1_tgt
       mem2_src mem2_tgt
-      loc from1 from2 to val released1 released2
-      (SRC: Memory.update mem1_src loc from1 from2 to val released1 released2 mem2_src)
-      (TGT: Memory.update mem1_tgt loc from1 from2 to val released1 released2 mem2_tgt)
+      loc from1 from2 to val released1_src released1_tgt released2_src released2_tgt
+      (REL_LE: Capability.le released2_src released2_tgt)
+      (SRC: Memory.update mem1_src loc from1 from2 to val released1_src released2_src mem2_src)
+      (TGT: Memory.update mem1_tgt loc from1 from2 to val released1_tgt released2_tgt mem2_tgt)
       (SIM: sim_memory mem1_src mem1_tgt):
   sim_memory mem2_src mem2_tgt.
 Proof.
@@ -174,22 +202,20 @@ Proof.
         }
         { econs; eauto. }
   - i. exploit Memory.update_get_inv; eauto. i. des.
-    + subst. esplits.
-      * eapply Memory.update_get2. eauto.
-      * refl.
+    + subst. esplits; eauto. eapply Memory.update_get2. eauto.
     + exploit MSG; eauto. i. des.
       exploit Memory.update_get1; try exact GET0; eauto. i. des.
-      * inv x5. esplits; eauto. etrans; eauto.
-        inv SRC. inv UPDATE. auto.
+      * inv x5. contradict x0. auto.
       * esplits; eauto.
 Qed.
 
 Lemma sim_memory_promise
-      loc from to val released kind
-      promises1_src mem1_src promises2_src mem2_src
-      promises1_tgt mem1_tgt promises2_tgt mem2_tgt
-      (PROMISE_SRC: Memory.promise promises1_src mem1_src loc from to val released promises2_src mem2_src kind)
-      (PROMISE_TGT: Memory.promise promises1_tgt mem1_tgt loc from to val released promises2_tgt mem2_tgt kind)
+      loc from to val kind
+      promises1_src mem1_src released_src promises2_src mem2_src
+      promises1_tgt mem1_tgt released_tgt promises2_tgt mem2_tgt
+      (REL_LE: Capability.le released_src released_tgt)
+      (PROMISE_SRC: Memory.promise promises1_src mem1_src loc from to val released_src promises2_src mem2_src kind)
+      (PROMISE_TGT: Memory.promise promises1_tgt mem1_tgt loc from to val released_tgt promises2_tgt mem2_tgt kind)
       (SIM: sim_memory mem1_src mem1_tgt):
   sim_memory mem2_src mem2_tgt.
 Proof.

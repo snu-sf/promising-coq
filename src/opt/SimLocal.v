@@ -91,6 +91,7 @@ Proof.
   econs; eauto.
   - apply WF1_TGT.
   - eapply Commit.future_closed; eauto. apply WF1_TGT.
+  - eapply Memory.future_closed; eauto.
 Qed.
 
 Lemma sim_local_promise

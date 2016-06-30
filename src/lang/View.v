@@ -42,6 +42,35 @@ Module TimeMap <: JoinableType.
 
   Definition get (loc:Loc.t) (c:t) := c loc.
 
+  Definition add (l:Loc.t) (ts:Time.t) (tm:t): t :=
+    fun l' =>
+      if Loc.eq_dec l' l
+      then ts
+      else get l' tm.
+
+  Definition add_spec l' l ts tm:
+    get l' (add l ts tm) =
+    if Loc.eq_dec l' l
+    then ts
+    else get l' tm.
+  Proof. auto. Qed.
+
+  Lemma add_spec_eq l ts tm:
+    get l (add l ts tm) = ts.
+  Proof.
+    rewrite add_spec.
+    destruct (Loc.eq_dec l l); auto.
+    congruence.
+  Qed.
+
+  Lemma add_spec_neq l' l ts tm (NEQ: l' <> l):
+    get l' (add l ts tm) = get l' tm.
+  Proof.
+    rewrite add_spec.
+    destruct (Loc.eq_dec l' l); auto.
+    congruence.
+  Qed.
+
   Definition join (lhs rhs:t): t :=
     fun loc => Time.join (lhs loc) (rhs loc).
 
