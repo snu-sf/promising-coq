@@ -93,16 +93,6 @@ Proof.
   - eapply Commit.future_closed; eauto. apply WF1_TGT.
 Qed.
 
-Lemma promise_future
-      promises1 mem1 loc from to val released promises2 mem2 kind
-      (PROMISE: Memory.promise promises1 mem1 loc from to val released promises2 mem2 kind):
-  Memory.future mem1 mem2.
-Proof.
-  econs 2; eauto. inv PROMISE.
-  - econs 1. eauto.
-  - econs 2. eauto.
-Qed.
-
 Lemma sim_local_promise
       lc1_src mem1_src
       lc1_tgt mem1_tgt

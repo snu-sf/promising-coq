@@ -52,6 +52,16 @@ Module Commit <: JoinableType.
     inv CLOSED. econs; i; eapply Memory.future_closed_capability; eauto.
   Qed.
 
+  Lemma promise_closed
+        commit1
+        promises1 mem1 loc from to val released promises2 mem2 kind
+        (CLOSED: closed commit1 mem1)
+        (PROMISE: Memory.promise promises1 mem1 loc from to val released promises2 mem2 kind):
+    closed commit1 mem2.
+  Proof.
+    inv CLOSED. econs; i; eapply Memory.promise_closed_capability; eauto.
+  Qed.
+
   Definition eq := @eq t.
 
   Inductive le_ (lhs rhs:t): Prop :=

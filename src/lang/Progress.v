@@ -82,8 +82,6 @@ Proof.
   { committac; try apply WF1. repeat condtac; committac; try apply WF1. }
   i. des.
   exploit Memory.add_exists_le; try apply WF1; eauto. i. des.
-  assert (FUTURE: Memory.future mem1 mem2).
-  { econs 2; [|econs 1]. econs 1. eauto. }
   hexploit Memory.add_inhabited; try apply x0; [committac|]. i. des.
   esplits. econs.
   - econs; eauto.
@@ -96,7 +94,7 @@ Proof.
     eapply closed_timemap_max_ts. apply CLOSED_REL.
   - committac;
       repeat condtac; committac;
-        (try eapply Memory.future_closed_capability; eauto);
+        (try eapply Memory.add_closed_capability; eauto);
         (try apply WF1).
     + eapply Memory.add_get2. eauto.
     + econs; try apply Memory.closed_timemap_bot; committac.

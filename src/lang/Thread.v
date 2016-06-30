@@ -178,10 +178,12 @@ Module Local.
   Proof.
     exploit Memory.promise_future0; eauto; try by committac. i. des.
     repeat (try condtac; committac).
-    - eapply Memory.future_closed_capability; eauto. apply CLOSED2.
+    - eapply Memory.promise_closed_capability; eauto.
+    - eapply Memory.promise_closed_capability; eauto. apply CLOSED2.
     - eapply LE_PROMISES2. eapply Memory.promise_get2. apply PROMISE.
     - econs; committac.
-    - eapply Memory.future_closed_capability; eauto. apply CLOSED2.
+      eapply Memory.promise_closed_timemap; eauto.
+    - eapply Memory.promise_closed_capability; eauto. apply CLOSED2.
   Qed.
 
   Lemma write_closed_capability
@@ -294,7 +296,8 @@ Module Local.
     inv WF1. inv DISJOINT1. inversion WF. inv STEP.
     exploit Memory.write_future0; try apply WRITE; eauto; try by committac. i. des.
     exploit Memory.write_disjoint; try apply WRITE; eauto. i. des.
-    splits; ss. econs; eauto. eapply Commit.future_closed; eauto.
+    splits; ss. econs; eauto.
+    inv WRITE. eapply Commit.promise_closed; eauto.
   Qed.
 
   Lemma fence_step_disjoint

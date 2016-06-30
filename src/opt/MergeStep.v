@@ -63,13 +63,16 @@ Lemma merge_write_read1
       lc1 sc1 mem1
       (ORD: Ordering.le Ordering.seqcst ord2 -> Ordering.le Ordering.seqcst ord1)
       (WF0: Local.wf lc0 mem0)
+      (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
       (STEP: Local.write_step lc0 sc0 mem0 loc from to val Capability.bot released ord1 lc1 sc1 mem1 kind):
   Local.read_step lc1 mem1 loc to val released ord2 lc1.
 Proof.
   inv STEP. econs; eauto.
   - inv WRITE.
-    hexploit Memory.promise_future0; try apply PROMISE; try apply WF0; eauto; try by committac. i. des.
+    hexploit Memory.promise_future; try apply PROMISE; try apply WF0; eauto; try by committac.
+    { eapply Local.promise_closed_capability; eauto; try apply WF0. committac. }
+    i. des.
     hexploit Memory.promise_get2; eauto.
   - inv WRITABLE. econs; repeat (try condtac; aggrtac); (try by left; eauto).
     + etrans; [|left; eauto]. apply WF0.
@@ -86,15 +89,19 @@ Lemma merge_write_read2
       lc1 sc1 mem1
       (ORD2: Ordering.le ord2 Ordering.relaxed)
       (WF0: Local.wf lc0 mem0)
+      (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
       (WF_RELEASED: Capability.wf releasedm)
+      (WF_CLOSED: Memory.closed_capability releasedm mem0)
       (RELEASED: Ordering.le Ordering.relaxed ord2 -> Capability.le releasedm lc0.(Local.commit).(Commit.acq))
       (STEP: Local.write_step lc0 sc0 mem0 loc from to val releasedm released ord1 lc1 sc1 mem1 kind):
   Local.read_step lc1 mem1 loc to val released ord2 lc1.
 Proof.
   inv STEP. econs; eauto.
   - inv WRITE.
-    hexploit Memory.promise_future0; try apply PROMISE; try apply WF0; eauto; try by committac. i. des.
+    hexploit Memory.promise_future; try apply PROMISE; try apply WF0; eauto; try by committac.
+    { eapply Local.promise_closed_capability; eauto; try apply WF0. }
+    i. des.
     hexploit Memory.promise_get2; eauto.
   - inv WRITABLE. econs; repeat (try condtac; aggrtac); (try by left; eauto).
     etrans; [|left; eauto]. apply WF0.
@@ -209,8 +216,16 @@ Proof.
   { auto. }
   { apply WF0. }
   i. des.
-  exploit Memory.promise_future0; try exact STEP1; (try by apply WF0); (try by committac); eauto. i. des.
-  exploit Memory.promise_future0; try eexact STEP2; (try by apply WF0); (try by committac); eauto. i. des.
+  exploit Memory.promise_future; try exact STEP1; (try by apply WF0); (try by committac); eauto.
+  { eapply Memory.promise_closed_capability; eauto. }
+  i. des.
+  exploit Memory.promise_future; try eexact STEP2; (try by apply WF0); (try by committac); eauto.
+  { unfold released1'.
+    eapply Local.promise_closed_capability;
+      try eexact STEP2; eauto; try by committac.
+    eapply Commit.future_closed; eauto. apply WF0.
+  }
+  i. des.
   generalize FUTURE. i. rewrite FUTURE0 in FUTURE1.
   assert (REL1'_CLOSED: Memory.closed_capability released1' mem2).
   { unfold released1'. repeat (try condtac; aggrtac; try by apply WF0).
@@ -400,14 +415,9 @@ Proof.
   exploit merge_promise_promise; try exact STEP1; eauto. i.
   exploit reorder_promise_add_promise_add; try exact x0; try eexact STEP3; eauto.
   { ii. inv H. exfalso. eapply Time.lt_strorder. eauto. }
-  { i. exploit Memory.promise_future0; try eexact PROMISE1; try apply WF0; eauto; try by committac. i. des.
-    repeat (try condtac; aggrtac).
-    - eapply Memory.future_closed_capability; eauto.
-      inv STEP1. apply WF0.
-    - inv PROMISE1. eapply Memory.add_get2. eauto.
-    - econs; committac.
-    - eapply Memory.future_closed_capability; eauto.
-      inv STEP1. apply WF0.
+  { i. rewrite REL1'.
+    eapply Local.promise_closed_capability; try eexact PROMISE1; eauto; try apply WF0.
+    inv STEP1. apply WF0.
   }
   i. des.
   exploit Local.promise_step_future; try eexact STEP6; eauto. i. des.

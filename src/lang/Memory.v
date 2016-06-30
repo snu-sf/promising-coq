@@ -160,9 +160,11 @@ Module Memory.
   | future_imm_add
       loc from1 to1 val1 released1
       (ADD: add mem1 loc from1 to1 val1 released1 mem2)
+      (CLOSED: closed_capability released1 mem2)
   | future_imm_update
       loc from1 from2 to val released1 released2
       (UPDATE: update mem1 loc from1 from2 to val released1 released2 mem2)
+      (CLOSED: closed_capability released2 mem2)
   .
 
   Definition future := rtc future_imm.
@@ -195,8 +197,8 @@ Module Memory.
             (promises3 mem2:t) (kind:promise_kind): Prop :=
   | write_intro
       promises2
-      (PROMISE: Memory.promise promises1 mem1 loc from1 to1 val1 released1 promises2 mem2 kind)
-      (REMOVE: Memory.remove promises2 loc from1 to1 val1 released1 promises3)
+      (PROMISE: promise promises1 mem1 loc from1 to1 val1 released1 promises2 mem2 kind)
+      (REMOVE: remove promises2 loc from1 to1 val1 released1 promises3)
   .
 
 
@@ -442,14 +444,90 @@ Module Memory.
       + apply RHS.
   Qed.
 
+  Lemma add_closed_timemap
+        times
+        mem1 loc from to val released mem2
+        (CLOSED: closed_timemap times mem1)
+        (ADD: add mem1 loc from to val released mem2):
+    closed_timemap times mem2.
+  Proof.
+    ii. exploit CLOSED; eauto. i. des.
+    exploit add_get1; eauto.
+  Qed.
+
+  Lemma add_closed_capability
+        capability
+        mem1 loc from to val released mem2
+        (CLOSED: closed_capability capability mem1)
+        (ADD: add mem1 loc from to val released mem2):
+    closed_capability capability mem2.
+  Proof.
+    inv CLOSED. econs; eauto.
+    - eapply add_closed_timemap; eauto.
+    - eapply add_closed_timemap; eauto.
+    - eapply add_closed_timemap; eauto.
+  Qed.
+
+  Lemma update_closed_timemap
+        times
+        mem1 loc from1 from2 to val released1 released2 mem2
+        (CLOSED: closed_timemap times mem1)
+        (UPDATE: update mem1 loc from1 from2 to val released1 released2 mem2):
+    closed_timemap times mem2.
+  Proof.
+    ii. exploit CLOSED; eauto. instantiate (1 := loc0). i. des.
+    exploit update_get1; eauto. i. des.
+    - inv x3. esplits; eauto.
+    - esplits; eauto.
+  Qed.
+
+  Lemma update_closed_capability
+        capability
+        mem1 loc from1 from2 to val released1 released2 mem2
+        (CLOSED: closed_capability capability mem1)
+        (UPDATE: update mem1 loc from1 from2 to val released1 released2 mem2):
+    closed_capability capability mem2.
+  Proof.
+    inv CLOSED. econs; eauto.
+    - eapply update_closed_timemap; eauto.
+    - eapply update_closed_timemap; eauto.
+    - eapply update_closed_timemap; eauto.
+  Qed.
+
+  Lemma promise_closed_timemap
+        times
+        promises1 mem1 loc from to val released promises2 mem2 kind
+        (CLOSED: closed_timemap times mem1)
+        (PROMISE: promise promises1 mem1 loc from to val released promises2 mem2 kind):
+    closed_timemap times mem2.
+  Proof.
+    inv PROMISE.
+    - eapply add_closed_timemap; eauto.
+    - eapply update_closed_timemap; eauto.
+  Qed.
+
+  Lemma promise_closed_capability
+        capability
+        promises1 mem1 loc from to val released promises2 mem2 kind
+        (CLOSED: closed_capability capability mem1)
+        (PROMISE: promise promises1 mem1 loc from to val released promises2 mem2 kind):
+    closed_capability capability mem2.
+  Proof.
+    inv PROMISE.
+    - eapply add_closed_capability; eauto.
+    - eapply update_closed_capability; eauto.
+  Qed.
+
   Lemma future_closed_timemap
         times mem1 mem2
         (CLOSED: closed_timemap times mem1)
         (FUTURE: future mem1 mem2):
     closed_timemap times mem2.
   Proof.
-    ii. exploit CLOSED; eauto. i. des.
-    exploit future_get; eauto. i. des. eauto.
+    revert CLOSED. induction FUTURE; auto. i.
+    apply IHFUTURE. inv H.
+    - eapply add_closed_timemap; eauto.
+    - eapply update_closed_timemap; eauto.
   Qed.
 
   Lemma future_closed_capability
@@ -458,10 +536,10 @@ Module Memory.
         (FUTURE: future mem1 mem2):
     closed_capability capability mem2.
   Proof.
-    inv CLOSED. econs; eauto.
-    - eapply future_closed_timemap; eauto.
-    - eapply future_closed_timemap; eauto.
-    - eapply future_closed_timemap; eauto.
+    revert CLOSED. induction FUTURE; auto. i.
+    apply IHFUTURE. inv H.
+    - eapply add_closed_capability; eauto.
+    - eapply update_closed_capability; eauto.
   Qed.
 
   Lemma singleton_closed_timemap
@@ -579,8 +657,7 @@ Module Memory.
         (INHABITED1: inhabited mem1)
         (PROMISE: promise promises1 mem1 loc from to val released promises2 mem2 kind):
     <<LE_PROMISES2: le promises2 mem2>> /\
-    <<INHABITED2: inhabited mem2>> /\
-    <<FUTURE: future mem1 mem2>>.
+    <<INHABITED2: inhabited mem2>>.
   Proof.
     inv PROMISE.
     - splits; eauto.
@@ -588,7 +665,6 @@ Module Memory.
         * subst. eapply add_get2. eauto.
         * eapply add_get1; eauto.
       + eapply add_inhabited; eauto.
-      + econs 2; eauto. econs 1; eauto.
     - splits; eauto.
       + ii. destruct msg.
         eapply update_get_inv in LHS; eauto. des.
@@ -596,7 +672,6 @@ Module Memory.
         * subst. exploit update_get1; try apply MEM; try apply LE_PROMISES1; eauto. i. des; auto.
           contradict x0. auto.
       + eapply update_inhabited; eauto.
-      + econs 2; eauto. econs 2; eauto.
   Qed.
 
   Lemma promise_future
@@ -609,18 +684,22 @@ Module Memory.
     <<CLOSED2: closed mem2>> /\
     <<FUTURE: future mem1 mem2>>.
   Proof.
-    exploit promise_future0; try apply CLOSED1; eauto. i. des. splits; auto.
-    inv PROMISE.
+    exploit promise_future0; try apply CLOSED1; eauto. i. des. splits; auto; cycle 1.
+    { econs 2; eauto. inv PROMISE.
+      - econs 1; eauto.
+      - econs 2; eauto.
+    }
+    inversion PROMISE.
     - econs; eauto.
       ii. eapply add_get_inv in MSG; eauto. des.
       + inv MSG2. inv MEM. inv ADD. eauto.
       + inv CLOSED1. exploit CLOSED; eauto. i. des. splits; auto.
-        eapply future_closed_capability; eauto.
+        eapply promise_closed_capability; eauto.
     - econs; eauto.
       ii. eapply update_get_inv in MSG; eauto. des.
       + subst. splits; auto. inv PROMISES. inv UPDATE. auto.
       + inv CLOSED1. exploit CLOSED; eauto. i. des. splits; auto.
-        eapply future_closed_capability; eauto.
+        eapply promise_closed_capability; eauto.
   Qed.
 
   Lemma promise_disjoint
@@ -629,8 +708,8 @@ Module Memory.
         (CLOSED1: closed mem1)
         (PROMISE: promise promises1 mem1 loc from to val released promises2 mem2 kind)
         (LE_PROMISES: le ctx mem1)
-        (DISJOINT: Memory.disjoint promises1 ctx):
-    <<DISJOINT: Memory.disjoint promises2 ctx>> /\
+        (DISJOINT: disjoint promises1 ctx):
+    <<DISJOINT: disjoint promises2 ctx>> /\
     <<LE_PROMISES: le ctx mem2>>.
   Proof.
     exploit promise_future0; try apply PROMISE; try apply CLOSED1; eauto. i. des.
@@ -708,8 +787,7 @@ Module Memory.
         (INHABITED1: inhabited mem1)
         (PROMISE: write promises1 mem1 loc from to val released promises2 mem2 kind):
     <<LE_PROMISES2: le promises2 mem2>> /\
-    <<INHABITED2: inhabited mem2>> /\
-    <<FUTURE: future mem1 mem2>>.
+    <<INHABITED2: inhabited mem2>>.
   Proof.
     inv PROMISE.
     hexploit promise_future0; eauto. i. des.
@@ -737,8 +815,8 @@ Module Memory.
         (CLOSED1: closed mem1)
         (PROMISE: write promises1 mem1 loc from to val released promises2 mem2 kind)
         (LE_PROMISES: le ctx mem1)
-        (DISJOINT: Memory.disjoint promises1 ctx):
-    <<DISJOINT: Memory.disjoint promises2 ctx>> /\
+        (DISJOINT: disjoint promises1 ctx):
+    <<DISJOINT: disjoint promises2 ctx>> /\
     <<LE_PROMISES: le ctx mem2>>.
   Proof.
     inv PROMISE.
@@ -805,9 +883,9 @@ Module Memory.
         (FUTURE: future mem1 mem2):
     TimeMap.le (max_timemap mem1) (max_timemap mem2).
   Proof.
-    apply Memory.max_timemap_spec; try apply CLOSED2.
-    ii. exploit Memory.max_timemap_closed; try apply CLOSED1; eauto. i. des.
-    exploit Memory.future_get; eauto. i. des.
+    apply max_timemap_spec; try apply CLOSED2.
+    ii. exploit max_timemap_closed; try apply CLOSED1; eauto. i. des.
+    exploit future_get; eauto. i. des.
     eauto.
   Qed.
 
@@ -847,9 +925,8 @@ Module Memory.
         eapply max_ts_spec; eauto.
     - apply TimeMap.join_spec.
       + apply max_timemap_spec; auto.
-        eapply future_closed_timemap.
-        * apply max_timemap_closed. auto.
-        * econs 2; [|econs 1]. econs 1. eauto.
+        eapply add_closed_timemap; eauto.
+        apply max_timemap_closed. auto.
       + exploit add_get2; eauto. i.
         apply TimeMap.singleton_spec. eapply max_ts_spec. eauto.
   Qed.
