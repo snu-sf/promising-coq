@@ -95,6 +95,14 @@ Definition is_sc a : Prop :=
     | Afence _ o => Ordering.le Ordering.seqcst o
   end.
 
+Definition is_sc_fence a : Prop :=
+  match lab a with
+    | Astore _ _ _ => False
+    | Aload  _ _ _ => False
+    | Afence _ o => Ordering.le Ordering.seqcst o
+  end.
+
+
 (** * Basic Lemmas *)
 
 Lemma read_non_write a (A: is_read a) : ~ is_write a.
