@@ -93,7 +93,7 @@ Proof.
       eapply Local.read_step_future; eauto.
   - (* store *)
     exploit Local.write_step_future; eauto; try by committac. i. des.
-    exploit sim_local_write; try exact LOCAL0; try exact SC;
+    hexploit sim_local_write; try exact LOCAL0; try exact SC;
       try exact WF_SRC; try refl; committac. i. des.
     exploit write_promise_fulfill; eauto; try by committac. i. des.
     exploit Local.promise_step_future; eauto. i. des.
@@ -110,7 +110,7 @@ Proof.
     exploit Local.write_step_future; eauto. i. des.
     exploit sim_local_read; eauto; try refl. i. des.
     exploit Local.read_step_future; eauto. i. des.
-    hexploit sim_local_write; try apply LOCAL2; try apply LOCAL0; try apply SC; eauto; try by committac. i. des.
+    hexploit sim_local_write; try apply LOCAL2; try apply LOCAL0; try apply SC; eauto; try refl; try by committac. i. des.
     exploit write_promise_fulfill; eauto; try by committac. i. des.
     exploit Local.promise_step_future; eauto. i. des.
     exploit reorder_read_promise; try exact STEP_SRC; try exact STEP1; eauto. i. des.

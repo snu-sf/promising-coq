@@ -196,7 +196,7 @@ Proof.
       * apply RegSet.singleton_spec. eauto.
   - (* store *)
     guardH ORD.
-    exploit sim_local_write; try exact LOCAL0; try exact SC;
+    hexploit sim_local_write; try exact LOCAL0; try exact SC;
       try exact WF2; try refl; eauto; try by committac. i. des.
     exploit reorder_read_write; try exact READ; try exact STEP_SRC; eauto; try by committac. i. des.
     esplits.
@@ -216,7 +216,7 @@ Proof.
     exploit Local.read_step_future; try exact LOCAL1; eauto. i. des.
     exploit sim_local_read; try exact LOCAL1; eauto; try refl. i. des.
     exploit Local.read_step_future; try exact STEP_SRC; eauto. i. des.
-    exploit sim_local_write; try exact LOCAL2; try exact SC; eauto. i. des.
+    hexploit sim_local_write; try exact LOCAL2; try exact SC; eauto; try refl. i. des.
     exploit reorder_read_read; try exact READ; try exact STEP_SRC; eauto; try congr. i. des.
     exploit Local.read_step_future; try exact STEP1; eauto. i. des.
     exploit reorder_read_write; try exact STEP2; try exact STEP_SRC0; eauto; try congr. i. des.

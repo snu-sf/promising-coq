@@ -87,13 +87,14 @@ Lemma merge_write_read2
       loc from to val releasedm released ord1 ord2 kind
       lc0 sc0 mem0
       lc1 sc1 mem1
-      (ORD2: Ordering.le ord2 Ordering.relaxed)
+      (ORD: Ordering.le Ordering.seqcst ord2 -> Ordering.le Ordering.seqcst ord1)
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
       (WF_RELEASED: Capability.wf releasedm)
       (WF_CLOSED: Memory.closed_capability releasedm mem0)
-      (RELEASED: Ordering.le Ordering.relaxed ord2 -> Capability.le releasedm lc0.(Local.commit).(Commit.acq))
+      (RLX: Ordering.le Ordering.relaxed ord2 -> Capability.le releasedm lc0.(Local.commit).(Commit.acq))
+      (ACQ: Ordering.le Ordering.acqrel ord2 -> Capability.le releasedm lc0.(Local.commit).(Commit.cur))
       (STEP: Local.write_step lc0 sc0 mem0 loc from to val releasedm released ord1 lc1 sc1 mem1 kind):
   Local.read_step lc1 mem1 loc to val released ord2 lc1.
 Proof.
@@ -104,11 +105,13 @@ Proof.
     i. des.
     hexploit Memory.promise_get2; eauto.
   - inv WRITABLE. econs; repeat (try condtac; aggrtac); (try by left; eauto).
-    etrans; [|left; eauto]. apply WF0.
+    + etrans; [|left; eauto]. apply WF0.
+    + etrans; [|left; apply SC1; auto]. apply ACQ. etrans; eauto. auto.
+    + etrans; [|left; apply SC1; auto]. apply WF0.
   - unfold Commit.read_commit, Commit.write_commit. s.
     apply Commit.antisym; econs;
       repeat (try condtac; aggrtac; rewrite <- ? Capability.join_l; try apply WF0; eauto).
-    + etrans; apply WF0.
+    etrans; apply WF0.
 Qed.
 
 Lemma promise_promise_promise
@@ -438,7 +441,7 @@ Proof.
     eapply write_step_promise; eauto.
   }
   i. des.
-  exploit sim_local_write; try exact MEM; try exact REL_LE; try refl; eauto. i. des.
+  hexploit sim_local_write; try exact MEM; try exact REL_LE; try refl; eauto. i. des.
   esplits; eauto.
   - etrans; eauto.
   - etrans; eauto.
@@ -503,12 +506,12 @@ Proof.
   - exploit Local.promise_step_future; eauto. i. des.
     exploit Memory.future_closed_capability; try exact REL0_CLOSED; eauto. i.
     exploit Local.write_step_future; try apply STEP2; eauto. i. des.
-    exploit sim_local_write; try apply STEP3;
+    hexploit sim_local_write; try apply STEP3;
       try apply Capability.bot_spec; try refl; eauto; committac. i. des.
     esplits; cycle 1; eauto; try (etrans; eauto).
   - inv STEP1.
     exploit Local.write_step_future; try apply STEP2; eauto. i. des.
-    exploit sim_local_write; try apply STEP3;
+    hexploit sim_local_write; try apply STEP3;
       try apply Capability.bot_spec; try refl; eauto; committac. i. des.
     esplits; cycle 1; eauto; try (etrans; eauto).
 Qed.

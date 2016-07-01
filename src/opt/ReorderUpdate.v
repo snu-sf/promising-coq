@@ -252,7 +252,7 @@ Proof.
   - (* store *)
     guardH ORD2.
     apply RegSet.disjoint_add in REGS. des.
-    exploit sim_local_write; try exact LOCAL0; try exact LOCAL; try exact SC; try exact WF0; try refl; eauto; try by committac. i. des.
+    hexploit sim_local_write; try exact LOCAL0; try exact LOCAL; try exact SC; try exact WF0; try refl; eauto; try by committac. i. des.
     hexploit reorder_update_write; try exact READ; try exact FULFILL; try exact STEP_SRC; eauto; try by committac.
     { ii. subst. inv FULFILL. eapply Time.lt_strorder. eauto. }
     i. des.
@@ -281,7 +281,7 @@ Proof.
     exploit Local.read_step_future; try exact LOCAL1; eauto; try by committac. i. des.
     exploit sim_local_read; try exact LOCAL1; (try by etrans; eauto); eauto; try refl. i. des.
     exploit Local.read_step_future; try exact STEP_SRC; eauto. i. des.
-    exploit sim_local_write; try exact LOCAL2; eauto; try by committac. i. des.
+    hexploit sim_local_write; try exact LOCAL2; eauto; try refl; try by committac. i. des.
     hexploit ReorderStep.reorder_update_update; try exact FULFILL; try exact READ; try exact STEP_SRC0; eauto.
     { ii. subst. inv FULFILL. eapply Time.lt_strorder. eauto. }
     i. des.

@@ -231,6 +231,17 @@ Module RegFile.
       + ii. eapply REGS; eauto.
         apply RegSet.add_spec. auto.
   Qed.
+
+  Lemma instr_ord_eval_instr
+        rf1 instr_src instr_tgt e_tgt rf2
+        (ORD: Instr.ord instr_src instr_tgt)
+        (EVAL: RegFile.eval_instr rf1 instr_tgt e_tgt rf2):
+    exists e_src,
+      <<EVAL: RegFile.eval_instr rf1 instr_src e_src rf2>> /\
+      <<ORD: ProgramEvent.ord_opt e_src e_tgt>>.
+  Proof.
+    inv ORD; inv EVAL; esplits; repeat (econs; eauto).
+  Qed.
 End RegFile.
 
 Module State.

@@ -107,7 +107,7 @@ Proof.
     + eauto.
     + right. econs; eauto.
   - (* store *)
-    exploit sim_local_write; try apply SC; eauto; try refl; committac.
+    hexploit sim_local_write; try exact LOCAL0; try apply SC; eauto; try refl; committac.
     { eapply Local.fence_step_future; eauto. }
     i. des.
     exploit reorder_fence_write; try apply x0; try apply STEP_SRC; eauto; try by committac. i. des.
