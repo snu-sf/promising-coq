@@ -537,10 +537,6 @@ Proof.
   exploit sim_local_write; try exact STEP3; try exact LOCAL; try refl; eauto. i. des.
   exploit reorder_fulfill_write; try exact STEP4; try exact STEP_SRC; eauto. i. des.
   esplits; eauto.
-  - etrans; eauto.
-  - etrans; eauto.
-  - etrans; eauto.
-  - etrans; eauto.
 Qed.
 
 Lemma reorder_update_read

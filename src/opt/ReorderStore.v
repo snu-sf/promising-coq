@@ -199,7 +199,7 @@ Proof.
     + etrans; eauto.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
   - (* store *)
-    exploit sim_local_write; try exact LOCAL0; eauto; try refl; try by committac. i. des.
+    hexploit sim_local_write; try exact LOCAL0; eauto; try refl; try by committac. i. des.
     exploit reorder_fulfill_write; try exact FULFILL; try exact STEP_SRC; eauto; try by committac. i. des.
     exploit Local.write_step_future; try exact STEP1; eauto; try by committac. i. des.
     exploit fulfill_write; eauto; try by committac. i. des.
@@ -218,7 +218,7 @@ Proof.
     exploit Local.read_step_future; try exact LOCAL1; eauto; try by committac. i. des.
     exploit sim_local_read; try exact LOCAL1; (try by etrans; eauto); eauto; try refl. i. des.
     exploit Local.read_step_future; try exact STEP_SRC; eauto. i. des.
-    exploit sim_local_write; try exact LOCAL2; eauto; try by committac. i. des.
+    hexploit sim_local_write; try exact LOCAL2; eauto; try refl; try by committac. i. des.
     hexploit reorder_fulfill_update; try exact FULFILL; try exact STEP_SRC; try exact STEP_SRC0; eauto; try by committac. i. des.
     exploit Local.read_step_future; try apply STEP1; eauto. i. des.
     exploit Local.write_step_future; try apply STEP2; eauto. i. des.

@@ -1,4 +1,7 @@
+Require Import RelationClasses.
 Require Import List.
+
+Require Import sflib.
 
 Require Import Basic.
 Require Import Event.
@@ -109,6 +112,42 @@ Module Instr.
     | fence _ _ => RegSet.empty
     | syscall lhs rhses => RegSet.add lhs (Value.regs_of_list rhses)
     end.
+
+  Inductive ord: forall (i_src i_tgt:Instr.t), Prop :=
+  | ord_skip:
+      ord Instr.skip Instr.skip
+  | ord_assign
+      r e:
+      ord (Instr.assign r e) (Instr.assign r e)
+  | ord_load
+      r l o1 o2 (O: Ordering.le o1 o2):
+      ord (Instr.load r l o1) (Instr.load r l o2)
+  | ord_store
+      l v o1 o2 (O: Ordering.le o1 o2):
+      ord (Instr.store l v o1) (Instr.store l v o2)
+  | ord_update
+      r l rmw or1 or2 ow1 ow2
+      (OR: Ordering.le or1 or2)
+      (OW: Ordering.le ow1 ow2):
+      ord (Instr.update r l rmw or1 ow1) (Instr.update r l rmw or2 ow2)
+  | ord_fence
+      or1 or2 ow1 ow2
+      (OR: Ordering.le or1 or2)
+      (OW: Ordering.le ow1 ow2):
+      ord (Instr.fence or1 ow1) (Instr.fence or2 ow2)
+  | ord_syscall
+      o i:
+      ord (Instr.syscall o i) (Instr.syscall o i)
+  .
+
+  Global Program Instance instr_ord_Reflexive: Reflexive ord.
+  Next Obligation. destruct x; econs; refl. Qed.
+
+  Lemma ord_regs_of
+        instr_src instr_tgt
+        (ORD: ord instr_src instr_tgt):
+    Instr.regs_of instr_src = Instr.regs_of instr_tgt.
+  Proof. inv ORD; auto. Qed.
 End Instr.
 Coercion Instr.expr_val: Value.t >-> Instr.expr.
 

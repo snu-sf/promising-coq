@@ -149,7 +149,7 @@ Proof.
     + econs 2. econs 1. econs. eauto.
     + auto.
   - (* store *)
-    exploit sim_local_write; try exact LOCAL0; try exact SC; eauto; try refl; try by committac. i. des.
+    hexploit sim_local_write; try exact LOCAL0; try exact SC; eauto; try refl; try by committac. i. des.
     exploit merge_write_read1; try exact STEP_SRC; eauto. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
@@ -197,7 +197,7 @@ Proof.
     exploit Time.middle_spec; eauto.
     { inv LOCAL0. eapply MemoryFacts.write_time_lt. eauto. }
     i. des.
-    exploit sim_local_write; try exact LOCAL0; try exact SC; eauto; try refl; try by committac. i. des.
+    hexploit sim_local_write; try exact LOCAL0; try exact SC; eauto; try refl; try by committac. i. des.
     exploit merge_write_write_bot; try exact STEP_SRC; eauto; try by committac. i. des.
     + esplits.
       * econs 2; [|econs 2; eauto].
@@ -261,7 +261,7 @@ Proof.
     exploit Time.middle_spec; eauto.
     { inv LOCAL0. eapply MemoryFacts.write_time_lt. eauto. }
     i. des.
-    exploit sim_local_write; try exact LOCAL0; try exact SC; eauto; try refl; try by committac. i. des.
+    hexploit sim_local_write; try exact LOCAL0; try exact SC; eauto; try refl; try by committac. i. des.
     exploit merge_write_write; try exact STEP_SRC; eauto; try by committac. i. des.
     exploit Local.promise_step_future; eauto. i. des.
     exploit Local.write_step_future; try apply STEP2; eauto; try by committac. i. des.
@@ -341,7 +341,7 @@ Proof.
           | [|- is_true (Ordering.le _ _)] => refl
           end; eauto; try refl; try by committac. i. des.
     exploit Local.read_step_future; eauto; try by committac. i. des.
-    hexploit sim_local_write; try apply SC; try apply LOCAL2; eauto. i. des.
+    hexploit sim_local_write; try apply SC; try apply LOCAL2; eauto; try refl. i. des.
     exploit Local.write_step_future; try apply STEP_SRC; eauto; try by committac. i. des.
     exploit sim_local_read; try exact x0; eauto; try refl. i. des.
     esplits.
@@ -398,7 +398,7 @@ Proof.
           | [|- is_true (Ordering.le _ _)] => refl
           end; eauto; try refl; try by committac. i. des.
     exploit Local.read_step_future; eauto. i. des.
-    exploit sim_local_write; try exact LOCAL2; try exact SC; eauto. i. des.
+    hexploit sim_local_write; try exact LOCAL2; try exact SC; eauto; try refl. i. des.
     exploit merge_write_write; try exact STEP_SRC0; eauto.
     { inv STEP_SRC. eapply MEM_SRC. eauto. }
     i. des.

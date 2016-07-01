@@ -438,7 +438,7 @@ Proof.
     eapply write_step_promise; eauto.
   }
   i. des.
-  exploit sim_local_write; try exact MEM; try exact REL_LE; try refl; eauto. i. des.
+  hexploit sim_local_write; try exact MEM; try exact REL_LE; try refl; eauto. i. des.
   esplits; eauto.
   - etrans; eauto.
   - etrans; eauto.
@@ -503,12 +503,12 @@ Proof.
   - exploit Local.promise_step_future; eauto. i. des.
     exploit Memory.future_closed_capability; try exact REL0_CLOSED; eauto. i.
     exploit Local.write_step_future; try apply STEP2; eauto. i. des.
-    exploit sim_local_write; try apply STEP3;
+    hexploit sim_local_write; try apply STEP3;
       try apply Capability.bot_spec; try refl; eauto; committac. i. des.
     esplits; cycle 1; eauto; try (etrans; eauto).
   - inv STEP1.
     exploit Local.write_step_future; try apply STEP2; eauto. i. des.
-    exploit sim_local_write; try apply STEP3;
+    hexploit sim_local_write; try apply STEP3;
       try apply Capability.bot_spec; try refl; eauto; committac. i. des.
     esplits; cycle 1; eauto; try (etrans; eauto).
 Qed.
