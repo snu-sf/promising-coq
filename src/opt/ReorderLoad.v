@@ -208,7 +208,7 @@ Proof.
       * eauto.
     + econs 2. econs 2. econs 2; eauto. econs. econs.
     + eauto.
-    + etrans; eauto.
+    + eauto.
     + etrans; eauto.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss. etrans; eauto.
   - (* update *)
@@ -230,7 +230,7 @@ Proof.
       * eauto.
     + econs 2. econs 2. econs 2; eauto. econs. econs.
     + eauto.
-    + etrans; eauto.
+    + eauto.
     + etrans; eauto.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
       * apply RegFun.add_add. ii. subst. eapply REGS.
