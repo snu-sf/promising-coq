@@ -301,8 +301,8 @@ Lemma merge_update_load_sim_stmts
       l
       r1 v1 or ow
       r2 or2
-      (OR2: Ordering.le or2 or)
-      (OR2_RLX: Ordering.le or2 Ordering.relaxed):
+      (O: Ordering.le Ordering.seqcst or2 -> Ordering.le Ordering.seqcst ow)
+      (OR2: Ordering.le or2 or):
   sim_stmts eq
             [Stmt.instr (Instr.update r1 l (Instr.fetch_add v1) or ow); Stmt.instr (Instr.load r2 l or2)]
             [Stmt.instr (Instr.update r1 l (Instr.fetch_add v1) or ow); Stmt.instr (Instr.assign r2 r1)]
@@ -332,8 +332,11 @@ Proof.
     exploit Local.read_step_future; eauto. i. des.
     exploit Local.write_step_future; eauto. i. des.
     exploit merge_write_read2; try apply LOCAL2; eauto.
-    { i. inv LOCAL1. s. rewrite <- ? Capability.join_r. condtac; committac.
-        by destruct ordr, or2; inv OR2_RLX; inv OR2; inv COND.
+    { inv LOCAL1. s. i. repeat (try condtac; aggrtac).
+      destruct ordr, or2; inv H; inv COND; inv OR2.
+    }
+    { inv LOCAL1. s. i. repeat (try condtac; aggrtac).
+      destruct ordr, or2; inv H; inv COND; inv OR2.
     }
     i. des.
     exploit sim_local_read; try exact LOCAL1;
@@ -361,8 +364,8 @@ Lemma merge_update_update_sim_stmts
       l or ow
       r1 v1
       r2 or2
-      (OR: Ordering.le or2 or)
-      (OR2_RLX: Ordering.le or2 Ordering.relaxed):
+      (O: Ordering.le Ordering.seqcst or2 -> Ordering.le Ordering.seqcst ow)
+      (OR2: Ordering.le or2 or):
   sim_stmts eq
             [Stmt.instr (Instr.update r1 l (Instr.fetch_add v1) or ow); Stmt.instr (Instr.update r2 l (Instr.fetch_add 0) or2 ow)]
             [Stmt.instr (Instr.update r1 l (Instr.fetch_add v1) or ow); Stmt.instr (Instr.assign r2 r1)]
@@ -419,8 +422,10 @@ Proof.
       * econs 2. econs 2. econs 4; eauto.
         { econs. econs. s. rewrite ? Const.add_0_r. eauto. }
         { inv RMW. eapply merge_write_read2; try exact STEP2; committac.
-          inv STEP4. s. condtac; committac.
-          destruct or2, ordr; inv H; inv OR; inv COND.
+          - inv STEP4. s. repeat (try condtac; aggrtac).
+            destruct or2, ordr; inv H; inv OR2; inv COND.
+          - inv STEP4. s. repeat (try condtac; aggrtac).
+            destruct or2, ordr; inv H; inv OR2; inv COND.
         }
       * auto.
       * etrans; eauto.
@@ -441,8 +446,10 @@ Proof.
       * econs 2. econs 2. econs 4; eauto.
         { econs. econs. s. rewrite ? Const.add_0_r. eauto. }
         { inv RMW. eapply merge_write_read2; try exact STEP2; committac.
-          inv STEP_SRC. s. condtac; committac.
-          destruct or2, ordr; inv H; inv OR; inv COND.
+          - inv STEP_SRC. s. repeat (try condtac; aggrtac).
+            destruct or2, ordr; inv H; inv OR2; inv COND.
+          - inv STEP_SRC. s. repeat (try condtac; aggrtac).
+            destruct or2, ordr; inv H; inv OR2; inv COND.
         }
       * auto.
       * etrans; eauto.
