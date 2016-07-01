@@ -364,6 +364,48 @@ Module SimPromises.
     rewrite unset_set in INV0; auto.
   Qed.
 
+  Lemma future_imm
+        inv
+        promises_src mem1_src mem2_src
+        promises_tgt mem1_tgt
+        (FUTURE_SRC: Memory.future_imm mem1_src mem2_src)
+        (INV1: sem inv promises_src promises_tgt)
+        (SIM1: sim_memory mem1_src mem1_tgt)
+        (LE1_SRC: Memory.le promises_src mem1_src)
+        (LE1_TGT: Memory.le promises_tgt mem1_tgt)
+        (LE2_SRC: Memory.le promises_src mem2_src)
+        (CLOSED1_SRC: Memory.closed mem1_src)
+        (CLOSED1_TGT: Memory.closed mem1_tgt):
+    exists mem2_tgt,
+      <<FUTURE_TGT: Memory.future mem1_tgt mem2_tgt>> /\
+      <<LE2_TGT: Memory.le promises_tgt mem2_tgt>> /\
+      <<SIM2: sim_memory mem2_src mem2_tgt>>.
+  Proof.
+    inv FUTURE_SRC.
+    - exploit (@Memory.add_exists mem1_tgt loc from to val (Memory.max_released mem1_tgt loc to)).
+      { eapply covered_disjoint; try apply SIM1; eauto. inv ADD. inv ADD0. auto. }
+      { inv ADD. inv ADD0. auto. }
+      { eapply Memory.max_released_wf; eauto. }
+      i. des.
+      exploit sim_memory_add; try exact SIM1; eauto.
+      { erewrite Memory.max_released_spec; try exact ADD; eauto.
+        apply sim_memory_max_released; auto.
+      }
+      i.
+      exploit Memory.max_released_closed; eauto. i. des.
+      esplits.
+      + econs 2; eauto. econs 1; eauto.
+      + ii. erewrite Memory.add_o; eauto. condtac; ss; eauto.
+        des. subst. exploit LE1_TGT; eauto. erewrite Memory.add_get0; eauto. congr.
+      + auto.
+    - esplits; eauto.
+      + refl.
+      + etrans; eauto. eapply split_sim_memory. eauto.
+    - esplits; eauto.
+      + refl.
+      + etrans; eauto. eapply lower_sim_memory. eauto.
+  Qed.
+
   Lemma future
         inv
         promises_src mem1_src mem2_src
@@ -381,34 +423,31 @@ Module SimPromises.
       <<LE2_TGT: Memory.le promises_tgt mem2_tgt>> /\
       <<SIM2: sim_memory mem2_src mem2_tgt>>.
   Proof.
-    revert INV1 SIM1 LE1_SRC LE1_TGT LE2_SRC CLOSED1_TGT.
+    revert INV1 SIM1 LE1_SRC LE1_TGT LE2_SRC CLOSED1_SRC CLOSED1_TGT.
     revert inv promises_src promises_tgt mem1_tgt.
     induction FUTURE_SRC; i.
     { esplits; eauto. refl. }
-    inv H.
-    - exploit (@Memory.add_exists mem1_tgt loc from to val (Memory.max_released mem1_tgt loc to)).
-      { eapply covered_disjoint.
-        - apply SIM1.
-        - inv ADD. inv ADD0. auto.
-      }
-      { inv ADD. inv ADD0. auto. }
-      { eapply Memory.max_released_wf; eauto. }
+    assert (LE_SRC: Memory.le promises_src y).
+    { ii. exploit LE1_SRC; eauto. i. destruct msg.
+      exploit Memory.future_get; try exact x0; eauto.
+      { econs 2; [|refl]. eauto. }
       i. des.
-      exploit sim_memory_add; try exact SIM1; eauto.
-      { erewrite Memory.max_released_spec; try exact ADD; eauto.
-        apply sim_memory_max_released; auto.
-      }
-      i.
-      exploit Memory.max_released_closed; eauto. i. des.
-      exploit IHFUTURE_SRC; eauto.
-      { eapply Memory.add_closed; try exact ADD; eauto. }
-      { admit. }
-      { admit. }
-      { eapply Memory.add_closed; try exact x1; eauto. }
-      i. des.
-      esplits; eauto. etrans; eauto. econs 2; eauto. econs 1; eauto.
-    - admit.
-  Admitted.
+      exploit Memory.future_get; try exact GET; eauto. i. des.
+      erewrite LE2_SRC in GET0; eauto. inv GET0.
+      rewrite GET. f_equal. f_equal.
+      - apply TimeFacts.antisym; eauto.
+      - f_equal. apply Capability.antisym; eauto.
+    }
+    exploit future_imm; eauto. i. des.
+    exploit IHFUTURE_SRC; eauto.
+    { eapply Memory.future_closed; try exact CLOSED1_SRC; eauto. econs 2; eauto. }
+    { eapply Memory.future_closed; try exact CLOSED1_TGT; eauto. }
+    i. des.
+    esplits.
+    - etrans; eauto.
+    - auto.
+    - auto.
+  Qed.
 
   Lemma sem_bot promises:
     sem bot promises promises.

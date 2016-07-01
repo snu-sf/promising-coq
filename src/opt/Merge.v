@@ -404,7 +404,7 @@ Proof.
     i. des.
     + exploit Local.promise_step_future; eauto. i. des.
       exploit Local.write_step_future; try apply STEP2; eauto; try by committac. i. des.
-      exploit reorder_read_promise; try exact STEP_SRC; try exact STEP1; eauto.
+      exploit reorder_read_promise_diff; try exact STEP_SRC; try exact STEP1; eauto.
       { inv LOCAL2. exploit MemoryFacts.write_time_lt; eauto. ii. inv H.
         eapply Time.lt_strorder. eauto.
       }

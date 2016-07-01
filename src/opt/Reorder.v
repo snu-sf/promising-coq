@@ -112,10 +112,12 @@ Proof.
     exploit Local.read_step_future; eauto. i. des.
     hexploit sim_local_write; try apply LOCAL2; try apply LOCAL0; try apply SC; eauto; try by committac. i. des.
     exploit write_promise_fulfill; eauto; try by committac. i. des.
-    exploit reorder_read_promise; try exact STEP_SRC; try exact STEP1; eauto.
-    { ii. inv H. inv STEP2. eapply Time.lt_strorder. eauto. }
-    i. des.
     exploit Local.promise_step_future; eauto. i. des.
+    exploit reorder_read_promise; try exact STEP_SRC; try exact STEP1; eauto. i. des.
+    exploit Local.promise_step_future; eauto. i. des.
+    exploit Local.read_step_future; eauto. i. des.
+    exploit sim_local_fulfill; try exact STEP2; try exact LOCAL4; try exact REL1;
+      try exact WF3; try refl; eauto; try by committac. i. des.
     esplits.
     + eauto.
     + econs 2. econs 1. econs. eauto.
@@ -123,12 +125,9 @@ Proof.
     + etrans; eauto.
     + auto.
     + left. eapply paco9_mon; [apply sim_update_sim_thread|done].
-      econs; auto.
-      * eauto.
-      * eauto.
-      * eauto.
-      * auto.
-      * auto.
+      econs; eauto.
+      * etrans; eauto.
+      * etrans; eauto.
   - (* fence *)
     exploit sim_local_fence; try apply SC; eauto; try refl. i. des.
     esplits.

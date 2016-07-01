@@ -216,9 +216,7 @@ Proof.
   - (* promise *)
     exploit Local.promise_step_future; eauto. i. des.
     exploit sim_local_promise; try apply LOCAL0; (try by etrans; eauto); eauto. i. des.
-    exploit reorder_update_promise; try exact READ; try exact FULFILL; try exact STEP_SRC; eauto.
-    { admit. (* read msg <> promised msg *) }
-    i. des.
+    exploit reorder_update_promise; try exact READ; try exact FULFILL; try exact STEP_SRC; eauto. i. des.
     exploit Local.promise_step_future; eauto. i. des.
     esplits.
     + eauto.
@@ -227,7 +225,9 @@ Proof.
     + etrans; eauto.
     + auto.
     + right. econs; eauto.
-      eapply Memory.future_closed_timemap; eauto.
+      * etrans; eauto.
+      * etrans; eauto.
+      * eapply Memory.future_closed_timemap; eauto.
   - (* load *)
     apply RegSet.disjoint_add in REGS. des.
     exploit sim_local_read; try apply LOCAL0; (try by etrans; eauto); eauto; try refl. i. des.
@@ -307,7 +307,7 @@ Proof.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
       * apply RegFun.add_add. ii. subst. apply REGS. apply RegSet.add_spec. auto.
       * etrans; eauto.
-Admitted.
+Qed.
 
 Lemma sim_update_sim_thread:
   sim_update <8= (sim_thread (sim_terminal eq)).

@@ -155,6 +155,35 @@ Lemma reorder_read_promise
       lc0 mem0
       lc1
       lc2 mem2
+      (WF0: Local.wf lc0 mem0)
+      (MEM0: Memory.closed mem0)
+      (STEP1: Local.read_step lc0 mem0 loc1 ts1 val1 released1 ord1 lc1)
+      (STEP2: Local.promise_step lc1 mem0 loc2 from2 to2 val2 released2 lc2 mem2 kind2):
+  exists lc1' lc2' released1',
+    <<STEP1: Local.promise_step lc0 mem0 loc2 from2 to2 val2 released2 lc1' mem2 kind2>> /\
+    <<STEP2: Local.read_step lc1' mem2 loc1 ts1 val1 released1' ord1 lc2'>> /\
+    <<REL1: Capability.le released1' released1>> /\
+    <<LOCAL: sim_local lc2' lc2>>.
+Proof.
+  inv STEP1. inv STEP2. ss.
+  exploit Memory.promise_future; try exact PROMISE; try apply WF0; eauto. i. des.
+  exploit Memory.promise_get1; eauto. i. des.
+  esplits; eauto.
+  - econs; eauto.
+  - econs; eauto.
+    s. eapply CommitFacts.readable_mon; eauto; try refl.
+  - s. econs; ss.
+    + apply CommitFacts.read_commit_mon; try refl; try apply WF0; eauto.
+      eapply MEM0. eauto.
+    + apply SimPromises.sem_bot.
+Qed.
+
+Lemma reorder_read_promise_diff
+      loc1 ts1 val1 released1 ord1
+      loc2 from2 to2 val2 released2 kind2
+      lc0 mem0
+      lc1
+      lc2 mem2
       (DIFF: (loc1, ts1) <> (loc2, to2))
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
@@ -235,7 +264,7 @@ Proof.
   exploit Local.read_step_future; eauto. i. des.
   exploit write_promise_fulfill; try exact STEP2; eauto. i. des.
   exploit Local.promise_step_future; eauto. i. des.
-  exploit reorder_read_promise; try exact STEP1; try exact STEP0; eauto.
+  exploit reorder_read_promise_diff; try exact STEP1; try exact STEP0; eauto.
   { ii. inv H. congr. }
   i. des.
   exploit Local.promise_step_future; eauto. i. des.
@@ -552,6 +581,40 @@ Lemma reorder_update_promise
       lc1
       lc2 sc2
       lc3 mem3
+      (WF0: Local.wf lc0 mem0)
+      (SC0: Memory.closed_timemap sc0 mem0)
+      (MEM0: Memory.closed mem0)
+      (STEP1: Local.read_step lc0 mem0 loc1 ts1 val1 released1 ord1 lc1)
+      (STEP2: fulfill_step lc1 sc0 loc1 from2 to2 val2 released1 released2 ord2 lc2 sc2)
+      (STEP3: Local.promise_step lc2 mem0 loc3 from3 to3 val3 released3 lc3 mem3 kind3):
+  exists released1' lc1' lc2' lc3' sc3',
+    <<STEP1: Local.promise_step lc0 mem0 loc3 from3 to3 val3 released3 lc1' mem3 kind3>> /\
+    <<STEP2: Local.read_step lc1' mem3 loc1 ts1 val1 released1' ord1 lc2'>> /\
+    <<STEP3: fulfill_step lc2' sc0 loc1 from2 to2 val2 released1' released2 ord2 lc3' sc3'>> /\
+    <<RELEASED1: Capability.le released1' released1>> /\
+    <<LOCAL: sim_local lc3' lc3>> /\
+    <<SC: TimeMap.le sc3' sc2>>.
+Proof.
+  exploit Local.read_step_future; try exact STEP1; eauto. i. des.
+  exploit fulfill_step_future; try exact STEP2; eauto. i. des.
+  exploit reorder_fulfill_promise; try exact STEP2; try exact STEP3; eauto. i. des.
+  exploit Local.promise_step_future; eauto. i. des.
+  exploit reorder_read_promise; try exact STEP1; try exact STEP0; eauto. i. des.
+  exploit Local.promise_step_future; eauto. i. des.
+  exploit Local.read_step_future; eauto. i. des.
+  exploit sim_local_fulfill; try exact STEP4; try exact LOCAL; try exact REL1;
+    try exact WF3; try exact WF5; try refl; eauto; try by committac. i. des.
+  esplits; eauto.
+Qed.
+
+Lemma reorder_update_promise_diff
+      loc1 ts1 val1 released1 ord1
+      from2 to2 val2 released2 ord2
+      loc3 from3 to3 val3 released3 kind3
+      lc0 sc0 mem0
+      lc1
+      lc2 sc2
+      lc3 mem3
       (DIFF: (loc1, ts1) <> (loc3, to3))
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
@@ -567,7 +630,7 @@ Proof.
   exploit Local.read_step_future; try exact STEP1; eauto. i. des.
   exploit fulfill_step_future; try exact STEP2; eauto. i. des.
   exploit reorder_fulfill_promise; try exact STEP2; try exact STEP3; eauto. i. des.
-  exploit reorder_read_promise; try exact STEP1; try exact STEP0; eauto. i. des.
+  exploit reorder_read_promise_diff; try exact STEP1; try exact STEP0; eauto. i. des.
   esplits; eauto.
 Qed.
 
@@ -646,7 +709,7 @@ Proof.
   exploit Local.read_step_future; eauto. i. des.
   exploit fulfill_step_future; eauto. i. des.
   exploit write_promise_fulfill; eauto. i. des.
-  exploit reorder_update_promise; try exact STEP1; try exact STEP2; try exact STEP0; eauto.
+  exploit reorder_update_promise_diff; try exact STEP1; try exact STEP2; try exact STEP0; eauto.
   { ii. inv H. congr. }
   i. des.
   exploit Local.promise_step_future; eauto. i. des.
