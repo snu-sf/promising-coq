@@ -291,11 +291,6 @@ Proof.
   inv PROMISE_SRC; inv PROMISE_TGT.
   - eapply sim_memory_add; eauto.
   - eapply sim_memory_split; eauto.
-    cut (val3 = val0); [by i; subst; eauto|].
-    exploit Memory.split_get0; try exact MEM; eauto. i. des.
-    exploit Memory.split_get0; try exact MEM0; eauto. i. des.
-    inv SIM. exploit MSG; eauto. i. des.
-    rewrite GET3 in GET. inv GET. auto.
   - eapply sim_memory_lower; eauto.
 Qed.
 

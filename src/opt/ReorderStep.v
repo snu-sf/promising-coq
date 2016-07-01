@@ -72,21 +72,6 @@ Grab Existential Variables.
   { auto. }
 Qed.
 
-
-Lemma promise_step_promise_step
-      loc from1 from2 to val released1 released2 kind
-      lc0 mem0
-      lc1 mem1
-      lc2 mem2
-      (PROMISE1: Local.promise_step lc0 mem0 loc from1 to val released1 lc1 mem1 kind)
-      (PROMISE2: Local.promise_step lc1 mem1 loc from2 to val released2 lc2 mem2 (Memory.promise_kind_update from1 released1)):
-  Local.promise_step lc0 mem0 loc from2 to val released2 lc2 mem2 kind.
-Proof.
-  inv PROMISE1. inv PROMISE2. ss.
-  exploit MemoryMerge.promise_promise_promise; try exact PROMISE; eauto. i.
-  econs; eauto.
-Qed.
-
 Lemma future_read_step
       lc1 mem1 mem1' loc ts val released ord lc2
       (WF: Local.wf lc1 mem1)
@@ -180,10 +165,10 @@ Lemma reorder_read_promise
     <<STEP2: Local.read_step lc1' mem2 loc1 ts1 val1 released1 ord1 lc2>>.
 Proof.
   inv STEP1. inv STEP2. ss.
+  exploit MemoryFacts.promise_get1_diff; eauto. i. des.
   esplits; eauto.
   - econs; eauto.
   - econs; eauto.
-    eapply MemoryFacts.promise_get1_diff; eauto.
 Qed.
 
 Lemma reorder_read_fulfill
@@ -260,11 +245,12 @@ Proof.
     splits; auto. inv STEP1. auto.
   }
   i. des.
+  inv STEP1.
+  inversion STEP. inv WRITE. hexploit MemoryFacts.promise_get1_diff; try exact PROMISE; eauto.
+  { ii. inv H. congr. }
+  i. des.
   esplits; eauto.
   inv STEP7. econs; eauto.
-  inv STEP. inv WRITE. eapply MemoryFacts.promise_get1_diff; eauto.
-  - inv STEP0. eapply MemoryFacts.promise_get_inv_diff; eauto. ii. inv H. congr.
-  - ii. inv H. congr.
 Qed.
 
 Lemma reorder_read_update
@@ -674,11 +660,12 @@ Proof.
     erewrite fulfill_step_promises_diff; eauto.
   }
   i. des.
+  inv STEP1.
+  inversion STEP. inv WRITE. hexploit MemoryFacts.promise_get1_diff; try exact PROMISE; eauto.
+  { ii. inv H. congr. }
+  i. des.
   esplits; eauto; try refl.
   inv STEP9. econs; eauto.
-  inv STEP. inv WRITE. eapply MemoryFacts.promise_get1_diff; eauto.
-  - inv STEP0. eapply MemoryFacts.promise_get_inv_diff; eauto. ii. inv H. congr.
-  - ii. inv H. congr.
 Qed.
 
 Lemma reorder_update_update

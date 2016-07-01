@@ -241,7 +241,7 @@ Module Memory.
 
   Inductive promise_kind :=
   | promise_kind_add
-  | promise_kind_split (ts3:Time.t)
+  | promise_kind_split (ts3:Time.t) (val3:Const.t) (released3:Capability.t)
   | promise_kind_lower (released1:Capability.t)
   .
 
@@ -254,12 +254,12 @@ Module Memory.
       (MEM: add mem1 loc from to val released mem2)
       (TS: Time.le (Capability.rw released loc) to):
       promise promises1 mem1 loc from to val released promises2 mem2 promise_kind_add
-  | promise_update
+  | promise_split
       ts3 val3 released3
       (PROMISES: split promises1 loc from to ts3 val val3 released released3 promises2)
       (MEM: split mem1 loc from to ts3 val val3 released released3 mem2)
       (TS: Time.le (Capability.rw released loc) to):
-      promise promises1 mem1 loc from to val released promises2 mem2 (promise_kind_split ts3)
+      promise promises1 mem1 loc from to val released promises2 mem2 (promise_kind_split ts3 val3 released3)
   | promise_lower
       released0
       (PROMISES: lower promises1 loc from to val released0 released promises2)
