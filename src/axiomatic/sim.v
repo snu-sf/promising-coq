@@ -27,7 +27,7 @@ Require Import Machine.
 Set Implicit Arguments.
 Remove Hints plus_n_O.
 
-Hint Resolve gstep_coh gstep_inc coh_wf.
+Hint Resolve gstep_wf gstep_inc coh_wf.
 
 Lemma foo (P Q : Prop) : P -> (P -> Q) -> P /\ Q.
 Proof. tauto. Qed.
@@ -140,6 +140,18 @@ Definition sim_commit commit i :=
 
 End Simulation.
 
+Definition sim_time  (op_st: Configuration.t) (ax_st: Machine.configuration) f :=
+  << MONOTONE: monotone (mo ax_st) f >> /\  
+  << SIM_COMMIT: forall i foo local
+        (TID: IdentMap.find i (Configuration.threads op_st) = Some (foo, local)),
+        sim_commit f (acts ax_st) (sb ax_st) (rmw ax_st) (rf ax_st) (sc ax_st) 
+                   local.(Local.commit) i >> /\
+  << SIM_SC_MAP: forall l, max_value f (S_tm (acts ax_st) (sb ax_st) (rmw ax_st) 
+                                             (rf ax_st) l) 
+                                     (LocFun.find l (Configuration.sc op_st))  >> /\
+  << SIM_MEM: sim_mem f (acts ax_st) (sb ax_st) (rmw ax_st) (rf ax_st) (sc ax_st) 
+                      (Configuration.memory op_st) >>.
+
 Definition sim (op_st: Configuration.t) (ax_st: Machine.configuration) :=
   << COH: Coherent (acts ax_st) (sb ax_st) (rmw ax_st) (rf ax_st) (mo ax_st) (sc ax_st) >> /\
   << WF_OP_ST: Configuration.wf op_st >> /\
@@ -148,14 +160,7 @@ Definition sim (op_st: Configuration.t) (ax_st: Machine.configuration) :=
         (TID: IdentMap.find i (Configuration.threads op_st) = Some (foo, local)),
          local.(Local.promises) = Memory.bot>> /\
   << STATES: ts ax_st = IdentMap.map fst (Configuration.threads op_st) >> /\
-  << TIME: exists f, 
-    << MONOTONE: monotone (mo ax_st) f >> /\  
-    << SIM_COMMIT: forall i foo local
-        (TID: IdentMap.find i (Configuration.threads op_st) = Some (foo, local)),
-        sim_commit f (acts ax_st) (sb ax_st) (rmw ax_st) (rf ax_st) (sc ax_st) local.(Local.commit) i >> /\
-    << SIM_SC_MAP: forall l, max_value f (S_tm (acts ax_st) (sb ax_st) (rmw ax_st) (rf ax_st) l) 
-         (LocFun.find l (Configuration.sc op_st))>> /\
-    << SIM_MEM: sim_mem f (acts ax_st) (sb ax_st) (rmw ax_st) (rf ax_st) (sc ax_st) (Configuration.memory op_st)  >> >>.
+  exists f, << TIME : sim_time op_st ax_st f >>. 
 
 Lemma find_mapD A B tid (f: A -> B) x y :
   IdentMap.find tid (IdentMap.map f x) = Some y ->
@@ -195,25 +200,22 @@ Lemma tm_find_join l a b :
   LocFun.find l (TimeMap.join a b) = 
   Time.join (LocFun.find l a) (LocFun.find l b).
 Proof.
-Admitted.
+  done. 
+Qed.
 
 Lemma tm_find_singleton l l' t  :
   LocFun.find l (TimeMap.singleton l' t) = 
     if (Loc.eq_dec l l') then t else Time.bot.
 Proof.
-desf.
+  desf.
 Qed.
 
-Lemma tm_singleton l t  :
-  TimeMap.singleton l t l = t.
+Lemma tm_singleton l t : TimeMap.singleton l t l = t.
 Proof.
-unfold TimeMap.singleton, LocFun.add.
-rewrite Loc.eq_dec_eq.
-done.
+  apply Loc.eq_dec_eq; done.
 Qed.
 
-Lemma time_join_bot a  :
-  Time.join a Time.bot =  a.
+Lemma time_join_bot a : Time.join a Time.bot =  a.
 Proof.
 Admitted.
 
@@ -324,12 +326,12 @@ Qed.
 Lemma gstep_tm_to_a acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
   a (GSTEP: gstep acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc' a)
   (COH: Coherent acts sb rmw rf mo sc) 
-  tm 
-  (TM_HB: inclusion (tm acts' sb' rmw' rf' sc' ;; hb acts' sb' rmw' rf') (tm acts' sb' rmw' rf' sc'))
-  (TM_MON: inclusion (tm acts sb rmw rf sc) (tm acts' sb' rmw' rf' sc'))
-  (TM_ACTS : forall x y, tm acts sb rmw rf sc x y -> In y acts)
-   l x (CUR: t_cur tm acts sb rmw rf sc (thread a) l x) :
-   tm acts' sb' rmw' rf' sc' x a.
+  tm l 
+  (TM_HB: inclusion (tm acts' sb' rmw' rf' sc' l ;; hb acts' sb' rmw' rf') (tm acts' sb' rmw' rf' sc' l))
+  (TM_MON: inclusion (tm acts sb rmw rf sc l) (tm acts' sb' rmw' rf' sc' l))
+  (TM_ACTS : forall x y, tm acts sb rmw rf sc l x y -> In y acts)
+   x (CUR: t_cur tm acts sb rmw rf sc (thread a) l x) :
+   tm acts' sb' rmw' rf' sc' l x a.
 Proof.
 red in CUR; red in CUR; desc.
 red in CUR; desc.
@@ -352,26 +354,26 @@ Lemma Readable_cur_tm acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
   tm (CUR: max_value f (t_cur tm acts sb rmw rf sc (thread a) l) t) 
   (WRITE : forall x, t_cur tm acts sb rmw rf sc (thread a) l x -> is_write x)
   (ACTS : forall x, t_cur tm acts sb rmw rf sc (thread a) l x -> In x acts)
-  (COHERENT: forall c, mo' b c -> tm acts' sb' rmw' rf' sc' c a -> False)
-  (TM_HB: inclusion (tm acts' sb' rmw' rf' sc' ;; hb acts' sb' rmw' rf') (tm acts' sb' rmw' rf' sc'))
-  (TM_MON: inclusion (tm acts sb rmw rf sc) (tm acts' sb' rmw' rf' sc'))
-  (TM_ACTS : forall x y, tm acts sb rmw rf sc x y -> In y acts)
+  (COHERENT: forall c, mo' b c -> tm acts' sb' rmw' rf' sc' l c a -> False)
+  (TM_HB: inclusion (tm acts' sb' rmw' rf' sc' l ;; hb acts' sb' rmw' rf') 
+                    (tm acts' sb' rmw' rf' sc' l))
+  (TM_MON: inclusion (tm acts sb rmw rf sc l) (tm acts' sb' rmw' rf' sc' l))
+  (TM_DOMa: doma (tm acts sb rmw rf sc l) (fun e => loc e = Some l))
+  (TM_ACTS : forall x y, tm acts sb rmw rf sc l x y -> In y acts)
   (RFb: rf' b a) : Time.le t (f b).
 Proof.
 assert (~ is_write a).
   intro; unfold is_write in *; destruct (lab a); ins.
 red in CUR; desf.
 eapply transitivity with (y:=f a_max); try done.
-cdes GSTEP. 
-eapply monotone_converse with (acts:=(a :: acts)); eauto.
-- right; eauto. 
-- eapply rf_acta in RFb; eauto. rewrite <- ACT_STEP; eauto.
+cdes GSTEP; desf. 
+eapply monotone_converse with (acts:=(a :: acts)); ins; eauto using rf_acta, rf_doma.
+- by eapply rf_acta in RFb; try eassumption.
 - eapply rf_doma in RFb; eauto.
-- red in INa; red in INa; desc. apply c_cur_doma2 in INa. edone.
-- eapply loceq_rf in RFb; eauto. unfold loc in *. rewrite LABa in RFb. done.
+- by destruct INa; desc; pattern a_max; eapply c_cur_doma; eauto.
+- by eapply loceq_rf in RFb; eauto; unfold loc in *; rewrite LABa in RFb.
 - rewrite gstep_non_write_mo with (mo':=mo'); eauto.
-  rewrite <- ACT_STEP.
-  cdes COH0; cdes WF; eauto.
+  cdes WF'; eauto.
 - intro.
   eapply COHERENT; eauto.
   eapply gstep_non_write_mo with (acts:=acts) (mo:=mo); eauto.
@@ -399,18 +401,21 @@ eapply monotone_converse with (acts:=(a :: acts)); eauto.
 - eapply loceq_rf in RFb; eauto. unfold loc in *. rewrite LABa in RFb. auto.
 - rewrite gstep_non_write_mo with (mo':=mo'); eauto.
   rewrite <- ACT_STEP.
-  cdes COH0; cdes WF; eauto.
+  cdes WF'; eauto.
 - intro.
-  eapply Coherent_scr_rel; eauto.
+admit.
+(*  eapply Coherent_scr_rel; eauto.
   eapply gstep_non_write_mo with (mo:=mo); eauto.
   eapply gstep_scr_rel_nonwrite with (acts:=acts); eauto.
   unfold scr_rel, msg_rel, m_rel, seq, eqv_rel in *; desc; subst.
   eauto.
-Qed.
+*)
+Admitted.
 
 Lemma Readable_full acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
   a (GSTEP: gstep acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc' a)
   (COH: Coherent acts sb rmw rf mo sc) 
+  (COH': Coherent acts' sb' rmw' rf' mo' sc') 
   f (MON: monotone mo f) l v o b (LABa: lab a = Aload l v o)
   commit rel
   (MSG: max_value f (fun a => msg_rel scr acts sb rmw rf sc l a b) (Capability.sc rel l))
@@ -420,10 +425,10 @@ Lemma Readable_full acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
 Proof.
 red in CUR; desc.
 constructor; try intro.
--  eapply Readable_cur_tm; eauto using Coherent_ur, urr_hb, urr_mon with rel acts.
+-  eapply Readable_cur_tm; eauto using Coherent_urr, urr_hb, urr_mon with rel acts.
    by eapply urr_actb; eauto.
 - eapply Readable_cur_tm; eauto using rwr_hb, rwr_mon with rel acts.
-  ins; eapply Coherent_rw with (mo:=mo'); eauto.
+  ins; eapply Coherent_rwr with (mo:=mo'); eauto.
   right; splits; eauto with acts.
   eapply rwr_actb; eauto.
 - eapply Readable_cur_tm; eauto using scr_hb, scr_mon with rel acts.
@@ -456,7 +461,7 @@ assert (ACQa: is_acq a <-> Ordering.le Ordering.acqrel o).
 assert (SCa: is_sc a <-> Ordering.le Ordering.seqcst o).
   by destruct a; ins; desf.
 
-assert (~ is_fence a /\ ~ is_write a).
+assert (~ is_fence a /\ ~ is_write a /\ is_read a).
   by destruct a; ins; desf.
 
 destruct commit; simpl.
@@ -486,9 +491,13 @@ all: try (rewrite (gstep_t_acq_urr_read COH GSTEP b RFb); split; ins; desf; try 
 all: try (rewrite (gstep_t_acq_rwr_read COH GSTEP b RFb); split; ins; desf; try by eauto; try by (exfalso; eauto)).
 all: try (rewrite (gstep_t_acq_scr_read COH GSTEP b RFb); split; ins; desf; try by eauto; try by (exfalso; eauto)).
 
-rewrite (gstep_t_rel_other GSTEP urr (gstep_urr_a COH GSTEP) (urr_mon GSTEP)); auto.
-rewrite (gstep_t_rel_other GSTEP rwr (gstep_rwr_a COH GSTEP) (rwr_mon GSTEP)); auto.
-rewrite (gstep_t_rel_other GSTEP scr (gstep_scr_a COH GSTEP) (scr_mon GSTEP)); auto.
+
+rewrite (gstep_t_rel_other GSTEP _ _ (gstep_urr_a COH GSTEP (l:=_)) 
+                           (urr_mon GSTEP (l:=_))); auto.
+rewrite (gstep_t_rel_other GSTEP _ _ (gstep_rwr_a COH GSTEP (l:=_)) 
+                           (rwr_mon GSTEP (l:=_))); auto.
+rewrite (gstep_t_rel_other GSTEP _ _ (gstep_scr_a COH GSTEP (l:=_)) 
+                           (scr_mon GSTEP (l:=_))); auto.
 Qed.
 
 Lemma memory_step_nonwrite acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0
@@ -521,6 +530,7 @@ Admitted.
 Lemma Writable_cur_rwr acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
   a (GSTEP: gstep acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc' a)
   (COH: Coherent acts sb rmw rf mo sc) 
+  (COH': Coherent acts' sb' rmw' rf' mo' sc') 
   t f f' (F : forall b, In b acts -> f' b = f b)
   (MON: monotone mo' f') l v o (LABa: lab a = Astore l v o)
   (CUR: max_value f (t_cur rwr acts sb rmw rf sc (thread a) l) t) 
@@ -538,9 +548,9 @@ eapply monotone_converse_strict with (acts:=(a :: acts)); eauto.
 - eauto with rel.
 - unfold loc; rewrite LABa; done.
 - rewrite <- ACT_STEP.
-  cdes COH0; cdes WF; eauto.
+  cdes WF'; eauto.
 - intro.
-  eapply Coherent_rw; eauto.
+  eapply Coherent_rwr; eauto.
   eapply gstep_tm_to_a; eauto.
   eapply rwr_hb.
   eapply rwr_mon; eauto.
@@ -551,6 +561,7 @@ Qed.
 Lemma Writable_cur_scr acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
   a (GSTEP: gstep acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc' a)
   (COH: Coherent acts sb rmw rf mo sc) 
+  (COH': Coherent acts' sb' rmw' rf' mo' sc') 
   t f f' (F : forall b, In b acts -> f' b = f b)
   (MON: monotone mo' f') l v o (LABa: lab a = Astore l v o)
   (CUR: max_value f (t_cur scr acts sb rmw rf sc (thread a) l) t) 
@@ -567,8 +578,7 @@ eapply monotone_converse_strict with (acts:=(a :: acts)); eauto.
 - eauto with acts. 
 - eauto with rel.
 - unfold loc; rewrite LABa; done.
-- rewrite <- ACT_STEP.
-  cdes COH0; cdes WF; eauto.
+- rewrite <- ACT_STEP; cdes WF'; eauto.
 - intro.
   eapply Coherent_scr; eauto.
   eapply gstep_tm_to_a; eauto.
@@ -581,6 +591,7 @@ Qed.
 Lemma Writable_sc_map acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
   a (GSTEP: gstep acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc' a)
   (COH: Coherent acts sb rmw rf mo sc) 
+  (COH': Coherent acts' sb' rmw' rf' mo' sc') 
   t f f' (F : forall b, In b acts -> f' b = f b)
   (MON: monotone mo' f') l v o (LABa: lab a = Astore l v o)
   (SCMAP: max_value f (S_tm acts sb rmw rf l) t)
@@ -597,8 +608,7 @@ eapply monotone_converse_strict with (acts:=(a :: acts)); eauto.
 - eauto with acts. 
 - eauto with rel.
 - unfold loc; rewrite LABa; done.
-- rewrite <- ACT_STEP.
-  cdes COH0; cdes WF; eauto.
+- rewrite <- ACT_STEP; cdes WF'; eauto.
 - intro.
   eapply Coherent_scr; eauto.
   red in INa; red in INa; desc.
@@ -612,6 +622,7 @@ Qed.
 Lemma Writable_full acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
   a (GSTEP: gstep acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc' a)
   (COH: Coherent acts sb rmw rf mo sc) 
+  (COH': Coherent acts' sb' rmw' rf' mo' sc') 
   f f' (F : forall b, In b acts -> f' b = f b)
   (MON: monotone mo' f')
   l v o (LABa: lab a = Astore l v o)
@@ -649,31 +660,8 @@ assert (SCa: Ordering.le Ordering.seqcst o <-> is_sc a).
 assert (RAa: Ordering.le Ordering.acqrel o <-> is_rel a).
   by destruct a; ins; desf.
 
-
-
-  assert (ACQ_URR : forall (l : Loc.t) (x : event),
-          t_acq urr acts0 sb0 rmw0 rf0 sc0 (thread a) l x <->
-          t_acq urr acts sb rmw rf sc (thread a) l x \/
-          x = a /\ loc x = Some l).
-admit.
-assert (ACQ_RWR : forall (l : Loc.t) (x : event),
-          t_acq rwr acts0 sb0 rmw0 rf0 sc0 (thread a) l x <->
-          t_acq rwr acts sb rmw rf sc (thread a) l x \/
-          x = a /\ loc x = Some l).
-admit.
-assert (ACQ_SCR : forall (l : Loc.t) (x : event),
-          t_acq scr acts0 sb0 rmw0 rf0 sc0 (thread a) l x <->
-          t_acq scr acts sb rmw rf sc (thread a) l x \/
-          S_tm acts sb rmw rf l x /\ is_sc a \/ x = a /\ loc x = Some l).
-admit.
-
 assert (LOC_A: Gevents.loc a = Some l). 
-  unfold Gevents.loc; destruct (lab a); ins; desf.
-
-assert (FOO: forall r l l' x,
-  t_rel r acts sb rmw rf sc (thread a) l l' x ->
-  t_cur r acts sb rmw rf sc (thread a) l' x).
-admit.
+  by unfold Gevents.loc; destruct (lab a); ins; desf.
 
 destruct commit; simpl.
 red in COMMIT; desc; red in CUR; red in ACQ; red in REL; desc.
@@ -696,25 +684,26 @@ all: simpl.
 all: try by intro x; split; [intro K; pattern x; exact K|].
 all: intro x.
 
+all: clear 
+  CUR_UR CUR_RW CUR_SC
+  ACQ_UR ACQ_RW ACQ_SC
+  REL_UR REL_UR0 REL_UR1.
+
+  all: try rewrite (gstep_t_acq_urr_nonread COH GSTEP NR).  
+  all: try rewrite (gstep_t_acq_rwr_nonread COH GSTEP NR).  
+  all: try rewrite (gstep_t_acq_scr_nonread COH GSTEP NR).  
   all: try rewrite (gstep_t_cur_urr_write COH GSTEP WRITE).
   all: try rewrite (gstep_t_cur_rwr_write COH GSTEP WRITE).
   all: try rewrite (gstep_t_cur_scr_write COH GSTEP WRITE).
-  all: try rewrite ACQ_URR.
-  all: try rewrite ACQ_RWR.
-  all: try rewrite ACQ_SCR.
-
-  all: try rewrite (gstep_t_rel_urr_write COH GSTEP WRITE LOC_A).
-  all: try rewrite (gstep_t_rel_rwr_write COH GSTEP WRITE LOC_A).
-  all: try rewrite (gstep_t_rel_scr_write COH GSTEP WRITE LOC_A).
-  all: try rewrite (gstep_t_rel_other GSTEP _ (gstep_urr_a COH GSTEP) (urr_mon GSTEP)).
-  all: try rewrite (gstep_t_rel_other GSTEP _ (gstep_rwr_a COH GSTEP) (rwr_mon GSTEP)).
-  all: try rewrite (gstep_t_rel_other GSTEP _ (gstep_scr_a COH GSTEP) (scr_mon GSTEP)).
-  all: try (repeat right; split; ins; congruence).
-  all: try (split; ins; desf; eauto).
-  all: eauto 8.
+  all: try rewrite (gstep_t_rel_urr_write COH GSTEP WRITE).
+  all: try rewrite (gstep_t_rel_rwr_write COH GSTEP WRITE).
+  all: try rewrite (gstep_t_rel_scr_write COH GSTEP WRITE).
+  all: split; ins; desf; eauto 3.
   all: try by exfalso; eauto.
+  all: eauto 10 with rel.
+  all: eauto using inclusion_refl2 with rel_mon.
   by exploit RAa0; try done; destruct a as [??[]]; ins; destruct o0; ins.
-Admitted. 
+Qed. 
 
 Lemma sc_map_step_write acts sb rmw rf mo sc sc_map acts0 sb0 rmw0 rf0 mo0 sc0
   (COH : Coherent acts sb rmw rf mo sc)
@@ -754,184 +743,179 @@ Qed.
 (******************************************************************************)
 (** * Lemmas for the fence step   *)
 (******************************************************************************)
-Lemma commit_step_fence acts sb rmw rf mo sc sc_map acts0 sb0 rmw0 rf0 mo0 sc0
+
+Lemma commit_step_scfence acts sb rmw rf mo sc sc_map acts0 sb0 rmw0 rf0 mo0 sc0
   (COH : Coherent acts sb rmw rf mo sc)
   f (MONOTONE : monotone mo f)
   (SIM_SC_MAP : forall l : Loc.t, max_value f (S_tm acts sb rmw rf l) (LocFun.find l sc_map))
   a o_r o_w (LABa : lab a = Afence o_r o_w)
+  (F: is_sc_fence a)
+  (ACQ: is_acq a)
+  (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a)
+  commit (COMMIT: sim_commit f acts sb rmw rf sc commit (thread a)):
+  sim_commit f acts0 sb0 rmw0 rf0 sc0 (Commit.write_fence_commit
+     (Commit.read_fence_commit commit o_r) sc_map o_w) (thread a).
+Proof.
+  assert (FENCE: is_fence a).
+    by destruct a; ins; desf.
+  assert (NR: ~ is_read a).
+    eauto with acts.
+
+  assert (SCa: Ordering.le Ordering.seqcst o_w).
+     by destruct a; ins; desf.
+  assert (RAa: Ordering.le Ordering.acqrel o_r).
+     by destruct a; ins; desf.
+  assert (RAr: Ordering.le Ordering.acqrel o_w).
+     by destruct a; ins; desf; destruct o_w.
+
+  destruct commit; simpl.
+  unfold Commit.write_fence_commit, Commit.read_fence_commit,
+         Commit.write_fence_sc.
+  simpl; rewrite SCa, RAa, RAr.
+
+  assert (K: forall l, 
+          max_value f (S_tm acts0 sb0 rmw0 rf0 l)
+           (LocFun.find l (TimeMap.join sc_map (Capability.sc acq)))).
+    cdes COMMIT; cdes ACQ0; ins. 
+    ins; rewrite !tm_find_join.
+    ins; eapply max_value_join; [eapply SIM_SC_MAP| |]; eauto.
+    by eapply gstep_S_tm_fence; eauto.
+
+  unfold sim_commit, sim_acq, sim_cur, sim_rel; splits; ins; desf.
+
+all: try rewrite TimeMap.le_join_r with (r := TimeMap.join _ _).
+all: try eapply max_value_same_set; try apply K; 
+     eauto using gstep_t_cur_urr_scfence,
+     gstep_t_cur_rwr_scfence,
+     gstep_t_cur_srr_scfence, (* TYPO *)
+     gstep_t_acq_urr_scfence,
+     gstep_t_acq_rwr_scfence,
+     gstep_t_acq_scr_scfence,
+     gstep_t_rel_urr_scfence,
+     gstep_t_rel_rwr_scfence,
+     gstep_t_rel_scr_scfence.
+all: try etransitivity; [|by apply TimeMap.join_r]; vauto.
+admit.
+admit.
+Admitted.
+
+
+Lemma commit_step_rafence acts sb rmw rf mo sc sc_map acts0 sb0 rmw0 rf0 mo0 sc0
+  (COH : Coherent acts sb rmw rf mo sc)
+  f (MONOTONE : monotone mo f)
+  (SIM_SC_MAP : forall l : Loc.t, max_value f (S_tm acts sb rmw rf l) (LocFun.find l sc_map))
+  a o_r o_w (LABa : lab a = Afence o_r o_w) (NSC: ~ is_sc a)
   (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a)
   commit (COMMIT: sim_commit f acts sb rmw rf sc commit (thread a)):
   sim_commit f acts0 sb0 rmw0 rf0 sc0 (Commit.write_fence_commit
      (Commit.read_fence_commit commit o_r) sc_map o_w) (thread a).
 Proof.
 
-assert (FENCE: is_fence a).
-  by destruct a; ins; desf.
-assert (NR: ~ is_read a).
+  assert (FENCE: is_fence a).
+    by destruct a; ins; desf.
+  assert (NR: ~ is_read a).
   eauto with acts.
 
-assert (SCa: Ordering.le Ordering.seqcst o_w <-> is_sc a).
-  by destruct a; ins; desf.
-assert (RAa: Ordering.le Ordering.acqrel o_r <-> is_acq a).
-  by destruct a; ins; desf.
-assert (RAr: Ordering.le Ordering.acqrel o_w <-> is_rel a).
-  by destruct a; ins; desf.
+  assert (SCa: Ordering.le Ordering.seqcst o_w = false).
+    by destruct a; ins; desf; destruct o_w; ins; desf; destruct NSC; ins. 
+  assert (RAa: Ordering.le Ordering.acqrel o_r <-> is_acq a).
+    by destruct a; ins; desf.
+  assert (RAr: Ordering.le Ordering.acqrel o_w <-> is_rel a).
+    by destruct a; ins; desf.
 
+  destruct commit; simpl.
+  unfold Commit.write_fence_commit, Commit.read_fence_commit,
+         Commit.write_fence_sc.
 
+  red in COMMIT; desc; red in CUR; red in ACQ; red in REL; desc.
+  unfold sim_commit, sim_acq, sim_cur, sim_rel; splits; ins; desf.
 
-assert (forall acts sb rmw rf sc, inclusion (urr acts sb rmw rf sc) (rwr acts sb rmw rf sc)).
-by vauto.
-assert (forall acts sb rmw rf sc, inclusion (rwr acts sb rmw rf sc) (scr acts sb rmw rf sc))
-by vauto.
-
-assert (FOOca: forall r r' l x,
-  t_cur r acts sb rmw rf sc (thread a) l x ->
-  (forall acts sb rmw rf sc, inclusion (r acts sb rmw rf sc) (r' acts sb rmw rf sc)) ->
-  t_acq r' acts sb rmw rf sc (thread a) l x).
-admit.
-
-assert (FOOaa: forall r r' l x,
-  t_acq r acts sb rmw rf sc (thread a) l x ->
-  (forall acts sb rmw rf sc, inclusion (r acts sb rmw rf sc) (r' acts sb rmw rf sc)) ->
-  t_acq r' acts sb rmw rf sc (thread a) l x).
-admit.
-
-assert (FOOcc: forall r r' l x,
-  t_cur r acts sb rmw rf sc (thread a) l x ->
-  (forall acts sb rmw rf sc, inclusion (r acts sb rmw rf sc) (r' acts sb rmw rf sc)) ->
-  t_cur r' acts sb rmw rf sc (thread a) l x).
-admit.
-
-assert (FOOrc: forall r l l' x,
-  t_rel r acts sb rmw rf sc (thread a) l l' x ->
-  t_cur r acts sb rmw rf sc (thread a) l' x).
-admit.
-
-assert (FOOra: forall r l l' x,
-  t_rel r acts sb rmw rf sc (thread a) l l' x ->
-  t_acq r acts sb rmw rf sc (thread a) l' x).
-admit.
-
-destruct commit; simpl.
-unfold Commit.write_fence_commit, Commit.read_fence_commit,
-       Commit.write_fence_sc.
-
-red in COMMIT; desc; red in CUR; red in ACQ; red in REL; desc.
-unfold sim_commit, sim_acq, sim_cur, sim_rel; splits; ins; desf.
-
-all: try rewrite !cap_join_bot.
-all: ins.
-all: try rewrite !tm_join_bot.
-all: try rewrite !tm_find_join.
-all: try rewrite !tm_find_singleton; desf.
-all: try rewrite !time_join_bot.
-all: do 2 (try match goal with
-| [|- max_value _ _ (Time.join _ _)] => eapply max_value_join  end).
-all: try match goal with
-       | [|- max_value _ _ (LocFun.find _ _)] => eapply max_value_same_set; eauto with acts
-       | [|- max_value _ _ _ ] => eapply max_value_singleton; eauto end.
-all: try by intro x; split; [intro K; pattern x; exact K|].
-all: intro x.
-
-all: try rewrite (gstep_t_acq_urr_nonread COH GSTEP NR).
-all: try rewrite (gstep_t_acq_rwr_nonread COH GSTEP NR).
-all: try rewrite (gstep_t_acq_scr_nonread COH GSTEP NR).
-
-all: try rewrite (gstep_t_cur_urr_fence COH GSTEP FENCE).
-all: try rewrite (gstep_t_cur_rwr_fence COH GSTEP FENCE).
-all: try rewrite (gstep_t_cur_scr_fence COH GSTEP FENCE).
-
-all: try rewrite (gstep_t_rel_urr_fence COH GSTEP FENCE).
-all: try rewrite (gstep_t_rel_rwr_fence COH GSTEP FENCE).
-all: try rewrite (gstep_t_rel_scr_fence COH GSTEP FENCE).
-
-
-  all: try (split; ins; desf; eauto).
+  all: try rewrite !cap_join_bot.
+  all: ins.
+  all: try rewrite !tm_join_bot.
+  all: try rewrite !tm_find_join.
+  all: try rewrite !tm_find_singleton; desf.
+  all: try rewrite !time_join_bot.
+  all: do 2 (try match goal with
+                   | [|- max_value _ _ (Time.join _ _)] => eapply max_value_join  end).
+  all: try match goal with
+             | [|- max_value _ _ (LocFun.find _ _)] => 
+               eapply max_value_same_set; eauto with acts
+             | [|- max_value _ _ _ ] => eapply max_value_singleton; eauto end.
+  all: try by intro x; split; [intro K; pattern x; exact K|].
+  all: intro x.
+  all: try rewrite (gstep_t_acq_urr_nonread COH GSTEP NR).
+  all: try rewrite (gstep_t_acq_rwr_nonread COH GSTEP NR).
+  all: try rewrite (gstep_t_acq_scr_nonread COH GSTEP NR).
+  all: try rewrite (gstep_t_cur_urr_rafence COH GSTEP FENCE).
+  all: try rewrite (gstep_t_cur_rwr_rafence COH GSTEP FENCE).
+  all: try rewrite (gstep_t_cur_scr_rafence COH GSTEP FENCE).
+  all: try rewrite (gstep_t_rel_urr_rafence COH GSTEP FENCE).
+  all: try rewrite (gstep_t_rel_rwr_rafence COH GSTEP FENCE).
+  all: try rewrite (gstep_t_rel_scr_rafence COH GSTEP FENCE).
+  all: ins.
+  all: try (split; ins; desf; eauto 3).
   all: try by exfalso; eauto.
-  all: try by destruct o_w.
-  all: eauto using inclusion_refl2.
-  all: eauto 8 using inclusion_refl2, ur_in_sc, ur_in_rw, rw_in_sc.
-all: admit.
-
-
-Admitted.
+  all: eauto using inclusion_refl2 with rel_mon.
+  all: eauto 8 using inclusion_refl2 with rel_mon.
+Qed.
 
 (******************************************************************************)
 (** * Main Theorem: the operational machine simulates the axiomatic machine   *)
 (******************************************************************************)
 
-Lemma ax_op_sim :
-  forall op_st ax_st (SIM: sim op_st ax_st) ax_st' (AXSTEP: step ax_st ax_st'),
-  exists e tid op_st', Configuration.step e tid op_st op_st' /\ sim op_st' ax_st'.
+Definition proof_obligation ax_st ax_st' op_st i lang st st' :=
+  forall
+   (COH : Coherent (acts ax_st) (sb ax_st) (rmw ax_st) 
+          (rf ax_st) (mo ax_st) (sc ax_st))
+   (WF_OP_ST : Configuration.wf op_st)
+   (CONS_OP_ST : Configuration.consistent op_st)
+   (STATES : ts ax_st = IdentMap.map fst (Configuration.threads op_st))
+   f (TIME : sim_time op_st ax_st f) commit
+   (COMMIT : sim_commit f (acts ax_st) (sb ax_st) (rmw ax_st) 
+          (rf ax_st) (sc ax_st) commit i),
+  exists te commit' sc' mem' op_st' threads' local', 
+    << OP_ST': op_st' = Configuration.mk threads' sc' mem' >> /\ 
+    << THREAD': threads' = IdentMap.add i (existT Language.state lang st', local') 
+                                          (Configuration.threads op_st) >> /\ 
+    << LOCAL': local' = Local.mk commit' Memory.bot >> /\ 
+    << STEP: Thread.program_step te 
+                    (Thread.mk lang st (Local.mk commit Memory.bot) 
+                               (Configuration.sc op_st) (Configuration.memory op_st))
+                    (Thread.mk lang st' local' sc' mem') >> /\
+    exists f', 
+      << F: forall b, In b (acts ax_st) -> f' b = f b >> /\
+      << MONOTONE: monotone (mo ax_st') f' >> /\  
+      << SIM_COMMIT: sim_commit f' (acts ax_st') (sb ax_st') (rmw ax_st') 
+                                (rf ax_st') (sc ax_st') commit' i >> /\
+      << SIM_SC_MAP: forall l, max_value f' (S_tm (acts ax_st') (sb ax_st') (rmw ax_st') 
+                                                  (rf ax_st') l) 
+                                         (LocFun.find l sc')  >> /\
+      << SIM_MEM: sim_mem f' (acts ax_st') (sb ax_st') (rmw ax_st') 
+                          (rf ax_st') (sc ax_st') mem'  >>.
+
+
+Lemma ax_op_sim_step_read :
+  forall op_st ax_st ax_st'
+         a l v o (LABa : lab a = Aload l v o)
+   (GSTEP : gstep (acts ax_st) (sb ax_st) (rmw ax_st) 
+            (rf ax_st) (mo ax_st) (sc ax_st) (acts ax_st') 
+            (sb ax_st') (rmw ax_st') (rf ax_st') (mo ax_st') 
+            (sc ax_st') a)
+   (COH' : Coherent (acts ax_st') (sb ax_st') (rmw ax_st') 
+           (rf ax_st') (mo ax_st') (sc ax_st')) 
+   lang st st'
+   (STATE : Language.step lang (Some (ProgramEvent.read l v o)) st st'),
+  proof_obligation ax_st ax_st' op_st (thread a) lang st st'.
 Proof.
-ins; red in SIM; desc.
-destruct AXSTEP.
+  red; ins; red in TIME; desc. 
+  destruct ax_st, ax_st'; simpl; ins.
 
-rewrite STATES in TID.
-apply find_mapD in TID; desc; destruct z as [? local]; ins; desf.
-destruct local as [commit promises].
-assert (TID' := TID).
-apply NO_PROMISES in TID'; ins; subst.
-
-cut (exists te commit' sc' mem' op_st' threads' local', 
-<< OP_ST': op_st' = Configuration.mk threads' sc' mem' >> /\ 
-<< THREAD': threads' = IdentMap.add i 
-  (existT Language.state lang st', local') (Configuration.threads op_st) >> /\ 
-<< LOCAL': local' = Local.mk commit' Memory.bot >> /\ 
-<< STEP: Thread.program_step te 
-    (Thread.mk lang st (Local.mk commit Memory.bot) (Configuration.sc op_st) (Configuration.memory op_st))
-    (Thread.mk lang st' local' sc' mem') >> /\
-  << TIME: exists f', 
-    << F: forall b : event, In b (acts ax_st) -> f' b = f b >> /\
-    << MONOTONE: monotone (mo ax_st') f' >> /\  
-    << SIM_COMMIT: sim_commit f' (acts ax_st') (sb ax_st') (rmw ax_st') (rf ax_st') (sc ax_st') commit' i >> /\
-    << SIM_SC_MAP: forall l, max_value f' (S_tm (acts ax_st') (sb ax_st') (rmw ax_st') (rf ax_st') l) 
-        (LocFun.find l sc')  >> /\
-    << SIM_MEM: sim_mem f' (acts ax_st') (sb ax_st') (rmw ax_st') (rf ax_st') (sc ax_st') mem'  >> >>).
-{
-  ins; desc.
-  eexists _,i,_.
-  apply foo; [|intro CSTEP].
-  -  econstructor; try edone; try apply Thread.step_program; eauto.
-    red; ins; eexists; splits; eauto; simpl; desf.
-  - red; simpl; splits; eauto.
-    * destruct MSTEP; eauto.
-      by rewrite <- SAME_ACTS, <- SAME_SB, <- SAME_RMW, <- SAME_RF, <- SAME_MO, <- SAME_SC.
-    * eapply Configuration.step_future; eauto.
-    * eapply Configuration.step_future; eauto.
-    * intro; rewrite IdentMap.gsspec. ins; desf; simpl; eapply NO_PROMISES; eauto.
-    * by rewrite IdentMap.map_add; simpl; rewrite MTS, STATES.
-    * eexists. splits; eauto; ins.
-      rewrite IdentMap.gsspec in TID0; desf; ins; simpl.
-      destruct MSTEP. 
-        rewrite <- SAME_ACTS, <- SAME_SB, <- SAME_RMW, <- SAME_RF, <- SAME_SC.
-        eapply sim_commit_other_threads_silent; eauto.
-      all: eapply sim_commit_other_threads; eauto 2.
-      all: try eapply sim_commit_other_threads; eauto 2.
-      all: intro; subst; eauto.
-}
-
-unnw. 
-apply SIM_COMMIT in TID.
-ins.
-clear NO_PROMISES SIM_COMMIT.
-destruct ax_st, ax_st'; simpl; ins.
-destruct MSTEP; ins; subst.
-
-
-{ (** SILENT **)
-eexists _,_,_,_,_,_,_.
-splits; eauto.
-eapply Thread.step_silent; eauto.
-exists f; splits; eauto.
-}
-
-{ (** READ **)
 generalize (gstep_read_rf COH GSTEP LABa); intro; desc.
 
 assert (E: exists from rel, Cell.get (f b) ((Configuration.memory op_st) l) = 
           Some (from, {| Message.val:=v; Message.released:=rel |})).
-  cdes GSTEP; cdes INC; cdes COH0; cdes WF.
+  cdes GSTEP; cdes INC; cdes WF'.
   eapply get_cell; try edone. 
   rewrite <- ACT_STEP in *; try edone.
 
@@ -948,43 +932,153 @@ eexists _,_,_,_,_,_,_.
 splits; eauto.
 - eapply Thread.step_read; eauto.
   econstructor; eauto.
-  red in TID; red in SIMMSG; desc.
+  red in COMMIT; red in SIMMSG; desc.
   eapply Readable_full; eauto. 
 - exists f; splits; eauto.
   * rewrite <- gstep_non_write_mo; eauto with acts.
-  * eapply commit_step_read; edone.
+  * eapply commit_step_read with (acts := acts) (acts0 := acts0); eauto.
   * ins. eapply max_value_same_set; try edone.
     ins; rewrite gstep_S_tm_other; eauto with acts.
-  * eapply memory_step_nonwrite; eauto with acts.
-}
-{ (** Write **)
-generalize (new_f GSTEP MONOTONE); intro; desc.
-eexists _,_,_,_,_,_,_. splits; eauto.
-- eapply Thread.step_write; eauto.
+  * eapply memory_step_nonwrite with (acts := acts) (acts0 := acts0); eauto with acts.
+Qed.
+
+Lemma ax_op_sim_step_write :
+  forall op_st ax_st ax_st'
+         a l v o (LABa : lab a = Astore l v o)
+   (GSTEP : gstep (acts ax_st) (sb ax_st) (rmw ax_st) 
+            (rf ax_st) (mo ax_st) (sc ax_st) (acts ax_st') 
+            (sb ax_st') (rmw ax_st') (rf ax_st') (mo ax_st') 
+            (sc ax_st') a)
+   (COH' : Coherent (acts ax_st') (sb ax_st') (rmw ax_st') 
+           (rf ax_st') (mo ax_st') (sc ax_st')) 
+   lang st st'
+   (STATE : Language.step lang (Some (ProgramEvent.write l v o)) st st'),
+  proof_obligation ax_st ax_st' op_st (thread a) lang st st'.
+Proof.
+  red; ins; red in TIME; ins; desc.
+  destruct ax_st, ax_st'; simpl; ins.
+
+  generalize (new_f GSTEP MONOTONE); intro; desc.
+  eexists _,_,_,_,_,_,_; splits; eauto.
+  - eapply Thread.step_write; eauto.
   econstructor; eauto.
-  * red in TID; desc.
-    eapply Writable_full; eauto.
+  * red in COMMIT; desc; eapply Writable_full; eauto.
   * admit.
-- exists f'; splits; try done.
+  - exists f'; splits; try done.
   * eapply commit_step_write; eauto.
   * eapply sc_map_step_write; eauto.
   * admit. 
-}
-{ (** Update **)
-admit.
-}
-{
-(** Fence **)
-eexists _,_,_,_,_,_,_. splits; eauto.
-eapply Thread.step_fence; eauto.
-econstructor; eauto.
-exists f; splits; eauto.
-* rewrite <- gstep_non_write_mo; eauto with acts.
-* eapply commit_step_fence; eauto.
-* admit.
-* eapply memory_step_nonwrite; eauto with acts.
-}
 Admitted.
+
+
+Lemma ax_op_sim_step_update :
+  forall op_st ax_st ax_st'
+         a_r l v_r o_r (LABar : lab a_r = Aload l v_r o_r)
+         a_w v_w o_w (LABaw : lab a_w = Astore l v_w o_w)
+         mc_mid
+  (GSTEPr : gstep (acts ax_st) (sb ax_st) (rmw ax_st) 
+             (rf ax_st) (mo ax_st) (sc ax_st) (acts mc_mid) 
+             (sb mc_mid) (rmw mc_mid) (rf mc_mid) 
+             (mo mc_mid) (sc mc_mid) a_r)
+  (GSTEPw : gstep (acts mc_mid) (sb mc_mid) (rmw mc_mid) 
+             (rf mc_mid) (mo mc_mid) (sc mc_mid) (acts ax_st') 
+             (sb ax_st') (rmw ax_st') (rf ax_st') 
+             (mo ax_st') (sc ax_st') a_w)
+  (COHmid : Coherent (acts mc_mid) (sb mc_mid) (rmw mc_mid) 
+             (rf mc_mid) (mo mc_mid) (sc mc_mid))
+  (COH' : Coherent (acts ax_st') (sb ax_st') (rmw ax_st') 
+             (rf ax_st') (mo ax_st') (sc ax_st'))
+   lang st st'
+   (STATE : Language.step lang (Some (ProgramEvent.update l v_r v_w o_r o_w)) st st'),
+  proof_obligation ax_st ax_st' op_st (thread a_r) lang st st'.
+Proof.
+Admitted.
+
+Lemma ax_op_sim_step_fence :
+  forall op_st ax_st ax_st'
+         a o_r o_w (LABa : lab a = Afence o_r o_w)
+   (GSTEP : gstep (acts ax_st) (sb ax_st) (rmw ax_st) 
+            (rf ax_st) (mo ax_st) (sc ax_st) (acts ax_st') 
+            (sb ax_st') (rmw ax_st') (rf ax_st') (mo ax_st') 
+            (sc ax_st') a)
+   (COH' : Coherent (acts ax_st') (sb ax_st') (rmw ax_st') 
+           (rf ax_st') (mo ax_st') (sc ax_st')) 
+   lang st st'
+   (STATE : Language.step lang (Some (ProgramEvent.fence o_r o_w)) st st'),
+  proof_obligation ax_st ax_st' op_st (thread a) lang st st'.
+Proof.
+  red; ins; red in TIME; ins; desc.
+  destruct ax_st, ax_st'; simpl; ins.
+
+  eexists _,_,_,_,_,_,_; splits; eauto.
+  eapply Thread.step_fence; eauto.
+  econstructor; eauto.
+  exists f; splits; eauto.
+  * rewrite <- gstep_non_write_mo; eauto with acts.
+
+  * destruct (classic (is_sc a)); 
+      [ eapply commit_step_scfence|eapply commit_step_rafence]; eauto.
+    by destruct a as [??[]]; ins; destruct o_w; ins. 
+admit. (* Assume all SC fences are ACQ *)
+  * 
+admit.
+  * eapply memory_step_nonwrite; eauto with acts.
+Admitted.
+
+
+Lemma ax_op_sim :
+  forall op_st ax_st (SIM: sim op_st ax_st) ax_st' (AXSTEP: step ax_st ax_st'),
+  exists e tid op_st', Configuration.step e tid op_st op_st' /\ sim op_st' ax_st'.
+Proof.
+  ins; red in SIM; desc.
+  destruct AXSTEP.
+
+  rewrite STATES in TID.
+  apply find_mapD in TID; desc; destruct z as [? local]; ins; desf.
+  destruct local as [commit promises].
+  assert (TID' := TID).
+  apply NO_PROMISES in TID'; ins; subst.
+
+  cut (proof_obligation ax_st ax_st' op_st i lang st st').
+  {
+    intro X; exploit X; eauto; clear X; ins; desc. 
+       by eapply TIME; eauto.
+    eexists _,i,_.
+    apply foo; [|intro CSTEP].
+  -  econstructor; try edone; try apply Thread.step_program; eauto.
+     red; ins; eexists; splits; eauto; simpl; desf.
+  - red; simpl; splits; eauto.
+    * destruct MSTEP; eauto.
+      by rewrite <- SAME_ACTS, <- SAME_SB, <- SAME_RMW, <- SAME_RF, <- SAME_MO, <- SAME_SC.
+    * eapply Configuration.step_future; eauto.
+    * eapply Configuration.step_future; eauto.
+    * intro; rewrite IdentMap.gsspec. ins; desf; simpl; eapply NO_PROMISES; eauto.
+    * by rewrite IdentMap.map_add; simpl; rewrite MTS, STATES.
+    * red in TIME; desc; eexists; red; simpl; splits; eauto; ins.
+      rewrite IdentMap.gsspec in TID0; desf; ins; simpl.
+      destruct MSTEP; subst.
+        rewrite <- SAME_ACTS, <- SAME_SB, <- SAME_RMW, <- SAME_RF, <- SAME_SC.
+        eapply sim_commit_other_threads_silent; eauto.
+      all: eapply sim_commit_other_threads; eauto 2.
+      all: try eapply sim_commit_other_threads; eauto 2.
+      all: try intro; subst; eauto.
+   }
+  clear f TIME.
+
+  destruct MSTEP; ins; subst.
+  { (** SILENT **)
+    destruct ax_st, ax_st'; ins; desf.
+    red; ins; eexists _,_,_,_,_,_,_.
+    splits; eauto.
+    eapply Thread.step_silent; eauto.
+    red in TIME; ins; desc; subst.
+    exists f; splits; eauto.
+  }
+  by eapply ax_op_sim_step_read; eauto.
+  by eapply ax_op_sim_step_write; eauto.
+  by eapply ax_op_sim_step_update; eauto.
+  by eapply ax_op_sim_step_fence; eauto.
+Qed.
 
 (* Lemma ax_sim_op :
   forall op_st ax_st (SIM: sim op_st ax_st) op_st' e tid (OPSTEP: Configuration.step tid e op_st op_st'),
