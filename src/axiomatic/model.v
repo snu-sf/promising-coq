@@ -120,16 +120,32 @@ Section Consistency.
   Lemma ur_in_sc l : inclusion (urr l) (scr l).
   Proof. transitivity (rwr l); vauto. Qed.
 
-(*
-  Lemma reflexive_ur l a (IN: In a acts): urr l a a.
-  Proof. repeat (eexists; splits; eauto). Qed.
+  Section MonotonicityLemmas.
 
-  Lemma reflexive_rw a (IN: In a acts): rwr a a.
-  Proof. left; apply reflexive_ur; done. Qed.
+    Variables (tm tm' : relation event).
+    Hypothesis (M: inclusion tm tm').
+    Variables (i : thread_id) (l' : Loc.t).
+    Ltac local_tac := unfold c_rel, c_cur, c_acq; rewrite M; try done.
 
-  Lemma reflexive_sc a (IN: In a acts): scr a a.
-  Proof. left; apply reflexive_rw; done. Qed.
-*)
+    Lemma c_rel_mon : inclusion (c_rel i l' tm) (c_rel i l' tm').
+    Proof. local_tac. Qed.
+
+    Lemma c_cur_mon : inclusion (c_cur i tm) (c_cur i tm').
+    Proof. local_tac. Qed.
+
+    Lemma c_acq_mon : inclusion (c_acq i tm) (c_acq i tm').
+    Proof. local_tac. Qed.
+
+    Lemma c_rel_cur_mon : inclusion (c_rel i l' tm) (c_cur i tm').
+    Proof. local_tac; rewrite !inclusion_seq_eqv_l; done. Qed.
+  
+    Lemma c_cur_acq_mon : inclusion (c_cur i tm) (c_acq i tm').
+    Proof. local_tac; rewrite crE; rel_simpl. Qed.
+
+    Lemma c_rel_acq_mon : inclusion (c_rel i l' tm) (c_acq i tm').
+    Proof. local_tac; rewrite !inclusion_seq_eqv_l, crE; rel_simpl. Qed.
+
+  End MonotonicityLemmas.
 
   Lemma hb_hb : inclusion (hb ;; hb) hb.
   Proof. unfold seq, inclusion; ins; desf; vauto. Qed.
@@ -996,12 +1012,12 @@ Section Exports.
 
   Variable acts : list event.
   Variables sb rmw rf mo sc : relation event.
-  Hypothesis COH : Coherent acts sb rmw rf mo sc.
+  Hypothesis WF : Wf acts sb rmw rf mo sc.
   Variables i : thread_id.
   Variables l' l : Loc.t.
   Variables x y : event.
 
-  Hint Resolve coh_wf c_rel_doma c_cur_doma c_acq_doma.
+  Hint Resolve c_rel_doma c_cur_doma c_acq_doma.
   Hint Resolve urr_acta rwr_acta scr_acta.
   Hint Resolve urr_actb rwr_actb scr_actb.
 
@@ -1067,28 +1083,65 @@ Section Exports.
   Lemma msg_rel_scr_doma2: msg_rel scr acts sb rmw rf sc l x y -> loc x = Some l.
   Proof. intro H; pattern x; revert H; apply m_rel_doma, scr_doma2. Qed.
 
-(*
-  Lemma t_rel_dom1 tmr: t_rel tmr acts sb rmw rf sc i l' l x ->  is_write x .
-  Proof. apply dom_dom_rel; eauto using c_rel_doma with rel. Qed.
-  Lemma t_rel_dom2 tmr: t_rel tmr acts sb rmw rf sc i l' l x -> loc x = Some l.
-  Proof. apply dom_dom_rel with (f:= (fun a : event => loc a = Some l)). 
-         eauto using c_rel_doma2 with rel. Qed.
-  Lemma t_cur_dom1 tmr: t_cur tmr acts sb rmw rf sc i l x ->  is_write x .
-  Proof. apply dom_dom_rel; eauto using c_cur_doma1 with rel. Qed.
-  Lemma t_cur_dom2 tmr: t_cur tmr acts sb rmw rf sc i l x -> loc x = Some l.
-  Proof. apply dom_dom_rel with (f:= (fun a : event => loc a = Some l)). 
-         eauto using c_cur_doma2 with rel. Qed.
-  Lemma t_acq_dom1 tmr: t_acq tmr acts sb rmw rf sc i l x ->  is_write x .
-  Proof. apply dom_dom_rel; eauto using c_acq_doma1 with rel. Qed.
-  Lemma t_acq_dom2 tmr: t_acq tmr acts sb rmw rf sc i l x -> loc x = Some l.
-  Proof. apply dom_dom_rel with (f:= (fun a : event => loc a = Some l)). 
-         eauto using c_acq_doma2 with rel. Qed.
-*)
+  Lemma t_rel_dom tmr d: 
+    doma (tmr acts sb rmw rf sc l) d ->
+    t_rel tmr acts sb rmw rf sc i l' l x -> d x .
+  Proof. intro; apply dom_dom_rel; eauto with rel. Qed.
+  Lemma t_acq_dom tmr d: 
+    doma (tmr acts sb rmw rf sc l) d ->
+    t_acq tmr acts sb rmw rf sc i l x -> d x .
+  Proof. intro; apply dom_dom_rel; eauto with rel. Qed.
+  Lemma t_cur_dom tmr d: 
+    doma (tmr acts sb rmw rf sc l) d ->
+    t_cur tmr acts sb rmw rf sc i l x -> d x .
+  Proof. intro; apply dom_dom_rel; eauto with rel. Qed.
+
   Lemma S_tm_dom1 : S_tm acts sb rmw rf l x -> is_write x.
   Proof. apply dom_dom_rel; eauto using S_tmr_doma1 with rel. Qed.
   Lemma S_tm_dom2:  S_tm acts sb rmw rf l x -> loc x = Some l.
   Proof. apply dom_dom_rel with (f:= (fun a : event => loc a = Some l)). 
          eauto using S_tmr_doma2 with rel. Qed. 
+
+  Section MonotonicityLemmas.
+
+    Variables (tm tm' : list event -> relation event -> relation event -> relation event
+                        -> relation event -> Loc.t -> relation event).
+    Hypothesis (M: inclusion (tm acts sb rmw rf sc l) (tm' acts sb rmw rf sc l)).
+
+    Ltac local_tac := unfold t_rel, t_cur, t_acq, dom_rel; ins; desf; 
+                    eexists; eauto using c_rel_mon.
+
+    Lemma t_rel_mon : 
+      t_rel tm acts sb rmw rf sc i l' l x -> 
+      t_rel tm' acts sb rmw rf sc i l' l x.
+    Proof. local_tac; eapply c_rel_mon; eauto. Qed.
+
+    Lemma t_cur_mon : 
+      t_cur tm acts sb rmw rf sc i l x -> 
+      t_cur tm' acts sb rmw rf sc i l x.
+    Proof. local_tac; eapply c_cur_mon; eauto. Qed.
+
+    Lemma t_acq_mon : 
+      t_acq tm acts sb rmw rf sc i l x -> 
+      t_acq tm' acts sb rmw rf sc i l x.
+    Proof. local_tac; eapply c_acq_mon; eauto. Qed.
+
+    Lemma t_rel_cur_mon : 
+      t_rel tm acts sb rmw rf sc i l' l x -> 
+      t_cur tm' acts sb rmw rf sc i l x.
+    Proof. local_tac; eapply c_rel_cur_mon; eauto. Qed.
+  
+    Lemma t_cur_acq_mon : 
+      t_cur tm acts sb rmw rf sc i l x -> 
+      t_acq tm' acts sb rmw rf sc i l x.
+    Proof. local_tac; eapply c_cur_acq_mon; eauto. Qed.
+
+    Lemma t_rel_acq_mon :
+      t_rel tm acts sb rmw rf sc i l' l x -> 
+      t_acq tm' acts sb rmw rf sc i l x.
+    Proof. local_tac; eapply c_rel_acq_mon; eauto. Qed.
+
+  End MonotonicityLemmas.
 
 End Exports.
 
@@ -1101,10 +1154,52 @@ Hint Resolve
      acts_S_tm: acts.
 
 Hint Resolve 
+     inclusion_refl ur_in_rw ur_in_sc rw_in_sc
+     t_rel_mon t_cur_mon 
+     t_acq_mon t_rel_cur_mon 
+     t_cur_acq_mon t_rel_acq_mon : rel_mon.
+
+Hint Resolve 
      msg_rel_urr_doma1 msg_rel_rwr_doma1 msg_rel_scr_doma1 
      msg_rel_urr_doma2 msg_rel_rwr_doma2 msg_rel_scr_doma2
-(*     t_rel_dom1 t_rel_dom2 t_cur_dom1 t_cur_dom2   
-     t_acq_dom1 t_acq_dom2*) S_tm_dom1 S_tm_dom2 : rel.
+     (fun acts sb rmw rf sc i l' l x => 
+        @t_rel_dom acts sb rmw rf sc i l' l x _ _ (urr_doma1 (l:=l)))
+     (fun acts sb rmw rf sc i l' l x => 
+        @t_rel_dom acts sb rmw rf sc i l' l x _ _ (rwr_doma1 (l:=l)))
+     (fun acts sb rmw rf sc i l' l x => 
+        @t_rel_dom acts sb rmw rf sc i l' l x _ _ (scr_doma1 (l:=l)))
+     (fun acts sb rmw rf sc i l' l x => 
+        @t_rel_dom acts sb rmw rf sc i l' l x _ _ (urr_doma2 (l:=l)))
+     (fun acts sb rmw rf sc i l' l x => 
+        @t_rel_dom acts sb rmw rf sc i l' l x _ _ (rwr_doma2 (l:=l)))
+     (fun acts sb rmw rf sc i l' l x => 
+        @t_rel_dom acts sb rmw rf sc i l' l x _ _ (scr_doma2 (l:=l)))
+     (fun acts sb rmw rf sc i l x => 
+        @t_cur_dom acts sb rmw rf sc i l x _ _ (urr_doma1 (l:=l)))
+     (fun acts sb rmw rf sc i l x => 
+        @t_cur_dom acts sb rmw rf sc i l x _ _ (rwr_doma1 (l:=l)))
+     (fun acts sb rmw rf sc i l x => 
+        @t_cur_dom acts sb rmw rf sc i l x _ _ (scr_doma1 (l:=l)))
+     (fun acts sb rmw rf sc i l x => 
+        @t_cur_dom acts sb rmw rf sc i l x _ _ (urr_doma2 (l:=l)))
+     (fun acts sb rmw rf sc i l x => 
+        @t_cur_dom acts sb rmw rf sc i l x _ _ (rwr_doma2 (l:=l)))
+     (fun acts sb rmw rf sc i l x => 
+        @t_cur_dom acts sb rmw rf sc i l x _ _ (scr_doma2 (l:=l)))
+     (fun acts sb rmw rf sc i l x => 
+        @t_acq_dom acts sb rmw rf sc i l x _ _ (urr_doma1 (l:=l)))
+     (fun acts sb rmw rf sc i l x => 
+        @t_acq_dom acts sb rmw rf sc i l x _ _ (rwr_doma1 (l:=l)))
+     (fun acts sb rmw rf sc i l x => 
+        @t_acq_dom acts sb rmw rf sc i l x _ _ (scr_doma1 (l:=l)))
+     (fun acts sb rmw rf sc i l x => 
+        @t_acq_dom acts sb rmw rf sc i l x _ _ (urr_doma2 (l:=l)))
+     (fun acts sb rmw rf sc i l x => 
+        @t_acq_dom acts sb rmw rf sc i l x _ _ (rwr_doma2 (l:=l)))
+     (fun acts sb rmw rf sc i l x => 
+        @t_acq_dom acts sb rmw rf sc i l x _ _ (scr_doma2 (l:=l)))
+     urr_doma1 urr_doma2 rwr_doma1 rwr_doma2 scr_doma1 scr_doma2
+     S_tm_dom1 S_tm_dom2 : rel.
 
 Require Import Setoid Permutation.
 
