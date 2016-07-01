@@ -173,14 +173,12 @@ Proof.
   - (* promise *)
     exploit Local.promise_step_future; eauto. i. des.
     exploit sim_local_promise; eauto. i. des.
-    exploit reorder_read_promise; try exact READ; try exact STEP_SRC; eauto.
-    { admit. (* read msg <> promised msg *) }
-    i. des.
+    exploit reorder_read_promise; try exact READ; try exact STEP_SRC; eauto. i. des.
     exploit Local.promise_step_future; eauto. i. des.
     esplits; try apply SC; eauto.
     + econs 2. econs. econs. eauto.
     + eauto.
-    + right. econs; eauto.
+    + right. econs; eauto. etrans; eauto.
   - (* load *)
     exploit sim_local_read; (try by etrans; eauto); eauto; try refl. i. des.
     exploit reorder_read_read; try exact READ; try exact STEP_SRC; eauto. i. des.
@@ -210,7 +208,7 @@ Proof.
       * eauto.
     + econs 2. econs 2. econs 2; eauto. econs. econs.
     + eauto.
-    + eauto.
+    + etrans; eauto.
     + etrans; eauto.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss. etrans; eauto.
   - (* update *)
@@ -232,7 +230,7 @@ Proof.
       * eauto.
     + econs 2. econs 2. econs 2; eauto. econs. econs.
     + eauto.
-    + eauto.
+    + etrans; eauto.
     + etrans; eauto.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
       * apply RegFun.add_add. ii. subst. eapply REGS.
@@ -252,7 +250,7 @@ Proof.
     + eauto.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
       etrans; eauto.
-Admitted.
+Qed.
 
 Lemma sim_load_sim_thread:
   sim_load <8= (sim_thread (sim_terminal eq)).
