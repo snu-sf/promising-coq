@@ -204,66 +204,73 @@ Module SimPromises.
       <<SIM2: sim_memory mem2_src mem2_tgt>>.
   Proof.
     inv PROMISE_TGT.
-    - exploit (@Memory.add_exists mem1_src loc from to val released).
-      { eapply cover_disjoint.
+    - exploit (@Memory.add_exists mem1_src loc from to val released);
+        try by inv MEM; inv ADD.
+      { eapply covered_disjoint.
         - apply SIM1.
         - inv MEM. inv ADD. auto.
       }
-      { inv MEM. inv ADD. auto. }
-      { inv MEM. inv ADD. auto. }
       i. des.
       exploit Memory.add_exists_le; try apply LE1_SRC; eauto. i. des.
       exploit sim_memory_add; try apply SIM1; try refl; eauto. i.
       esplits; eauto.
       + econs; eauto.
       + econs.
-        * ii. eapply Memory.add_get_inv in LHS; eauto. i. des.
-          { subst. eapply Memory.add_get2. eauto. }
-          { apply INV1 in LHS0. eapply Memory.add_get1; eauto. }
-        * inv INV1. i. exploit SOUND; eauto. i. des. splits.
-          { destruct (Memory.get l t0 promises2_tgt) as [[]|] eqn:X; auto.
-            exploit Memory.add_get_inv; try exact X; eauto. i. des; [|congr].
-            subst. exploit Memory.add_get0; try exact x1; eauto. i. congr.
-          }
-          { exploit Memory.add_get1; eauto. }
-        * inv INV1. i. exploit Memory.add_get_inv; try exact SRC; eauto. i. des.
-          { inv x6. exploit Memory.add_get2; try exact PROMISES; eauto. i. congr. }
-          { eapply COMPLETE; eauto.
-            destruct (Memory.get l t0 promises1_tgt) as [[? []]|] eqn:X; auto.
-            exploit Memory.add_get1; try exact X; eauto. i. congr.
-          }
-    - exploit Memory.update_get0; try apply PROMISES; eauto. i. des.
-      exploit (@Memory.update_exists promises1_src loc from1 from to val released1 released).
+        * ii. erewrite Memory.add_o; eauto.
+          erewrite (@Memory.add_o promises2_tgt) in LHS; try exact PROMISES. revert LHS.
+          condtac; ss. apply INV1.
+        * i. inv INV1. exploit SOUND; eauto. i.
+          erewrite Memory.add_o; eauto. erewrite (@Memory.add_o promises2); eauto.
+          condtac; ss. des. subst.
+          erewrite Memory.add_get0 in x3; eauto. congr.
+        * i. revert SRC TGT.
+          erewrite Memory.add_o; eauto. erewrite (@Memory.add_o promises2_tgt); eauto.
+          condtac; ss. inv INV1. eapply COMPLETE; eauto.
+    - exploit Memory.split_get0; try exact PROMISES; eauto. i. des.
+      exploit (@Memory.split_exists promises1_src loc from to ts3 val val3 released);
+        try by inv PROMISES; inv SPLIT.
       { apply INV1. eauto. }
-      { inv PROMISES. inv UPDATE. auto. }
-      { inv PROMISES. inv UPDATE. auto. }
-      { inv PROMISES. inv UPDATE. auto. }
-      { inv PROMISES. inv UPDATE. auto. }
       i. des.
-      exploit Memory.update_exists_le; try apply LE1_SRC; eauto. i. des.
-      exploit sim_memory_update; try apply SIM1; try refl; eauto. i.
+      exploit Memory.split_exists_le; try apply LE1_SRC; eauto. i. des.
+      exploit sim_memory_split; try apply SIM1; try refl; eauto. i.
       esplits; eauto.
       + econs; eauto.
       + econs.
-        * ii. destruct msg.
-          eapply Memory.update_get_inv in LHS; eauto. i. des.
-          { subst. eapply Memory.update_get2. eauto. }
-          { inv INV1. exploit LE; eauto. i.
-            exploit Memory.update_get1; try exact x1; eauto. i. des; auto.
-            inv x7. contradict LHS. auto.
-          }
-        * inv INV1. i. exploit SOUND; eauto. i. des. splits.
-          { destruct (Memory.get l t0 promises2_tgt) as [[? []]|] eqn:X; auto.
-            exploit Memory.update_get_inv; try exact X; eauto. i. des; [|congr].
-            subst. exploit Memory.update_get0; try exact PROMISES; eauto. i. congr.
-          }
-          { exploit Memory.update_get1; try exact x4; eauto. i. des; eauto. }
-        * inv INV1. i. exploit Memory.update_get_inv; try exact SRC; eauto. i. des.
-          { subst. exploit Memory.update_get2; try exact PROMISES; eauto. i. congr. }
-          { eapply COMPLETE; eauto.
-            destruct (Memory.get l t0 promises1_tgt) as [[? []]|] eqn:X; auto.
-            exploit Memory.update_get1; try exact X; eauto. i. des; congr.
-          }
+        * ii. revert LHS.
+          erewrite Memory.split_o; eauto. erewrite (@Memory.split_o mem2); try exact x0.
+          repeat condtac; ss. apply INV1.
+        * i. inv INV1. exploit SOUND; eauto. i.
+          erewrite Memory.split_o; eauto. erewrite (@Memory.split_o mem2); eauto.
+          exploit Memory.split_get0; try exact x0; eauto. i. des.
+          repeat condtac; ss.
+          { des. subst. congr. }
+          { guardH o. des. subst. congr. }
+          esplits; eauto.
+        * i. revert SRC TGT.
+          erewrite Memory.split_o; eauto. erewrite (@Memory.split_o promises2_tgt); eauto.
+          repeat condtac; ss. inv INV1. eapply COMPLETE; eauto.
+    - exploit Memory.lower_get0; try exact PROMISES; eauto. i.
+      exploit (@Memory.lower_exists promises1_src loc from to val released0 released);
+        try by inv MEM; inv LOWER.
+      { apply INV1. eauto. }
+      i. des.
+      exploit Memory.lower_exists_le; try apply LE1_SRC; eauto. i. des.
+      exploit sim_memory_lower; try apply SIM1; try refl; eauto. i.
+      esplits; eauto.
+      + econs; eauto.
+      + econs.
+        * ii. revert LHS.
+          erewrite Memory.lower_o; eauto. erewrite (@Memory.lower_o mem2); try exact x1.
+          condtac; ss. apply INV1.
+        * i. inv INV1. exploit SOUND; eauto. i.
+          erewrite Memory.lower_o; eauto. erewrite (@Memory.lower_o mem2); eauto.
+          exploit Memory.lower_get0; try exact x1; eauto. i. des.
+          condtac; ss.
+          { des. subst. congr. }
+          esplits; eauto.
+        * i. revert SRC TGT.
+          erewrite Memory.lower_o; eauto. erewrite (@Memory.lower_o promises2_tgt); eauto.
+          repeat condtac; ss. inv INV1. eapply COMPLETE; eauto.
   Qed.
 
   Lemma remove_tgt
@@ -284,15 +291,15 @@ Module SimPromises.
     inv INV1. exploit LE; eauto. i.
     esplits.
     - econs.
-      + ii. exploit Memory.remove_get_inv; eauto. i. des.
-        apply LE. auto.
-      + i. erewrite MemoryFacts.remove_o; eauto.
+      + ii. revert LHS.
+        erewrite Memory.remove_o; eauto. condtac; ss. eauto.
+      + i. erewrite Memory.remove_o; eauto.
         revert INV. rewrite set_o.
         unfold Time.t, DOSet.elt. condtac; ss; i.
         * des. subst. esplits; eauto.
         * exploit SOUND; eauto.
       + i. revert TGT.
-        erewrite MemoryFacts.remove_o; eauto. rewrite set_o.
+        erewrite Memory.remove_o; eauto. rewrite set_o.
         unfold Time.t, DOSet.elt. condtac; ss; i.
         eapply COMPLETE; eauto.
     - destruct (mem loc to inv) eqn:X; auto.
@@ -318,16 +325,17 @@ Module SimPromises.
     exploit Memory.remove_exists; eauto. i. des.
     esplits; eauto.
     econs.
-    - ii. exploit LE; eauto. i.
-      exploit Memory.remove_get1; eauto. i. des; auto.
-      subst. exploit SOUND; eauto. i. des. congr.
+    - ii. revert LHS.
+      erewrite (@Memory.remove_o mem2); eauto. condtac; ss; eauto.
+      des. subst. exploit SOUND; eauto. i. des. congr.
     - i. rewrite unset_o in INV. revert INV. condtac; ss.
       guardH o.
       i. exploit SOUND; eauto. i. des. splits; eauto.
-      exploit Memory.remove_get1; eauto. i. des; eauto.
-      inv x5. unguardH o. des; congr.
-    - i. exploit Memory.remove_get_inv; eauto. i. des.
-      rewrite unset_o. condtac; ss.
+      erewrite Memory.remove_o; eauto. condtac; ss; eauto.
+      des. subst. unguardH o. des; congr.
+    - i. revert SRC.
+      erewrite Memory.remove_o; eauto. rewrite unset_o.
+      unfold Time.t, DOSet.elt. condtac; ss; i.
       eapply COMPLETE; eauto.
   Qed.
 
@@ -379,7 +387,7 @@ Module SimPromises.
     { esplits; eauto. refl. }
     inv H.
     - exploit (@Memory.add_exists mem1_tgt loc from to val (Memory.max_released mem1_tgt loc to)).
-      { eapply cover_disjoint.
+      { eapply covered_disjoint.
         - apply SIM1.
         - inv ADD. inv ADD0. auto.
       }

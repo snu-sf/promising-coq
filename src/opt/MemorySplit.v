@@ -19,17 +19,16 @@ Set Implicit Arguments.
 
 
 Module MemorySplit.
-  Lemma remove_update_remove
-        mem0 loc from1 from2 to val released1 released2 mem2
+  Lemma remove_lower_remove
+        mem0 loc from to val released1 released2 mem2
         (REL_LE: Capability.le released2 released1)
         (REL_WF1: Capability.wf released1)
         (REL_WF2: Capability.wf released2)
-        (FROM1: Time.le from1 from2)
-        (FROM2: Time.lt from2 to)
-        (REMOVE: Memory.remove mem0 loc from1 to val released1 mem2):
+        (TS: Time.lt from to)
+        (REMOVE: Memory.remove mem0 loc from to val released1 mem2):
     exists mem1',
-      <<UPDATE: Memory.update mem0 loc from1 from2 to val released1 released2 mem1'>> /\
-      <<REMOVE: Memory.remove mem1' loc from2 to val released2 mem2>>.
+      <<LOWER: Memory.lower mem0 loc from to val released1 released2 mem1'>> /\
+      <<REMOVE: Memory.remove mem1' loc from to val released2 mem2>>.
   Proof.
     exploit Memory.remove_get0; eauto. i.
     inv REMOVE. inv REMOVE0.
@@ -42,7 +41,7 @@ Module MemorySplit.
       replace (DOMap.remove to (Cell.raw (mem0 loc))) with
       (DOMap.remove to
                     (DOMap.add to
-                               (from2,
+                               (from,
                                 {|
                                   Message.val := val;
                                   Message.released := released2 |})
@@ -51,126 +50,134 @@ Module MemorySplit.
       + apply DOMap.eq_leibniz. ii.
         rewrite ? DOMap.grspec, DOMap.gsspec. condtac; auto.
         Grab Existential Variables.
-        { eapply Cell.Raw.update_wf; eauto.
+        { eapply Cell.Raw.lower_wf; eauto.
           - econs; eauto.
           - apply mem0.
         }
   Qed.
 
   Lemma remove_promise_remove
-        promises0 mem0 loc from1 from2 to val released1 released2 promises2
+        promises0 mem0 loc from to val released1 released2 promises2
         (PROMISES: Memory.le promises0 mem0)
         (REL_LE: Capability.le released2 released1)
         (REL_WF1: Capability.wf released1)
         (REL_WF2: Capability.wf released2)
         (REL_TO: Time.le (Capability.rw released1 loc) to)
-        (FROM1: Time.le from1 from2)
-        (FROM2: Time.lt from2 to)
-        (REMOVE: Memory.remove promises0 loc from1 to val released1 promises2):
+        (TS: Time.lt from to)
+        (REMOVE: Memory.remove promises0 loc from to val released1 promises2):
     exists promises1' mem1',
-      <<PROMISE: Memory.promise promises0 mem0 loc from2 to val released2 promises1' mem1' (Memory.promise_kind_update from1 released1)>> /\
-      <<REMOVE: Memory.remove promises1' loc from2 to val released2 promises2>>.
+      <<PROMISE: Memory.promise promises0 mem0 loc from to val released2 promises1' mem1' (Memory.promise_kind_lower released1)>> /\
+      <<REMOVE: Memory.remove promises1' loc from to val released2 promises2>>.
   Proof.
-    exploit remove_update_remove; eauto. i. des.
-    exploit Memory.update_exists_le; eauto. i. des.
+    exploit remove_lower_remove; eauto. i. des.
+    exploit Memory.lower_exists_le; eauto. i. des.
     esplits; eauto.
     - econs; eauto. etrans; eauto. apply REL_LE.
   Qed.
 
-  Lemma commute_remove_update_add_remove_remove
-        mem0 loc ts1 ts2 ts3 val2 val3 released2 released3 released3' mem1 mem2 mem4
-        (REMOVE1: Memory.remove mem0 loc ts1 ts3 val3 released3 mem4)
-        (UPDATE1: Memory.update mem0 loc ts1 ts2 ts3 val3 released3 released3' mem1)
-        (ADD2: Memory.add mem1 loc ts1 ts2 val2 released2 mem2):
-    exists mem3',
-      <<REMOVE3: Memory.remove mem2 loc ts1 ts2 val2 released2 mem3'>> /\
-      <<REMOVE4: Memory.remove mem3' loc ts2 ts3 val3 released3' mem4>>.
+  Lemma commute_remove_split_remove_remove
+        mem0 loc ts1 ts2 ts3 val2 val3 released2 released3 mem1 mem3
+        (REMOVE1: Memory.remove mem0 loc ts1 ts3 val3 released3 mem3)
+        (SPLIT1: Memory.split mem0 loc ts1 ts2 ts3 val2 val3 released2 released3 mem1):
+    exists mem2',
+      <<REMOVE3: Memory.remove mem1 loc ts1 ts2 val2 released2 mem2'>> /\
+      <<REMOVE4: Memory.remove mem2' loc ts2 ts3 val3 released3 mem3>>.
   Proof.
-    exploit Memory.add_get2; eauto. i.
-    exploit Memory.remove_exists; eauto. i. des.
-    exploit Memory.update_get2; eauto. i.
-    exploit Memory.add_get1; eauto. i.
-    exploit Memory.remove_get1; eauto. i. des.
-    { inv x7. inv ADD2. inv ADD. exfalso. eapply Time.lt_strorder. eauto. }
-    i. des.
-    exploit Memory.remove_exists; eauto. i. des.
-    esplits; eauto.
-    cut (mem5 = mem4); [by i; subst|].
-    apply Memory.ext. i.
-    erewrite MemoryFacts.remove_o; eauto.
-    erewrite MemoryFacts.remove_o; eauto.
-    erewrite MemoryFacts.add_o; eauto.
-    erewrite MemoryFacts.update_o; eauto.
-    erewrite (@MemoryFacts.remove_o mem4); eauto.
-    repeat (condtac; ss). des; try congr. subst.
-    exploit Memory.update_get0; try eexact UPDATE1; eauto. i.
-    destruct (Memory.get loc ts2 mem0) as [[]|] eqn:X; auto.
-    destruct (mem0 loc).(Cell.WF).
-    exfalso. eapply DISJOINT; try exact o; eauto.
-    - apply Interval.mem_ub.
-      exploit VOLUME; eauto. i. des; auto.
-      inv x. inv ADD2. inv ADD. inv TO.
-    - inv UPDATE1. inv UPDATE. inv ADD2. inv ADD.
-      econs; eauto. left. auto.
-  Qed.
-
-  Lemma update_add_exists
-        mem0 loc ts1 ts2 ts3 val2 val3 released2 released3 released3'
-        (TS12: Time.lt ts1 ts2)
-        (TS23: Time.lt ts2 ts3)
-        (GET: Memory.get loc ts3 mem0 = Some (ts1, Message.mk val3 released3))
-        (WF2: Capability.wf released2)
-        (WF3: Capability.wf released3')
-        (LE3: Capability.le released3' released3):
-    exists mem1' mem2',
-      <<STEP1: Memory.update mem0 loc ts1 ts2 ts3 val3 released3 released3' mem1'>> /\
-      <<STEP2: Memory.add mem1' loc ts1 ts2 val2 released2 mem2'>>.
-  Proof.
-    exploit Memory.update_exists; eauto.
-    { left. auto. }
-    i. des.
-    exploit (Memory.add_exists mem2 loc); try exact TS12; try exact WF2; eauto.
-    { i. destruct msg2.
-      exploit Memory.update_get_inv; eauto. i. des.
-      - subst. ii. inv LHS. inv RHS. ss.
-        eapply Time.lt_strorder. eapply TimeFacts.lt_le_lt; eauto.
-      - assert (to2 <> ts3).
-        { contradict x1. auto. }
-        destruct (mem0 loc).(Cell.WF).
-        ii. eapply DISJOINT; try exact H; eauto.
-        eapply Interval.le_mem; try exact LHS; eauto. econs; s.
-        + refl.
-        + left. auto.
+    exploit (@Memory.remove_exists mem1 loc ts1 ts2 val2 released2); eauto.
+    { erewrite Memory.split_o; eauto. repeat condtac; ss.
+      - guardH o. des. subst. inv SPLIT1. inv SPLIT.
+        exfalso. eapply Time.lt_strorder. eauto.
+      - guardH o0. des; congr.
     }
     i. des.
-    esplits; eauto.
+    exploit (@Memory.remove_exists mem2 loc ts2 ts3 val3 released3); eauto.
+    { erewrite Memory.remove_o; eauto. condtac; ss.
+      - des. subst. inv SPLIT1. inv SPLIT.
+        exfalso. eapply Time.lt_strorder. eauto.
+      - erewrite Memory.split_o; eauto. repeat condtac; ss.
+        clear -o1. des; congr.
+    }
+    i. des. esplits; eauto.
+    cut (mem4 = mem3); [by i; subst|].
+    apply Memory.ext. i.
+    erewrite Memory.remove_o; eauto. erewrite Memory.remove_o; eauto.
+    erewrite Memory.split_o; eauto. erewrite (@Memory.remove_o mem3); eauto.
+    repeat (condtac; ss). guardH o. des. subst.
+    exploit Memory.split_get0; eauto. i. des. auto.
   Qed.
 
   Lemma remove_promise_promise_remove_remove
-        loc ts1 ts2 ts3 val2 released2 val3 released3 released3'
+        loc ts1 ts2 ts3 val2 released2 val3 released3
         promises0 mem0
-        promises4
+        promises3
         (TS12: Time.lt ts1 ts2)
         (TS23: Time.lt ts2 ts3)
         (WF2: Capability.wf released2)
-        (WF3: Capability.wf released3')
-        (LE3: Capability.le released3' released3)
         (TS2: Time.le (Capability.rw released2 loc) ts2)
-        (TS3: Time.le (Capability.rw released3' loc) ts3)
         (LE: Memory.le promises0 mem0)
-        (REMOVE: Memory.remove promises0 loc ts1 ts3 val3 released3 promises4):
-    exists promises1 promises2 promises3 mem1 mem2,
-      <<STEP1: Memory.promise promises0 mem0 loc ts2 ts3 val3 released3' promises1 mem1 (Memory.promise_kind_update ts1 released3)>> /\
-      <<STEP2: Memory.promise promises1 mem1 loc ts1 ts2 val2 released2 promises2 mem2 Memory.promise_kind_add>> /\
-      <<STEP3: Memory.remove promises2 loc ts1 ts2 val2 released2 promises3>> /\
-      <<STEP4: Memory.remove promises3 loc ts2 ts3 val3 released3' promises4>>.
+        (REMOVE: Memory.remove promises0 loc ts1 ts3 val3 released3 promises3):
+    exists promises1 promises2 mem1,
+      <<STEP1: Memory.promise promises0 mem0 loc ts1 ts2 val2 released2 promises1 mem1 (Memory.promise_kind_split ts3 val3 released3)>> /\
+      <<STEP2: Memory.remove promises1 loc ts1 ts2 val2 released2 promises2>> /\
+      <<STEP3: Memory.remove promises2 loc ts2 ts3 val3 released3 promises3>>.
   Proof.
     exploit Memory.remove_get0; eauto. i.
-    exploit update_add_exists; try exact TS12; try exact LE3; try exact x0; try exact WF2; eauto. i. des.
+    exploit Memory.split_exists; eauto. i. des.
     exploit LE; eauto. i.
-    exploit update_add_exists; try exact TS12; try exact LE3; try exact x; try exact WF2; eauto. i. des.
-    exploit commute_remove_update_add_remove_remove; try exact REMOVE; eauto. i. des.
-    esplits; eauto.
+    exploit Memory.split_exists; eauto. i. des.
+    exploit commute_remove_split_remove_remove; try exact REMOVE; eauto. i. des.
+    esplits; eauto. econs; eauto.
+  Qed.
+
+  Lemma commute_add_split_add_add
+        mem0 loc ts1 ts2 ts3 val2 val3 released2 released3 mem1 mem2
+        (ADD1: Memory.add mem0 loc ts1 ts3 val3 released3 mem1)
+        (SPLIT2: Memory.split mem1 loc ts1 ts2 ts3 val2 val3 released2 released3 mem2):
+    exists mem1',
+      <<ADD1: Memory.add mem0 loc ts1 ts2 val2 released2 mem1'>> /\
+      <<ADD2: Memory.add mem1' loc ts2 ts3 val3 released3 mem2>>.
+  Proof.
+    exploit (@Memory.add_exists mem0 loc ts1 ts2 val2 released2); eauto.
+    { i. inv ADD1. inv ADD. hexploit DISJOINT; eauto. i.
+      eapply Interval.le_disjoint; eauto. econs; [refl|].
+      inv SPLIT2. inv SPLIT. left. auto.
+    }
+    { inv SPLIT2. inv SPLIT. auto. }
+    { inv SPLIT2. inv SPLIT. auto. }
+    i. des.
+    exploit (@Memory.add_exists mem3 loc ts2 ts3 val3 released3); eauto.
+    { i. revert GET2. erewrite Memory.add_o; eauto. condtac; ss.
+      - des. subst. i. inv GET2.
+        symmetry. apply Interval.disjoint_imm.
+      - i. inv ADD1. inv ADD. hexploit DISJOINT; eauto. i.
+        eapply Interval.le_disjoint; eauto. econs; [|refl].
+        inv SPLIT2. inv SPLIT. left. auto.
+    }
+    { inv SPLIT2. inv SPLIT. auto. }
+    { inv ADD1. inv ADD. auto. }
+    i. des.
+    cut (mem4 = mem2); [by i; subst; eauto|].
+    apply Memory.ext. i.
+    erewrite Memory.add_o; eauto. erewrite Memory.add_o; eauto.
+    erewrite (@Memory.split_o mem2); eauto. erewrite (@Memory.add_o mem1); eauto.
+    repeat (condtac; ss). des. repeat subst.
+    inv SPLIT2. inv SPLIT. exfalso. eapply Time.lt_strorder. eauto.
+  Qed.
+
+  Lemma commute_promise_add_promise_split_promise_add_promise_add
+        promises0 mem0 loc ts1 ts2 ts3 val2 val3 released2 released3
+        promises1 mem1
+        promises2 mem2
+        (ADD1: Memory.promise promises0 mem0 loc ts1 ts3 val3 released3 promises1 mem1 Memory.promise_kind_add)
+        (SPLIT2: Memory.promise promises1 mem1 loc ts1 ts2 val2 released2 promises2 mem2 (Memory.promise_kind_split ts3 val3 released3)):
+    exists promises1' mem1',
+      <<ADD1: Memory.promise promises0 mem0 loc ts1 ts2 val2 released2 promises1' mem1' Memory.promise_kind_add>> /\
+      <<ADD2: Memory.promise promises1' mem1' loc ts2 ts3 val3 released3 promises2 mem2 Memory.promise_kind_add>>.
+  Proof.
+    inv ADD1. inv SPLIT2.
+    exploit commute_add_split_add_add; try exact PROMISES; eauto. i. des.
+    exploit commute_add_split_add_add; try exact MEM; eauto. i. des.
+    esplits.
     - econs; eauto.
     - econs; eauto.
   Qed.

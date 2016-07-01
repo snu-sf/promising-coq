@@ -111,18 +111,18 @@ Proof.
     + etrans; apply WF0.
 Qed.
 
-Lemma merge_promise_promise
-      loc from1 from2 to val released1 released2 kind
+Lemma promise_promise_promise
+      loc from to val released1 released2 kind
       lc0 mem0
       lc1 mem1
       lc2 mem2
-      (STEP1: Local.promise_step lc0 mem0 loc from1 to val released1 lc1 mem1 kind)
-      (STEP2: Local.promise_step lc1 mem1 loc from2 to val released2 lc2 mem2 (Memory.promise_kind_update from1 released1)):
-  Local.promise_step lc0 mem0 loc from2 to val released2 lc2 mem2 kind.
+      (PROMISE1: Local.promise_step lc0 mem0 loc from to val released1 lc1 mem1 kind)
+      (PROMISE2: Local.promise_step lc1 mem1 loc from to val released2 lc2 mem2 (Memory.promise_kind_lower released1)):
+  Local.promise_step lc0 mem0 loc from to val released2 lc2 mem2 kind.
 Proof.
-  inv STEP1. inv STEP2.
+  inv PROMISE1. inv PROMISE2. ss.
   exploit MemoryMerge.promise_promise_promise; try exact PROMISE; eauto. i.
-  s. econs; eauto.
+  econs; eauto.
 Qed.
 
 Lemma to_lt_from_le
@@ -164,9 +164,9 @@ Proof.
 Qed.
 
 Lemma merge_split
-      loc ts1 ts2 ts3 val1 val2 released0 released2 ord
+      loc ts1 ts2 ts3 val2 val3 released0 released3 ord
       lc0 sc0 mem0
-      lc4 sc4
+      lc3 sc3
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
@@ -174,20 +174,16 @@ Lemma merge_split
       (REL0_TS: Time.le (Capability.rw released0 loc) ts1)
       (REL0_WF: Capability.wf released0)
       (REL0_CLOSED: Memory.closed_capability released0 mem0)
-      (REL2_WF: Capability.wf released2)
-      (REL2_TS: Time.le (Capability.rw released2 loc) ts3)
-      (REL2_CLOSED: Memory.closed_capability released2 mem0)
       (TS12: Time.lt ts1 ts2)
       (TS23: Time.lt ts2 ts3)
-      (STEP: fulfill_step lc0 sc0 loc ts1 ts3 val2 released0 released2 ord lc4 sc4):
-  exists lc1' lc2' lc3' lc4' sc3' sc4' mem1' mem2' released1',
-    <<STEP1: Local.promise_step lc0 mem0 loc ts2 ts3 val2 released2 lc1' mem1' (Memory.promise_kind_update ts1 released2)>> /\
-    <<STEP2: Local.promise_step lc1' mem1' loc ts1 ts2 val1 released1' lc2' mem2' Memory.promise_kind_add>> /\
-    <<STEP3: fulfill_step lc2' sc0 loc ts1 ts2 val1 released0 released1' ord lc3' sc3'>> /\
-    <<STEP4: fulfill_step lc3' sc3' loc ts2 ts3 val2 released1' released2 ord lc4' sc4'>> /\
-    <<LOCAL4: sim_local lc4' lc4>> /\
-    <<SC4: TimeMap.le sc4' sc4>> /\
-    <<MEM4: sim_memory mem2' mem0>> /\
+      (STEP: fulfill_step lc0 sc0 loc ts1 ts3 val3 released0 released3 ord lc3 sc3):
+  exists lc1' lc2' lc3' sc2' sc3' mem1' released1',
+    <<STEP1: Local.promise_step lc0 mem0 loc ts1 ts2 val2 released1' lc1' mem1' (Memory.promise_kind_split ts3 val3 released3)>> /\
+    <<STEP2: fulfill_step lc1' sc0 loc ts1 ts2 val2 released0 released1' ord lc2' sc2'>> /\
+    <<STEP3: fulfill_step lc2' sc2' loc ts2 ts3 val3 released1' released3 ord lc3' sc3'>> /\
+    <<LOCAL3: sim_local lc3' lc3>> /\
+    <<SC3: TimeMap.le sc3' sc3>> /\
+    <<MEM3: sim_memory mem1' mem0>> /\
     <<REL1': released1' =
              Capability.join released0
                (Commit.rel
@@ -206,39 +202,26 @@ Proof.
   exploit MemorySplit.remove_promise_promise_remove_remove;
     try exact TS12; try exact TS23; try exact REMOVE.
   { apply REL1'_WF. }
-  { apply REL2_WF. }
-  { refl. }
   { unfold released1'. repeat (try condtac; aggrtac).
     - etrans; eauto. left. auto.
     - etrans; eauto. left. auto.
     - etrans; [apply WF0|]. etrans; eauto. left. auto.
   }
-  { auto. }
   { apply WF0. }
   i. des.
-  exploit Memory.promise_future; try exact STEP1; (try by apply WF0); (try by committac); eauto.
-  { eapply Memory.promise_closed_capability; eauto. }
+  exploit Memory.promise_future; try eexact STEP1; (try by apply WF0); (try by committac); eauto.
+  { eapply Local.promise_closed_capability; try apply WF0; eauto. }
   i. des.
-  exploit Memory.promise_future; try eexact STEP2; (try by apply WF0); (try by committac); eauto.
-  { unfold released1'.
-    eapply Local.promise_closed_capability;
-      try eexact STEP2; eauto; try by committac.
-    eapply Commit.future_closed; eauto. apply WF0.
-  }
-  i. des.
-  generalize FUTURE. i. rewrite FUTURE0 in FUTURE1.
-  assert (REL1'_CLOSED: Memory.closed_capability released1' mem2).
+  assert (REL1'_CLOSED: Memory.closed_capability released1' mem1).
   { unfold released1'. repeat (try condtac; aggrtac; try by apply WF0).
     - eapply Memory.future_closed_capability; eauto. apply WF0.
-    - apply LE_PROMISES0. eapply Memory.promise_get2. eauto.
+    - apply LE_PROMISES2. eapply Memory.promise_get2. eauto.
     - econs; committac.
     - eapply Memory.future_closed_capability; eauto. apply WF0.
   }
   esplits.
   - econs; eauto.
-    eapply Memory.future_closed_capability; eauto.
-  - econs; eauto.
-  - econs; try exact STEP3; auto.
+  - econs; try exact STEP2; auto.
     + unfold Local.commit at 1 2. refl.
     + s. inv WF0. inv WRITABLE.
       exploit Memory.remove_get0; try exact REMOVE; eauto. i.
@@ -250,8 +233,8 @@ Proof.
       econs; i;
         eapply TimeFacts.le_lt_lt; try eexact TS12;
         eapply to_lt_from_le; eauto.
-  - unfold Local.commit at 1 2.
-    econs; try exact STEP4; auto.
+  - unfold Local.commit at 1.
+    econs; try exact STEP3; auto.
     + etrans; eauto. unfold released1'.
       repeat (try condtac; aggrtac; try by apply WF0).
       unfold Commit.write_sc. econs; repeat (try condtac; aggrtac).
@@ -263,14 +246,12 @@ Proof.
     + eapply MergeCommit.write_write_commit; eauto. apply WF0.
     + apply SimPromises.sem_bot.
   - eapply MergeCommit.write_write_sc; eauto.
-  - eapply sim_memory_split.
-    + inv STEP1. eauto.
-    + inv STEP2. eauto.
+  - inv STEP1. eapply split_sim_memory. eauto.
   - refl.
 Qed.
 
 Lemma merge_write_write_relaxed
-      loc ts1 ts2 ts3 val1 val2 released0 released2 ord kind
+      loc ts1 ts2 ts3 val2 val3 released0 released3 ord kind
       lc0 sc0 mem0
       lc3 sc3 mem3
       (WF0: Local.wf lc0 mem0)
@@ -282,12 +263,12 @@ Lemma merge_write_write_relaxed
       (ORD: Ordering.le ord Ordering.relaxed)
       (TS12: Time.lt ts1 ts2)
       (TS23: Time.lt ts2 ts3)
-      (STEP: Local.write_step lc0 sc0 mem0 loc ts1 ts3 val2 released0 released2 ord lc3 sc3 mem3 kind):
-  exists lc1' lc2' lc3' sc2' sc3' mem1' mem2' mem3' released1' released2',
-    <<STEP1: Local.promise_step lc0 mem0 loc ts2 ts3 val2 released2 lc1' mem1' kind>> /\
-    <<STEP2: Local.write_step lc1' sc0 mem1' loc ts1 ts2 val1 released0 released1' ord lc2' sc2' mem2' Memory.promise_kind_add>> /\
-    <<STEP3: Local.write_step lc2' sc2' mem2' loc ts2 ts3 val2 released1' released2' ord lc3' sc3' mem3' (Memory.promise_kind_update ts2 released2)>> /\
-    <<REL3: Capability.le released2' released2>> /\
+      (STEP: Local.write_step lc0 sc0 mem0 loc ts1 ts3 val3 released0 released3 ord lc3 sc3 mem3 kind):
+  exists lc1' lc2' lc3' sc2' sc3' mem1' mem2' mem3' released2' released3',
+    <<STEP1: Local.promise_step lc0 mem0 loc ts1 ts3 val3 released3 lc1' mem1' kind>> /\
+    <<STEP2: Local.write_step lc1' sc0 mem1' loc ts1 ts2 val2 released0 released2' ord lc2' sc2' mem2' (Memory.promise_kind_split ts3 val3 released3)>> /\
+    <<STEP3: Local.write_step lc2' sc2' mem2' loc ts2 ts3 val3 released2' released3' ord lc3' sc3' mem3' (Memory.promise_kind_lower released3)>> /\
+    <<REL3: Capability.le released3' released3>> /\
     <<LOCAL3: sim_local lc3' lc3>> /\
     <<SC3: TimeMap.le sc3' sc3>> /\
     <<MEM3: sim_memory mem3' mem3>>.
@@ -299,19 +280,42 @@ Proof.
   { eapply fulfill_step_lc_from; eauto. }
   i. des.
   exploit Local.promise_step_future; try exact STEP0; eauto. i. des.
-  exploit Local.promise_step_future; try exact STEP3; eauto. i. des.
-  generalize FUTURE. i. rewrite FUTURE0 in FUTURE2.
   exploit promise_fulfill_write; try eexact STEP3; eauto; try by committac.
   { i. destruct ord; inv ORD; inv H. }
   i. des.
   exploit Local.write_step_future; eauto; try by committac. i. des.
-  exploit sim_local_fulfill; try eexact STEP5; try exact REL_LE; try refl; eauto. i. des.
-  exploit (@fulfill_write lc3' sc3' mem2'0); try eexact STEP_SRC; eauto. i. des.
+  exploit sim_local_fulfill; try eexact STEP4; try exact REL_LE; try refl; eauto. i. des.
+  exploit (@fulfill_write lc2' sc2' mem2'); try eexact STEP_SRC; eauto. i. des.
   esplits; eauto.
-  - eapply merge_promise_promise; eauto.
   - etrans; eauto.
   - etrans; eauto.
   - etrans; eauto. etrans; eauto.
+Qed.
+
+Lemma promise_add_promise_split_promise_add_promise_add
+      loc ts1 ts2 ts3 val2 val3 released2 released3
+      lc0 sc0 mem0
+      lc1 mem1
+      lc2 mem2
+      (WF0: Local.wf lc0 mem0)
+      (SC0: Memory.closed_timemap sc0 mem0)
+      (MEM0: Memory.closed mem0)
+      (REL_CLOSED: forall promises1' mem1' (PROMISE1: Memory.promise (Local.promises lc0) mem0 loc ts1 ts2 val2 released2 promises1' mem1' Memory.promise_kind_add),
+          Memory.closed_capability released2 mem1')
+      (STEP1: Local.promise_step lc0 mem0 loc ts1 ts3 val3 released3 lc1 mem1 Memory.promise_kind_add)
+      (STEP2: Local.promise_step lc1 mem1 loc ts1 ts2 val2 released2 lc2 mem2 (Memory.promise_kind_split ts3 val3 released3)):
+  exists lc1' mem1',
+    <<STEP1: Local.promise_step lc0 mem0 loc ts1 ts2 val2 released2 lc1' mem1' Memory.promise_kind_add>> /\
+    <<STEP2: Local.promise_step lc1' mem1' loc ts2 ts3 val3 released3 lc2 mem2 Memory.promise_kind_add>>.
+Proof.
+  exploit Local.promise_step_future; try exact STEP1; eauto. i. des.
+  (* exploit Local.promise_step_future; try exact STEP2; eauto. i. des. *)
+  inv STEP1. inv STEP2.
+  exploit MemorySplit.commute_promise_add_promise_split_promise_add_promise_add; eauto. i. des.
+  esplits.
+  - econs; eauto.
+  - refine (Local.step_promise _ _ _); eauto.
+    eapply Memory.promise_closed_capability; eauto.
 Qed.
 
 Lemma reorder_promise_add_promise_add
@@ -376,12 +380,16 @@ Lemma write_step_promise
 Proof.
   inv STEP. inv WRITE. s.
   apply Cell.ext. i. rewrite Cell.bot_get.
-  etrans; [eapply MemoryFacts.remove_o; eauto|].
+  etrans; [eapply Memory.remove_o; eauto|].
   inv PROMISE.
-  - erewrite MemoryFacts.add_o; eauto. condtac; ss.
+  - erewrite Memory.add_o; eauto. condtac; ss.
     unfold Memory.get. rewrite PROMISES, Cell.bot_get. auto.
-  - condtac; ss.
-    erewrite MemoryFacts.update_o; eauto. condtac; ss.
+  - erewrite Memory.split_o; eauto. repeat condtac; ss.
+    + guardH o. des. subst.
+      exploit Memory.split_get0; try exact PROMISES0; eauto.
+      unfold Memory.get. rewrite PROMISES, ? Cell.bot_get. i. des. congr.
+    + unfold Memory.get. rewrite PROMISES, Cell.bot_get. auto.
+  - erewrite Memory.lower_o; eauto. condtac; ss.
     unfold Memory.get. rewrite PROMISES, Cell.bot_get. auto.
 Qed.
 
@@ -412,22 +420,20 @@ Proof.
   exploit merge_split; try exact STEP2; eauto; try by committac.
   { eapply fulfill_step_lc_from; eauto. }
   i. des.
-  exploit merge_promise_promise; try exact STEP1; eauto. i.
-  exploit reorder_promise_add_promise_add; try exact x0; try eexact STEP3; eauto.
-  { ii. inv H. exfalso. eapply Time.lt_strorder. eauto. }
+  exploit promise_add_promise_split_promise_add_promise_add; try exact STEP1; eauto.
   { i. rewrite REL1'.
     eapply Local.promise_closed_capability; try eexact PROMISE1; eauto; try apply WF0.
     inv STEP1. apply WF0.
   }
   i. des.
-  exploit Local.promise_step_future; try eexact STEP6; eauto. i. des.
-  exploit reorder_promise_add_fulfill; try exact STEP7; try eexact STEP4; eauto; try by committac.
+  exploit Local.promise_step_future; try eexact STEP5; eauto. i. des.
+  exploit reorder_promise_add_fulfill; try exact STEP6; try eexact STEP3; eauto; try by committac.
   { ii. inv H. exfalso. eapply Time.lt_strorder. eauto. }
   i. des.
-  exploit fulfill_step_future; try eexact STEP8; try exact WF3; eauto; try by committac. i. des.
-  exploit promise_fulfill_write; try eexact STEP6; eauto. i. des.
+  exploit fulfill_step_future; try eexact STEP7; try exact WF3; eauto; try by committac. i. des.
+  exploit promise_fulfill_write; try eexact STEP5; eauto. i. des.
   exploit Local.write_step_future; eauto. i. des.
-  exploit promise_fulfill_write; try eexact STEP9; eauto.
+  exploit promise_fulfill_write; try eexact STEP8; eauto.
   { i. exploit ORD; eauto. i. des. splits; auto.
     eapply write_step_promise; eauto.
   }
@@ -454,7 +460,7 @@ Lemma merge_write_write
       (TS23: Time.lt ts2 ts3)
       (STEP: Local.write_step lc0 sc0 mem0 loc ts1 ts3 val2 released0 released2 ord lc3 sc3 mem3 kind):
   exists lc1' lc2' lc3' sc2' sc3' mem1' mem2' mem3' released1' released2' kind2 kind3,
-    <<STEP1: Local.promise_step lc0 mem0 loc ts2 ts3 val2 released2 lc1' mem1' kind \/ (lc0, mem0) = (lc1', mem1')>> /\
+    <<STEP1: Local.promise_step lc0 mem0 loc ts1 ts3 val2 released2 lc1' mem1' kind \/ (lc0, mem0) = (lc1', mem1')>> /\
     <<STEP2: Local.write_step lc1' sc0 mem1' loc ts1 ts2 val1 released0 released1' ord lc2' sc2' mem2' kind2>> /\
     <<STEP3: Local.write_step lc2' sc2' mem2' loc ts2 ts3 val2 released1' released2' ord lc3' sc3' mem3' kind3>> /\
     <<REL3: Capability.le released2' released2>> /\
@@ -485,7 +491,7 @@ Lemma merge_write_write_bot
       (TS23: Time.lt ts2 ts3)
       (STEP: Local.write_step lc0 sc0 mem0 loc ts1 ts3 val2 released0 released2 ord lc3 sc3 mem3 kind):
   exists lc1' lc2' lc3' sc2' sc3' mem1' mem2' mem3' released1' released2' kind2 kind3,
-    <<STEP1: Local.promise_step lc0 mem0 loc ts2 ts3 val2 released2 lc1' mem1' kind \/ (lc0, mem0) = (lc1', mem1')>> /\
+    <<STEP1: Local.promise_step lc0 mem0 loc ts1 ts3 val2 released2 lc1' mem1' kind \/ (lc0, mem0) = (lc1', mem1')>> /\
     <<STEP2: Local.write_step lc1' sc0 mem1' loc ts1 ts2 val1 released0 released1' ord lc2' sc2' mem2' kind2>> /\
     <<STEP3: Local.write_step lc2' sc2' mem2' loc ts2 ts3 val2 Capability.bot released2' ord lc3' sc3' mem3' kind3>> /\
     <<REL3: Capability.le released2' released2>> /\

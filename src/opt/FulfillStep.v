@@ -98,7 +98,7 @@ Lemma fulfill_write
       (SC1: Memory.closed_timemap sc1 mem1)
       (MEM1: Memory.closed mem1):
   exists released' mem2',
-    <<STEP: Local.write_step lc1 sc1 mem1 loc from to val releasedm released' ord lc2 sc2 mem2' (Memory.promise_kind_update from released)>> /\
+    <<STEP: Local.write_step lc1 sc1 mem1 loc from to val releasedm released' ord lc2 sc2 mem2' (Memory.promise_kind_lower released)>> /\
     <<REL_LE: Capability.le released' released>> /\
     <<MEM: sim_memory mem2' mem1>>.
 Proof.
@@ -112,7 +112,7 @@ Proof.
   - econs; eauto.
     + econs; eauto.
     + i. destruct ord; inv ORD; inv H.
-  - eapply sim_memory_promise_lower. eauto.
+  - eapply promise_lower_sim_memory. eauto.
 Qed.
 
 Lemma promise_fulfill_write
@@ -141,7 +141,7 @@ Proof.
   - refine (Local.step_write _ _ _ _ _); eauto.
     econs; eauto.
     eapply MemoryMerge.promise_promise_promise; eauto.
-  - eapply sim_memory_promise_lower. eauto.
+  - eapply promise_lower_sim_memory. eauto.
 Qed.
 
 Lemma fulfill_step_promises_diff

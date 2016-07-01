@@ -28,14 +28,19 @@ Lemma write_step_promise
   lc2.(Local.promises) = Memory.bot.
 Proof.
   inv STEP. rewrite PROMISES in *. s.
-  apply Memory.ext. i.
+  apply Memory.ext. i. rewrite Memory.bot_get.
   inv WRITE.
-  erewrite MemoryFacts.remove_o; eauto.
+  erewrite Memory.remove_o; eauto. condtac; ss. guardH o.
   inv PROMISE.
-  - erewrite MemoryFacts.add_o; eauto. condtac; ss.
-    rewrite Memory.bot_get. auto.
-  - erewrite MemoryFacts.update_o; eauto. condtac; ss.
-    rewrite Memory.bot_get. auto.
+  - erewrite Memory.add_o; eauto. condtac; ss.
+    apply Memory.bot_get.
+  - erewrite Memory.split_o; eauto. repeat condtac; ss.
+    + guardH o0. des. subst.
+      exploit Memory.split_get0; try exact PROMISES0; eauto. i. des.
+      rewrite Memory.bot_get in *. congr.
+    + apply Memory.bot_get.
+  - erewrite Memory.lower_o; eauto. condtac; ss.
+    apply Memory.bot_get.
 Qed.
 
 Lemma program_step_promise
@@ -96,9 +101,9 @@ Proof.
       repeat condtac; committac;
         (try eapply Memory.add_closed_capability; eauto);
         (try apply WF1).
-    + eapply Memory.add_get2. eauto.
+    + erewrite Memory.add_o; eauto. condtac; eauto. ss. des; congr.
     + econs; try apply Memory.closed_timemap_bot; committac.
-    + eapply Memory.add_get2. eauto.
+    + erewrite Memory.add_o; eauto. condtac; eauto. ss. des; congr.
 Qed.
 
 Lemma progress_read_step
@@ -137,7 +142,7 @@ Proof.
                           (Capability.join releasedm (Commit.rel (Commit.write_commit (Local.commit lc1) sc1 loc to ord) loc))
                           LT).
   { apply Memory.ext. i.
-    inv PROMISE. erewrite MemoryFacts.add_o; eauto.
+    inv PROMISE. erewrite Memory.add_o; eauto.
     rewrite PROMISES1, Memory.bot_get, Memory.singleton_get.
     repeat (condtac; unfold fst, snd in *; des; subst; auto; try congr).
   }

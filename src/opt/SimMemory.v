@@ -114,7 +114,7 @@ Proof.
     etrans; [|apply TimeMap.join_l]. eapply sim_memory_max_timemap; eauto.
 Qed.
 
-Lemma cover_disjoint
+Lemma covered_disjoint
       mem1 mem2 loc from to
       (COVER: forall loc ts, covered loc ts mem1 -> covered loc ts mem2)
       (DISJOINT: forall to2 from2 msg2
@@ -129,6 +129,90 @@ Proof.
   i. inv x0. eapply DISJOINT; eauto.
 Qed.
 
+Lemma add_covered
+      mem2 mem1 loc from to val released
+      l t
+      (ADD: Memory.add mem1 loc from to val released mem2):
+  covered l t mem2 <->
+  covered l t mem1 \/ (l = loc /\ Interval.mem (from, to) t).
+Proof.
+  econs; i.
+  - inv H. revert GET. erewrite Memory.add_o; eauto. condtac; ss.
+    + des. subst. i. inv GET. auto.
+    + left. econs; eauto.
+  - des.
+    + inv H. econs; eauto.
+      erewrite Memory.add_o; eauto. condtac; ss; eauto.
+      des. subst. erewrite Memory.add_get0 in GET; eauto. congr.
+    + subst. econs; eauto. erewrite Memory.add_o; eauto. condtac; ss.
+      des; congr.
+Qed.
+
+Lemma split_covered
+      mem2 mem1 loc ts1 ts2 ts3 val2 val3 released2 released3
+      l t
+      (SPLIT: Memory.split mem1 loc ts1 ts2 ts3 val2 val3 released2 released3 mem2):
+  covered l t mem2 <-> covered l t mem1.
+Proof.
+  econs; i.
+  - exploit Memory.split_get0; eauto. i. des.
+    inv H. revert GET. erewrite Memory.split_o; eauto. repeat condtac; ss.
+    + des. subst. i. inv GET. econs; eauto.
+      eapply Interval.le_mem; eauto. econs; [refl|].
+      inv SPLIT. inv SPLIT0. left. auto.
+    + guardH o. des. subst. i. inv GET. econs; eauto.
+      eapply Interval.le_mem; eauto. econs; [|refl].
+      inv SPLIT. inv SPLIT0. left. auto.
+    + i. econs; eauto.
+  - exploit Memory.split_get0; eauto. i. des.
+    inv H.
+    destruct (loc_ts_eq_dec (l, to) (loc, ts3)); ss.
+    + des. subst. rewrite GET3 in GET. inv GET.
+      destruct (Time.le_lt_dec t ts2).
+      * econs.
+        { instantiate (2 := from). instantiate (2 := ts2).
+          erewrite Memory.split_o; eauto. condtac; ss.
+          des; congr.
+        }
+        { inv ITV. econs; ss. }
+      * econs.
+        { instantiate (2 := ts2). instantiate (2 := ts3).
+          erewrite Memory.split_o; eauto. repeat condtac; ss.
+          - des. subst. inv SPLIT. inv SPLIT0.
+            exfalso. eapply Time.lt_strorder. eauto.
+          - guardH o. des; congr.
+        }
+        { inv ITV. econs; ss. }
+    + econs; eauto. erewrite Memory.split_o; eauto.
+      repeat condtac; ss; eauto.
+      * guardH o. des. subst. congr.
+      * guardH o. guardH o0. des. subst.
+        unguardH o. des; congr.
+Qed.
+
+Lemma lower_covered
+      mem2 mem1 loc from to val released1 released2
+      l t
+      (LOWER: Memory.lower mem1 loc from to val released1 released2 mem2):
+  covered l t mem2 <-> covered l t mem1.
+Proof.
+  econs; i.
+  - inv H. revert GET. erewrite Memory.lower_o; eauto. condtac; ss.
+    + des. subst. i. inv GET. econs; eauto.
+      eapply Memory.lower_get0; eauto.
+    + i. econs; eauto.
+  - exploit Memory.lower_get0; eauto. i.
+    inv H.
+    destruct (loc_ts_eq_dec (l, to0) (loc, to)); ss.
+    + des. subst. econs; eauto.
+      erewrite Memory.lower_o; eauto. condtac.
+      * rewrite GET in x0. inv x0. eauto.
+      * ss. des; congr.
+    + econs; eauto.
+      erewrite Memory.lower_o; eauto. rewrite GET. condtac; ss.
+      des; congr.
+Qed.
+
 Lemma sim_memory_add
       mem1_src mem1_tgt released_src
       mem2_src mem2_tgt released_tgt
@@ -140,73 +224,58 @@ Lemma sim_memory_add
   sim_memory mem2_src mem2_tgt.
 Proof.
   inv SIM. econs.
-  - econs; i.
-    + inv H.
-      exploit Memory.add_get_inv; try exact GET; eauto. i. des.
-      * subst. exploit Memory.add_get2; try exact TGT; eauto. i.
-        econs; eauto.
-      * destruct (COVER loc0 ts) as [C1 C2]. exploit C1; eauto.
-        { econs; eauto. }
-        i. inv x. exploit Memory.add_get1; try exact GET0; eauto. i. econs; eauto.
-    + inv H.
-      exploit Memory.add_get_inv; try exact GET; eauto. i. des.
-      * subst. exploit Memory.add_get2; try exact SRC; eauto. i.
-        econs; eauto.
-      * destruct (COVER loc0 ts) as [C1 C2]. exploit C2; eauto.
-        { econs; eauto. }
-        i. inv x. exploit Memory.add_get1; try exact GET0; eauto. i. econs; eauto.
-  - i. exploit Memory.add_get_inv; eauto. i. des.
-    + inv x3. esplits; eauto. eapply Memory.add_get2. eauto.
-    + exploit MSG; eauto. i. des.
-      esplits; eauto. eapply Memory.add_get1; eauto.
+  - i. rewrite add_covered; [|eauto]. rewrite (@add_covered mem2_tgt); [|eauto].
+    econs; i; des; (try by right).
+    + left. eapply COVER. eauto.
+    + left. eapply COVER. eauto.
+  - i. revert GET. erewrite Memory.add_o; eauto. condtac; ss.
+    + des. subst. i. inv GET. esplits; eauto.
+      erewrite Memory.add_o; eauto. condtac; ss.
+    + erewrite (@Memory.add_o mem2_src); eauto. condtac; ss. eauto.
 Qed.
 
-Lemma sim_memory_update
+Lemma sim_memory_split
       mem1_src mem1_tgt
       mem2_src mem2_tgt
-      loc from1 from2 to val released1_src released1_tgt released2_src released2_tgt
+      loc ts1 ts2 ts3 val2 val3 released2_src released3_src released2_tgt released3_tgt
       (REL_LE: Capability.le released2_src released2_tgt)
-      (SRC: Memory.update mem1_src loc from1 from2 to val released1_src released2_src mem2_src)
-      (TGT: Memory.update mem1_tgt loc from1 from2 to val released1_tgt released2_tgt mem2_tgt)
+      (SRC: Memory.split mem1_src loc ts1 ts2 ts3 val2 val3 released2_src released3_src mem2_src)
+      (TGT: Memory.split mem1_tgt loc ts1 ts2 ts3 val2 val3 released2_tgt released3_tgt mem2_tgt)
       (SIM: sim_memory mem1_src mem1_tgt):
   sim_memory mem2_src mem2_tgt.
 Proof.
   inv SIM. econs.
-  - econs; i.
-    + inv H. destruct msg.
-      exploit Memory.update_get_inv; try exact GET; eauto. i. des.
-      * subst. exploit Memory.update_get2; try exact TGT; eauto. i.
-        econs; eauto.
-      * destruct (COVER loc0 ts) as [C1 C2]. exploit C1; eauto.
-        { econs; eauto. }
-        i. inv x. exploit Memory.update_get1; try exact GET0; eauto. i. des.
-        { subst. contradict x0. splits; auto.
-          exploit Memory.update_get0; try exact SRC; eauto. i.
-          destruct (mem1_src loc).(Cell.WF).
-          destruct (Time.eq_dec to0 to); auto. exfalso.
-          eapply DISJOINT; try exact n; eauto.
-        }
-        { econs; eauto. }
-    + inv H. destruct msg.
-      exploit Memory.update_get_inv; try exact GET; eauto. i. des.
-      * subst. exploit Memory.update_get2; try exact SRC; eauto. i.
-        econs; eauto.
-      * destruct (COVER loc0 ts) as [C1 C2]. exploit C2; eauto.
-        { econs; eauto. }
-        i. inv x. exploit Memory.update_get1; try exact GET0; eauto. i. des.
-        { subst. contradict x0. splits; auto.
-          exploit Memory.update_get0; try exact TGT; eauto. i.
-          destruct (mem1_tgt loc).(Cell.WF).
-          destruct (Time.eq_dec to0 to); auto. exfalso.
-          eapply DISJOINT; try exact n; eauto.
-        }
-        { econs; eauto. }
-  - i. exploit Memory.update_get_inv; eauto. i. des.
-    + subst. esplits; eauto. eapply Memory.update_get2. eauto.
-    + exploit MSG; eauto. i. des.
-      exploit Memory.update_get1; try exact GET0; eauto. i. des.
-      * inv x5. contradict x0. auto.
-      * esplits; eauto.
+  - i. rewrite split_covered; [|eauto]. rewrite (@split_covered mem2_tgt); [|eauto].
+    apply COVER.
+  - i. revert GET. erewrite Memory.split_o; eauto. repeat condtac; ss.
+    + des. subst. i. inv GET. esplits; eauto.
+      erewrite Memory.split_o; eauto. condtac; ss.
+    + erewrite (@Memory.split_o mem2_src); eauto. repeat condtac; ss.
+      i. inv GET. guardH o. guardH o0. des. subst.
+      exploit Memory.split_get0; try exact SRC; eauto. i. des.
+      exploit Memory.split_get0; try exact TGT; eauto. i. des.
+      exploit MSG; eauto. i. des. rewrite GET3 in GET. inv GET.
+      esplits; eauto.
+    + erewrite (@Memory.split_o mem2_src); eauto. repeat condtac; ss. eauto.
+Qed.
+
+Lemma sim_memory_lower
+      mem1_src mem1_tgt
+      mem2_src mem2_tgt
+      loc from to val released1_src released1_tgt released2_src released2_tgt
+      (REL_LE: Capability.le released2_src released2_tgt)
+      (SRC: Memory.lower mem1_src loc from to val released1_src released2_src mem2_src)
+      (TGT: Memory.lower mem1_tgt loc from to val released1_tgt released2_tgt mem2_tgt)
+      (SIM: sim_memory mem1_src mem1_tgt):
+  sim_memory mem2_src mem2_tgt.
+Proof.
+  inv SIM. econs.
+  - i. rewrite lower_covered; [|eauto]. rewrite (@lower_covered mem2_tgt); [|eauto].
+    apply COVER.
+  - i. revert GET. erewrite Memory.lower_o; eauto. condtac; ss.
+    + des. subst. i. inv GET. esplits; eauto.
+      erewrite Memory.lower_o; eauto. condtac; ss.
+    + erewrite (@Memory.lower_o mem2_src); eauto. condtac; ss. eauto.
 Qed.
 
 Lemma sim_memory_promise
@@ -221,7 +290,8 @@ Lemma sim_memory_promise
 Proof.
   inv PROMISE_SRC; inv PROMISE_TGT.
   - eapply sim_memory_add; eauto.
-  - eapply sim_memory_update; eauto.
+  - eapply sim_memory_split; eauto.
+  - eapply sim_memory_lower; eauto.
 Qed.
 
 Lemma sim_memory_closed_timemap
@@ -248,67 +318,39 @@ Proof.
   - eapply sim_memory_closed_timemap; eauto. apply TGT.
 Qed.
 
-Lemma sim_memory_lower
+Lemma lower_sim_memory
       mem1 loc from to val released1 released2 mem2
-      (UPDATE: Memory.update mem1 loc from from to val released1 released2 mem2):
+      (LOWER: Memory.lower mem1 loc from to val released1 released2 mem2):
   sim_memory mem2 mem1.
 Proof.
   econs.
-  - econs; i.
-    + inv H. destruct msg.
-      exploit Memory.update_get_inv; eauto. i. des.
-      * subst. exploit Memory.update_get0; eauto. i.
-        econs; eauto.
-      * econs; eauto.
-    + inv H. destruct msg.
-      exploit Memory.update_get1; eauto. i. des.
-      * subst. econs; eauto.
-      * econs; eauto.
-  - i. exploit Memory.update_get1; eauto. i. des.
-    + inv x3. esplits; eauto.
-      inv UPDATE. inv UPDATE0. auto.
+  - i. eapply lower_covered. eauto.
+  - i. erewrite Memory.lower_o; eauto. condtac; ss.
+    + des. subst.
+      erewrite Memory.lower_get0 in GET; eauto. inv GET.
+      esplits; eauto. inv LOWER. inv LOWER0. auto.
     + esplits; eauto. refl.
 Qed.
 
-Lemma sim_memory_promise_lower
+Lemma promise_lower_sim_memory
       promises1 mem1 loc from to val released1 released2 promises2 mem2
-      (PROMISE: Memory.promise promises1 mem1 loc from to val released2 promises2 mem2 (Memory.promise_kind_update from released1)):
+      (PROMISE: Memory.promise promises1 mem1 loc from to val released2 promises2 mem2 (Memory.promise_kind_lower released1)):
   sim_memory mem2 mem1.
 Proof.
-  inv PROMISE. eapply sim_memory_lower. eauto.
+  inv PROMISE. eapply lower_sim_memory. eauto.
 Qed.
 
-Lemma sim_memory_split
-      mem0 loc ts1 ts2 ts3 val2 val3 released2 released3 released3' mem1 mem2
-      (STEP1: Memory.update mem0 loc ts1 ts2 ts3 val3 released3 released3' mem1)
-      (STEP2: Memory.add mem1 loc ts1 ts2 val2 released2 mem2):
-  sim_memory mem2 mem0.
+Lemma split_sim_memory
+      mem0 loc ts1 ts2 ts3 val2 val3 released2 released3 mem1
+      (SPLIT: Memory.split mem0 loc ts1 ts2 ts3 val2 val3 released2 released3 mem1):
+  sim_memory mem1 mem0.
 Proof.
   econs.
-  - econs; i.
-    + inv H. destruct msg.
-      exploit Memory.update_get0; eauto. i.
-      exploit Memory.add_get_inv; eauto. i. des.
-      { inv x3. econs; eauto. eapply Interval.le_mem; eauto.
-        econs; try refl. inv STEP1. inv UPDATE. left. auto.
-      }
-      exploit Memory.update_get_inv; eauto. i. des.
-      { subst. econs; eauto. eapply Interval.le_mem; eauto.
-        econs; try refl. inv STEP1. inv UPDATE. auto.
-      }
-      econs; eauto.
-    + inv H. destruct msg.
-      exploit Memory.update_get1; eauto. i. des.
-      { inv x3. destruct (Time.le_lt_dec ts ts2).
-        - exploit Memory.add_get2; eauto. i.
-          econs; eauto. inv ITV. econs; auto.
-        - exploit Memory.add_get1; eauto. i.
-          econs; eauto. inv ITV. econs; auto.
-      }
-      exploit Memory.add_get1; eauto. i.
-      econs; eauto.
-  - i. exploit Memory.update_get1; eauto. i. des.
-    + inv x3. exploit Memory.add_get1; eauto. i. esplits; eauto.
-      inv STEP1. inv UPDATE. auto.
-    + exploit Memory.add_get1; eauto. i. esplits; eauto. refl.
+  - i. eapply split_covered. eauto.
+  - i. exploit Memory.split_get0; eauto. i. des.
+    erewrite Memory.split_o; eauto. repeat condtac; ss.
+    + des. subst. congr.
+    + guardH o. des. subst. rewrite GET3 in GET. inv GET.
+      esplits; eauto. refl.
+    + esplits; eauto. refl.
 Qed.

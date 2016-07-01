@@ -599,10 +599,9 @@ Lemma fulfill_unset_promises
       (TH2: Memory.get l t promises2 = None):
   l = loc /\ t = ts /\ f = from /\ m.(Message.val) = val /\ Capability.le rel m.(Message.released).
 Proof.
-  eapply Memory.remove_get1 in FULFILL; eauto.
-  des; subst.
-  - splits; eauto; reflexivity.
-  - by rewrite TH2 in FULFILL.
+  revert TH2. erewrite Memory.remove_o; eauto. condtac; ss; [|congr].
+  des. subst. erewrite Memory.remove_get0 in TH1; eauto. inv TH1.
+  esplits; eauto. refl.
 Qed.
 
 Lemma thread_step_unset_promises
