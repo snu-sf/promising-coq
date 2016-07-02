@@ -20,6 +20,7 @@ Require Import Thread.
 Require Import SimMemory.
 Require Import SimPromises.
 Require Import SimLocal.
+Require Import FulfillStep.
 
 Set Implicit Arguments.
 
@@ -161,6 +162,26 @@ Proof.
   - i. apply lt_le_S in H. inv H; eauto.
 Qed.
 
+Lemma reorder_promise_promise
+      lc0 mem0
+      lc1 mem1
+      lc2 mem2
+      loc1 from1 to1 val1 released1 kind1
+      loc2 from2 to2 val2 released2 kind2
+      (STEP1: Local.promise_step lc0 mem0 loc1 from1 to1 val1 released1 lc1 mem1 kind1)
+      (STEP2: Local.promise_step lc1 mem1 loc2 from2 to2 val2 released2 lc2 mem2 kind2)
+      (LOCAL0: Local.wf lc0 mem0)
+      (MEM0: Memory.closed mem0)
+      (LOCTS: loc2 = loc1 -> Time.le to2 to1):
+  exists lc1' mem1' kind2',
+    <<STEP1: Local.promise_step lc0 mem0 loc2 from2 to2 val2 released2 lc1' mem1' kind2'>> /\
+    <<STEP2: __guard__
+               ((lc2, mem2) = (lc1', mem1') \/
+                exists kind1', Local.promise_step lc1' mem1' loc1 from1 to1 val1 released1 lc2 mem2 kind1')>> /\
+    <<KIND2: kind2 = Memory.promise_kind_add -> kind2' = Memory.promise_kind_add>>.
+Proof.
+Admitted.
+
 Lemma reorder_promise_program
       lang
       e1 th0 th1 th2
@@ -169,10 +190,15 @@ Lemma reorder_promise_program
       (LOCAL: Local.wf th0.(Thread.local) th0.(Thread.memory))
       (SC: Memory.closed_timemap th0.(Thread.sc) th0.(Thread.memory))
       (MEMORY: Memory.closed th0.(Thread.memory)):
-  exists th1',
+  exists th1' th2',
      <<STEP1: @tau_program_step lang th0 th1'>> /\
-     <<STEP2: __guard__ (th2 = th1' \/ exists e2', @Thread.promise_step lang e2' th1' th2)>>.
+     <<STEP2: __guard__ (th2 = th1' \/ exists e2', @Thread.promise_step lang e2' th1' th2')>> /\
+    <<STATE: th2_src.(Thread.state) = th2_tgt.(Thread.state)>> /\
+    <<LOCAL: sim_local th2_src.(Thread.local) th2_tgt.(Thread.local)>> /\
+    <<SC: TimeMap.le th2_src.(Thread.sc) th2_tgt.(Thread.sc)>> /\
+    <<MEM: sim_memory th2_src.(Thread.memory) th2_tgt.(Thread.memory)>>.
 Proof.
+  exploit Thread.promise_step_future; eauto. i. des.
   inv STEP1. inv STEP2. inv STEP; ss.
   - esplits; eauto.
     + econs; (try by econs 1; eauto).
@@ -190,6 +216,19 @@ Proof.
       * auto.
     + right. esplits. econs. econs; eauto.
   - (* write *)
+    exploit write_promise_fulfill; eauto; try by committac. i. des.
+    exploit reorder_promise_promise; try exact LOCAL0; eauto.
+    { admit. (* write * promise *) }
+    i. des. unguardH STEP3. des.
+    + inv STEP3. exploit promise_fulfill_write; try exact STEP0; eauto; try by committac.
+      { i.  exploit ORD; eauto. i. des. splits; auto.
+        admit. (* promises's cell = bot *)
+      }
+      i. des. esplits.
+      * econs; (try by econs 3; eauto); eauto.
+      * left.
+        { 
+    
     admit.
   - (* update *)
     admit.
@@ -251,20 +290,23 @@ Proof.
   exploit sim_local_program_step; try exact STEP2; try exact MEM; eauto. i. des.
   exploit Thread.program_step_future; eauto. i. des.
   unguardH STEP2. des.
-  - subst. exploit sim_local_rtcn_program_step; try exact MEM0; eauto. i. des.
+  - subst. exploit sim_local_rtcn_program_step; (try etrans; eauto; try done). i. des.
     esplits; cycle 1.
     + econs 2; eauto. econs; eauto. etrans; eauto.
     + eapply sim_local_memory_bot; eauto.
     + omega.
-  - assert (STEPS: rtcn (Thread.tau_step (lang:=lang)) (S n0) th1' e2_src).
+  - exploit Thread.promise_step_future; try exact STEP2; eauto. i. des.
+    exploit sim_local_rtcn_program_step; try exact MEM0; eauto. i. des.
+    assert (STEPS: rtcn (Thread.tau_step (lang:=lang)) (S n0) th1' th2_src0).
     { econs 2.
       - econs.
         + econs 1. apply STEP2.
         + by inv STEP2.
-      - eapply rtcn_imply; try exact A0. i. inv PR. econs; eauto. econs 2; eauto.
+      - eapply rtcn_imply; try exact STEP_SRC0. i. inv PR. econs; eauto. econs 2; eauto.
     }
-    exploit IH; try exact STEPS; try exact MEM0; eauto.
+    exploit IH; try exact STEPS; try exact MEM1; eauto.
     { omega. }
+    { eapply sim_local_memory_bot; eauto. }
     i. des. esplits; cycle 1.
     + econs 2; eauto. econs; eauto. etrans; eauto.
     + auto.
