@@ -1,0 +1,683 @@
+Require Import Omega.
+Require Import RelationClasses.
+
+Require Import sflib.
+
+Require Import Axioms.
+Require Import Basic.
+Require Import DataStructure.
+Require Import Time.
+Require Import Event.
+Require Import Language.
+Require Import View.
+Require Import Cell.
+Require Import Memory.
+Require Import Commit.
+Require Import Thread.
+Require Import Configuration.
+Require Import Progress.
+
+Require Import DRFBase.
+Require Import SmallStep.
+Require Import Race.
+Require Import PIStep.
+Require Import Lift.
+
+Set Implicit Arguments.
+
+
+Inductive can_fulfill (tid: Ident.t) loc ts (c1 c4: Configuration.t) : Prop :=
+| can_fulfill_intro
+    c2 c3 e ord lst2 lc2 from2 msg2 from val rel 
+    (STEPS: rtc (small_step_evt false tid) c1 c2)
+    (STEP: small_step false tid e c2 c3)
+    (THREAD: IdentMap.find tid c2.(Configuration.threads) = Some (lst2, lc2))
+    (PROMISE: Memory.get loc ts lc2.(Local.promises) = Some (from2, msg2))
+    (EVENT: ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord))
+    (ORD: Ordering.le ord Ordering.relaxed)
+    (STEPS: rtc (small_step_evt false tid) c3 c4):
+  can_fulfill tid loc ts c1 c4
+.
+
+Inductive can_fulfill_promises (tid: Ident.t) : Configuration.t -> Prop :=
+| can_fulfill_promises_step
+    c1
+    (FULFILL: forall lst1 lc1 loc ts from msg
+                (THREAD: IdentMap.find tid c1.(Configuration.threads) = Some (lst1, lc1))
+                (PROMISE: Memory.get loc ts lc1.(Local.promises) = Some (from, msg)),
+              exists c2,
+              <<FULFILL1: can_fulfill tid loc ts c1 c2>> /\
+              <<FULFILL2: can_fulfill_promises tid c2>>):
+  can_fulfill_promises tid c1
+.
+Hint Constructors can_fulfill_promises.
+
+Lemma rtc_small_step_fulfill
+      tid loc ts c1 lst1 lc1 c2 lst2 lc2 from msg 
+      (STEPS: rtc (small_step_evt false tid) c1 c2)
+      (FIND1: IdentMap.find tid c1.(Configuration.threads) = Some (lst1, lc1))
+      (GET1: Memory.get loc ts lc1.(Local.promises) = Some (from, msg))
+      (FIND2: IdentMap.find tid c2.(Configuration.threads) = Some (lst2, lc2))
+      (GET2: Memory.get loc ts lc2.(Local.promises) = None):
+  can_fulfill tid loc ts c1 c2.
+Proof.
+  ginduction STEPS; i; subst.
+  { ss. rewrite FIND1 in FIND2. depdes FIND2.
+    by rewrite GET1 in GET2. 
+  }
+  inv H. inv USTEP. ss. rewrite FIND1 in TID. depdes TID.
+  destruct (Memory.get loc ts lc3.(Local.promises)) eqn: PRM.
+  - destruct p as [t m].
+    rewrite IdentMap.gss in IHSTEPS.
+    exploit IHSTEPS; eauto.
+    intros []; i.
+    econs; swap 5 8; eauto.
+    etrans; [|apply STEPS0].
+    econs; eauto 10.  
+  - exploit thread_step_unset_promises; eauto; s; eauto.
+    i; des. econs; eauto 10. 
+Qed.
+
+Lemma can_fulfill_lt
+      tid loc ts c1 c3 lst1 lc1 from msg
+      (FULFILL: can_fulfill tid loc ts c1 c3)
+      (FIND: IdentMap.find tid c1.(Configuration.threads) = Some (lst1, lc1))
+      (PROMISE: Memory.get loc ts lc1.(Local.promises) = Some (from, msg)):
+  Time.lt (lc1.(Local.commit).(Commit.cur).(Capability.rw) loc) ts.
+Proof.
+  destruct FULFILL.
+  inv STEP.
+  eapply rtc_implies, rtc_small_step_commit_future in STEPS; eauto; cycle 1.
+  inv STEP0; inv STEP; inv EVENT.
+  + inv LOCAL. inv WRITABLE.
+    move STEPS at bottom. move TS at bottom.
+    eapply TimeFacts.le_lt_lt; eauto. apply STEPS.
+  + inv LOCAL1. inv READABLE. inv LOCAL2. inv WRITABLE.
+    ss. move STEPS at bottom. move TS at bottom.
+    eapply TimeFacts.le_lt_lt; eauto.
+    repeat (etrans; [|apply Time.join_l]). apply STEPS.
+Qed.
+
+Lemma rtc_small_step_unset_fulfill
+      tid loc ts c1 lst1 lc1 c2 lst2 lc2 from msg 
+      (STEPS: rtc (small_step_evt false tid) c1 c2)
+      (FIND1: IdentMap.find tid c1.(Configuration.threads) = Some (lst1, lc1))
+      (GET1: Memory.get loc ts lc1.(Local.promises) = Some (from, msg))
+      (FIND2: IdentMap.find tid c2.(Configuration.threads) = Some (lst2, lc2))
+      (GET2: Memory.get loc ts lc2.(Local.promises) = None):
+  can_fulfill tid loc ts c1 c2.
+Proof.
+  ginduction STEPS; i; subst.
+  { ss. rewrite FIND1 in FIND2. depdes FIND2.
+    by rewrite GET1 in GET2. 
+  }
+  inv H. inv USTEP. ss. rewrite FIND1 in TID. depdes TID.
+  destruct (Memory.get loc ts lc3.(Local.promises)) eqn: PRM.
+  - destruct p as [t m].
+    rewrite IdentMap.gss in IHSTEPS.
+    exploit IHSTEPS; eauto.
+    intros []; i.
+    econs; swap 5 8; eauto.
+    etrans; [|apply STEPS0].
+    econs; eauto 10.
+  - exploit thread_step_unset_promises; eauto; s; eauto.
+    i; des. econs; eauto. 
+Qed.
+
+Lemma consistent_can_fulfill_promises_future
+      tid c 
+      (CONSISTENT: Configuration.consistent c)
+      sc1 mem1 lst lc
+      (TH1: IdentMap.find tid c.(Configuration.threads) = Some (lst, lc))
+      (FUTURE: Memory.future c.(Configuration.memory) mem1)
+      (TIMELE: TimeMap.le c.(Configuration.sc) sc1)
+      (LOCWF: Local.wf lc mem1)
+      (SC: Memory.closed_timemap sc1 mem1)
+      (MEM: Memory.closed mem1):
+  can_fulfill_promises tid (Configuration.mk c.(Configuration.threads) sc1 mem1).
+Proof.
+  admit.
+  (* ii. destruct lst as [lang st]. econs. i. *)
+  (* exploit CONSISTENT; ss; eauto. *)
+  (* i; des. destruct e2. *)
+  (* exploit rtc_thread_step_rtc_small_step; swap 1 2. *)
+  (* { eapply rtc_implies, STEPS. i. inv PR. eauto. } *)
+  (* { eauto. } *)
+  (* intro STEPS1. ss. *)
+  (* match goal with [STEPS1: rtc _ _ ?cfg|-_] => set (c2 := cfg) end. *)
+  (* exploit (@rtc_small_step_unset_fulfill tid loc ts (Configuration.mk c.(Configuration.threads) sc1 mem1)); cycle 1. *)
+  (* - apply THREAD. *)
+  (* - apply PROMISE. *)
+  (* - instantiate (3:=c2). s. rewrite IdentMap.gss. eauto. *)
+  (* - rewrite PROMISES. apply Cell.bot_get. *)
+  (* - intro FULFILL. exists c2; split; eauto. *)
+  (*   econs; i. unfold c2 in *. ss. *)
+  (*   rewrite IdentMap.gss in THREAD0. depdes THREAD0. *)
+  (*   rewrite PROMISES in PROMISE0.  *)
+  (*   by setoid_rewrite Cell.bot_get in PROMISE0. *)
+  (* - done. *)
+Admitted. (* gil *)
+
+Lemma can_fulfill_promises_promise_consistent
+      tid c
+      (FULFILL: can_fulfill_promises tid c):
+  promise_consistent tid c.
+Proof.
+  ii. inv FULFILL. exploit FULFILL0; eauto.
+  i; des.
+  eauto using can_fulfill_lt.
+Qed.
+
+
+
+
+
+Lemma key_lemma
+      cS1 cT1 cS2 cT2 tid
+      (PI_CONSISTENT : pi_consistent (cS1, cT1))
+      (WF : pi_wf (cS1, cT1))
+      (RACEFREE : pf_racefree cS1)
+      (STEPS : rtc (pi_step_evt true tid) (cS1, cT1) (cS2, cT2))
+      loc ts 
+      lst2 lc2 from2 msg2 
+      (THREAD2 : IdentMap.find tid (Configuration.threads cT2) = Some (lst2, lc2))
+      (PROMISE2 : Memory.get loc ts (Local.promises lc2) = Some (from2, msg2))
+      cSTM3
+      (STEPS_LIFT : rtc (pi_step_lift_except loc ts tid) (cS2, cT2, cT2.(Configuration.memory)) cSTM3)
+      cM4 pre
+      (PI_STEPS : with_pre (small_step false tid) (conf_update_global cT2 cSTM3.(fst).(snd).(Configuration.sc) cSTM3.(snd)) pre cM4)
+      (PRCONSIS: promise_consistent tid cM4)
+      lst4 lc4
+      (THREAD4 : IdentMap.find tid (Configuration.threads cM4) = Some (lst4, lc4))
+      (TIMELT: Time.lt (lc4.(Local.commit).(Commit.cur).(Capability.rw) loc) ts)
+  : 
+  exists cS4 pre',
+  <<STEPS: with_pre (pi_step false tid) (cSTM3.(fst).(fst), conf_update_global cT2 cSTM3.(fst).(snd).(Configuration.sc) cSTM3.(snd)) pre' (cS4, cM4)>>
+  /\
+  <<EQPRE: pre = pi_pre_proj pre'>>.
+Proof.
+  assert (WF2: pi_wf (cS2,cT2)).
+  { eapply rtc_pi_step_future; eauto.
+    eapply rtc_implies, STEPS; eauto. }
+  move WF2 after cSTM3.
+
+  revert_until STEPS_LIFT.
+  apply Operators_Properties.clos_rt_rt1n_iff, 
+        Operators_Properties.clos_rt_rtn1_iff in STEPS_LIFT.
+  induction STEPS_LIFT.
+  { s. i. destruct cT2. unfold conf_update_global in *. ss.
+    eapply with_pre_implies in PI_STEPS.
+    - exploit pi_consistent_rtc_small_step_pi; try eapply WF; eauto.
+    - i. inv STEP. eauto. }
+
+  apply Operators_Properties.clos_rt_rtn1_iff, 
+        Operators_Properties.clos_rt_rt1n_iff in STEPS_LIFT.
+
+  destruct y as [[cS3 cT3] M3].
+  destruct z as [[cS4 cT4] M4].
+  rename H into PSTEP.
+
+  assert (WF3: pi_wf (cS3, cT3)).
+  { eapply rtc_pi_step_future; eauto.
+    eapply pi_steps_lift_except_pi_steps in STEPS_LIFT.
+    eapply rtc_implies, STEPS_LIFT.
+    i. inv PR. eauto. }
+
+  assert (WF4: pi_wf (cS4, cT4)).
+  { inv PSTEP. inv PI_STEP. inv USTEP.
+    eapply pi_step_future; eauto. }
+  
+  s. i. assert (X := PSTEP). inv X. inv PI_STEP. inv USTEP. rename cM4 into cM4'.
+
+  cut ((exists cS3' cM3' lst3' com3' com4' prm3',
+       <<STEPS3: rtc (pi_step_evt false tid) (cS3, conf_update_global cT2 (Configuration.sc cT3) M3) (cS3',cM3')>> /\
+       <<MEMLE: mem_eqlerel_lift loc ts e cM3'.(Configuration.memory) cM4'.(Configuration.memory)>> /\
+       <<SCLE: TimeMap.le cM3'.(Configuration.sc) cM4'.(Configuration.sc)>> /\
+       <<THS3: IdentMap.find tid cM3'.(Configuration.threads) = Some (lst3', Local.mk com3' prm3') >> /\
+       <<THS4: IdentMap.find tid cM4'.(Configuration.threads) = Some (lst3', Local.mk com4' prm3') >> /\
+       <<COMLE: Commit.le com3' com4' >>) /\
+       (exists cS4' pre',
+       <<STEPS4: with_pre (pi_step false tid) (cS4, conf_update_global cT2 (Configuration.sc cT4) M4) pre' (cS4',cM4')>>/\
+       <<EQPRE: pre = pi_pre_proj pre'>>)).
+  { i; des. exists cS4'; esplits; eauto. }
+
+  move WF2 after cM4'. move tid0 after cM4'. move TID after cM4'. move e after cM4'. move PI_STEP after cM4'. move MEM after cM4'. move PSTEP after cM4'.
+  revert_until PI_STEPS.
+  induction PI_STEPS; i.
+  { destruct lc4 as [com4 prm4]. subst. ss.
+    esplits.
+    { eauto. }
+    { econs; eauto.
+      by split; ii; esplits; eauto; reflexivity. }
+    { s.
+      inv PI_STEP. inv STEPT. ss.
+      inv WF3. inv WFT. inv WF0. ss.
+      exploit THREADS; eauto. i.
+      exploit Thread.step_future; eauto. s. i. des. auto.
+    }
+    { s. eauto. }
+    { s. eauto. }
+    { reflexivity. }
+    { eauto. }
+    { eauto. }
+  }
+
+  rename ms into cM4', es into cM5'.
+
+  assert (STEP2 := PSTEP0). inv PSTEP0. ss.
+  rewrite IdentMap.gss in THREAD4. depdes THREAD4.
+
+  exploit IHPI_STEPS; eauto using promise_consistent_small_step.
+  { eapply TimeFacts.le_lt_lt; eauto.
+    exploit thread_step_commit_future; eauto. s. i.
+    apply x0.
+  }
+  i; des. subst. clear IHPI_STEPS.
+  rewrite THS4 in TID0. depdes TID0.
+
+  exploit rtc_pi_step_local_wf; swap 1 2.
+  { eapply STEPS3. }
+  { hexploit rtc_pi_step_except_local_wf; [apply WF2|apply STEPS_LIFT|..]; eauto. }
+  intro SEMI_WF3.
+
+  exploit rtc_pi_step_local_wf; swap 1 2.
+  { eapply with_pre_rtc_step_union, STEPS4. }
+  { hexploit rtc_pi_step_except_local_wf; [by apply WF2|..].
+    - etrans; [by apply STEPS_LIFT|].
+      econs 2; [|reflexivity]; eauto.
+    - eauto. }
+  intro SEMI_WF4.
+
+  exploit (@lift_step _ (Thread.mk _ st1 (Local.mk com3' prm3') cM3'.(Configuration.sc) cM3'.(Configuration.memory))); [apply STEP|..]; eauto.
+  i; des.
+
+  (* Read the message "e" *)
+  { destruct (Loc.eq_dec loc loc0) eqn: NEQ.
+    { exfalso. subst. inv PI_STEP.
+      destruct lst2.
+      eapply NOWR; eauto.
+      econs; [|by apply PROMISE2].
+      apply rtc_pi_step_lift_except_find in STEPS_LIFT.
+      s in STEPS_LIFT. des.
+      rewrite <- STEPS_LIFT0. eauto.
+    }
+
+    assert (X:= PI_STEP). inv X.
+    destruct (ThreadEvent_is_promising e) eqn: EQ.
+    { destruct e; inv EQ; inv EVTW. }
+
+    assert (FREE3: pf_racefree cS3').
+    { eapply pf_racefree_steps; eauto.
+      etrans.
+      { eapply rtc_implies, (pi_steps_small_steps_fst _ STEPS); eauto. }
+      etrans.
+      { eapply (@pi_steps_all_pf_steps_fst (_,_) (_,_)).
+        eapply rtc_implies; [by i; eapply pi_step_except_all_incl; eauto|].
+        eapply (@pi_steps_lift_except_pi_steps (_,_,_) (_,_,_)), STEPS_LIFT. }
+      s. eapply (@pi_steps_all_pf_steps_fst (_,_) (_,_)).
+      eapply rtc_implies, STEPS3. eauto.
+    }
+
+    exploit small_step_to_program_step_reading; try apply EVTR; eauto.
+    i; des. inv EVENT.
+
+    exploit small_step_to_program_step_writing; try apply EVTW; eauto.
+    i; des. inv EVENT.
+
+    exploit FREE3.
+    { reflexivity. }
+    { inv SEMI_WF3. ss.
+      econs.
+      - intro X. symmetry in X. eauto.
+      - econs; [|apply STATE].
+        rewrite THS4 in TH. depdes TH.
+        by rewrite THS, THS3.
+      - econs; [|apply STATE0].
+        erewrite <- rtc_small_step_find; swap 1 2.
+        + eapply (@pi_steps_small_steps_fst tid (_,_) (_,_)). eauto.
+        + s. eauto.
+        + eauto.
+      - eauto.
+    }
+
+    i; des. exfalso.
+    inv MEMLE. r in MEMWR. rewrite EVTW in MEMWR. des. rewrite NEQ in PMREL.
+    inv STEP; inv STEP0; inv EVTR.
+    - move TIMELT at bottom. move LOCAL at bottom. move PMREL at bottom. move ORDR at bottom.
+      admit. (* jeeoon easy; PMREL, TIMELT, LOCAL, ORDR *)
+    - move TIMELT at bottom. move LOCAL1 at bottom. move LOCAL2 at bottom. move PMREL at bottom. move ORDR at bottom.
+      admit. (* jeeoon easy; PMREL, TIMELT, LOCAL1, LOCAL2, ORDR *)
+  }
+
+  (* Simulation exists *)  
+  assert (NOPRMEVT: ThreadEvent_is_promising eS = None).
+  { destruct e0; inv PFREE; inv EVT; eauto. }
+
+  subst. destruct thS2 as [stx lcx scx mx]. ss. subst.
+
+  exploit pi_steps_small_steps_snd; try apply STEPS3.
+  intros STEPS3'.
+  eapply rtc_step_union_with_pre in STEPS3'. des.
+
+  exploit (@IHSTEPS_LIFT (Configuration.mk (IdentMap.add tid (existT _ _ st2, lcx) cM3'.(Configuration.threads)) scx mx)); s; swap 1 3; swap 2 3.
+  { rewrite IdentMap.gss. eauto. }
+  { eapply with_pre_trans.
+    - apply STEPS3'.
+    - s; eauto. }
+  { ii. r in PRCONSIS. ss. 
+    rewrite IdentMap.gss in THREAD. rewrite IdentMap.gss in PRCONSIS.
+    inv THREAD. rewrite PRM in PROMISE. 
+    exploit PRCONSIS; eauto.
+    intro LT. move COM at bottom.
+    eapply TimeFacts.le_lt_lt; eauto. apply COM.
+  }
+  { move TIMELT at bottom. move COM at bottom.
+    eapply TimeFacts.le_lt_lt; eauto. apply COM.
+  }
+  i; des. ss.
+  destruct pre'0; [|done].
+  destruct p as [[cS3'x ?] ?]. symmetry in EQPRE. inv EQPRE.
+
+  destruct lcx as [comx prmx].
+  destruct lc4 as [com4 prm4].
+  split.
+  { esplits; [by eapply with_pre_rtc_step_union, STEPS0|..]; eauto.
+    { s. rewrite IdentMap.gss. eauto. }
+    { ss. rewrite IdentMap.gss, PRM. eauto. }
+  }
+
+  rename e0 into evt.
+  inv STEP; inv STEP1.
+
+  (* Promise step *)
+  by inv PFREE.
+
+  (* Silent step *)
+  { esplits; [eapply with_pre_trans; [by apply STEPS4|]|].
+    { econs 2; [econs 1|]. econs.
+      - eauto.
+      - inv SEMI_WF4; ss.
+        econs; [by rewrite THS, THS4|..]; eauto.
+      - s. by rewrite !IdentMap.gss.
+      - i. done.
+    }
+    eauto.
+  }
+
+  (* Read step *)
+  { inv STEP2. inv SEMI_WF4. inv STEP; inv STEP1.
+    rewrite THS4 in TID0. depdes TID0.
+    eapply (f_equal (IdentMap.find tid)) in THS2.
+    rewrite !IdentMap.gss in THS2. depdes THS2.
+
+    esplits; [eapply with_pre_trans; [by apply STEPS4|]|].
+    { econs 2; [econs 1|]. econs.
+      - eauto.
+      - s. econs; eauto.
+        { s. by rewrite THS, THS4. }
+        s. econs 2. econs 2; [eauto|].
+        
+        inv LOCAL0. s.
+        eapply Local.step_read; cycle 1; eauto.
+        
+        inv STEPS0.
+        hexploit rtc_pi_step_local_wf.
+        { eapply rtc_pi_step_except_local_wf, STEPS_LIFT. eauto. }
+        { s. eapply with_pre_rtc_step_union, PSTEPS. }
+        s; intro PIWF0. inv PIWF0.
+
+        ss. des. subst. inv EVT. inv PSTEP0. inv STEPS0. inv STEP; inv STEP1. inv LOCAL0. ss.
+        exploit LR0; eauto. i; des.
+
+        eapply RL; eauto.
+        { intro PRM4. apply NOTPRSELF. inv PRM4.
+          rewrite THS4 in TID1. depdes TID1.
+          econs; [rewrite THS3|]; eauto.
+        }
+        { intro PRM4. apply NOTPROTH.
+          inv PRM4. des. econs.
+          - ss. inv MEMLE. apply MEMEQ in IN. des.
+            eapply pi_step_lift_mem_get; eauto.
+          - move PI_STEP at bottom.
+            move WF3 at bottom.
+            move WF4 at bottom.
+            admit. (* with PI_STEP, NOSRC; memory.get monotone w.r.t. step *)
+          - eauto.
+        }
+      - s. by rewrite !IdentMap.gss.
+      - i. done.
+    }
+    eauto.
+  }
+
+  (* Write step *)
+  { hexploit local_simul_write; try apply LOCAL.
+    { inv SEMI_WF4. ii. apply LR in IN. des. esplits; eauto. }
+    intro WRITE4. des.
+
+    assert (X:= SEMI_WF4). inv X. ss.
+    esplits; [eapply with_pre_trans; [by apply STEPS4|]|].
+    { econs 2; [econs 1|]. econs; s.
+      - econs; eauto.
+      - econs; [by rewrite THS, THS4|..]; eauto.
+        s. rewrite SC0. econs 2. econs 3; eauto.
+      - s. by rewrite !IdentMap.gss.
+      - i. des. inv WRITE. inv STEPS0. inv PSTEP0. inv EVT.
+        hexploit NOWR; s; eauto.
+        intros X PRM. apply X.
+        inv PRM. econs; eauto.
+        rewrite <- TID0.
+        apply with_pre_rtc_step_union in PI_STEPS.
+        apply pi_steps_small_steps_snd_with_pre in PSTEPS.
+        apply with_pre_rtc_step_union in PSTEPS.
+        erewrite <- (rtc_small_step_find PI_STEPS); eauto.
+        erewrite <- (rtc_small_step_find PSTEPS); eauto.
+    }
+    eauto.
+  }
+
+  (* Update step *)
+  { assert (X:= LOCAL1). inv X. ss.
+
+    hexploit local_simul_write; try apply LOCAL2. 
+    { inv SEMI_WF4. ii. apply LR in IN. des. esplits; eauto. }
+    intro WRITE4. des.
+    
+    inv STEP2. inv SEMI_WF4. inv STEP; inv STEP1.
+    rewrite THS4 in TID0. depdes TID0.
+    eapply (f_equal (IdentMap.find tid)) in THS2.
+    rewrite !IdentMap.gss in THS2. depdes THS2.
+
+    esplits; [eapply with_pre_trans; [by apply STEPS4|]|].
+    { econs 2; [econs 1|]. econs.
+      { eauto. }
+      { s. econs; eauto.
+        { s. by rewrite THS, THS4. }
+        s. econs 2. econs 4; [eauto|..].
+        { inv LOCAL0. s.
+          eapply Local.step_read; cycle 1; eauto.
+          
+          inv STEPS0.
+          hexploit rtc_pi_step_local_wf.
+          { eapply rtc_pi_step_except_local_wf, STEPS_LIFT. eauto. }
+          { s. eapply with_pre_rtc_step_union, PSTEPS. }
+          s; intro PIWF0. inv PIWF0.
+
+          ss. des. subst. inv EVT. inv PSTEP0. inv STEPS0. inv STEP; inv STEP1. inv LOCAL0. ss.
+          exploit LR0; eauto. i; des.
+
+          eapply RL; eauto.
+          { intro PRM4. apply NOTPRSELF. inv PRM4.
+            rewrite THS4 in TID1. depdes TID1.
+            econs; [rewrite THS3|]; eauto.
+          }
+          { intro PRM4. apply NOTPROTH.
+            inv PRM4. des. econs.
+            - ss. inv MEMLE. apply MEMEQ in IN. des.
+              eapply pi_step_lift_mem_get; eauto.
+            - move PI_STEP at bottom.
+              admit. (* with PI_STEP, NOSRC *)
+            - eauto.
+          }
+        }
+        { s. rewrite SC0. eauto. }
+      }
+      { s. by rewrite !IdentMap.gss. }
+      { s. i. des. inv WRITE. inv STEPS0. inv PSTEP0. inv EVT.
+        hexploit NOWR; s; eauto.
+        intros X PRM'. apply X.
+        inv PRM'. econs; eauto.
+        rewrite <- TID0.
+        apply with_pre_rtc_step_union in PI_STEPS.
+        apply pi_steps_small_steps_snd_with_pre in PSTEPS.
+        apply with_pre_rtc_step_union in PSTEPS.
+        erewrite <- (rtc_small_step_find PI_STEPS); eauto.
+        erewrite <- (rtc_small_step_find PSTEPS); eauto. }
+    }
+    eauto.
+  }
+
+  (* Fence step *)
+  { assert (X:= SEMI_WF4). inv X. ss.
+    esplits; [eapply with_pre_trans; [by apply STEPS4|]|].
+    { econs 2; [econs 1|]. econs.
+      - econs; eauto.
+      - econs; [by rewrite THS, THS4|..]; eauto.
+        econs 2. econs 5; eauto.
+        eapply local_simul_fence.
+        s. rewrite SC0. eauto.
+      - s. by rewrite !IdentMap.gss.
+      - done.
+    }
+    eauto.
+  }
+
+  (* Syscall step *)
+  { assert (X:= SEMI_WF4). inv X. ss.
+    esplits; [eapply with_pre_trans; [by apply STEPS4|]|].
+    { econs 2; [econs 1|]. econs.
+      - econs; eauto.
+      - econs; [by rewrite THS, THS4|..]; eauto.
+        econs 2. econs 6; eauto.
+        eapply local_simul_fence.
+        s. rewrite SC0. eauto.
+      - s. by rewrite !IdentMap.gss.
+      - done.
+    }
+    eauto.
+  }
+
+Admitted.
+
+Theorem pi_consistent_pi_step_pi_consistent
+      cST1 cST2 tid
+      (PI_CONSISTENT: pi_consistent cST1)
+      (CONSISTENT: Configuration.consistent cST1.(snd))
+      (PI_RACEFREE: pf_racefree cST1.(fst))
+      (WF: pi_wf cST1)
+      (STEP: rtc (pi_step_evt true tid) cST1 cST2)
+      (CONSISTENT2: Configuration.consistent cST2.(snd)):
+  pi_consistent cST2.
+Proof.
+  destruct cST1 as [cS1 cT1], cST2 as [cS2 cT2].
+  econs. i. 
+  destruct (Ident.eq_dec tid0 tid); cycle 1.
+  { inv PI_CONSISTENT. 
+    exploit CONSIS; cycle 1; eauto.
+    etrans; cycle 1; eauto.
+    eapply rtc_implies, STEP.
+    i. econs; eauto.
+  }
+  subst. rename cS0 into cS3, cT0 into cT3, lst2 into lst3, lc2 into lc3.
+
+  assert (STEPS_LIFT:=pi_step_lifting loc ts STEPS). des.
+  rename M2 into M3. ss.
+
+  exploit rtc_pi_step_future; [eauto|..].
+  { eapply rtc_implies, STEP. i. inv PR. eauto. }
+  i; des. ss. clear FUTURES FUTURET.
+
+  destruct (IdentMap.find tid (Configuration.threads cT2)) eqn: TH; cycle 1.
+  { apply Operators_Properties.clos_rt_rt1n_iff in STEP.
+    apply Operators_Properties.clos_rt_rtn1_iff in STEP.
+    inv STEP.
+    - inv PI_CONSISTENT. exploit CONSIS; eauto.
+    - inv H. inv USTEP. inv STEPT. ss. by rewrite IdentMap.gss in TH.
+  }
+  destruct p as [[lang2 st2] lc2].
+
+  exploit pi_step_lift_except_future; eauto.
+  i. des. ss.
+
+  exploit rtc_pi_step_lift_except_find; eauto.
+  s; intro EQ; des. clear EQ.
+  assert (X:= EQ0); rewrite THREAD, TH in X. depdes X.
+
+  hexploit pf_racefree_steps; [eauto|..].
+  { eapply pi_steps_small_steps_fst in STEP. eauto. }
+  intro RACEFREE.
+
+  exploit consistent_can_fulfill_promises_future; eauto.
+  intro X. inv X.
+
+  exploit FULFILL; eauto.
+  i; des. inv FULFILL1.
+
+  eapply rtc_step_union_with_pre in STEPS0. des.
+  exploit key_lemma; eauto using write_step_lt.
+  { apply can_fulfill_promises_promise_consistent in FULFILL2.
+    eapply promise_consistent_rtc_small_step, FULFILL2.
+    etrans; [|apply STEPS1]. 
+    econs 2; [|reflexivity]. eauto. }
+  s; i; des.
+  
+  exploit small_step_to_program_step_writing; eauto.
+  i; des.
+
+  apply with_pre_rtc_step_union in STEPS2.
+  exists cS4; esplits; eauto using (pi_steps_small_steps_fst false STEPS2).
+  
+  exploit rtc_pi_step_except_local_wf; eauto.
+  s. intro WF3.
+  
+  exploit rtc_pi_step_local_wf; eauto.
+  intro WF4.
+
+  inv WF4. inv EVENT0.
+  econs; eauto.
+  by rewrite THS, TH0.
+Grab Existential Variables. exact false.
+Qed.
+
+
+(* Lemma promise_small_steps *)
+(*       c1 c2 c3 tid loc ts withprm *)
+(*       lst1 lc1 from1 msg1  *)
+(*       (THREAD1 : IdentMap.find tid (Configuration.threads c1) = Some (lst1, lc1)) *)
+(*       (PROMISE1 : Memory.get loc ts (Local.promises lc1) = Some (from1, msg1)) *)
+(*       lst3 lc3 from3 msg3  *)
+(*       (THREAD3 : IdentMap.find tid (Configuration.threads c3) = Some (lst3, lc3)) *)
+(*       (PROMISE3 : Memory.get loc ts (Local.promises lc3) = Some (from3, msg3)) *)
+(*       (STEPS1: rtc (small_step_evt withprm tid) c1 c2) *)
+(*       (STEPS2: rtc (small_step_evt withprm tid) c2 c3): *)
+(*   exists lst2 lc2 from2 msg2,  *)
+(*   <<THREAD: IdentMap.find tid (Configuration.threads c2) = Some (lst2, lc2)>> /\ *)
+(*   <<PROMISE: Memory.get loc ts (Local.promises lc2) = Some (from2, msg2)>>. *)
+(* Proof. *)
+(* Admitted. *)
+
+
+(* Lemma rtc_pi_step_lang_match *)
+(*       cST1 cST2 tid withprm *)
+(*       (MATCH: option_map fst (IdentMap.find tid cST1.(fst).(Configuration.threads)) = *)
+(*        option_map fst (IdentMap.find tid cST1.(snd).(Configuration.threads))) *)
+(*       (STEPS: rtc (pi_step_evt withprm tid) cST1 cST2): *)
+(*   option_map fst (IdentMap.find tid cST2.(fst).(Configuration.threads)) = *)
+(*   option_map fst (IdentMap.find tid cST2.(snd).(Configuration.threads)). *)
+(* Proof. *)
+(*   induction STEPS; eauto. *)
+(*   inv H. inv USTEP. eauto. *)
+(* Qed. *)
+
+
+
