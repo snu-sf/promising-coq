@@ -22,6 +22,9 @@ Set Implicit Arguments.
 Hint Constructors Thread.program_step.
 Hint Constructors Thread.step.
 
+Definition option_app {A} (a b: option A) : option A :=
+  if a then a else b.
+
 Lemma option_map_map 
       A B C (f: B -> C) (g: A -> B) (a: option A):
   option_map f (option_map g a) = option_map (fun x => f (g x)) a.
@@ -29,23 +32,20 @@ Proof.
   destruct a; eauto.
 Qed.
 
+Lemma ordering_relaxed_dec
+      ord:
+  Ordering.le ord Ordering.relaxed \/ Ordering.le Ordering.acqrel ord.
+Proof. destruct ord; auto. Qed.
+
 Definition ThreadEvent_is_promising (e: ThreadEvent.t) : option (Loc.t * Time.t) :=
   match e with
   | ThreadEvent.promise loc from to v rel => Some (loc, to)
   | _ => None
   end.
 
-Inductive small_step (withprm: bool) (tid:Ident.t) (e:ThreadEvent.t) (c1:Configuration.t): forall (c2:Configuration.t), Prop :=
-| small_step_intro
-    lang st1 st2 lc1 ths2 lc2 sc2 memory2
-    (TID: IdentMap.find tid c1.(Configuration.threads) = Some (existT _ lang st1, lc1))
-    (STEP: Thread.step e (Thread.mk _ st1 lc1 c1.(Configuration.sc) c1.(Configuration.memory)) (Thread.mk _ st2 lc2 sc2 memory2))
-    (THS2: ths2 = IdentMap.add tid (existT _ _ st2, lc2) c1.(Configuration.threads))
-    (PFREE: if withprm then True else ThreadEvent_is_promising e = None)
-  :
-  small_step withprm tid e c1 (Configuration.mk ths2 sc2 memory2)
-.
-Hint Constructors small_step.
+
+
+
 
 Inductive step_union {A} {E} (step: E -> A -> A -> Prop) (c1 c2: A) : Prop :=
 | step_evt_intro e
@@ -87,9 +87,52 @@ Proof.
   des. inv H. exists (Some(y,e)). s. eauto.
 Qed.
 
+Lemma with_pre_implies
+      E A (step step': E -> A -> A -> Prop) c1 c2 pre
+      (IMPL: forall e c1 c2 (STEP: step e c1 c2), step' e c1 c2)
+      (STEPS: with_pre step c1 pre c2):
+  with_pre step' c1 pre c2.
+Proof.
+  induction STEPS; eauto.
+Qed.
+
+Lemma with_pre_trans 
+      A E (step: E -> A -> A -> Prop) c1 c2 c3 pre1 pre2
+      (STEPS1: with_pre step c1 pre1 c2)
+      (STEPS2: with_pre step c2 pre2 c3):
+  with_pre step c1 (option_app pre2 pre1) c3.
+Proof.
+  ginduction STEPS2; s; i; des; subst; eauto.
+Qed.
+
+
+
+
+
+
+
+
+
+
+
+
+
 Definition Thread_step_all {lang} (t1 t2:Thread.t lang) : Prop :=
   step_union (@Thread.step lang) t1 t2.
 Hint Unfold Thread_step_all.
+
+
+Inductive small_step (withprm: bool) (tid:Ident.t) (e:ThreadEvent.t) (c1:Configuration.t): forall (c2:Configuration.t), Prop :=
+| small_step_intro
+    lang st1 st2 lc1 ths2 lc2 sc2 memory2
+    (TID: IdentMap.find tid c1.(Configuration.threads) = Some (existT _ lang st1, lc1))
+    (STEP: Thread.step e (Thread.mk _ st1 lc1 c1.(Configuration.sc) c1.(Configuration.memory)) (Thread.mk _ st2 lc2 sc2 memory2))
+    (THS2: ths2 = IdentMap.add tid (existT _ _ st2, lc2) c1.(Configuration.threads))
+    (PFREE: if withprm then True else ThreadEvent_is_promising e = None)
+  :
+  small_step withprm tid e c1 (Configuration.mk ths2 sc2 memory2)
+.
+Hint Constructors small_step.
 
 Definition small_step_evt withprm (tid:Ident.t) (c1 c2:Configuration.t) : Prop :=
   step_union (small_step withprm tid) c1 c2.
@@ -99,115 +142,6 @@ Definition small_step_all withprm (c1 c2:Configuration.t) : Prop :=
   step_union (small_step_evt withprm) c1 c2.
 Hint Unfold small_step_all.
 
-(* NOTE: `race_rw` requires two *distinct* threads to have a race.
- * However, C/C++ acknowledges intra-thread races.  For example,
- * according to the Standard, `f(x=1, x)` is RW-racy on `x`, since the
- * order of evaluation of the arguments is unspecified.  We currently
- * ignore this aspect of the race semantics.
- *)
-
-Inductive Configuration_program_event c tid e : Prop :=
-| configuration_program_event_intro lang st st' lc
-    (TH: IdentMap.find tid c.(Configuration.threads) = Some (existT _ lang st, lc))
-    (STATE: lang.(Language.step) (Some e) st st').
-Hint Constructors Configuration_program_event.
-
-Inductive race_condition e1 e2 ord1 ord2 : Prop :=
-| race_condition_rw loc
-    (EVENT1: ProgramEvent.is_reading e1 = Some (loc, ord1))
-    (EVENT2: ProgramEvent.is_writing e2 = Some (loc, ord2))
-| race_condition_ww loc
-    (EVENT1: ProgramEvent.is_writing e1 = Some (loc, ord1))
-    (EVENT2: ProgramEvent.is_writing e2 = Some (loc, ord2))
-.
-Hint Constructors race_condition.
-
-Inductive race (c:Configuration.t) (ord1 ord2:Ordering.t): Prop :=
-| race_intro
-    tid1 e1
-    tid2 e2
-    (TID: tid1 <> tid2)
-    (PROEVT1: Configuration_program_event c tid1 e1)
-    (PROEVT2: Configuration_program_event c tid2 e2)
-    (RACE: race_condition e1 e2 ord1 ord2)
-.
-Hint Constructors race.            
-
-Definition pf_racefree (c1:Configuration.t): Prop :=
-  forall c2 ordr ordw
-    (STEPS: rtc (small_step_all false) c1 c2)
-    (RACE: race c2 ordr ordw),
-    <<ORDR: Ordering.le Ordering.acqrel ordr>> /\
-    <<ORDW: Ordering.le Ordering.acqrel ordw>>.
-
-Inductive pi_step withprm: Ident.t -> ThreadEvent.t -> Configuration.t*Configuration.t -> Configuration.t*Configuration.t -> Prop :=
-| pi_step_step
-    e tid cS1 cT1 cS2 cT2
-    (STEPT: small_step withprm tid e cT1 cT2)
-    (STEPS: if ThreadEvent_is_promising e
-            then cS1 = cS2
-            else small_step false tid e cS1 cS2)
-    (LANGMATCH: 
-     option_map fst (IdentMap.find tid cS2.(Configuration.threads)) =
-     option_map fst (IdentMap.find tid cT2.(Configuration.threads)))
-    (NOWR: forall loc from ts val rel ord tid' ts'
-             (WRITE:ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord))
-             (TIDNEQ: tid' <> tid),
-           ~ Threads.is_promised tid' loc ts' cT1.(Configuration.threads)):
-  pi_step withprm tid e (cS1,cT1) (cS2,cT2)
-.
-Hint Constructors pi_step.
-
-Definition pi_step_evt withprm tid cST1 cST2: Prop :=
-  step_union (pi_step withprm tid) cST1 cST2.
-Hint Unfold pi_step_evt.
-
-Definition pi_step_all withprm cST1 cST2: Prop :=
-  step_union (pi_step_evt withprm) cST1 cST2.
-Hint Unfold pi_step_all.
-
-Inductive pi_step_except (tid_except:Ident.t) cST1 cST2: Prop :=
-| pi_step_except_intro tid
-    (PI_STEP: pi_step_evt true tid cST1 cST2)
-    (TID: tid <> tid_except)
-.
-Hint Constructors pi_step_except.
-
-Definition remove_promise (th: {lang : Language.t & Language.state lang} * Local.t) :=
-  (th.(fst), Local.mk th.(snd).(Local.commit) Memory.bot).
-
-Inductive pi_wf: Configuration.t*Configuration.t -> Prop :=
-| pi_wf_intro cS cT
-    (WFS: Configuration.wf cS)
-    (WFT: Configuration.wf cT)
-    (THS: cS.(Configuration.threads) = IdentMap.map remove_promise cT.(Configuration.threads))
-    (SC: cS.(Configuration.sc) = cT.(Configuration.sc))
-    (LR: forall loc ts from msg
-           (IN: Memory.get loc ts cS.(Configuration.memory) = Some (from, msg)),
-         <<IN: Memory.get loc ts cT.(Configuration.memory) = Some (from, msg)>> /\
-         <<NOT: forall tid, ~Threads.is_promised tid loc ts cT.(Configuration.threads)>>)
-    (RL: forall loc ts from msg
-           (IN: Memory.get loc ts cT.(Configuration.memory) = Some (from, msg))
-           (NOT: forall tid, ~Threads.is_promised tid loc ts cT.(Configuration.threads)),
-         Memory.get loc ts cS.(Configuration.memory) = Some (from, msg)):
-  pi_wf (cS,cT)
-.
-Hint Constructors pi_wf.
-
-Inductive pi_consistent: Configuration.t*Configuration.t -> Prop :=
-| pi_consistent_intro cS1 cT1
-  (CONSIS:
-    forall tid cS2 cT2 lst2 lc2 loc ts from msg
-    (STEPS: rtc (pi_step_except tid) (cS1,cT1) (cS2,cT2))
-    (THREAD: IdentMap.find tid cT2.(Configuration.threads) = Some (lst2, lc2))
-    (PROMISE: Memory.get loc ts lc2.(Local.promises) = Some (from, msg)),
-  exists cS3 e ord,
-    <<STEPS: rtc (small_step_evt false tid) cS2 cS3>> /\
-    <<PROEVT: Configuration_program_event cS3 tid e>> /\
-    <<EVENT: ProgramEvent.is_writing e = Some (loc, ord)>> /\
-    <<ORD: Ordering.le ord Ordering.relaxed>>):
-  pi_consistent (cS1, cT1).
-Hint Constructors pi_consistent.
 
 Lemma small_step_future
       e tid c1 c2 withprm
@@ -331,18 +265,253 @@ Proof.
     + rewrite IdentMap.gss. eauto.
 Qed.
 
-Lemma rtc_pi_step_lang_match
-      cST1 cST2 tid withprm
-      (MATCH: option_map fst (IdentMap.find tid cST1.(fst).(Configuration.threads)) =
-       option_map fst (IdentMap.find tid cST1.(snd).(Configuration.threads)))
-      (STEPS: rtc (pi_step_evt withprm tid) cST1 cST2):
-  option_map fst (IdentMap.find tid cST2.(fst).(Configuration.threads)) =
-  option_map fst (IdentMap.find tid cST2.(snd).(Configuration.threads)).
+Lemma small_step_find
+      tid1 tid2 c1 c2 e withprm
+      (STEP: small_step withprm tid1 e c1 c2)
+      (TID: tid1 <> tid2):
+  IdentMap.find tid2 c1.(Configuration.threads) = IdentMap.find tid2 c2.(Configuration.threads).
 Proof.
-  induction STEPS; eauto.
-  inv H. inv USTEP. eauto.
+  inv STEP. s.
+  rewrite IdentMap.gso; eauto.
 Qed.
 
+Lemma rtc_small_step_find
+      tid1 tid2 c1 c2 withprm
+      (STEP: rtc (small_step_evt withprm tid1) c1 c2)
+      (TID: tid1 <> tid2):
+  IdentMap.find tid2 c1.(Configuration.threads) = IdentMap.find tid2 c2.(Configuration.threads).
+Proof.
+  induction STEP; auto. 
+  inv H. rewrite <-IHSTEP.
+  eauto using small_step_find.
+Qed.
+
+Lemma thread_step_commit_future
+     lang e (t1 t2: @Thread.t lang)
+     (STEP: Thread.step e t1 t2):
+  Commit.le t1.(Thread.local).(Local.commit) t2.(Thread.local).(Local.commit).
+Proof.
+Admitted. (* Done *)
+
+Lemma rtc_small_step_commit_future
+     c1 c2 tid lst1 lst2 lc1 lc2 withprm
+     (STEPS: rtc (small_step_evt withprm tid) c1 c2)
+     (THREAD1: IdentMap.find tid c1.(Configuration.threads) = Some (lst1, lc1))
+     (THREAD2: IdentMap.find tid c2.(Configuration.threads) = Some (lst2, lc2)):
+  Commit.le lc1.(Local.commit) lc2.(Local.commit).
+Proof.
+  ginduction STEPS; i.
+  - rewrite THREAD1 in THREAD2. depdes THREAD2. reflexivity.
+  - destruct H. destruct USTEP. rewrite THREAD1 in TID. depdes TID.
+      etrans; [apply (thread_step_commit_future STEP)|].
+      eapply IHSTEPS; eauto.
+      s. subst. rewrite IdentMap.gss. eauto.
+Qed.
+
+Lemma write_step_lt
+      tid c c1 e lst lc loc from ts val rel ord withprm
+      (STEP: small_step withprm tid e c c1)
+      (EVENT: ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord))
+      (THREAD: IdentMap.find tid (Configuration.threads c) = Some (lst, lc))
+: Time.lt (lc.(Local.commit).(Commit.cur).(Capability.rw) loc) ts.
+Proof.
+Admitted.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+(* NOTE: `race_rw` requires two *distinct* threads to have a race.
+ * However, C/C++ acknowledges intra-thread races.  For example,
+ * according to the Standard, `f(x=1, x)` is RW-racy on `x`, since the
+ * order of evaluation of the arguments is unspecified.  We currently
+ * ignore this aspect of the race semantics.
+ *)
+
+Inductive Configuration_program_event c tid e : Prop :=
+| configuration_program_event_intro lang st st' lc
+    (TH: IdentMap.find tid c.(Configuration.threads) = Some (existT _ lang st, lc))
+    (STATE: lang.(Language.step) (Some e) st st').
+Hint Constructors Configuration_program_event.
+
+Inductive race_condition e1 e2 ord1 ord2 : Prop :=
+| race_condition_rw loc
+    (EVENT1: ProgramEvent.is_reading e1 = Some (loc, ord1))
+    (EVENT2: ProgramEvent.is_writing e2 = Some (loc, ord2))
+| race_condition_ww loc
+    (EVENT1: ProgramEvent.is_writing e1 = Some (loc, ord1))
+    (EVENT2: ProgramEvent.is_writing e2 = Some (loc, ord2))
+.
+Hint Constructors race_condition.
+
+Inductive race (c:Configuration.t) (ord1 ord2:Ordering.t): Prop :=
+| race_intro
+    tid1 e1
+    tid2 e2
+    (TID: tid1 <> tid2)
+    (PROEVT1: Configuration_program_event c tid1 e1)
+    (PROEVT2: Configuration_program_event c tid2 e2)
+    (RACE: race_condition e1 e2 ord1 ord2)
+.
+Hint Constructors race.            
+
+Definition pf_racefree (c1:Configuration.t): Prop :=
+  forall c2 ordr ordw
+    (STEPS: rtc (small_step_all false) c1 c2)
+    (RACE: race c2 ordr ordw),
+    <<ORDR: Ordering.le Ordering.acqrel ordr>> /\
+    <<ORDW: Ordering.le Ordering.acqrel ordw>>.
+
+Lemma pf_racefree_steps
+      c1 c2
+      (FREE: pf_racefree c1)
+      (STEPS: rtc (small_step_all false) c1 c2):
+  pf_racefree c2.
+Proof.
+  ii. eapply FREE, RACE. etrans; eauto.
+Qed.
+
+Lemma small_step_to_program_step_writing
+      c1 c2 e tid loc ord from ts val rel withprm
+      (STEP: small_step withprm tid e c1 c2)
+      (EVENT: ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord)):
+  exists (pe : ProgramEvent.t),
+  <<EVENT: Configuration_program_event c1 tid pe >> /\
+  <<WRITE: ProgramEvent.is_writing pe = Some (loc, ord) >>.
+Proof.
+  inv STEP. inv STEP0; inv STEP; inv EVENT; eauto 10.
+Qed.
+
+Lemma small_step_to_program_step_reading
+      c1 c2 e tid loc ord ts val rel withprm
+      (STEP: small_step withprm tid e c1 c2)
+      (EVENT: ThreadEvent.is_reading e = Some (loc, ts, val, rel, ord)):
+  exists (pe : ProgramEvent.t),
+  <<EVENT: Configuration_program_event c1 tid pe >> /\
+  <<WRITE: ProgramEvent.is_reading pe = Some (loc, ord) >>.
+Proof.
+  inv STEP. inv STEP0; inv STEP; inv EVENT; eauto 10.
+Qed.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Inductive pi_step withprm: Ident.t -> ThreadEvent.t -> Configuration.t*Configuration.t -> Configuration.t*Configuration.t -> Prop :=
+| pi_step_step
+    e tid cS1 cT1 cS2 cT2
+    (STEPT: small_step withprm tid e cT1 cT2)
+    (STEPS: if ThreadEvent_is_promising e
+            then cS1 = cS2
+            else small_step false tid e cS1 cS2)
+    (LANGMATCH: 
+     option_map fst (IdentMap.find tid cS2.(Configuration.threads)) =
+     option_map fst (IdentMap.find tid cT2.(Configuration.threads)))
+    (NOWR: forall loc from ts val rel ord tid' ts'
+             (WRITE:ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord))
+             (TIDNEQ: tid' <> tid),
+           ~ Threads.is_promised tid' loc ts' cT1.(Configuration.threads)):
+  pi_step withprm tid e (cS1,cT1) (cS2,cT2)
+.
+Hint Constructors pi_step.
+
+Definition pi_step_evt withprm tid cST1 cST2: Prop :=
+  step_union (pi_step withprm tid) cST1 cST2.
+Hint Unfold pi_step_evt.
+
+Definition pi_step_all withprm cST1 cST2: Prop :=
+  step_union (pi_step_evt withprm) cST1 cST2.
+Hint Unfold pi_step_all.
+
+Inductive pi_step_except (tid_except:Ident.t) cST1 cST2: Prop :=
+| pi_step_except_intro tid
+    (PI_STEP: pi_step_evt true tid cST1 cST2)
+    (TID: tid <> tid_except)
+.
+Hint Constructors pi_step_except.
+
+Definition remove_promise (th: {lang : Language.t & Language.state lang} * Local.t) :=
+  (th.(fst), Local.mk th.(snd).(Local.commit) Memory.bot).
+
+Inductive pi_wf: Configuration.t*Configuration.t -> Prop :=
+| pi_wf_intro cS cT
+    (WFS: Configuration.wf cS)
+    (WFT: Configuration.wf cT)
+    (THS: cS.(Configuration.threads) = IdentMap.map remove_promise cT.(Configuration.threads))
+    (SC: cS.(Configuration.sc) = cT.(Configuration.sc))
+    (LR: forall loc ts from msg
+           (IN: Memory.get loc ts cS.(Configuration.memory) = Some (from, msg)),
+         <<IN: Memory.get loc ts cT.(Configuration.memory) = Some (from, msg)>> /\
+         <<NOT: forall tid, ~Threads.is_promised tid loc ts cT.(Configuration.threads)>>)
+    (RL: forall loc ts from msg
+           (IN: Memory.get loc ts cT.(Configuration.memory) = Some (from, msg))
+           (NOT: forall tid, ~Threads.is_promised tid loc ts cT.(Configuration.threads)),
+         Memory.get loc ts cS.(Configuration.memory) = Some (from, msg)):
+  pi_wf (cS,cT)
+.
+Hint Constructors pi_wf.
+
+Inductive pi_consistent: Configuration.t*Configuration.t -> Prop :=
+| pi_consistent_intro cS1 cT1
+  (CONSIS:
+    forall tid cS2 cT2 lst2 lc2 loc ts from msg
+    (STEPS: rtc (pi_step_except tid) (cS1,cT1) (cS2,cT2))
+    (THREAD: IdentMap.find tid cT2.(Configuration.threads) = Some (lst2, lc2))
+    (PROMISE: Memory.get loc ts lc2.(Local.promises) = Some (from, msg)),
+  exists cS3 e ord,
+    <<STEPS: rtc (small_step_evt false tid) cS2 cS3>> /\
+    <<PROEVT: Configuration_program_event cS3 tid e>> /\
+    <<EVENT: ProgramEvent.is_writing e = Some (loc, ord)>> /\
+    <<ORD: Ordering.le ord Ordering.relaxed>>):
+  pi_consistent (cS1, cT1).
+Hint Constructors pi_consistent.
 
 Inductive conf_local_wf tid (c: Configuration.t) : Prop :=
 | conf_local_wf_intro
@@ -377,11 +546,21 @@ Inductive pi_local_wf tid (promise_oth: Loc.t -> Time.t -> Prop) : Configuration
   pi_local_wf tid promise_oth (cS,cT)
 .
 
-Inductive promise_except tid (c: Configuration.t) loc ts : Prop :=
-| promise_except_intro tid1
+Inductive promises_except tid (c: Configuration.t) loc ts : Prop :=
+| promises_except_intro tid1
     (NEQ: tid1 <> tid)
     (PRM: Threads.is_promised tid1 loc ts c.(Configuration.threads))
 .
+
+Definition promise_consistent (tid: Ident.t) (c: Configuration.t) : Prop :=
+  forall lst lc loc ts from msg
+         (THREAD: IdentMap.find tid c.(Configuration.threads) = Some (lst, lc))
+         (PROMISE: Memory.get loc ts lc.(Local.promises) = Some (from, msg)),
+  Time.lt (lc.(Local.commit).(Commit.cur).(Capability.rw) loc) ts.
+
+Definition pi_pre_proj (pre: option (Configuration.t*Configuration.t*ThreadEvent.t)) := 
+  option_map (fun p => (p.(fst).(snd),p.(snd))) pre.
+
 
 Lemma conf_wf_local_wf
     tid c
@@ -396,7 +575,7 @@ Qed.
 Lemma pi_wf_pi_local_wf
       cST tid
       (WF: pi_wf cST):
-  pi_local_wf tid (promise_except tid cST.(snd)) cST.
+  pi_local_wf tid (promises_except tid cST.(snd)) cST.
 Proof.
   inv WF. econs; eauto using conf_wf_local_wf.
   - rewrite THS. rewrite IdentMap.Properties.F.map_o. eauto.
@@ -552,275 +731,21 @@ Proof.
   inv STEP; econs; eauto.
 Qed.
 
-Lemma small_step_find
-      tid1 tid2 c1 c2 e withprm
-      (STEP: small_step withprm tid1 e c1 c2)
-      (TID: tid1 <> tid2):
-  IdentMap.find tid2 c1.(Configuration.threads) = IdentMap.find tid2 c2.(Configuration.threads).
+Lemma pi_local_wf_prm_oth_iff
+      tid cST prm_oth1 prm_oth2
+      (WF: pi_local_wf tid prm_oth1 cST)
+      (IFF: forall loc ts, prm_oth1 loc ts <-> prm_oth2 loc ts):
+  pi_local_wf tid prm_oth2 cST.
 Proof.
-  inv STEP. s.
-  rewrite IdentMap.gso; eauto.
+  inv WF. econs; eauto.
+  - i. exploit LR; eauto.
+    i. des. esplits; eauto. 
+    intro X. apply IFF in X. eauto.
+  - i. eapply RL; eauto.
+    intro X. apply IFF in X. eauto.
+  - i. exploit PRM; eauto.
+    apply IFF in PROTH. eauto.
 Qed.
-
-Lemma rtc_small_step_find
-      tid1 tid2 c1 c2 withprm
-      (STEP: rtc (small_step_evt withprm tid1) c1 c2)
-      (TID: tid1 <> tid2):
-  IdentMap.find tid2 c1.(Configuration.threads) = IdentMap.find tid2 c2.(Configuration.threads).
-Proof.
-  induction STEP; auto. 
-  inv H. rewrite <-IHSTEP.
-  eauto using small_step_find.
-Qed.
-
-Lemma thread_step_commit_future
-     lang e (t1 t2: @Thread.t lang)
-     (STEP: Thread.step e t1 t2):
-  Commit.le t1.(Thread.local).(Local.commit) t2.(Thread.local).(Local.commit).
-Proof.
-Admitted. (* Done *)
-
-Lemma rtc_small_step_commit_future
-     c1 c2 tid lst1 lst2 lc1 lc2 withprm
-     (STEPS: rtc (small_step_evt withprm tid) c1 c2)
-     (THREAD1: IdentMap.find tid c1.(Configuration.threads) = Some (lst1, lc1))
-     (THREAD2: IdentMap.find tid c2.(Configuration.threads) = Some (lst2, lc2)):
-  Commit.le lc1.(Local.commit) lc2.(Local.commit).
-Proof.
-  ginduction STEPS; i.
-  - rewrite THREAD1 in THREAD2. depdes THREAD2. reflexivity.
-  - destruct H. destruct USTEP. rewrite THREAD1 in TID. depdes TID.
-      etrans; [apply (thread_step_commit_future STEP)|].
-      eapply IHSTEPS; eauto.
-      s. subst. rewrite IdentMap.gss. eauto.
-Qed.
-
-Lemma ordering_relaxed_dec
-      ord:
-  Ordering.le ord Ordering.relaxed \/ Ordering.le Ordering.acqrel ord.
-Proof. destruct ord; auto. Qed.
-
-Lemma fulfill_unset_promises
-      loc from ts val rel
-      promises1 promises2
-      l t f m
-      (FULFILL: Memory.remove promises1 loc from ts val rel promises2)
-      (TH1: Memory.get l t promises1 = Some (f, m))
-      (TH2: Memory.get l t promises2 = None):
-  l = loc /\ t = ts /\ f = from /\ m.(Message.val) = val /\ Capability.le rel m.(Message.released).
-Proof.
-  revert TH2. erewrite Memory.remove_o; eauto. condtac; ss; [|congr].
-  des. subst. erewrite Memory.remove_get0 in TH1; eauto. inv TH1.
-  esplits; eauto. refl.
-Qed.
-
-Lemma thread_step_unset_promises
-      lang loc e from ts msg (th1 th2:Thread.t lang)
-      (STEP: Thread.step e th1 th2)
-      (TH1: Memory.get loc ts th1.(Thread.local).(Local.promises) = Some (from, msg))
-      (TH2: Memory.get loc ts th2.(Thread.local).(Local.promises) = None):
-  exists ord from val rel,
-  <<EVENT: ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord)>> /\
-  <<ORD: Ordering.le ord Ordering.relaxed>> /\
-  <<TIME: Time.lt (th1.(Thread.local).(Local.commit).(Commit.cur).(Capability.rw) loc) ts>>.
-Proof.
-  inv STEP.
-  { inv STEP0. inv LOCAL. destruct msg. ss. 
-    exploit Memory.promise_promises_get1; eauto. i. des. congr.
-  }
-  destruct msg.
-  inv STEP0; ss; try by inv LOCAL; ss; congr.
-  - by rewrite TH1 in TH2.
-  - inv LOCAL. inv WRITE.
-    exploit Memory.promise_promises_get1; eauto. i. des.
-    exploit fulfill_unset_promises; eauto. i. des. subst.
-    unfold Memory.get in *.
-    esplits; s; eauto.
-    + edestruct ordering_relaxed_dec; eauto.
-      apply RELEASE in H. des. ss. by rewrite H, Cell.bot_get in TH1.
-    + inv WRITABLE. eauto.
-  - inv LOCAL1. inv LOCAL2. inv WRITE.
-    exploit Memory.promise_promises_get1; eauto. i. des.
-    exploit fulfill_unset_promises; eauto. i. des. subst.
-    unfold Memory.get in *.
-    esplits; s; eauto.
-    + edestruct ordering_relaxed_dec; eauto.
-      apply RELEASE in H. des. ss. by rewrite H, Cell.bot_get in TH1.
-    + inv WRITABLE. inv READABLE. ss. move TS at bottom.
-      eapply TimeFacts.le_lt_lt; eauto.
-      repeat (etrans; [|apply Time.join_l]). refl.
-Qed.
-
-Inductive can_fulfill (tid: Ident.t) loc ts (c1 c4: Configuration.t) : Prop :=
-| can_fulfill_intro
-    c2 c3 e ord lst2 lc2 from2 msg2 from val rel 
-    (STEPS: rtc (small_step_evt false tid) c1 c2)
-    (STEP: small_step false tid e c2 c3)
-    (THREAD: IdentMap.find tid c2.(Configuration.threads) = Some (lst2, lc2))
-    (PROMISE: Memory.get loc ts lc2.(Local.promises) = Some (from2, msg2))
-    (EVENT: ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord))
-    (ORD: Ordering.le ord Ordering.relaxed)
-    (STEPS: rtc (small_step_evt false tid) c3 c4):
-  can_fulfill tid loc ts c1 c4
-.
-
-Inductive can_fulfill_promises (tid: Ident.t) : Configuration.t -> Prop :=
-| can_fulfill_promises_step
-    c1
-    (FULFILL: forall lst1 lc1 loc ts from msg
-                (THREAD: IdentMap.find tid c1.(Configuration.threads) = Some (lst1, lc1))
-                (PROMISE: Memory.get loc ts lc1.(Local.promises) = Some (from, msg)),
-              exists c2,
-              <<FULFILL1: can_fulfill tid loc ts c1 c2>> /\
-              <<FULFILL2: can_fulfill_promises tid c2>>):
-  can_fulfill_promises tid c1
-.
-Hint Constructors can_fulfill_promises.
-
-Lemma rtc_small_step_fulfill
-      tid loc ts c1 lst1 lc1 c2 lst2 lc2 from msg 
-      (STEPS: rtc (small_step_evt false tid) c1 c2)
-      (FIND1: IdentMap.find tid c1.(Configuration.threads) = Some (lst1, lc1))
-      (GET1: Memory.get loc ts lc1.(Local.promises) = Some (from, msg))
-      (FIND2: IdentMap.find tid c2.(Configuration.threads) = Some (lst2, lc2))
-      (GET2: Memory.get loc ts lc2.(Local.promises) = None):
-  can_fulfill tid loc ts c1 c2.
-Proof.
-  ginduction STEPS; i; subst.
-  { ss. rewrite FIND1 in FIND2. depdes FIND2.
-    by rewrite GET1 in GET2. 
-  }
-  inv H. inv USTEP. ss. rewrite FIND1 in TID. depdes TID.
-  destruct (Memory.get loc ts lc3.(Local.promises)) eqn: PRM.
-  - destruct p as [t m].
-    rewrite IdentMap.gss in IHSTEPS.
-    exploit IHSTEPS; eauto.
-    intros []; i.
-    econs; swap 5 8; eauto.
-    etrans; [|apply STEPS0].
-    econs; eauto 10.  
-  - exploit thread_step_unset_promises; eauto; s; eauto.
-    i; des. econs; eauto 10. 
-Qed.
-
-Lemma can_fulfill_lt
-      tid loc ts c1 c3 lst1 lc1 from msg
-      (FULFILL: can_fulfill tid loc ts c1 c3)
-      (FIND: IdentMap.find tid c1.(Configuration.threads) = Some (lst1, lc1))
-      (PROMISE: Memory.get loc ts lc1.(Local.promises) = Some (from, msg)):
-  Time.lt (lc1.(Local.commit).(Commit.cur).(Capability.rw) loc) ts.
-Proof.
-  destruct FULFILL.
-  inv STEP.
-  eapply rtc_implies, rtc_small_step_commit_future in STEPS; eauto; cycle 1.
-  inv STEP0; inv STEP; inv EVENT.
-  + inv LOCAL. inv WRITABLE.
-    move STEPS at bottom. move TS at bottom.
-    eapply TimeFacts.le_lt_lt; eauto. apply STEPS.
-  + inv LOCAL1. inv READABLE. inv LOCAL2. inv WRITABLE.
-    ss. move STEPS at bottom. move TS at bottom.
-    eapply TimeFacts.le_lt_lt; eauto.
-    repeat (etrans; [|apply Time.join_l]). apply STEPS.
-Qed.
-
-Definition promise_consistent (tid: Ident.t) (c: Configuration.t) : Prop :=
-  forall lst lc loc ts from msg
-         (THREAD: IdentMap.find tid c.(Configuration.threads) = Some (lst, lc))
-         (PROMISE: Memory.get loc ts lc.(Local.promises) = Some (from, msg)),
-  Time.lt (lc.(Local.commit).(Commit.cur).(Capability.rw) loc) ts.
-
-Lemma rtc_small_step_unset_fulfill
-      tid loc ts c1 lst1 lc1 c2 lst2 lc2 from msg 
-      (STEPS: rtc (small_step_evt false tid) c1 c2)
-      (FIND1: IdentMap.find tid c1.(Configuration.threads) = Some (lst1, lc1))
-      (GET1: Memory.get loc ts lc1.(Local.promises) = Some (from, msg))
-      (FIND2: IdentMap.find tid c2.(Configuration.threads) = Some (lst2, lc2))
-      (GET2: Memory.get loc ts lc2.(Local.promises) = None):
-  can_fulfill tid loc ts c1 c2.
-Proof.
-  ginduction STEPS; i; subst.
-  { ss. rewrite FIND1 in FIND2. depdes FIND2.
-    by rewrite GET1 in GET2. 
-  }
-  inv H. inv USTEP. ss. rewrite FIND1 in TID. depdes TID.
-  destruct (Memory.get loc ts lc3.(Local.promises)) eqn: PRM.
-  - destruct p as [t m].
-    rewrite IdentMap.gss in IHSTEPS.
-    exploit IHSTEPS; eauto.
-    intros []; i.
-    econs; swap 5 8; eauto.
-    etrans; [|apply STEPS0].
-    econs; eauto 10.
-  - exploit thread_step_unset_promises; eauto; s; eauto.
-    i; des. econs; eauto. 
-Qed.
-
-Lemma can_fulfill_promises_promise_consistent
-      tid c
-      (FULFILL: can_fulfill_promises tid c):
-  promise_consistent tid c.
-Proof.
-  ii. inv FULFILL. exploit FULFILL0; eauto.
-  i; des.
-  eauto using can_fulfill_lt.
-Qed.
-
-Lemma rtc_small_step_unset_promises
-      tid loc ts c1 lst1 lc1 c2 lst2 lc2 from msg withprm
-      (STEPS: rtc (small_step_evt withprm tid) c1 c2)
-      (FIND1: IdentMap.find tid c1.(Configuration.threads) = Some (lst1, lc1))
-      (GET1: Memory.get loc ts lc1.(Local.promises) = Some (from, msg))
-      (FIND2: IdentMap.find tid c2.(Configuration.threads) = Some (lst2, lc2))
-      (GET2: Memory.get loc ts lc2.(Local.promises) = None):
-  Time.lt (lc1.(Local.commit).(Commit.cur).(Capability.rw) loc) ts.
-Proof.
-  ginduction STEPS; i; subst.
-  { ss. rewrite FIND1 in FIND2. depdes FIND2.
-    by rewrite GET1 in GET2.
-  }
-  inv H. inv USTEP. ss. rewrite FIND1 in TID. depdes TID.
-  destruct (Memory.get loc ts lc3.(Local.promises)) as [[t m]|] eqn: PRM.
-  - rewrite IdentMap.gss in IHSTEPS.
-    exploit IHSTEPS; eauto.
-    intro LT. move STEP at bottom.
-    eapply TimeFacts.le_lt_lt; eauto.
-    admit. (* with STEP0 *)
-  - eapply thread_step_unset_promises in STEP; eauto.
-Admitted.
-
-Lemma consistent_can_fulfill_promises_future
-      tid c 
-      (CONSISTENT: Configuration.consistent c)
-      sc1 mem1 lst lc
-      (TH1: IdentMap.find tid c.(Configuration.threads) = Some (lst, lc))
-      (FUTURE: Memory.future c.(Configuration.memory) mem1)
-      (TIMELE: TimeMap.le c.(Configuration.sc) sc1)
-      (LOCWF: Local.wf lc mem1)
-      (SC: Memory.closed_timemap sc1 mem1)
-      (MEM: Memory.closed mem1):
-  can_fulfill_promises tid (Configuration.mk c.(Configuration.threads) sc1 mem1).
-Proof.
-  admit.
-  (* ii. destruct lst as [lang st]. econs. i. *)
-  (* exploit CONSISTENT; ss; eauto. *)
-  (* i; des. destruct e2. *)
-  (* exploit rtc_thread_step_rtc_small_step; swap 1 2. *)
-  (* { eapply rtc_implies, STEPS. i. inv PR. eauto. } *)
-  (* { eauto. } *)
-  (* intro STEPS1. ss. *)
-  (* match goal with [STEPS1: rtc _ _ ?cfg|-_] => set (c2 := cfg) end. *)
-  (* exploit (@rtc_small_step_unset_fulfill tid loc ts (Configuration.mk c.(Configuration.threads) sc1 mem1)); cycle 1. *)
-  (* - apply THREAD. *)
-  (* - apply PROMISE. *)
-  (* - instantiate (3:=c2). s. rewrite IdentMap.gss. eauto. *)
-  (* - rewrite PROMISES. apply Cell.bot_get. *)
-  (* - intro FULFILL. exists c2; split; eauto. *)
-  (*   econs; i. unfold c2 in *. ss. *)
-  (*   rewrite IdentMap.gss in THREAD0. depdes THREAD0. *)
-  (*   rewrite PROMISES in PROMISE0.  *)
-  (*   by setoid_rewrite Cell.bot_get in PROMISE0. *)
-  (* - done. *)
-Admitted.
 
 Lemma pi_steps_small_steps_fst
       tid cST1 cST2 withprm withprm'
@@ -841,6 +766,15 @@ Lemma pi_steps_small_steps_snd
 Proof.
   induction PI_STEPS; eauto.
   inv H. inv USTEP. econs; eauto.
+Qed.
+
+Lemma pi_steps_small_steps_snd_with_pre
+      tid cST1 cST2 pre withprm
+      (PI_STEPS: with_pre (pi_step withprm tid) cST1 pre cST2):
+  with_pre (small_step withprm tid) (snd cST1) (pi_pre_proj pre) (snd cST2).
+Proof.
+  ginduction PI_STEPS; s; i; subst; eauto.
+  des. inv PSTEP. eauto.
 Qed.
 
 Lemma pi_steps_all_pf_steps_fst
@@ -990,6 +924,80 @@ Proof.
     }
 Admitted. (* Mostly done *)
 
+Lemma fulfill_unset_promises
+      loc from ts val rel
+      promises1 promises2
+      l t f m
+      (FULFILL: Memory.remove promises1 loc from ts val rel promises2)
+      (TH1: Memory.get l t promises1 = Some (f, m))
+      (TH2: Memory.get l t promises2 = None):
+  l = loc /\ t = ts /\ f = from /\ m.(Message.val) = val /\ Capability.le rel m.(Message.released).
+Proof.
+  revert TH2. erewrite Memory.remove_o; eauto. condtac; ss; [|congr].
+  des. subst. erewrite Memory.remove_get0 in TH1; eauto. inv TH1.
+  esplits; eauto. refl.
+Qed.
+
+Lemma thread_step_unset_promises
+      lang loc e from ts msg (th1 th2:Thread.t lang)
+      (STEP: Thread.step e th1 th2)
+      (TH1: Memory.get loc ts th1.(Thread.local).(Local.promises) = Some (from, msg))
+      (TH2: Memory.get loc ts th2.(Thread.local).(Local.promises) = None):
+  exists ord from val rel,
+  <<EVENT: ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord)>> /\
+  <<ORD: Ordering.le ord Ordering.relaxed>> /\
+  <<TIME: Time.lt (th1.(Thread.local).(Local.commit).(Commit.cur).(Capability.rw) loc) ts>>.
+Proof.
+  inv STEP.
+  { inv STEP0. inv LOCAL. destruct msg. ss. 
+    exploit Memory.promise_promises_get1; eauto. i. des. congr.
+  }
+  destruct msg.
+  inv STEP0; ss; try by inv LOCAL; ss; congr.
+  - by rewrite TH1 in TH2.
+  - inv LOCAL. inv WRITE.
+    exploit Memory.promise_promises_get1; eauto. i. des.
+    exploit fulfill_unset_promises; eauto. i. des. subst.
+    unfold Memory.get in *.
+    esplits; s; eauto.
+    + edestruct ordering_relaxed_dec; eauto.
+      apply RELEASE in H. des. ss. by rewrite H, Cell.bot_get in TH1.
+    + inv WRITABLE. eauto.
+  - inv LOCAL1. inv LOCAL2. inv WRITE.
+    exploit Memory.promise_promises_get1; eauto. i. des.
+    exploit fulfill_unset_promises; eauto. i. des. subst.
+    unfold Memory.get in *.
+    esplits; s; eauto.
+    + edestruct ordering_relaxed_dec; eauto.
+      apply RELEASE in H. des. ss. by rewrite H, Cell.bot_get in TH1.
+    + inv WRITABLE. inv READABLE. ss. move TS at bottom.
+      eapply TimeFacts.le_lt_lt; eauto.
+      repeat (etrans; [|apply Time.join_l]). refl.
+Qed.
+
+Lemma rtc_small_step_unset_promises
+      tid loc ts c1 lst1 lc1 c2 lst2 lc2 from msg withprm
+      (STEPS: rtc (small_step_evt withprm tid) c1 c2)
+      (FIND1: IdentMap.find tid c1.(Configuration.threads) = Some (lst1, lc1))
+      (GET1: Memory.get loc ts lc1.(Local.promises) = Some (from, msg))
+      (FIND2: IdentMap.find tid c2.(Configuration.threads) = Some (lst2, lc2))
+      (GET2: Memory.get loc ts lc2.(Local.promises) = None):
+  Time.lt (lc1.(Local.commit).(Commit.cur).(Capability.rw) loc) ts.
+Proof.
+  ginduction STEPS; i; subst.
+  { ss. rewrite FIND1 in FIND2. depdes FIND2.
+    by rewrite GET1 in GET2.
+  }
+  inv H. inv USTEP. ss. rewrite FIND1 in TID. depdes TID.
+  destruct (Memory.get loc ts lc3.(Local.promises)) as [[t m]|] eqn: PRM.
+  - rewrite IdentMap.gss in IHSTEPS.
+    exploit IHSTEPS; eauto.
+    intro LT. move STEP at bottom.
+    eapply TimeFacts.le_lt_lt; eauto.
+    admit. (* with STEP0 *)
+  - eapply thread_step_unset_promises in STEP; eauto.
+Admitted.
+
 Lemma promise_consistent_small_step
       tid c1 c2 withprm
       (STEP: small_step_evt withprm tid c1 c2)
@@ -1014,18 +1022,6 @@ Lemma promise_consistent_rtc_small_step
 Proof.
   ginduction STEP; eauto using promise_consistent_small_step.
 Qed.
-
-Lemma with_pre_implies
-      E A (step step': E -> A -> A -> Prop) c1 c2 pre
-      (IMPL: forall e c1 c2 (STEP: step e c1 c2), step' e c1 c2)
-      (STEPS: with_pre step c1 pre c2):
-  with_pre step' c1 pre c2.
-Proof.
-  induction STEPS; eauto.
-Qed.
-
-Definition pi_pre_proj (pre: option (Configuration.t*Configuration.t*ThreadEvent.t)) := 
-  option_map (fun p => (p.(fst).(snd),p.(snd))) pre.
 
 Lemma pi_consistent_rtc_small_step_pi
       tid cST1 cST2 withprm
@@ -1052,9 +1048,6 @@ Proof.
     i. inv STEP0. inv STEPT. eauto. }
   des. esplits; eauto.
 Qed.
-
-Definition conf_update_global (c: Configuration.t) sc (m: Memory.t) : Configuration.t :=
-  Configuration.mk c.(Configuration.threads) sc m.
 
 Lemma consistent_promise_consistent
       tid c 
@@ -1089,6 +1082,208 @@ Proof.
   { eapply consistent_promise_consistent; eauto. }
   i; des. eexists. eapply with_pre_rtc_step_union. eauto.
 Qed.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Inductive can_fulfill (tid: Ident.t) loc ts (c1 c4: Configuration.t) : Prop :=
+| can_fulfill_intro
+    c2 c3 e ord lst2 lc2 from2 msg2 from val rel 
+    (STEPS: rtc (small_step_evt false tid) c1 c2)
+    (STEP: small_step false tid e c2 c3)
+    (THREAD: IdentMap.find tid c2.(Configuration.threads) = Some (lst2, lc2))
+    (PROMISE: Memory.get loc ts lc2.(Local.promises) = Some (from2, msg2))
+    (EVENT: ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord))
+    (ORD: Ordering.le ord Ordering.relaxed)
+    (STEPS: rtc (small_step_evt false tid) c3 c4):
+  can_fulfill tid loc ts c1 c4
+.
+
+Inductive can_fulfill_promises (tid: Ident.t) : Configuration.t -> Prop :=
+| can_fulfill_promises_step
+    c1
+    (FULFILL: forall lst1 lc1 loc ts from msg
+                (THREAD: IdentMap.find tid c1.(Configuration.threads) = Some (lst1, lc1))
+                (PROMISE: Memory.get loc ts lc1.(Local.promises) = Some (from, msg)),
+              exists c2,
+              <<FULFILL1: can_fulfill tid loc ts c1 c2>> /\
+              <<FULFILL2: can_fulfill_promises tid c2>>):
+  can_fulfill_promises tid c1
+.
+Hint Constructors can_fulfill_promises.
+
+Lemma rtc_small_step_fulfill
+      tid loc ts c1 lst1 lc1 c2 lst2 lc2 from msg 
+      (STEPS: rtc (small_step_evt false tid) c1 c2)
+      (FIND1: IdentMap.find tid c1.(Configuration.threads) = Some (lst1, lc1))
+      (GET1: Memory.get loc ts lc1.(Local.promises) = Some (from, msg))
+      (FIND2: IdentMap.find tid c2.(Configuration.threads) = Some (lst2, lc2))
+      (GET2: Memory.get loc ts lc2.(Local.promises) = None):
+  can_fulfill tid loc ts c1 c2.
+Proof.
+  ginduction STEPS; i; subst.
+  { ss. rewrite FIND1 in FIND2. depdes FIND2.
+    by rewrite GET1 in GET2. 
+  }
+  inv H. inv USTEP. ss. rewrite FIND1 in TID. depdes TID.
+  destruct (Memory.get loc ts lc3.(Local.promises)) eqn: PRM.
+  - destruct p as [t m].
+    rewrite IdentMap.gss in IHSTEPS.
+    exploit IHSTEPS; eauto.
+    intros []; i.
+    econs; swap 5 8; eauto.
+    etrans; [|apply STEPS0].
+    econs; eauto 10.  
+  - exploit thread_step_unset_promises; eauto; s; eauto.
+    i; des. econs; eauto 10. 
+Qed.
+
+Lemma can_fulfill_lt
+      tid loc ts c1 c3 lst1 lc1 from msg
+      (FULFILL: can_fulfill tid loc ts c1 c3)
+      (FIND: IdentMap.find tid c1.(Configuration.threads) = Some (lst1, lc1))
+      (PROMISE: Memory.get loc ts lc1.(Local.promises) = Some (from, msg)):
+  Time.lt (lc1.(Local.commit).(Commit.cur).(Capability.rw) loc) ts.
+Proof.
+  destruct FULFILL.
+  inv STEP.
+  eapply rtc_implies, rtc_small_step_commit_future in STEPS; eauto; cycle 1.
+  inv STEP0; inv STEP; inv EVENT.
+  + inv LOCAL. inv WRITABLE.
+    move STEPS at bottom. move TS at bottom.
+    eapply TimeFacts.le_lt_lt; eauto. apply STEPS.
+  + inv LOCAL1. inv READABLE. inv LOCAL2. inv WRITABLE.
+    ss. move STEPS at bottom. move TS at bottom.
+    eapply TimeFacts.le_lt_lt; eauto.
+    repeat (etrans; [|apply Time.join_l]). apply STEPS.
+Qed.
+
+Lemma rtc_small_step_unset_fulfill
+      tid loc ts c1 lst1 lc1 c2 lst2 lc2 from msg 
+      (STEPS: rtc (small_step_evt false tid) c1 c2)
+      (FIND1: IdentMap.find tid c1.(Configuration.threads) = Some (lst1, lc1))
+      (GET1: Memory.get loc ts lc1.(Local.promises) = Some (from, msg))
+      (FIND2: IdentMap.find tid c2.(Configuration.threads) = Some (lst2, lc2))
+      (GET2: Memory.get loc ts lc2.(Local.promises) = None):
+  can_fulfill tid loc ts c1 c2.
+Proof.
+  ginduction STEPS; i; subst.
+  { ss. rewrite FIND1 in FIND2. depdes FIND2.
+    by rewrite GET1 in GET2. 
+  }
+  inv H. inv USTEP. ss. rewrite FIND1 in TID. depdes TID.
+  destruct (Memory.get loc ts lc3.(Local.promises)) eqn: PRM.
+  - destruct p as [t m].
+    rewrite IdentMap.gss in IHSTEPS.
+    exploit IHSTEPS; eauto.
+    intros []; i.
+    econs; swap 5 8; eauto.
+    etrans; [|apply STEPS0].
+    econs; eauto 10.
+  - exploit thread_step_unset_promises; eauto; s; eauto.
+    i; des. econs; eauto. 
+Qed.
+
+Lemma consistent_can_fulfill_promises_future
+      tid c 
+      (CONSISTENT: Configuration.consistent c)
+      sc1 mem1 lst lc
+      (TH1: IdentMap.find tid c.(Configuration.threads) = Some (lst, lc))
+      (FUTURE: Memory.future c.(Configuration.memory) mem1)
+      (TIMELE: TimeMap.le c.(Configuration.sc) sc1)
+      (LOCWF: Local.wf lc mem1)
+      (SC: Memory.closed_timemap sc1 mem1)
+      (MEM: Memory.closed mem1):
+  can_fulfill_promises tid (Configuration.mk c.(Configuration.threads) sc1 mem1).
+Proof.
+  admit.
+  (* ii. destruct lst as [lang st]. econs. i. *)
+  (* exploit CONSISTENT; ss; eauto. *)
+  (* i; des. destruct e2. *)
+  (* exploit rtc_thread_step_rtc_small_step; swap 1 2. *)
+  (* { eapply rtc_implies, STEPS. i. inv PR. eauto. } *)
+  (* { eauto. } *)
+  (* intro STEPS1. ss. *)
+  (* match goal with [STEPS1: rtc _ _ ?cfg|-_] => set (c2 := cfg) end. *)
+  (* exploit (@rtc_small_step_unset_fulfill tid loc ts (Configuration.mk c.(Configuration.threads) sc1 mem1)); cycle 1. *)
+  (* - apply THREAD. *)
+  (* - apply PROMISE. *)
+  (* - instantiate (3:=c2). s. rewrite IdentMap.gss. eauto. *)
+  (* - rewrite PROMISES. apply Cell.bot_get. *)
+  (* - intro FULFILL. exists c2; split; eauto. *)
+  (*   econs; i. unfold c2 in *. ss. *)
+  (*   rewrite IdentMap.gss in THREAD0. depdes THREAD0. *)
+  (*   rewrite PROMISES in PROMISE0.  *)
+  (*   by setoid_rewrite Cell.bot_get in PROMISE0. *)
+  (* - done. *)
+Admitted.
+
+Lemma can_fulfill_promises_promise_consistent
+      tid c
+      (FULFILL: can_fulfill_promises tid c):
+  promise_consistent tid c.
+Proof.
+  ii. inv FULFILL. exploit FULFILL0; eauto.
+  i; des.
+  eauto using can_fulfill_lt.
+Qed.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 Definition TimeMap_lift (x: Loc.t) (t: Time.t) (tm: TimeMap.t) : TimeMap.t :=
   fun y => if Loc.eq_dec x y then Time.join (tm y) t else tm y.
@@ -1144,6 +1339,16 @@ Inductive mem_eqlerel_lift loc ts e (m1 m2: Memory.t) : Prop :=
   (MEMWR: pi_step_lift_mem loc ts e m1' m2)
 .
 
+Definition conf_update_global (c: Configuration.t) sc (m: Memory.t) : Configuration.t :=
+  Configuration.mk c.(Configuration.threads) sc m.
+
+Inductive promises_aux tid cS cT loc ts : Prop :=
+| promises_aux_intro
+    (IN: exists from msg, Memory.get loc ts cT.(Configuration.memory) = Some(from,msg))
+    (NOSRC: Memory.get loc ts cS.(Configuration.memory) = None)
+    (NOPRM: ~Threads.is_promised tid loc ts cT.(Configuration.threads))
+.
+
 Lemma pi_steps_lift_except_pi_steps
       cSTM1 cSTM2 x t tid
       (STEPS: rtc (pi_step_lift_except x t tid) cSTM1 cSTM2):
@@ -1188,34 +1393,11 @@ Proof.
   admit.
 Admitted.
 
-Inductive promise_pi_except tid cS cT loc ts : Prop :=
-| promise_pi_except_intro
-    (IN: exists from msg, Memory.get loc ts cT.(Configuration.memory) = Some(from,msg))
-    (NOSRC: Memory.get loc ts cS.(Configuration.memory) = None)
-    (NOPRM: ~Threads.is_promised tid loc ts cT.(Configuration.threads))
-.
-
-Lemma pi_local_wf_prm_oth_iff
-      tid cST prm_oth1 prm_oth2
-      (WF: pi_local_wf tid prm_oth1 cST)
-      (IFF: forall loc ts, prm_oth1 loc ts <-> prm_oth2 loc ts):
-  pi_local_wf tid prm_oth2 cST.
-Proof.
-  inv WF. econs; eauto.
-  - i. exploit LR; eauto.
-    i. des. esplits; eauto. 
-    intro X. apply IFF in X. eauto.
-  - i. eapply RL; eauto.
-    intro X. apply IFF in X. eauto.
-  - i. exploit PRM; eauto.
-    apply IFF in PROTH. eauto.
-Qed.
-
 Lemma rtc_pi_step_except_local_wf
       loc ts tid cS1 cT1 cSTM2
       (WF: pi_wf (cS1,cT1))
       (STEPS_LIFT : rtc (pi_step_lift_except loc ts tid) (cS1, cT1, cT1.(Configuration.memory)) cSTM2):
-  pi_local_wf tid (promise_pi_except tid cSTM2.(fst).(fst) (conf_update_global cT1 cSTM2.(fst).(snd).(Configuration.sc) cSTM2.(snd)))
+  pi_local_wf tid (promises_aux tid cSTM2.(fst).(fst) (conf_update_global cT1 cSTM2.(fst).(snd).(Configuration.sc) cSTM2.(snd)))
                   (cSTM2.(fst).(fst), conf_update_global cT1 cSTM2.(fst).(snd).(Configuration.sc) cSTM2.(snd)).
 Proof.
 (*
@@ -1277,61 +1459,88 @@ Proof.
 *)
 Admitted.
 
-Lemma small_step_to_program_step_writing
-      c1 c2 e tid loc ord from ts val rel withprm
-      (STEP: small_step withprm tid e c1 c2)
-      (EVENT: ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord)):
-  exists (pe : ProgramEvent.t),
-  <<EVENT: Configuration_program_event c1 tid pe >> /\
-  <<WRITE: ProgramEvent.is_writing pe = Some (loc, ord) >>.
-Proof.
-  inv STEP. inv STEP0; inv STEP; inv EVENT; eauto 10.
-Qed.
-
-Lemma small_step_to_program_step_reading
-      c1 c2 e tid loc ord ts val rel withprm
-      (STEP: small_step withprm tid e c1 c2)
-      (EVENT: ThreadEvent.is_reading e = Some (loc, ts, val, rel, ord)):
-  exists (pe : ProgramEvent.t),
-  <<EVENT: Configuration_program_event c1 tid pe >> /\
-  <<WRITE: ProgramEvent.is_reading pe = Some (loc, ord) >>.
-Proof.
-  inv STEP. inv STEP0; inv STEP; inv EVENT; eauto 10.
-Qed.
-
-Lemma pf_racefree_steps
-      c1 c2
-      (FREE: pf_racefree c1)
-      (STEPS: rtc (small_step_all false) c1 c2):
-  pf_racefree c2.
-Proof.
-  ii. eapply FREE, RACE. etrans; eauto.
-Qed.
-
-Lemma promise_small_steps
-      c1 c2 c3 tid loc ts withprm
-      lst1 lc1 from1 msg1 
-      (THREAD1 : IdentMap.find tid (Configuration.threads c1) = Some (lst1, lc1))
-      (PROMISE1 : Memory.get loc ts (Local.promises lc1) = Some (from1, msg1))
-      lst3 lc3 from3 msg3 
-      (THREAD3 : IdentMap.find tid (Configuration.threads c3) = Some (lst3, lc3))
-      (PROMISE3 : Memory.get loc ts (Local.promises lc3) = Some (from3, msg3))
-      (STEPS1: rtc (small_step_evt withprm tid) c1 c2)
-      (STEPS2: rtc (small_step_evt withprm tid) c2 c3):
-  exists lst2 lc2 from2 msg2, 
-  <<THREAD: IdentMap.find tid (Configuration.threads c2) = Some (lst2, lc2)>> /\
-  <<PROMISE: Memory.get loc ts (Local.promises lc2) = Some (from2, msg2)>>.
+Lemma pi_step_lift_mem_get
+      l t e m1 m1' m2 m2' loc ts from1 msg2 from2' msg2'
+      (LIFT1: pi_step_lift_mem l t e m1 m1')
+      (LIFT2: pi_step_lift_mem l t e m2 m2')
+      (IN1: Memory.get loc ts m1 = Some (from1, msg2))
+      (IN2: Memory.get loc ts m2' = Some (from2', msg2')):
+  exists from2 msg2,
+  Memory.get loc ts m2 = Some (from2, msg2).
 Proof.
 Admitted.
 
-Lemma write_step_lt
-      tid c c1 e lst lc loc from ts val rel ord withprm
-      (STEP: small_step withprm tid e c c1)
-      (EVENT: ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord))
-      (THREAD: IdentMap.find tid (Configuration.threads c) = Some (lst, lc))
-: Time.lt (lc.(Local.commit).(Commit.cur).(Capability.rw) loc) ts.
-Proof.
-Admitted.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 Lemma local_simul_fence
       com prm prm' sc ordr ordw com' sc'
@@ -1438,37 +1647,24 @@ Lemma lift_step
 Proof.
 Admitted.
 
-Lemma pi_step_lift_mem_get
-      l t e m1 m1' m2 m2' loc ts from1 msg2 from2' msg2'
-      (LIFT1: pi_step_lift_mem l t e m1 m1')
-      (LIFT2: pi_step_lift_mem l t e m2 m2')
-      (IN1: Memory.get loc ts m1 = Some (from1, msg2))
-      (IN2: Memory.get loc ts m2' = Some (from2', msg2')):
-  exists from2 msg2,
-  Memory.get loc ts m2 = Some (from2, msg2).
-Proof.
-Admitted.
 
-Definition option_app {A} (a b: option A) : option A :=
-  if a then a else b.
 
-Lemma with_pre_trans 
-      A E (step: E -> A -> A -> Prop) c1 c2 c3 pre1 pre2
-      (STEPS1: with_pre step c1 pre1 c2)
-      (STEPS2: with_pre step c2 pre2 c3):
-  with_pre step c1 (option_app pre2 pre1) c3.
-Proof.
-  ginduction STEPS2; s; i; des; subst; eauto.
-Qed.
 
-Lemma pi_steps_small_steps_snd_with_pre
-      tid cST1 cST2 pre withprm
-      (PI_STEPS: with_pre (pi_step withprm tid) cST1 pre cST2):
-  with_pre (small_step withprm tid) (snd cST1) (pi_pre_proj pre) (snd cST2).
-Proof.
-  ginduction PI_STEPS; s; i; subst; eauto.
-  des. inv PSTEP. eauto.
-Qed.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 Lemma key_lemma
       cS1 cT1 cS2 cT2 tid
@@ -1936,4 +2132,36 @@ Proof.
   by rewrite THS, TH0.
 Grab Existential Variables. exact false.
 Qed.
+
+
+(* Lemma promise_small_steps *)
+(*       c1 c2 c3 tid loc ts withprm *)
+(*       lst1 lc1 from1 msg1  *)
+(*       (THREAD1 : IdentMap.find tid (Configuration.threads c1) = Some (lst1, lc1)) *)
+(*       (PROMISE1 : Memory.get loc ts (Local.promises lc1) = Some (from1, msg1)) *)
+(*       lst3 lc3 from3 msg3  *)
+(*       (THREAD3 : IdentMap.find tid (Configuration.threads c3) = Some (lst3, lc3)) *)
+(*       (PROMISE3 : Memory.get loc ts (Local.promises lc3) = Some (from3, msg3)) *)
+(*       (STEPS1: rtc (small_step_evt withprm tid) c1 c2) *)
+(*       (STEPS2: rtc (small_step_evt withprm tid) c2 c3): *)
+(*   exists lst2 lc2 from2 msg2,  *)
+(*   <<THREAD: IdentMap.find tid (Configuration.threads c2) = Some (lst2, lc2)>> /\ *)
+(*   <<PROMISE: Memory.get loc ts (Local.promises lc2) = Some (from2, msg2)>>. *)
+(* Proof. *)
+(* Admitted. *)
+
+
+(* Lemma rtc_pi_step_lang_match *)
+(*       cST1 cST2 tid withprm *)
+(*       (MATCH: option_map fst (IdentMap.find tid cST1.(fst).(Configuration.threads)) = *)
+(*        option_map fst (IdentMap.find tid cST1.(snd).(Configuration.threads))) *)
+(*       (STEPS: rtc (pi_step_evt withprm tid) cST1 cST2): *)
+(*   option_map fst (IdentMap.find tid cST2.(fst).(Configuration.threads)) = *)
+(*   option_map fst (IdentMap.find tid cST2.(snd).(Configuration.threads)). *)
+(* Proof. *)
+(*   induction STEPS; eauto. *)
+(*   inv H. inv USTEP. eauto. *)
+(* Qed. *)
+
+
 
