@@ -40,7 +40,7 @@ Proof. destruct ord; auto. Qed.
 
 Definition ThreadEvent_is_promising (e: ThreadEvent.t) : option (Loc.t * Time.t) :=
   match e with
-  | ThreadEvent.promise loc from to v rel => Some (loc, to)
+  | ThreadEvent.promise loc from to v rel kind => Some (loc, to)
   | _ => None
   end.
 
