@@ -251,23 +251,20 @@ Proof.
   exploit sim_local_program_step; try exact STEP2; try exact MEM; eauto. i. des.
   exploit Thread.program_step_future; eauto. i. des.
   unguardH STEP2. des.
-  - subst. exploit sim_local_rtcn_program_step; (try etrans; eauto; try done). i. des.
+  - subst. exploit sim_local_rtcn_program_step; try exact MEM0; eauto. i. des.
     esplits; cycle 1.
     + econs 2; eauto. econs; eauto. etrans; eauto.
     + eapply sim_local_memory_bot; eauto.
     + omega.
-  - exploit Thread.promise_step_future; try exact STEP2; eauto. i. des.
-    exploit sim_local_rtcn_program_step; try exact MEM0; eauto. i. des.
-    assert (STEPS: rtcn (Thread.tau_step (lang:=lang)) (S n0) th1' th2_src0).
+  - assert (STEPS: rtcn (Thread.tau_step (lang:=lang)) (S n0) th1' e2_src).
     { econs 2.
       - econs.
         + econs 1. apply STEP2.
         + by inv STEP2.
-      - eapply rtcn_imply; try exact STEP_SRC0. i. inv PR. econs; eauto. econs 2; eauto.
+      - eapply rtcn_imply; try exact A0. i. inv PR. econs; eauto. econs 2; eauto.
     }
-    exploit IH; try exact STEPS; try exact MEM1; eauto.
+    exploit IH; try exact STEPS; try exact MEM0; eauto.
     { omega. }
-    { eapply sim_local_memory_bot; eauto. }
     i. des. esplits; cycle 1.
     + econs 2; eauto. econs; eauto. etrans; eauto.
     + auto.
