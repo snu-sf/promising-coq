@@ -1886,7 +1886,7 @@ Section EasyCases.
     S_tm acts' sb' rmw' rf' l x.
   Proof. local. Qed.
 
-  Lemma gstep_t_cur_srr_scfence :
+  Lemma gstep_t_cur_scr_scfence :
     t_cur scr acts' sb' rmw' rf' sc' (thread a) l x <->
     S_tm acts' sb' rmw' rf' l x.
   Proof. local. Qed.
