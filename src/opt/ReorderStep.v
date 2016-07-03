@@ -325,7 +325,6 @@ Lemma reorder_read_fence
       lc2 sc2
       (ORDR2: Ordering.le ordr2 Ordering.relaxed)
       (ORDW2: Ordering.le ordw2 Ordering.acqrel)
-      (RLX: Ordering.le Ordering.relaxed ordw2 -> Ordering.le ord1 Ordering.relaxed)
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
       (STEP1: Local.read_step lc0 mem0 loc1 ts1 val1 released1 ord1 lc1)
