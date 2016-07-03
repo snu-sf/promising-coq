@@ -766,6 +766,56 @@ Proof.
   esplits; eauto.
 Qed.
 
+Lemma reorder_fence_read
+      ordr1 ordw1
+      loc2 to2 val2 released2 ord2
+      lc0 sc0 mem0
+      lc1 sc1
+      lc2
+      (ORDR1: Ordering.le ordr1 Ordering.acqrel)
+      (ORDW1: Ordering.le ordw1 Ordering.relaxed)
+      (ORD2: Ordering.le ord2 Ordering.unordered \/ Ordering.le Ordering.acqrel ord2)
+      (WF0: Local.wf lc0 mem0)
+      (SC0: Memory.closed_timemap sc0 mem0)
+      (MEM0: Memory.closed mem0)
+      (STEP1: Local.fence_step lc0 sc0 ordr1 ordw1 lc1 sc1)
+      (STEP2: Local.read_step lc1 mem0 loc2 to2 val2 released2 ord2 lc2):
+  exists lc1' lc2' sc2',
+    <<STEP1: Local.read_step lc0 mem0 loc2 to2 val2 released2 ord2 lc1'>> /\
+    <<STEP2: Local.fence_step lc1' sc0 ordr1 ordw1 lc2' sc2'>> /\
+    <<LOCAL: sim_local lc2' lc2>> /\
+    <<SC: TimeMap.le sc2' sc1>>.
+Proof.
+  guardH ORD2. inv STEP1. inv STEP2.
+  esplits.
+  - econs; eauto.
+    eapply CommitFacts.readable_mon; eauto; try refl.
+    etrans.
+    + apply CommitFacts.write_fence_commit_incr. apply WF0.
+    + apply CommitFacts.write_fence_commit_mon; try refl; try apply WF0.
+      apply CommitFacts.read_fence_commit_incr. apply WF0.
+  - econs; eauto.
+  - s. econs; s.
+    + inversion MEM0. exploit CLOSED; eauto. i. des.
+      exploit CommitFacts.read_future; try exact GET; try apply WF0; eauto. i. des.
+      exploit CommitFacts.read_fence_future; try apply WF0; eauto. i. des.
+      etrans; [|etrans].
+      * apply CommitFacts.write_fence_commit_mon; [|refl|refl|].
+        { apply ReorderCommit.read_fence_read_commit; auto. apply WF0. }
+        { inversion MEM0. exploit CLOSED; eauto. i. des.
+          eapply CommitFacts.read_fence_future; eauto.
+        }
+      * apply ReorderCommit.write_fence_read_commit; eauto.
+      * apply CommitFacts.read_commit_mon; auto; try refl.
+        eapply CommitFacts.write_fence_future; eauto.
+    + apply SimPromises.sem_bot.
+  - s. etrans.
+    + apply CommitFacts.write_fence_sc_mon; [|refl|refl].
+      apply ReorderCommit.read_fence_read_commit; auto. apply WF0.
+    + eapply ReorderCommit.write_fence_read_sc; auto.
+      eapply CommitFacts.read_fence_future; eauto; apply WF0.
+Qed.
+
 Lemma reorder_fence_promise
       ordr1 ordw1
       loc2 from2 to2 val2 released2

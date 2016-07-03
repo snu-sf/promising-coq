@@ -32,6 +32,12 @@ Set Implicit Arguments.
 
 
 Inductive reorder_fence (or1 ow1:Ordering.t): forall (i2:Instr.t), Prop :=
+| reorder_fence_load
+    r2 l2 o2
+    (ORDR1: Ordering.le or1 Ordering.acqrel)
+    (ORDW1: Ordering.le ow1 Ordering.relaxed)
+    (ORD2: Ordering.le o2 Ordering.unordered \/ Ordering.le Ordering.acqrel o2):
+    reorder_fence or1 ow1 (Instr.load r2 l2 o2)
 | reorder_fence_store
     l2 v2 o2
     (ORDR1: Ordering.le or1 Ordering.acqrel)
@@ -92,7 +98,7 @@ Lemma sim_fence_step
 Proof.
   inv SIM. ii.
   exploit future_fence_step; try apply FENCE; eauto; i.
-  { inv REORDER. etrans; eauto. }
+  { inv REORDER; etrans; eauto. }
   inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR; inv REORDER); ss.
   - (* promise *)
     exploit sim_local_promise; eauto.
@@ -106,6 +112,22 @@ Proof.
     + econs 2. econs 1. econs. eauto.
     + eauto.
     + right. econs; eauto.
+  - (* load *)
+    guardH ORD2.
+    exploit sim_local_read; try exact LOCAL0; try apply SC; eauto; try refl; committac.
+    { eapply Local.fence_step_future; eauto. }
+    i. des.
+    exploit reorder_fence_read; try apply x0; try apply STEP_SRC; eauto; try by committac. i. des.
+    esplits.
+    + econs 2; [|econs 1]. econs.
+      * econs 2. econs 2; eauto. econs. econs.
+      * eauto.
+    + econs 2. econs 2. econs 5; eauto. econs. econs.
+    + auto.
+    + etrans; eauto.
+    + auto.
+    + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
+      etrans; eauto.
   - (* store *)
     hexploit sim_local_write; try exact LOCAL0; try apply SC; eauto; try refl; committac.
     { eapply Local.fence_step_future; eauto. }
@@ -131,11 +153,11 @@ Proof.
   - i. inv PR. exploit sim_local_future; try apply LOCAL; eauto.
     { eapply Local.fence_step_future; try exact SC_SRC; eauto.
       eapply future_fence_step; try apply FENCE; eauto.
-      inv REORDER. etrans; eauto.
+      inv REORDER; etrans; eauto.
     }
     { eapply Local.fence_step_future; try apply SC_SRC0; eauto.
       eapply future_fence_step; try apply FENCE; eauto.
-      - inv REORDER. etrans; eauto.
+      - inv REORDER; etrans; eauto.
       - etrans; eauto.
     }
     i. des. esplits; eauto.
