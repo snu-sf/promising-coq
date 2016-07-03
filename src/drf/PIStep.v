@@ -50,9 +50,9 @@ Definition pi_step_all withprm cST1 cST2: Prop :=
   step_union (pi_step_evt withprm) cST1 cST2.
 Hint Unfold pi_step_all.
 
-Inductive pi_step_except (tid_except:Ident.t) cST1 cST2: Prop :=
+Inductive pi_step_except withprm (tid_except:Ident.t) cST1 cST2: Prop :=
 | pi_step_except_intro tid
-    (PI_STEP: pi_step_evt true tid cST1 cST2)
+    (PI_STEP: pi_step_evt withprm tid cST1 cST2)
     (TID: tid <> tid_except)
 .
 Hint Constructors pi_step_except.
@@ -82,7 +82,7 @@ Inductive pi_consistent: Configuration.t*Configuration.t -> Prop :=
 | pi_consistent_intro cS1 cT1
   (CONSIS:
     forall tid cS2 cT2 lst2 lc2 loc ts from msg
-    (STEPS: rtc (pi_step_except tid) (cS1,cT1) (cS2,cT2))
+    (STEPS: rtc (pi_step_except false tid) (cS1,cT1) (cS2,cT2))
     (THREAD: IdentMap.find tid cT2.(Configuration.threads) = Some (lst2, lc2))
     (PROMISE: Memory.get loc ts lc2.(Local.promises) = Some (from, msg)),
   exists cS3 e ord,
@@ -93,45 +93,6 @@ Inductive pi_consistent: Configuration.t*Configuration.t -> Prop :=
   pi_consistent (cS1, cT1).
 Hint Constructors pi_consistent.
 
-Inductive conf_local_wf tid (c: Configuration.t) : Prop :=
-| conf_local_wf_intro
-    (LWF: forall lst lc
-            (FIND: IdentMap.find tid c.(Configuration.threads) = Some (lst, lc)),
-          Local.wf lc c.(Configuration.memory))
-    (MCLOTM: Memory.closed_timemap c.(Configuration.sc) c.(Configuration.memory))
-    (MCLO: Memory.closed c.(Configuration.memory)).
- 
-Inductive pi_local_wf tid (promise_oth: Loc.t -> Time.t -> Prop) : Configuration.t*Configuration.t -> Prop :=
-| pi_local_wf_intro cS cT
-    (WFS: conf_local_wf tid cS)
-    (WFT: conf_local_wf tid cT)
-    (THS: IdentMap.find tid cS.(Configuration.threads) =
-          option_map remove_promise (IdentMap.find tid cT.(Configuration.threads)))
-    (SC: cS.(Configuration.sc) = cT.(Configuration.sc))
-    (LR: forall loc ts from msg
-           (IN: Memory.get loc ts cS.(Configuration.memory) = Some (from, msg)),
-         <<IN: Memory.get loc ts cT.(Configuration.memory) = Some (from, msg)>> /\
-         <<NOTPRSELF: ~ Threads.is_promised tid loc ts cT.(Configuration.threads)>> /\
-         <<NOTPROTH: ~ promise_oth loc ts>>)
-    (RL: forall loc ts from msg
-           (IN: Memory.get loc ts cT.(Configuration.memory) = Some (from, msg))
-           (NOTPRSELF: ~ Threads.is_promised tid loc ts cT.(Configuration.threads))
-           (NOTPROTH: ~ promise_oth loc ts),
-         Memory.get loc ts cS.(Configuration.memory) = Some (from, msg))
-    (PRM: forall loc ts 
-            (PROTH: promise_oth loc ts),
-          <<IN: exists from msg, Memory.get loc ts cT.(Configuration.memory) = Some (from, msg)>> /\
-          <<NOTPRSELF: ~Threads.is_promised tid loc ts cT.(Configuration.threads)>>)
-:
-  pi_local_wf tid promise_oth (cS,cT)
-.
-
-Inductive promises_except tid (c: Configuration.t) loc ts : Prop :=
-| promises_except_intro tid1
-    (NEQ: tid1 <> tid)
-    (PRM: Threads.is_promised tid1 loc ts c.(Configuration.threads))
-.
-
 Definition promise_consistent (tid: Ident.t) (c: Configuration.t) : Prop :=
   forall lst lc loc ts from msg
          (THREAD: IdentMap.find tid c.(Configuration.threads) = Some (lst, lc))
@@ -140,99 +101,6 @@ Definition promise_consistent (tid: Ident.t) (c: Configuration.t) : Prop :=
 
 Definition pi_pre_proj (pre: option (Configuration.t*Configuration.t*ThreadEvent.t)) := 
   option_map (fun p => (p.(fst).(snd),p.(snd))) pre.
-
-
-Lemma conf_wf_local_wf
-    tid c
-    (WF: Configuration.wf c):
-  conf_local_wf tid c. 
-Proof.
-  inv WF. inv WF0. 
-  econs; eauto.
-  i. destruct lst. eauto.
-Qed.
-
-Lemma pi_wf_pi_local_wf
-      cST tid
-      (WF: pi_wf cST):
-  pi_local_wf tid (promises_except tid cST.(snd)) cST.
-Proof.
-  inv WF. econs; eauto using conf_wf_local_wf.
-  - rewrite THS. rewrite IdentMap.Properties.F.map_o. eauto.
-  - i. apply LR in IN. des.
-    esplits; eauto.
-    intro X. destruct X.
-    eapply NOT. eauto.
-  - i. eapply RL; eauto.
-    intros tid1 PRM.
-    destruct (Ident.eq_dec tid1 tid) eqn: EQ.
-    + subst. eauto.
-    + apply NOTPROTH. econs; eauto.
-  - i. destruct PROTH. inv PRM. ss.
-    inv WFT. inv WF.
-    esplits; eauto.
-    + exploit THREADS; eauto.
-      intro X. inv X.
-      eapply PROMISES0. eauto.
-    + intro X. inv X.
-      exploit DISJOINT; eauto.
-      intro X. inv X.
-      eapply Memory.disjoint_get; eauto.
-Grab Existential Variables.
-  { eauto. }
-Qed.
-
-Lemma rtc_pi_step_local_wf
-      cST1 cST2 tid oth withprm
-      (MATCH: pi_local_wf tid oth cST1)
-      (STEPS: rtc (pi_step_evt withprm tid) cST1 cST2):
-  pi_local_wf tid oth cST2.
-Proof.
-(*
-  induction STEPS; eauto.
-  apply IHSTEPS. clear IHSTEPS STEPS z.
-  unfold pi_local_wf, remove_promise, mem_sub in *.
-  ss. des. rename MATCH0 into MATCH. 
-  inv H. inv PI_STEP. inv STEPT. inv STEP; inv STEP0; ss.
-  - subst. rewrite IdentMap.gss, MATCH, TID.
-    inv LOCAL; esplits; eauto.
-    i. apply MEMLE in IN. des. subst. esplits; eauto.
-    admit.
-  - inv STEPS. inv STEP; inv STEP0. ss.
-    rewrite !IdentMap.gss in *. ss. depdes LANGMATCH.
-    rewrite TID, TID0 in MATCH. depdes MATCH. ss. 
-  - inv STEPS. inv STEP; inv STEP0. ss.
-    rewrite !IdentMap.gss in *. ss. depdes LANGMATCH.
-    rewrite TID, TID0 in MATCH. ss. depdes MATCH.
-    inv LOCAL. inv LOCAL0. rewrite SCMAT. ss.
-  - inv STEPS. inv STEP; inv STEP0. ss.
-    rewrite !IdentMap.gss in *. ss. depdes LANGMATCH.
-    rewrite TID, TID0 in MATCH. ss. depdes MATCH.
-    inv LOCAL. inv LOCAL0. rewrite SCMAT. ss.
-    esplits; eauto.
-    + do 3 f_equal.
-      admit.
-    + i.
-      admit.
-  - inv STEPS. inv STEP; inv STEP0. ss.
-    rewrite !IdentMap.gss in *. ss. depdes LANGMATCH.
-    rewrite TID, TID0 in MATCH. ss. depdes MATCH.
-    inv LOCAL1. inv LOCAL0. inv LOCAL2. inv LOCAL3. rewrite SCMAT.
-    s. esplits; eauto. 
-    + do 3 f_equal. s in WRITE0.
-      admit.
-    + i.
-      admit.
-  - inv STEPS. inv STEP; inv STEP0. ss.
-    rewrite !IdentMap.gss in *. ss. depdes LANGMATCH.
-    rewrite TID, TID0 in MATCH. ss. depdes MATCH.
-    inv LOCAL. inv LOCAL0. ss. by rewrite SCMAT.
-  - inv STEPS. inv STEP; inv STEP0. ss.
-    rewrite !IdentMap.gss in *. ss. depdes LANGMATCH.
-    rewrite TID, TID0 in MATCH. ss. depdes MATCH.
-    inv LOCAL. inv LOCAL0. ss. by rewrite SCMAT.
-*)
-Admitted. (* gil easy *)
 
 Lemma pi_step_future
       tid cST1 cST2 withprm
@@ -307,27 +175,11 @@ Proof.
 Qed.
 
 Lemma pi_step_except_all_incl
-      tid cST1 cST2
-      (STEP: pi_step_except tid cST1 cST2):
-  pi_step_all true cST1 cST2.
+      tid cST1 cST2 withprm
+      (STEP: pi_step_except withprm tid cST1 cST2):
+  pi_step_all withprm cST1 cST2.
 Proof.
   inv STEP; econs; eauto.
-Qed.
-
-Lemma pi_local_wf_prm_oth_iff
-      tid cST prm_oth1 prm_oth2
-      (WF: pi_local_wf tid prm_oth1 cST)
-      (IFF: forall loc ts, prm_oth1 loc ts <-> prm_oth2 loc ts):
-  pi_local_wf tid prm_oth2 cST.
-Proof.
-  inv WF. econs; eauto.
-  - i. exploit LR; eauto.
-    i. des. esplits; eauto. 
-    intro X. apply IFF in X. eauto.
-  - i. eapply RL; eauto.
-    intro X. apply IFF in X. eauto.
-  - i. exploit PRM; eauto.
-    apply IFF in PROTH. eauto.
 Qed.
 
 Lemma pi_steps_small_steps_fst
@@ -372,6 +224,27 @@ Proof.
   - econs; eauto. s. inv STEPS. destruct withprm'; econs; eauto 10. 
 Qed.
 
+Lemma rtc_pi_step_except_find
+      tid c1 c2 withprm
+      (STEP: rtc (pi_step_except withprm tid) c1 c2):
+  IdentMap.find tid c1.(fst).(Configuration.threads) = IdentMap.find tid c2.(fst).(Configuration.threads) /\
+  IdentMap.find tid c1.(snd).(Configuration.threads) = IdentMap.find tid c2.(snd).(Configuration.threads).
+Proof.
+  induction STEP; auto. 
+  des. rewrite <-IHSTEP, <-IHSTEP0.
+  inv H. inv PI_STEP. inv USTEP.
+  split; eauto using small_step_find.
+  destruct (ThreadEvent_is_promising e); subst; eauto using small_step_find.
+Qed.
+
+Lemma rtc_pi_step_remove_promises
+      tid cST1 cST2
+      (PSTEP: rtc (pi_step_except true tid) cST1 cST2):
+  exists cT2',
+  rtc (pi_step_except false tid) cST1 (cST2.(fst),cT2').
+Proof.
+Admitted. (* jeehoon: very important lemma *)
+
 Lemma pi_consistent_small_step_pi_rw
       e tid cST1 cST2 cT3 withprm
       (WF: pi_wf cST1)
@@ -388,10 +261,17 @@ Proof.
   ii. inv H.
   inv PI_CONSISTENT. ss.
   guardH RW. destruct cST2 as [cS2 cT2].
+  exploit (@rtc_pi_step_remove_promises tid').
+  { eapply rtc_implies, PI_STEPS. i. inv PR. eauto. }
+  intro PI_STEPS'. des. ss.
   exploit CONSIS.
-  { eapply rtc_implies, PI_STEPS. i. econs; eauto. }
   { eauto. }
+  { apply pi_steps_small_steps_snd in PI_STEPS. ss.
+    eapply rtc_small_step_find in PI_STEPS; eauto.
+    assert (EQ:= rtc_pi_step_except_find PI_STEPS'); des; ss.
+    rewrite <-EQ0, PI_STEPS. eauto. }
   { eauto. }
+
   clear CONSIS. i. des.
   exploit (PI_RACEFREE cS3 ord ord0).
   { etrans. 

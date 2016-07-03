@@ -46,7 +46,7 @@ Definition pi_step_lift_mem l t p k e M1 M2 : Prop :=
 
 Inductive pi_step_lift_except l t (tid_except:Ident.t): (Configuration.t*Configuration.t*Memory.t) -> (Configuration.t*Configuration.t*Memory.t) -> Prop :=
 | pi_step_lift_except_intro tid k e cS1 cS2 cT1 cT2 M1 M2 lst lc
-    (PI_STEP: pi_step true tid e (cS1,cT1) (cS2,cT2))
+    (PI_STEP: pi_step false tid e (cS1,cT1) (cS2,cT2))
     (FIND: IdentMap.find tid_except cT2.(Configuration.threads) = Some (lst,lc))
     (MEM: pi_step_lift_mem l t lc.(Local.promises) k e M1 M2)
     (TID: tid <> tid_except):
@@ -71,13 +71,13 @@ Inductive mem_eqlerel_lift l t p k e (m1 m2: Memory.t) : Prop :=
   (MEMWR: pi_step_lift_mem l t p k e m1' m2)
 .
 
-Definition conf_update_global (c: Configuration.t) sc (m: Memory.t) : Configuration.t :=
-  Configuration.mk c.(Configuration.threads) sc m.
+Definition conf_update_memory (c: Configuration.t) (m: Memory.t) : Configuration.t :=
+ Configuration.mk c.(Configuration.threads) c.(Configuration.sc) m.
 
 Lemma pi_steps_lift_except_pi_steps
       cSTM1 cSTM2 l t tid
       (STEPS: rtc (pi_step_lift_except l t tid) cSTM1 cSTM2):
-  rtc (pi_step_except tid) cSTM1.(fst) cSTM2.(fst).
+  rtc (pi_step_except false tid) cSTM1.(fst) cSTM2.(fst).
 Proof.
   induction STEPS; eauto.
   etrans; [|apply IHSTEPS].
@@ -86,7 +86,7 @@ Qed.
 
 Lemma pi_step_lifting
       tid cST1 cST2 l t
-      (PI_STEPS: rtc (pi_step_except tid) cST1 cST2):
+      (PI_STEPS: rtc (pi_step_except false tid) cST1 cST2):
   exists M2, rtc (pi_step_lift_except l t tid) (cST1,cST1.(snd).(Configuration.memory)) (cST2,M2).
 Proof.
   (* TODO: assume that (l, t) is already in cST2.(snd)'s promises (or memory) *)
@@ -114,26 +114,15 @@ Lemma rtc_pi_step_lift_except_find
   IdentMap.find tid cSTM1.(fst).(fst).(Configuration.threads) = IdentMap.find tid cSTM2.(fst).(fst).(Configuration.threads) /\
   IdentMap.find tid cSTM1.(fst).(snd).(Configuration.threads) = IdentMap.find tid cSTM2.(fst).(snd).(Configuration.threads).
 Proof.
-  (* ginduction STEPS; eauto. *)
-  (* des. rewrite <-IHSTEPS, <-IHSTEPS0. *)
-  (* inv H. inv PI_STEP. inv PI_STEP0. inv PI_STEP. *)
-  (* ss; split; [by eapply small_step_find; eauto|]. *)
-  admit.
-Admitted. (* easy *)
+  apply pi_steps_lift_except_pi_steps in STEPS.
+  apply rtc_pi_step_except_find in STEPS. eauto.
+Qed.
 
-Inductive promises_aux tid cS cT loc ts : Prop :=
-| promises_aux_intro
-    (IN: exists from msg, Memory.get loc ts cT.(Configuration.memory) = Some(from,msg))
-    (NOSRC: Memory.get loc ts cS.(Configuration.memory) = None)
-    (NOPRM: ~Threads.is_promised tid loc ts cT.(Configuration.threads))
-.
-
-Lemma rtc_pi_step_except_local_wf
+Lemma rtc_pi_step_lift_except_wf
       l t tid cS1 cT1 cSTM2
       (WF: pi_wf (cS1,cT1))
       (STEPS_LIFT : rtc (pi_step_lift_except l t tid) (cS1, cT1, cT1.(Configuration.memory)) cSTM2):
-  pi_local_wf tid (promises_aux tid cSTM2.(fst).(fst) (conf_update_global cT1 cSTM2.(fst).(snd).(Configuration.sc) cSTM2.(snd)))
-                  (cSTM2.(fst).(fst), conf_update_global cT1 cSTM2.(fst).(snd).(Configuration.sc) cSTM2.(snd)).
+  pi_wf (cSTM2.(fst).(fst), conf_update_memory cSTM2.(fst).(snd) cSTM2.(snd)).
 Proof.
 (*
   destruct cSTM2 as [[cS2 cT2] M2]. ss.
@@ -192,19 +181,7 @@ Proof.
   esplits; eauto.
   i. admit.
 *)
-Admitted. (* ? *)
-
-Lemma pi_step_lift_mem_get
-      l t p1 p2 k e m1 m1' m2 m2' loc ts from1 msg2 from2' msg2'
-      (LIFT1: pi_step_lift_mem l t p1 k e m1 m1')
-      (LIFT2: pi_step_lift_mem l t p2 k e m2 m2')
-      (IN1: Memory.get loc ts m1 = Some (from1, msg2))
-      (IN2: Memory.get loc ts m2' = Some (from2', msg2')):
-  exists from2 msg2,
-  Memory.get loc ts m2 = Some (from2, msg2).
-Proof.
-Admitted. (* gil *)
-
+Admitted. (* jeehoon: easy *)
 
 Lemma local_simul_fence
       com prm prm' sc ordr ordw com' sc'
