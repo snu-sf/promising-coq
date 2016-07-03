@@ -164,8 +164,7 @@ Qed.
 
 Lemma progress_fence_step
       lc1 sc1
-      ordr ordw
-      (PROMISES1: lc1.(Local.promises) = Memory.bot):
+      ordr ordw:
   exists lc2 sc2,
     Local.fence_step lc1 sc1 ordr ordw lc2 sc2.
 Proof.

@@ -335,8 +335,7 @@ Lemma sim_local_fence
     <<SC2: TimeMap.le sc2_src sc2_tgt>>.
 Proof.
   inv STEP_TGT. esplits; eauto.
-  - econs; eauto. i. eapply sim_local_memory_bot; eauto.
-    apply RELEASE. etrans; eauto.
+  - econs; eauto.
   - econs; try apply LOCAL1. s.
     apply CommitFacts.write_fence_commit_mon; auto; try refl.
     apply CommitFacts.read_fence_commit_mon; auto; try refl.

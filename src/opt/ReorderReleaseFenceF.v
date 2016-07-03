@@ -55,15 +55,6 @@ Inductive sim_release_fenceF: forall (st_src:lang.(Language.state)) (lc_src:Loca
     sim_release_fenceF
       (State.mk rs []) lc1_src sc1_src mem1_src
       (State.mk rs [Stmt.instr (Instr.fence Ordering.relaxed Ordering.acqrel)]) lc1_tgt sc1_tgt mem1_tgt
-| sim_relese_fenceF_promises
-    rs_src rs_tgt inv instrs_src
-    lc1_src sc1_src mem1_src
-    lc1_tgt sc1_tgt mem1_tgt
-    (LOCAL: SimPromises.sem inv lc1_src.(Local.promises) lc1_tgt.(Local.promises))
-    (TGT: lc1_tgt.(Local.promises) <> Memory.bot):
-    sim_release_fenceF
-      (State.mk rs_src instrs_src) lc1_src sc1_src mem1_src
-      (State.mk rs_tgt [Stmt.instr (Instr.fence Ordering.relaxed Ordering.acqrel)]) lc1_tgt sc1_tgt mem1_tgt
 .
 
 Lemma future_fence_step lc1 sc1 sc1' mem1 mem1' ordr ordw lc2 sc2
@@ -111,29 +102,7 @@ Lemma sim_release_fenceF_step
                      st1_src lc1_src sc1_src mem1_src
                      st1_tgt lc1_tgt sc1_tgt mem1_tgt.
 Proof.
-  inv SIM; ii; cycle 1.
-  { inv STEP_TGT; cycle 1.
-    { inv STEP; inv STATE; inv INSTR.
-      inv LOCAL0. rewrite RELEASE in TGT; auto. congr.
-    }
-    inv STEP. inv LOCAL0.
-    exploit SimPromises.promise; eauto.
-    { apply WF_SRC. }
-    { apply WF_TGT. }
-    i. des.
-    exploit sim_memory_closed_capability; eauto. i.
-    exploit Memory.promise_future; try apply PROMISE_SRC; eauto.
-    { apply WF_SRC. }
-    i. des.
-    esplits.
-    + eauto.
-    + econs 2. econs 1. econs. econs; eauto.
-    + auto.
-    + auto.
-    + auto.
-    + right. econs 2; eauto. s. ii. subst.
-      exploit Memory.promise_get2; eauto. rewrite Memory.bot_get. congr.
-  }
+  inv SIM; ii.
   exploit future_fence_step; try apply FENCE; eauto. i.
   inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR; inv REORDER); ss.
   - (* promise *)
@@ -153,8 +122,10 @@ Proof.
     + auto.
     + auto.
     + auto.
-    + right. econs 2; eauto. s. ii. subst.
-      exploit Memory.promise_get2; eauto. rewrite Memory.bot_get. congr.
+    + right. econs 1; eauto.
+      * econs; eauto.
+      * s. econs; eauto. s.
+        inv LOCAL. ss.
   - (* fence *)
     inv STATE. inv INSTR.
     exploit fence_step_fun; [exact x0|exact LOCAL0|]. i. des. subst.
@@ -173,42 +144,28 @@ Proof.
   pcofix CIH. i. pfold. ii. ss. splits; ss.
   - i. inv TERMINAL_TGT. inv PR; ss.
   - i. inv PR.
-    + exploit future_fence_step; try exact FENCE; eauto; try refl. i.
-      exploit Local.fence_step_future; eauto. i. des.
-      exploit Local.fence_step_future; eauto. i. des.
-      exploit sim_local_future; try apply LOCAL; eauto. i. des.
-      esplits.
-      * etrans.
-        { apply Memory.max_timemap_spec; eauto. committac. }
-        { apply sim_memory_max_timemap; eauto. }
-      * eauto.
-      * etrans.
-        { apply Memory.max_timemap_spec; eauto. committac. }
-        { apply Memory.future_max_timemap; eauto. }
-      * auto.
-      * econs.
-        { eapply WF_TGT. }
-        { eapply Commit.future_closed; eauto. apply WF_TGT. }
-        { inv FENCE. apply WF2_TGT. }
-      * apply Memory.max_timemap_closed. committac.
-      * auto.
-    + exploit sim_local_future; try apply LOCAL; eauto. i. des.
-      esplits.
-      * etrans.
-        { apply Memory.max_timemap_spec; eauto. committac. }
-        { apply sim_memory_max_timemap; eauto. }
-      * eauto.
-      * etrans.
-        { apply Memory.max_timemap_spec; eauto. committac. }
-        { apply Memory.future_max_timemap; eauto. }
-      * auto.
-      * auto.
-      * apply Memory.max_timemap_closed. committac.
-      * auto.
+    exploit future_fence_step; try exact FENCE; eauto; try refl. i.
+    exploit Local.fence_step_future; eauto. i. des.
+    exploit Local.fence_step_future; eauto. i. des.
+    exploit sim_local_future; try apply LOCAL; eauto. i. des.
+    esplits.
+    + etrans.
+      { apply Memory.max_timemap_spec; eauto. committac. }
+      { apply sim_memory_max_timemap; eauto. }
+    + eauto.
+    + etrans.
+      { apply Memory.max_timemap_spec; eauto. committac. }
+      { apply Memory.future_max_timemap; eauto. }
+    + auto.
+    + econs.
+      { eapply WF_TGT. }
+      { eapply Commit.future_closed; eauto. apply WF_TGT. }
+      { inv FENCE. apply WF2_TGT. }
+    + apply Memory.max_timemap_closed. committac.
+    + auto.
   - i. inv PR.
-    + esplits; eauto. inv FENCE.
-      eapply sim_local_memory_bot; eauto.
-    + congr.
+    esplits; eauto. inv FENCE.
+    eapply sim_local_memory_bot; eauto.
   - ii. exploit sim_release_fenceF_step; try apply PR; try apply SC; eauto. i. des.
     + esplits; eauto.
       left. eapply paco9_mon; eauto. ss.
@@ -241,42 +198,44 @@ Proof.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
     esplits; try apply SC; eauto.
-    econs 2. econs 1; eauto. econs; eauto. eauto.
+    + econs 2. econs 1; eauto. econs; eauto.
+    + auto.
   - (* load *)
     exploit Local.read_step_future; eauto. i. des.
-    destruct (classic (Local.promises lc3_tgt = Memory.bot)).
-    + exploit progress_fence_step; eauto. i. des.
-      exploit sim_local_read; eauto; try refl. i. des.
-      exploit Local.read_step_future; eauto. i. des.
-      exploit sim_local_fence; try exact SC; eauto; try refl. i. des.
-      exploit reorder_read_fence; try exact STEP_SRC; eauto; try refl. i. des.
-      esplits.
-      * econs 2; eauto. econs.
-        { econs 2. econs 5; eauto. econs. econs. }
-        { auto. }
-      * econs 2. econs 2. econs 2; eauto. econs. econs.
-      * auto.
-      * etrans; eauto. etrans; eauto.
-        inv x0. unfold Commit.write_fence_sc. condtac; ss. refl.
-      * auto.
-      * left. eapply paco9_mon; [apply sim_release_fenceF_sim_thread|]; ss.
-        econs 1; eauto. etrans; eauto.
-    + esplits.
-      * eauto.
-      * econs 1.
-      * auto.
-      * auto.
-      * auto.
-      * left. eapply paco9_mon; [apply sim_release_fenceF_sim_thread|]; ss.
-        econs 2; eauto. inv LOCAL0. ss. apply LOCAL.
+    exploit progress_fence_step; eauto. i. des.
+    exploit sim_local_read; eauto; try refl. i. des.
+    exploit Local.read_step_future; eauto. i. des.
+    exploit sim_local_fence; try exact SC; eauto; try refl. i. des.
+    exploit reorder_read_fence; try exact STEP_SRC; eauto; try refl. i. des.
+    esplits.
+    + econs 2; eauto. econs.
+      { econs 2. econs 5; eauto. econs. econs. }
+      { auto. }
+    + econs 2. econs 2. econs 2; eauto. econs. econs.
+    + auto.
+    + etrans; eauto. etrans; eauto.
+      inv x0. unfold Commit.write_fence_sc. condtac; ss. refl.
+    + auto.
+    + left. eapply paco9_mon; [apply sim_release_fenceF_sim_thread|]; ss.
+      econs 1; eauto. etrans; eauto.
   - (* store *)
     guardH ORD2.
     exploit Local.write_step_future; eauto; try by committac. i. des.
-    destruct (classic (Local.promises lc3_tgt = Memory.bot)).
-    + exploit progress_fence_step; eauto. i. des.
-      hexploit sim_local_write; try exact LOCAL0; try refl; eauto; try by committac. i. des.
-      exploit Local.write_step_future; eauto; try by committac. i. des.
-      exploit sim_local_fence; try exact SC0; eauto; try refl. i. des.
-      admit.
-    + admit.
-Admitted.
+    exploit progress_fence_step; eauto. i. des.
+    hexploit sim_local_write; try exact LOCAL0; try exact LOCAL; try exact SC; try exact MEMORY;
+      try refl; eauto; try by committac. i. des.
+    exploit Local.write_step_future; eauto; try by committac. i. des.
+    exploit sim_local_fence; try exact SC0; eauto; try refl. i. des.
+    exploit reorder_write_fence; try exact STEP_SRC; eauto; try by committac. i. des.
+    esplits.
+    + econs 2; eauto. econs.
+      * econs 2. econs 5; eauto. econs. econs.
+      * auto.
+    + econs 2. econs 2. econs 3; eauto. econs. econs.
+    + auto.
+    + etrans; eauto.
+      inv x0. unfold Commit.write_fence_sc. condtac; ss. refl.
+    + auto.
+    + left. eapply paco9_mon; [apply sim_release_fenceF_sim_thread|]; ss.
+      econs 1; eauto. etrans; eauto.
+Qed.

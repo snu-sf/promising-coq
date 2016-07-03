@@ -537,6 +537,63 @@ Proof.
   esplits; eauto.
 Qed.
 
+Lemma reorder_write_fence
+      loc1 from1 to1 val1 releasedm1 released1 ord1 kind1
+      lc0 sc0 mem0
+      lc1 sc1 mem1
+      lc2 sc2
+      (ORD1: Ordering.le ord1 Ordering.unordered \/ Ordering.le Ordering.acqrel ord1)
+      (WF0: Local.wf lc0 mem0)
+      (SC0: Memory.closed_timemap sc0 mem0)
+      (MEM0: Memory.closed mem0)
+      (REL_WF: Capability.wf releasedm1)
+      (REL_CLOSED: Memory.closed_capability releasedm1 mem0)
+      (STEP1: Local.write_step lc0 sc0 mem0 loc1 from1 to1 val1 releasedm1 released1 ord1 lc1 sc1 mem1 kind1)
+      (STEP2: Local.fence_step lc1 sc1 Ordering.relaxed Ordering.acqrel lc2 sc2):
+  exists released1 lc1' lc2' sc1',
+    <<STEP1: Local.fence_step lc0 sc0 Ordering.relaxed Ordering.acqrel lc1' sc1'>> /\
+    <<STEP2: Local.write_step lc1' sc1' mem0 loc1 from1 to1 val1 releasedm1 released1 ord1 lc2' sc2 mem1 kind1>> /\
+    <<LOCAL: sim_local lc2' lc2>>.
+Proof.
+  guardH ORD1.
+  exploit Local.write_step_future; eauto. i. des.
+  inv STEP1. inv STEP2.
+  unfold Local.commit at 1 3. unfold Local.promises.
+  assert (REL_EQ:
+            (if Ordering.le Ordering.relaxed ord1
+             then
+              Capability.join releasedm1
+                (Commit.rel
+                   (Commit.write_commit (Local.commit lc0) sc0 loc1
+                      to1 ord1) loc1)
+             else Capability.bot) =
+     (if Ordering.le Ordering.relaxed ord1
+      then
+       Capability.join releasedm1
+         (Commit.rel
+            (Commit.write_commit
+               (Commit.write_fence_commit
+                  (Commit.read_fence_commit (Local.commit lc0)
+                     Ordering.relaxed) sc0 Ordering.acqrel)
+               (Commit.write_fence_sc
+                  (Commit.read_fence_commit (Local.commit lc0)
+                     Ordering.relaxed) sc0 Ordering.acqrel) loc1 to1
+               ord1) loc1)
+      else Capability.bot)).
+  { condtac; [|auto]. f_equal.
+    unfold Commit.write_fence_commit, Commit.write_fence_sc.
+    apply Capability.antisym; repeat (try condtac; aggrtac; try apply WF0).
+    unguardH ORD1. des; [|congr]. destruct ord1; inv ORD1; inv COND.
+  }
+  esplits.
+  - econs; eauto.
+  - econs; eauto. ss. inv WRITABLE. econs; eauto.
+  - s. econs; ss.
+    + unfold Commit.write_fence_sc, Commit.write_fence_commit.
+      econs; repeat (try condtac; aggrtac; try apply WF0).
+    + apply SimPromises.sem_bot.
+Qed.
+
 Lemma reorder_update_read
       loc1 ts1 val1 released1 ord1
       from2 to2 val2 released2 ord2
@@ -822,8 +879,6 @@ Lemma reorder_fence_promise
       lc1 sc1
       lc2 mem2
       kind
-      (ORDR1: Ordering.le ordr1 Ordering.acqrel)
-      (ORDW1: Ordering.le ordw1 Ordering.relaxed)
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
       (STEP1: Local.fence_step lc0 sc0 ordr1 ordw1 lc1 sc1)
@@ -835,7 +890,7 @@ Proof.
   inv STEP1. inv STEP2. ss.
   esplits.
   - econs; eauto.
-  - econs; eauto. i. destruct ordw1; inv ORDW1; inv H.
+  - econs; eauto.
 Qed.
 
 Lemma reorder_fence_fulfill
@@ -881,7 +936,7 @@ Proof.
           eapply CommitFacts.read_fence_future; apply WF0.
         }
       * apply CommitFacts.write_fence_sc_incr.
-  - econs; eauto. i. destruct ordw1; inv H; inv ORDW1.
+  - econs; eauto.
   - s. econs; s.
     + etrans; [|etrans].
       * apply CommitFacts.write_fence_commit_mon; [|refl|refl|].

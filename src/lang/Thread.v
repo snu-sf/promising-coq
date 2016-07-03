@@ -121,8 +121,7 @@ Module Local.
   Inductive fence_step (lc1:t) (sc1:TimeMap.t) (ordr ordw:Ordering.t): forall (lc2:t) (sc2:TimeMap.t), Prop :=
   | step_fence
       commit2
-      (READ: Commit.read_fence_commit lc1.(commit) ordr = commit2)
-      (RELEASE: Ordering.le Ordering.acqrel ordw -> lc1.(promises) = Memory.bot):
+      (READ: Commit.read_fence_commit lc1.(commit) ordr = commit2):
       fence_step lc1 sc1 ordr ordw (mk (Commit.write_fence_commit commit2 sc1 ordw) lc1.(promises)) (Commit.write_fence_sc commit2 sc1 ordw)
   .
 
