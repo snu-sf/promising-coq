@@ -31,7 +31,7 @@ Set Implicit Arguments.
 Inductive fulfill_step (lc1:Local.t) (sc1:TimeMap.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (releasedm released:Capability.t) (ord:Ordering.t): forall (lc2:Local.t) (sc2:TimeMap.t), Prop :=
 | step_fulfill
     promises2
-    (REL_LE: Capability.le (Capability.join releasedm ((Commit.write_commit lc1.(Local.commit) sc1 loc to ord).(Commit.rel) loc)) released)
+    (REL_LE: Capability.le (if Ordering.le Ordering.relaxed ord then Capability.join releasedm ((Commit.write_commit lc1.(Local.commit) sc1 loc to ord).(Commit.rel) loc) else Capability.bot) released)
     (REL_WF: Capability.wf released)
     (WRITABLE: Commit.writable lc1.(Local.commit) sc1 loc to ord)
     (REMOVE: Memory.remove lc1.(Local.promises) loc from to val released promises2)
@@ -72,10 +72,12 @@ Lemma write_promise_fulfill
   exists lc1,
     <<STEP1: Local.promise_step lc0 mem0 loc from to val released lc1 mem2 kind>> /\
     <<STEP2: fulfill_step lc1 sc0 loc from to val releasedm released ord lc2 sc2>> /\
-    <<REL: released = Capability.join releasedm
-             (Commit.rel
-               (Commit.write_commit (Local.commit lc0) sc0 loc to ord)
-               loc)>> /\
+    <<REL: released =
+           if Ordering.le Ordering.relaxed ord
+           then Capability.join
+                  releasedm
+                  (Commit.rel (Commit.write_commit (Local.commit lc0) sc0 loc to ord) loc)
+           else Capability.bot>> /\
     <<ORD: Ordering.le Ordering.acqrel ord ->
            Local.promises lc0 loc = Cell.bot /\
            kind = Memory.promise_kind_add>>.
@@ -83,7 +85,7 @@ Proof.
   exploit Local.write_step_future; eauto. i. des.
   inv WRITE. inv WRITE0. esplits; eauto.
   - econs; eauto.
-  - refine (step_fulfill _ _ _ _ _ _); auto.
+  - refine (step_fulfill _ _ _ _ _ _ _); auto.
     + refl.
     + eapply MemoryFacts.promise_time_lt. eauto.
 Qed.
@@ -138,7 +140,7 @@ Proof.
   { repeat (try condtac; committac; try apply WF2). }
   i. des.
   esplits; eauto.
-  - refine (Local.step_write _ _ _ _ _); eauto.
+  - refine (Local.step_write _ _ _ _ _ _); eauto.
     econs; eauto.
     eapply MemoryMerge.promise_promise_promise; eauto.
   - eapply promise_lower_sim_memory. eauto.

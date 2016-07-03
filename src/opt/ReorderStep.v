@@ -109,7 +109,7 @@ Proof.
   { i. unfold Commit.write_sc. apply TimeMap.antisym; repeat (condtac; aggrtac). }
   inversion STEP. subst lc2 sc2. esplits.
   - rewrite COMMIT. rewrite SC_EQ at 3. econs; eauto.
-    + etrans; eauto. apply Capability.join_spec.
+    + etrans; eauto. condtac; committac. apply Capability.join_spec.
       * rewrite <- Capability.join_l. auto.
       * rewrite <- Capability.join_r. rewrite COMMIT. refl.
     + econs; try apply WRITABLE.
@@ -323,7 +323,6 @@ Lemma reorder_read_fence
       lc0 sc0 mem0
       lc1
       lc2 sc2
-      (ORD1: Ordering.le Ordering.relaxed ord1)
       (ORDR2: Ordering.le ordr2 Ordering.relaxed)
       (ORDW2: Ordering.le ordw2 Ordering.acqrel)
       (RLX: Ordering.le Ordering.relaxed ordw2 -> Ordering.le ord1 Ordering.relaxed)
@@ -816,7 +815,7 @@ Proof.
   hexploit CommitFacts.write_fence_future; eauto. i. des.
   esplits.
   - econs; eauto.
-    + etrans; eauto. apply Capability.join_spec.
+    + etrans; eauto. condtac; [|by committac]. apply Capability.join_spec.
       * rewrite <- Capability.join_l. refl.
       * rewrite <- Capability.join_r.
         apply CommitFacts.write_commit_mon; eauto; try refl.
