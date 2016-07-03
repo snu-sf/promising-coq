@@ -34,8 +34,8 @@ Inductive pi_step withprm: Ident.t -> ThreadEvent.t -> Configuration.t*Configura
     (LANGMATCH: 
      option_map fst (IdentMap.find tid cS2.(Configuration.threads)) =
      option_map fst (IdentMap.find tid cT2.(Configuration.threads)))
-    (NOWR: forall loc from ts val rel ord kind tid' ts'
-             (WRITE:ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord, kind))
+    (NOWR: forall loc from ts val rel ord tid' ts'
+             (WRITE:ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord))
              (TIDNEQ: tid' <> tid),
            ~ Threads.is_promised tid' loc ts' cT1.(Configuration.threads)):
   pi_step withprm tid e (cS1,cT1) (cS2,cT2)
@@ -379,10 +379,10 @@ Lemma pi_consistent_small_step_pi_rw
       (PI_RACEFREE: pf_racefree cST1.(fst))
       (PI_STEPS: rtc (pi_step_evt true tid) cST1 cST2)
       (STEP: small_step withprm tid e cST2.(snd) cT3):
-  forall loc from to val rel ord kind tid' ts
+  forall loc from to val rel ord tid' ts
     (NEQ: tid <> tid')
     (RW: ThreadEvent.is_reading e = Some (loc, to, val, rel, ord) \/
-         ThreadEvent.is_writing e = Some (loc, from, to, val, rel, ord, kind)),
+         ThreadEvent.is_writing e = Some (loc, from, to, val, rel, ord)),
   ~Threads.is_promised tid' loc ts cST2.(snd).(Configuration.threads).
 Proof.
   ii. inv H.
@@ -526,8 +526,8 @@ Lemma thread_step_unset_promises
       (STEP: Thread.step e th1 th2)
       (TH1: Memory.get loc ts th1.(Thread.local).(Local.promises) = Some (from, msg))
       (TH2: Memory.get loc ts th2.(Thread.local).(Local.promises) = None):
-  exists ord from val rel kind,
-  <<EVENT: ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord, kind)>> /\
+  exists ord from val rel,
+  <<EVENT: ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord)>> /\
   <<ORD: Ordering.le ord Ordering.relaxed>> /\
   <<TIME: Time.lt (th1.(Thread.local).(Local.commit).(Commit.cur).(Capability.rw) loc) ts>>.
 Proof.

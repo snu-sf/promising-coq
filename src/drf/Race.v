@@ -74,9 +74,9 @@ Proof.
 Qed.
 
 Lemma small_step_to_program_step_writing
-      c1 c2 e tid loc ord kind from ts val rel withprm
+      c1 c2 e tid loc ord from ts val rel withprm
       (STEP: small_step withprm tid e c1 c2)
-      (EVENT: ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord, kind)):
+      (EVENT: ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord)):
   exists (pe : ProgramEvent.t),
   <<EVENT: Configuration_program_event c1 tid pe >> /\
   <<WRITE: ProgramEvent.is_writing pe = Some (loc, ord) >>.

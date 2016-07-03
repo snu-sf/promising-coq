@@ -28,12 +28,12 @@ Set Implicit Arguments.
 
 Inductive can_fulfill (tid: Ident.t) loc ts (c1 c4: Configuration.t) : Prop :=
 | can_fulfill_intro
-    c2 c3 e ord lst2 lc2 from2 msg2 from val rel kind
+    c2 c3 e ord lst2 lc2 from2 msg2 from val rel
     (STEPS: rtc (small_step_evt false tid) c1 c2)
     (STEP: small_step false tid e c2 c3)
     (THREAD: IdentMap.find tid c2.(Configuration.threads) = Some (lst2, lc2))
     (PROMISE: Memory.get loc ts lc2.(Local.promises) = Some (from2, msg2))
-    (EVENT: ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord, kind))
+    (EVENT: ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord))
     (ORD: Ordering.le ord Ordering.relaxed)
     (STEPS: rtc (small_step_evt false tid) c3 c4):
   can_fulfill tid loc ts c1 c4
@@ -237,7 +237,7 @@ Proof.
 
   cut ((exists cS3' cM3' lst3' com3' com4' prm3',
        <<STEPS3: rtc (pi_step_evt false tid) (cS3, conf_update_global cT2 (Configuration.sc cT3) M3) (cS3',cM3')>> /\
-       <<MEMLE: mem_eqlerel_lift loc ts prm3' e cM3'.(Configuration.memory) cM4'.(Configuration.memory)>> /\
+       <<MEMLE: mem_eqlerel_lift loc ts prm3' k e cM3'.(Configuration.memory) cM4'.(Configuration.memory)>> /\
        <<SCLE: TimeMap.le cM3'.(Configuration.sc) cM4'.(Configuration.sc)>> /\
        <<THS3: IdentMap.find tid cM3'.(Configuration.threads) = Some (lst3', Local.mk com3' prm3') >> /\
        <<THS4: IdentMap.find tid cM4'.(Configuration.threads) = Some (lst3', Local.mk com4' prm3') >> /\
