@@ -305,204 +305,6 @@ splits.
   eapply gstep_rf_rmw with (rf:=rf) in RF_RMW; eauto.
 Admitted.
 
-Lemma memory_write0 mem mem' l from t v rel l0 t0
-  (ADD: Memory.write Memory.bot mem l from t v rel Memory.bot mem' Memory.promise_kind_add)
-  from0 m (NEW: Memory.get l0 t0 mem = Some (from0, m)):
-  Memory.get l0 t0 mem' = Some (from0, m).
-Proof.
-Admitted.
-
-Lemma memory_write1 mem mem' l from t v rel 
-  (ADD: Memory.write Memory.bot mem l from t v rel Memory.bot mem' Memory.promise_kind_add)
-  l0 t0 from0 m
-  (NEW: Memory.get l0 t0 mem' = Some (from0, m)) (NEQ: l <> l0 \/ t <> t0):
-  Memory.get l0 t0 mem = Some (from0, m).
-Proof.
-Admitted.
-
-
-Lemma memory_step_write_dom acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0
-  (COH : Coherent acts sb rmw rf mo sc)
-  f f' (F : forall b, In b acts -> f' b = f b) (MON: monotone mo0 f')
-  a l v o (LABa: lab a = Astore l v o)
-  (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a)
-  mem mem' 
-  l0 b (DOM : In b acts /\ is_write b /\ loc b = Some l0 -> Memory.get l0 (f b) mem <> None)
-  from rel 
-  (ADD: Memory.write Memory.bot mem l from (f' a) v rel Memory.bot mem' Memory.promise_kind_add):
-  In b acts0 /\ is_write b /\ loc b = Some l0 -> Memory.get l0 (f' b) mem' <> None.
-Proof.
-ins; red in GSTEP; desc.
-rewrite ACT_STEP in H; ins; desf; subst.
-- assert (l = l0).
-    unfold loc, lab in *; destruct b; destruct lb; desf.
-  subst.
-  apply Memory.write_get2 in ADD; eauto using Memory.bot_le.
-  intro; desf.
-  admit.
-- rewrite F; eauto.
-  assert (N: Memory.get l0 (f b) mem <> None).
-  eauto.
-  destruct (Memory.get l0 (f b) mem) as [[from0 [v0 rel0]]|] eqn:Y; cycle 1.
-  by exfalso; auto.
-  eapply memory_write0 in Y; try edone.
-  intro; desf.
-Admitted.
-
-Lemma memory_step_write_rmw acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0
-  (COH : Coherent acts sb rmw rf mo sc)
-  f f' (F : forall b, In b acts -> f' b = f b) (MON: monotone mo0 f')
-  a l v o (LABa: lab a = Astore l v o)
-  (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a)
-  mem mem' 
-  from rel 
-  (ADD: Memory.write Memory.bot mem l from (f' a) v rel Memory.bot mem' Memory.promise_kind_add)
-  l0 b c (RF_RMW: (rf0;; rmw0) b c) (LOC: loc b = Some l0)
-  (UPDATES: forall a b (RF_RMW: (rf ;; rmw) a b) (LOC: loc a = Some l0),
-                exists m, Memory.get l0 (f b) mem = Some ((f a), m)):
-  exists m : Message.t, Memory.get l0 (f' c) mem' = Some (f' b, m).
-Proof.
-eapply gstep_rf_rmw with (rf:=rf) in RF_RMW; eauto.
-specialize (UPDATES b c RF_RMW LOC).
-desc.
-exists m.
-rewrite !F; eauto.
-eapply memory_write0 in UPDATES; eauto.
-unfold seq in RF_RMW; desc; eapply rf_acta; eauto.
-unfold seq in RF_RMW; desc; eapply rmw_actb; eauto.
-Qed.
-
-
-
-Lemma memory_step_write_cell acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 
-  (COH : Coherent acts sb rmw rf mo sc) 
-  f f' (F : forall b, In b acts -> f' b = f b) (MON: monotone mo0 f')
-  a l v o (LABa: lab a = Astore l v o)
-  (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a)
-  l0 to from0 v0 rel0 mem 
-  (SIMCELL : forall to from v rel,
-          Memory.get l0 to mem =
-          Some (from, Message.mk v rel) ->
-          exists b, In b acts /\ is_write b /\
-            loc b = Some l0 /\ f b = to /\ sim_mem_helper f acts sb rmw rf sc b from v rel)
-  sc_map (SIM_SC_MAP : forall l, max_value f (S_tm acts sb rmw rf l) (LocFun.find l sc_map))
-  commit (SIM_COMMIT : sim_commit f acts sb rmw rf sc commit (thread a))
-  from (FROM: Time.lt from (f' a))
-  mem' (ADD: Memory.write Memory.bot mem l from (f' a) v 
-          (if Ordering.le Ordering.relaxed o then 
-          (Commit.rel (Commit.write_commit commit sc_map l (f' a) o) l) else Capability.bot)
-     Memory.bot mem' Memory.promise_kind_add)
-  (GET: Memory.get l0 to mem' = Some (from0, Message.mk v0 rel0)):
-  exists b, In b acts0 /\ is_write b /\ loc b = Some l0 /\
-    f' b = to /\ sim_mem_helper f' acts0 sb0 rmw0 rf0 sc0 b from0 v0 rel0.
-Proof.
-destruct (classic (l=l0 /\ f' a = to)).
-- desc; subst.
-  exists a; splits; eauto with acts.
-  by red in GSTEP; desc; rewrite ACT_STEP; vauto.
-  by unfold loc; destruct (lab a); ins; desf.
-  apply Memory.write_get2 in ADD; eauto using Memory.bot_le.
-2: admit.
-
-ins.
-
-assert(LocFun.add l0 (if Ordering.le Ordering.acqrel o
-then Capability.join (Capability.join (Commit.cur commit)
- (Capability.singleton_ur l0 (f' a)))
-(if Ordering.le Ordering.seqcst o
-then
-{|
-Capability.ur := TimeMap.bot;
-Capability.rw := TimeMap.bot;
-Capability.sc := sc_map |}
-else Capability.bot)
-else Commit.rel commit l0) 
-(Commit.rel commit) l0=
-LocFun.find l0 (LocFun.add l0
-(if Ordering.le Ordering.acqrel o
-then
-Capability.join
-(Capability.join (Commit.cur commit)
- (Capability.singleton_ur l0 (f' a)))
-(if Ordering.le Ordering.seqcst o
-then
-{|
-Capability.ur := TimeMap.bot;
-Capability.rw := TimeMap.bot;
-Capability.sc := sc_map |}
-else Capability.bot)
-else Commit.rel commit l0) 
-(Commit.rel commit))).  done.
-rewrite H in ADD. clear H.
-
-destruct commit; simpl.
-red in SIM_COMMIT; desc; red in CUR; red in ACQ; red in REL; desc.
-unfold sim_commit, sim_acq, sim_cur, sim_rel; splits; ins.
-
-fold Commit.write_commit in ADD.
-desf; clear ADD; red; splits; eauto.
-all: try by unfold val, lab in *; destruct a; destruct lb; desf.
-all: unfold sim_msg; splits; ins.
-
-all: try rewrite LocFun.add_spec; desf.
-
-all: ins.
-all: try rewrite !tm_join_bot.
-all: try rewrite !tm_find_join.
-all: try rewrite !tm_find_singleton; desf.
-all: try rewrite !time_join_bot.
-all: try rewrite tm_find_bot.
-all: do 2 (try match goal with
-| [|- max_value _ _ (Time.join _ _)] => eapply max_value_join  end).
-all: try match goal with
-         | [|- max_value _ _ (LocFun.find _ _)] => eapply max_value_same_set;
-           try eapply max_value_new_f with (f':=f'); eauto with acts
-         | [|- max_value _ _ Time.bot] => eapply max_value_empty; eauto 
-         | [|- max_value _ _ _ ] => eapply max_value_singleton; eauto  end.
-all: simpl.
-all: try by intro x; split; [intro K; pattern x; exact K|].
-all: intro x.
-all: admit.
-- assert (OLD: Memory.get l0 to mem = Some (from0, Message.mk v0 rel0)).
-eapply memory_write1; try edone; tauto.
-clear GET ADD.
-  specialize (SIMCELL to from0 v0 rel0 OLD); desc.
-  exists b.
-  unfold sim_mem_helper in *; desc; splits; try rewrite F; eauto.
-  by red in GSTEP; desc; rewrite ACT_STEP; right.
-  unfold sim_msg in *; desc; splits; eauto. 
-  all: ins.
-  all: eapply max_value_same_set; try edone.
-  all: try eapply max_value_new_f with (f':=f'); try edone. 
-  all: simpl; eauto 4 with acts.
-  admit.
-  admit.
-  admit. 
-Admitted.
-
-Lemma memory_step_write acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0
-  (COH : Coherent acts sb rmw rf mo sc)
-  f f' (F : forall b, In b acts -> f' b = f b) (MON: monotone mo0 f')
-  a l v o (LABa: lab a = Astore l v o)
-  (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a)
-  mem (SIM_MEM : sim_mem f acts sb rmw rf sc mem) 
-  from (FROM: Time.lt from (f' a))  
-  sc_map (SIM_SC_MAP : forall l, max_value f (S_tm acts sb rmw rf l) (LocFun.find l sc_map))
-  commit (SIM_COMMIT : sim_commit f acts sb rmw rf sc commit (thread a))
-  mem' (ADD: Memory.write Memory.bot mem l from (f' a) v 
-  (if Ordering.le Ordering.relaxed o then 
-      (Commit.rel (Commit.write_commit commit sc_map l (f' a) o) l) else Capability.bot)
- Memory.bot mem' Memory.promise_kind_add):
-  sim_mem f' acts0 sb0 rmw0 rf0 sc0 mem'.
-Proof.
-red; ins.
-specialize (SIM_MEM l0); desc.
-splits; ins.
-eapply memory_step_write_dom; eauto.
-eapply memory_step_write_cell; eauto.
-eapply memory_step_write_rmw; eauto.
-Qed.
-
 (******************************************************************************)
 (** * Lemmas for the write step   *)
 (******************************************************************************)
@@ -723,6 +525,222 @@ assert (SCa: Ordering.le Ordering.seqcst o <-> is_sc a).
     by destruct a; ins; desf; exfalso; unfold loc in *; ins; desf; auto.
 Qed.
 
+
+Lemma memory_exists  acts sb rmw rf mo sc sc_map acts0 sb0 rmw0 rf0 mo0 sc0
+  (COH : Coherent acts sb rmw rf mo sc)
+  f f' (F : forall b, In b acts -> f' b = f b) (MON: monotone mo0 f')
+  a l v o (LABa: lab a = Astore l v o)
+  (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a)
+  mem (CLOSED: Memory.closed mem)
+  from commit:
+exists mem', Memory.write Memory.bot mem l from (f' a) v 
+  (if Ordering.le Ordering.relaxed o
+   then
+    Capability.join Capability.bot
+      (Commit.rel (Commit.write_commit commit sc_map l (f' a) o) l)
+   else Capability.bot)  Memory.bot mem' Memory.promise_kind_add .
+Proof.
+Admitted.
+(* more assumptions are needed *)
+
+Lemma memory_write0 mem mem' l from t v rel l0 t0
+  (ADD: Memory.write Memory.bot mem l from t v rel Memory.bot mem' Memory.promise_kind_add)
+  from0 m (NEW: Memory.get l0 t0 mem = Some (from0, m)):
+  Memory.get l0 t0 mem' = Some (from0, m).
+Proof.
+Admitted.
+
+Lemma memory_write1 mem mem' l from t v rel 
+  (ADD: Memory.write Memory.bot mem l from t v rel Memory.bot mem' Memory.promise_kind_add)
+  l0 t0 from0 m
+  (NEW: Memory.get l0 t0 mem' = Some (from0, m)) (NEQ: l <> l0 \/ t <> t0):
+  Memory.get l0 t0 mem = Some (from0, m).
+Proof.
+Admitted.
+
+
+Lemma memory_step_write_dom acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0
+  (COH : Coherent acts sb rmw rf mo sc)
+  f f' (F : forall b, In b acts -> f' b = f b) (MON: monotone mo0 f')
+  a l v o (LABa: lab a = Astore l v o)
+  (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a)
+  mem mem' (CLOSED: Memory.closed mem)
+  l0 b (DOM : In b acts /\ is_write b /\ loc b = Some l0 -> Memory.get l0 (f b) mem <> None)
+  from rel 
+  (ADD: Memory.write Memory.bot mem l from (f' a) v rel Memory.bot mem' Memory.promise_kind_add):
+  In b acts0 /\ is_write b /\ loc b = Some l0 -> Memory.get l0 (f' b) mem' <> None.
+Proof.
+ins; red in GSTEP; desc.
+rewrite ACT_STEP in H; ins; desf; subst.
+- assert (l = l0).
+    unfold loc, lab in *; destruct b; destruct lb; desf.
+  subst.
+  apply Memory.write_get2 in ADD; eauto using Memory.bot_le.
+  intro; desf.
+  destruct CLOSED; done.
+- rewrite F; eauto.
+  assert (N: Memory.get l0 (f b) mem <> None).
+  eauto.
+  destruct (Memory.get l0 (f b) mem) as [[from0 [v0 rel0]]|] eqn:Y; cycle 1.
+  by exfalso; auto.
+  eapply memory_write0 in Y; try edone.
+  intro; desf.
+Qed.
+
+Lemma memory_step_write_rmw acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0
+  (COH : Coherent acts sb rmw rf mo sc)
+  f f' (F : forall b, In b acts -> f' b = f b) (MON: monotone mo0 f')
+  a l v o (LABa: lab a = Astore l v o)
+  (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a)
+  mem mem' 
+  from rel 
+  (ADD: Memory.write Memory.bot mem l from (f' a) v rel Memory.bot mem' Memory.promise_kind_add)
+  l0 b c (RF_RMW: (rf0;; rmw0) b c) (LOC: loc b = Some l0)
+  (UPDATES: forall a b (RF_RMW: (rf ;; rmw) a b) (LOC: loc a = Some l0),
+                exists m, Memory.get l0 (f b) mem = Some ((f a), m)):
+  exists m : Message.t, Memory.get l0 (f' c) mem' = Some (f' b, m).
+Proof.
+eapply gstep_rf_rmw with (rf:=rf) in RF_RMW; eauto.
+specialize (UPDATES b c RF_RMW LOC).
+desc.
+exists m.
+rewrite !F; eauto.
+eapply memory_write0 in UPDATES; eauto.
+unfold seq in RF_RMW; desc; eapply rf_acta; eauto.
+unfold seq in RF_RMW; desc; eapply rmw_actb; eauto.
+Qed.
+
+
+
+Lemma memory_step_write_cell acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 
+  (COH : Coherent acts sb rmw rf mo sc) 
+  f f' (F : forall b, In b acts -> f' b = f b) (MON: monotone mo0 f')
+  a l v o (LABa: lab a = Astore l v o)
+  (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a)
+  l0 to from0 v0 rel0 mem (CLOSED: Memory.closed mem)
+  (SIMCELL : forall to from v rel, Memory.get l0 to mem = Some (from, Message.mk v rel) ->
+          exists b, In b acts /\ is_write b /\ loc b = Some l0 /\ f b = to /\ 
+                    sim_mem_helper f acts sb rmw rf sc b from v rel)
+  sc_map (SIM_SC_MAP : forall l, max_value f (S_tm acts sb rmw rf l) (LocFun.find l sc_map))
+  commit (SIM_COMMIT : sim_commit f acts sb rmw rf sc commit (thread a))
+  from (FROM: Time.lt from (f' a))
+  mem' (ADD: Memory.write Memory.bot mem l from (f' a) v 
+          (if Ordering.le Ordering.relaxed o then 
+          (Commit.rel (Commit.write_commit commit sc_map l (f' a) o) l) else Capability.bot)
+     Memory.bot mem' Memory.promise_kind_add)
+  (GET: Memory.get l0 to mem' = Some (from0, Message.mk v0 rel0)):
+  exists b, In b acts0 /\ is_write b /\ loc b = Some l0 /\
+    f' b = to /\ sim_mem_helper f' acts0 sb0 rmw0 rf0 sc0 b from0 v0 rel0.
+Proof.
+destruct (classic (l=l0 /\ f' a = to)).
+- desc; subst.
+  exists a; splits; eauto with acts.
+  by red in GSTEP; desc; rewrite ACT_STEP; vauto.
+  by unfold loc; destruct (lab a); ins; desf.
+  apply Memory.write_get2 in ADD; eauto using Memory.bot_le.
+  2: destruct CLOSED; done. 
+
+
+ins.
+
+assert(LocFun.add l0 (if Ordering.le Ordering.acqrel o
+then Capability.join (Capability.join (Commit.cur commit)
+ (Capability.singleton_ur l0 (f' a)))
+(if Ordering.le Ordering.seqcst o
+then
+{|
+Capability.ur := TimeMap.bot;
+Capability.rw := TimeMap.bot;
+Capability.sc := sc_map |}
+else Capability.bot)
+else Commit.rel commit l0) 
+(Commit.rel commit) l0=
+LocFun.find l0 (LocFun.add l0
+(if Ordering.le Ordering.acqrel o
+then
+Capability.join
+(Capability.join (Commit.cur commit)
+ (Capability.singleton_ur l0 (f' a)))
+(if Ordering.le Ordering.seqcst o
+then
+{|
+Capability.ur := TimeMap.bot;
+Capability.rw := TimeMap.bot;
+Capability.sc := sc_map |}
+else Capability.bot)
+else Commit.rel commit l0) 
+(Commit.rel commit))).  done.
+rewrite H in ADD. clear H.
+
+unfold Commit.write_commit in ADD; ins.
+
+destruct commit; simpl.
+red in SIM_COMMIT; desc; red in CUR; red in ACQ; red in REL; desc.
+unfold sim_commit, sim_acq, sim_cur, sim_rel; splits; ins.
+
+desf; clear ADD; red; splits; eauto.
+all: try by unfold val, lab in *; destruct a; destruct lb; desf.
+all: unfold sim_msg; splits; ins.
+
+
+all: try rewrite LocFun.add_spec; desf.
+all: ins.
+all: try rewrite !tm_join_bot.
+all: try rewrite !tm_find_join.
+all: try rewrite !tm_find_singleton; desf.
+all: try rewrite !time_join_bot.
+all: try rewrite tm_find_bot.
+all: do 2 (try match goal with
+| [|- max_value _ _ (Time.join _ _)] => eapply max_value_join  end).
+all: try match goal with
+         | [|- max_value _ _ (LocFun.find _ _)] => eapply max_value_same_set;
+           try eapply max_value_new_f with (f':=f'); eauto with acts
+         | [|- max_value _ _ Time.bot] => eapply max_value_empty; eauto 
+         | [|- max_value _ _ _ ] => eapply max_value_singleton; eauto  end.
+all: simpl.
+all: try by intro x; split; [intro K; pattern x; exact K|].
+all: intro x.
+all: admit.
+- assert (OLD: Memory.get l0 to mem = Some (from0, Message.mk v0 rel0)).
+eapply memory_write1; try edone; tauto.
+clear GET ADD.
+  specialize (SIMCELL to from0 v0 rel0 OLD); desc.
+  exists b.
+  unfold sim_mem_helper in *; desc; splits; try rewrite F; eauto.
+  by red in GSTEP; desc; rewrite ACT_STEP; right.
+  unfold sim_msg in *; desc; splits; eauto. 
+  all: ins.
+  all: eapply max_value_same_set; try edone.
+  all: try eapply max_value_new_f with (f':=f'); try edone. 
+  all: simpl; eauto 4 with acts.
+  admit.
+  admit.
+  admit. 
+Admitted.
+
+Lemma memory_step_write acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0
+  (COH : Coherent acts sb rmw rf mo sc)
+  f f' (F : forall b, In b acts -> f' b = f b) (MON: monotone mo0 f')
+  a l v o (LABa: lab a = Astore l v o)
+  (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a)
+  mem (SIM_MEM : sim_mem f acts sb rmw rf sc mem) (CLOSED: Memory.closed mem)
+  from (FROM: Time.lt from (f' a))  
+  sc_map (SIM_SC_MAP : forall l, max_value f (S_tm acts sb rmw rf l) (LocFun.find l sc_map))
+  commit (SIM_COMMIT : sim_commit f acts sb rmw rf sc commit (thread a))
+  mem' (ADD: Memory.write Memory.bot mem l from (f' a) v 
+  (if Ordering.le Ordering.relaxed o then 
+      (Commit.rel (Commit.write_commit commit sc_map l (f' a) o) l) else Capability.bot)
+ Memory.bot mem' Memory.promise_kind_add):
+  sim_mem f' acts0 sb0 rmw0 rf0 sc0 mem'.
+Proof.
+red; ins.
+specialize (SIM_MEM l0); desc.
+splits; ins.
+eapply memory_step_write_dom; eauto.
+eapply memory_step_write_cell; eauto.
+eapply memory_step_write_rmw; eauto.
+Qed.
+
 (******************************************************************************)
 (** * Lemmas for the fence step   *)
 (******************************************************************************)
@@ -770,7 +788,7 @@ all: try rewrite TimeMap.le_join_r with (r := TimeMap.join _ _).
 all: try eapply max_value_same_set; try apply K; 
      eauto using gstep_t_cur_urr_scfence,
      gstep_t_cur_rwr_scfence,
-     gstep_t_cur_srr_scfence, (* TYPO *)
+     gstep_t_cur_scr_scfence,
      gstep_t_acq_urr_scfence,
      gstep_t_acq_rwr_scfence,
      gstep_t_acq_scr_scfence,
@@ -944,6 +962,7 @@ Proof.
 
   generalize (new_from f' a); intro; desc.
 
+
 assert (exists mem', Memory.write Memory.bot
   (Configuration.memory op_st) l from (f' a) v
   (if Ordering.le Ordering.relaxed o
@@ -955,10 +974,10 @@ assert (exists mem', Memory.write Memory.bot
             (Configuration.sc op_st) l (f' a) o) l)
    else Capability.bot)
  Memory.bot mem' Memory.promise_kind_add).
+eapply memory_exists; try edone.
+destruct WF_OP_ST; done.
 
-admit.
 desc.
-
   eexists _,_,_,mem',_,_,_; splits; eauto.
   - eapply Thread.step_write; eauto.
     econstructor; eauto.
@@ -967,9 +986,9 @@ desc.
     * eapply commit_step_write; eauto.
     * eapply sc_map_step_write; eauto.
     * eapply memory_step_write; eauto.
+      destruct WF_OP_ST; done.
       rewrite Capability.join_comm, cap_join_bot in H1; done.
-Admitted.
-
+Qed.
 
 Lemma ax_op_sim_step_update :
   forall op_st ax_st ax_st'
