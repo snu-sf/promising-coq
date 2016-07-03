@@ -177,9 +177,99 @@ Lemma reorder_promise_promise
     <<STEP1: Local.promise_step lc0 mem0 loc2 from2 to2 val2 released2 lc1' mem1' kind2'>> /\
     <<STEP2: __guard__
                ((lc2, mem2) = (lc1', mem1') \/
+                ((loc1, to1) <> (loc2, to2) /\ exists kind1', Local.promise_step lc1' mem1' loc1 from1 to1 val1 released1 lc2 mem2 kind1'))>> /\
+    <<KIND2: kind2 = Memory.promise_kind_add -> kind2' = Memory.promise_kind_add>>.
+Proof.
+Admitted.
+
+Lemma reorder_promise_fulfill
+      lc0 sc0 mem0
+      lc1 mem1
+      lc2 sc2
+      loc1 from1 to1 val1 released1 kind1
+      loc2 from2 to2 val2 releasedm2 released2 ord2
+      (STEP1: Local.promise_step lc0 mem0 loc1 from1 to1 val1 released1 lc1 mem1 kind1)
+      (STEP2: fulfill_step lc1 sc0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc2 sc2)
+      (LOCAL0: Local.wf lc0 mem0)
+      (MEM0: Memory.closed mem0)
+      (LOCTS: (loc1, to1) <> (loc2, to2)):
+  exists lc1',
+    <<STEP1: fulfill_step lc0 sc0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc1' sc2>> /\
+    <<STEP2: Local.promise_step lc1' mem0 loc1 from1 to1 val1 released1 lc2 mem1 kind1>>.
+Proof.
+Admitted.
+
+Lemma reorder_promise_write
+      lc0 sc0 mem0
+      lc1 mem1
+      lc2 sc2 mem2
+      loc1 from1 to1 val1 released1 kind1
+      loc2 from2 to2 val2 releasedm2 released2 ord2 kind2
+      (STEP1: Local.promise_step lc0 mem0 loc1 from1 to1 val1 released1 lc1 mem1 kind1)
+      (STEP2: Local.write_step lc1 sc0 mem1 loc2 from2 to2 val2 releasedm2 released2 ord2 lc2 sc2 mem2 kind2)
+      (REL_WF: Capability.wf releasedm2)
+      (REL_CLOSED: Memory.closed_capability releasedm2 mem1)
+      (LOCAL0: Local.wf lc0 mem0)
+      (SC0: Memory.closed_timemap sc0 mem0)
+      (MEM0: Memory.closed mem0)
+      (LOCTS: loc2 = loc1 -> Time.le to2 to1):
+  exists lc1' mem1' kind2',
+    <<STEP1: Local.write_step lc0 sc0 mem0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc1' sc2 mem1' kind2'>> /\
+    <<STEP2: __guard__
+               ((lc2, mem2) = (lc1', mem1') \/
                 exists kind1', Local.promise_step lc1' mem1' loc1 from1 to1 val1 released1 lc2 mem2 kind1')>> /\
     <<KIND2: kind2 = Memory.promise_kind_add -> kind2' = Memory.promise_kind_add>>.
 Proof.
+  exploit Local.promise_step_future; eauto. i. des.
+  exploit write_promise_fulfill; eauto; try by committac. i. des.
+  exploit reorder_promise_promise; try exact STEP1; eauto. i. des.
+  unguardH STEP5. des.
+  - inv STEP5.
+    exploit promise_fulfill_write; try exact STEP3; eauto. ; try by committac. i. des.
+    { i.  exploit ORD; eauto. i. des. splits; auto.
+      admit. (* promises's cell = bot *)
+    }
+    i. des. esplits.
+    * econs; (try by econs 3; eauto); eauto.
+    * left. eauto.
+    * refl.
+    * refl.
+    * refl.
+    * auto.
+
+    exploit
+
+    { admit. (* write * promise *) }
+    i. des. unguardH STEP3. des.
+    + inv STEP3.
+      exploit promise_fulfill_write; try exact STEP0; eauto; try by committac.
+      { i.  exploit ORD; eauto. i. des. splits; auto.
+        admit. (* promises's cell = bot *)
+      }
+      i. des. esplits.
+      * econs; (try by econs 3; eauto); eauto.
+      * left. eauto.
+      * refl.
+      * refl.
+      * refl.
+      * auto.
+    + exploit Local.promise_step_future; try exact STEP0; eauto. i. des.
+      exploit reorder_promise_fulfill; try exact STEP4; eauto. i. des.
+      exploit fulfill_step_future; try exact STEP5; eauto; try by committac. i. des.
+      exploit promise_fulfill_write; try exact STEP5; eauto; try by committac.
+      { i.  exploit ORD; eauto. i. des. splits; auto.
+        admit. (* promises's cell = bot *)
+      }
+      i. des.
+      exploit Local.write_step_future; eauto; try by committac. i. des.
+      exploit sim_local_promise; try exact STEP6; try exact MEM; try refl; eauto. i. des.
+      esplits.
+      * econs; (try by econs 3; eauto); eauto.
+      * right. esplits. econs; eauto.
+      * refl.
+      * auto.
+      * refl.
+      * auto.
 Admitted.
 
 Lemma reorder_promise_program
@@ -192,17 +282,21 @@ Lemma reorder_promise_program
       (MEMORY: Memory.closed th0.(Thread.memory)):
   exists th1' th2',
      <<STEP1: @tau_program_step lang th0 th1'>> /\
-     <<STEP2: __guard__ (th2 = th1' \/ exists e2', @Thread.promise_step lang e2' th1' th2')>> /\
-    <<STATE: th2_src.(Thread.state) = th2_tgt.(Thread.state)>> /\
-    <<LOCAL: sim_local th2_src.(Thread.local) th2_tgt.(Thread.local)>> /\
-    <<SC: TimeMap.le th2_src.(Thread.sc) th2_tgt.(Thread.sc)>> /\
-    <<MEM: sim_memory th2_src.(Thread.memory) th2_tgt.(Thread.memory)>>.
+     <<STEP2: __guard__ (th2' = th1' \/ exists e2', @Thread.promise_step lang e2' th1' th2')>> /\
+     <<STATE: th2'.(Thread.state) = th2.(Thread.state)>> /\
+     <<LOCAL: sim_local th2'.(Thread.local) th2.(Thread.local)>> /\
+     <<SC: TimeMap.le th2'.(Thread.sc) th2.(Thread.sc)>> /\
+     <<MEM: sim_memory th2'.(Thread.memory) th2.(Thread.memory)>>.
 Proof.
   exploit Thread.promise_step_future; eauto. i. des.
   inv STEP1. inv STEP2. inv STEP; ss.
   - esplits; eauto.
     + econs; (try by econs 1; eauto).
     + right. esplits. econs. eauto.
+    + refl.
+    + refl.
+    + refl.
+    + refl.
   - (* read *)
     inv LOCAL0. inv LOCAL1.
     destruct (loc_ts_eq_dec (loc, to) (loc0, ts)); ss.
@@ -215,21 +309,44 @@ Proof.
       * econs 2; eauto. econs; eauto.
       * auto.
     + right. esplits. econs. econs; eauto.
+    + refl.
+    + refl.
+    + refl.
+    + refl.
   - (* write *)
     exploit write_promise_fulfill; eauto; try by committac. i. des.
     exploit reorder_promise_promise; try exact LOCAL0; eauto.
     { admit. (* write * promise *) }
     i. des. unguardH STEP3. des.
-    + inv STEP3. exploit promise_fulfill_write; try exact STEP0; eauto; try by committac.
+    + inv STEP3.
+      exploit promise_fulfill_write; try exact STEP0; eauto; try by committac.
       { i.  exploit ORD; eauto. i. des. splits; auto.
         admit. (* promises's cell = bot *)
       }
       i. des. esplits.
       * econs; (try by econs 3; eauto); eauto.
-      * left.
-        { 
-    
-    admit.
+      * left. eauto.
+      * refl.
+      * refl.
+      * refl.
+      * auto.
+    + exploit Local.promise_step_future; try exact STEP0; eauto. i. des.
+      exploit reorder_promise_fulfill; try exact STEP4; eauto. i. des.
+      exploit fulfill_step_future; try exact STEP5; eauto; try by committac. i. des.
+      exploit promise_fulfill_write; try exact STEP5; eauto; try by committac.
+      { i.  exploit ORD; eauto. i. des. splits; auto.
+        admit. (* promises's cell = bot *)
+      }
+      i. des.
+      exploit Local.write_step_future; eauto; try by committac. i. des.
+      exploit sim_local_promise; try exact STEP6; try exact MEM; try refl; eauto. i. des.
+      esplits.
+      * econs; (try by econs 3; eauto); eauto.
+      * right. esplits. econs; eauto.
+      * refl.
+      * auto.
+      * refl.
+      * auto.
   - (* update *)
     admit.
   - inv LOCAL0. inv LOCAL1.
@@ -240,6 +357,10 @@ Proof.
         exploit Memory.promise_get2; eauto. rewrite Memory.bot_get. congr.
       * auto.
     + right. esplits. econs. econs; eauto.
+    + refl.
+    + refl.
+    + refl.
+    + refl.
 Admitted.
 
 Lemma steps_pf_steps
