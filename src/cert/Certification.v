@@ -21,6 +21,7 @@ Require Import SimMemory.
 Require Import SimPromises.
 Require Import SimLocal.
 Require Import FulfillStep.
+Require Import MemoryReorder.
 
 Set Implicit Arguments.
 
@@ -192,25 +193,92 @@ Lemma reorder_promise_promise
       loc2 from2 to2 val2 released2 kind2
       (STEP1: Local.promise_step lc0 mem0 loc1 from1 to1 val1 released1 lc1 mem1 kind1)
       (STEP2: Local.promise_step lc1 mem1 loc2 from2 to2 val2 released2 lc2 mem2 kind2)
+      (REL_CLOSED: forall promises1' mem1' kind1' (PROMISE1: Memory.promise (Local.promises lc0) mem0 loc2 from2 to2 val2 released2 promises1' mem1' kind1'),
+          Memory.closed_capability released2 mem1')
       (LOCAL0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
       (LOCTS: forall to1' val1' released1'
-                (LOC: loc2 = loc1)
                 (KIND: kind1 = Memory.promise_kind_split to1' val1' released1'),
-          ~ Interval.mem (to1, to1') to2):
+          (loc1, to1') <> (loc2, to2)):
   exists lc1' mem1' kind2',
     <<STEP1: Local.promise_step lc0 mem0 loc2 from2 to2 val2 released2 lc1' mem1' kind2'>> /\
     <<STEP2: __guard__
                ((lc2, mem2) = (lc1', mem1') \/
-                (exists kind1',
+                (exists from1' kind1',
                     (loc1, to1) <> (loc2, to2) /\
                     (forall to1' val1' released1'
-                       (LOC: loc2 = loc1)
                        (KIND: kind1' = Memory.promise_kind_split to1' val1' released1'),
-                        ~ Interval.mem (to1, to1') to2) /\
-                    Local.promise_step lc1' mem1' loc1 from1 to1 val1 released1 lc2 mem2 kind1'))>> /\
+                        (loc1, to1') <> (loc2, to2)) /\
+                    Local.promise_step lc1' mem1' loc1 from1' to1 val1 released1 lc2 mem2 kind1'))>> /\
     <<KIND2: kind2 = Memory.promise_kind_add -> kind2' = Memory.promise_kind_add>>.
 Proof.
+  inv STEP1. inv STEP2. ss.
+  inv PROMISE.
+  { inv PROMISE0.
+    - exploit MemoryReorder.add_add; try exact PROMISES; try exact PROMISES0; eauto. i. des.
+      exploit MemoryReorder.add_add; try exact MEM; try exact MEM0; eauto. i. des.
+      esplits.
+      + econs.
+        * econs; eauto.
+        * eapply REL_CLOSED. econs; eauto.
+      + right. esplits; eauto.
+        refine (Local.step_promise _ _ _); eauto.
+        econs; eauto.
+        eapply Memory.add_closed_capability; eauto.
+      + auto.
+    - exploit MemoryReorder.add_split; try exact PROMISES; try exact PROMISES0; eauto. i. des.
+      + subst.
+        exploit MemoryReorder.add_split; try exact MEM; try exact MEM0; eauto. i. des; [|congr].
+        esplits.
+        * econs.
+          { econs; eauto. }
+          { eapply REL_CLOSED. econs; eauto. }
+        * right. esplits; cycle 2.
+          { refine (Local.step_promise _ _ _); eauto.
+            - econs; eauto.
+            - eapply Memory.split_closed_capability; eauto.
+          }
+          { ii. inv H. inv ADD3. inv ADD. eapply Time.lt_strorder. eauto. }
+          { auto. }
+        * auto.
+      + exploit MemoryReorder.add_split; try exact MEM; try exact MEM0; eauto. i. des; [congr|].
+        esplits.
+        * econs.
+          { econs 2; eauto. }
+          { eapply REL_CLOSED. econs 2; eauto. }
+        * right. esplits; cycle 2.
+          { refine (Local.step_promise _ _ _); eauto.
+            - econs; eauto.
+            - eapply Memory.split_closed_capability; eauto.
+          }
+          { ii. inv H. exploit Memory.split_get0; try exact MEM1; eauto. i. des.
+            revert GET2. erewrite Memory.add_o; eauto. condtac; ss. des; congr.
+          }
+          { auto. }
+        * auto.
+    - exploit MemoryReorder.add_lower; try exact PROMISES; try exact PROMISES0; eauto. i. des.
+      + subst.
+        exploit MemoryReorder.add_lower; try exact MEM; try exact MEM0; eauto. i. des; [|congr].
+        esplits.
+        * econs; eauto. econs; eauto.
+        * left. auto.
+        * auto.
+      + exploit MemoryReorder.add_lower; try exact MEM; try exact MEM0; eauto. i. des; [congr|].
+        esplits.
+        * econs.
+          { econs 3; eauto. }
+          { eapply REL_CLOSED. econs 3; eauto. }
+        * right. esplits; cycle 2.
+          { refine (Local.step_promise _ _ _); eauto.
+            - econs; eauto.
+            - eapply Memory.lower_closed_capability; eauto.
+          }
+          { auto. }
+          { auto. }
+        * auto.
+  }
+  { admit. }
+  { admit. }
 Admitted.
 
 Lemma reorder_promise_fulfill
@@ -225,14 +293,27 @@ Lemma reorder_promise_fulfill
       (MEM0: Memory.closed mem0)
       (LOCTS1: (loc1, to1) <> (loc2, to2))
       (LOCTS2: forall to1' val1' released1'
-                 (LOC: loc2 = loc1)
                  (KIND: kind1 = Memory.promise_kind_split to1' val1' released1'),
-          ~ Interval.mem (to1, to1') to2):
+          (loc1, to1') <> (loc2, to2)):
   exists lc1',
     <<STEP1: fulfill_step lc0 sc0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc1' sc2>> /\
     <<STEP2: Local.promise_step lc1' mem0 loc1 from1 to1 val1 released1 lc2 mem1 kind1>>.
 Proof.
-Admitted.
+  inv STEP1. inv STEP2. ss.
+  inv PROMISE.
+  - exploit MemoryReorder.add_remove; try exact REMOVE; eauto. i. des.
+    esplits.
+    + econs; eauto.
+    + econs; ss. econs; ss.
+  - exploit MemoryReorder.split_remove; try exact PROMISES; try exact REMOVE; eauto. i. des.
+    esplits.
+    + econs; eauto.
+    + econs; ss. econs; ss.
+  - exploit MemoryReorder.lower_remove; try exact REMOVE; eauto. i. des.
+    esplits.
+    + econs; eauto.
+    + econs; ss. econs; ss.
+Qed.
 
 Lemma reorder_promise_write
       lc0 sc0 mem0
@@ -248,9 +329,8 @@ Lemma reorder_promise_write
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
       (LOCTS: forall to1' val1' released1'
-                (LOC: loc2 = loc1)
                 (KIND: kind1 = Memory.promise_kind_split to1' val1' released1'),
-          ~ Interval.mem (to1, to1') to2):
+          (loc1, to1') <> (loc2, to2)):
   exists kind2' lc1' mem1',
     <<STEP1: Local.write_step lc0 sc0 mem0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc1' sc2 mem1' kind2'>> /\
     <<STEP2: __guard__
@@ -260,7 +340,11 @@ Lemma reorder_promise_write
 Proof.
   exploit Local.promise_step_future; eauto. i. des.
   exploit write_promise_fulfill; eauto; try by committac. i. des.
-  exploit reorder_promise_promise; try exact STEP1; eauto. i. des.
+  exploit reorder_promise_promise; try exact STEP1; eauto.
+  { i. subst. eapply Local.promise_closed_capability; try exact PROMISE1; try apply LOCAL0; eauto.
+    inv STEP1. apply LOCAL0.
+  }
+  i. des.
   unguardH STEP5. des.
   - inv STEP5.
     exploit promise_fulfill_write_exact; try exact STEP4; eauto.
