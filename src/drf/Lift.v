@@ -34,21 +34,21 @@ Definition Capability_lift (l: Loc.t) (t: Time.t) (rel: Capability.t) : Capabili
     Capability.mk ur (TimeMap_lift l t rw) (TimeMap_lift l t sc)
   end.
 
-Definition pi_step_lift_mem l t p e M1 M2 : Prop :=
+Definition pi_step_lift_mem l t p k e M1 M2 : Prop :=
   match ThreadEvent.is_writing e with
-  | Some (loc,from,to,val,rel,ord,kind) =>
+  | Some (loc,from,to,val,rel,ord) =>
     <<NOTIN: Memory.get loc to p = None>> /\
     exists pm1 pm2,
-      <<PMREL: Memory.write pm1 M1 loc from to val (if Loc.eq_dec l loc then rel else Capability_lift l t rel) pm2 M2 kind>>
+      <<PMREL: Memory.write pm1 M1 loc from to val (if Loc.eq_dec l loc then rel else Capability_lift l t rel) pm2 M2 k>>
   | None =>
     M1 = M2
   end.
 
 Inductive pi_step_lift_except l t (tid_except:Ident.t): (Configuration.t*Configuration.t*Memory.t) -> (Configuration.t*Configuration.t*Memory.t) -> Prop :=
-| pi_step_lift_except_intro tid e cS1 cS2 cT1 cT2 M1 M2 lst lc
+| pi_step_lift_except_intro tid k e cS1 cS2 cT1 cT2 M1 M2 lst lc
     (PI_STEP: pi_step true tid e (cS1,cT1) (cS2,cT2))
     (FIND: IdentMap.find tid_except cT2.(Configuration.threads) = Some (lst,lc))
-    (MEM: pi_step_lift_mem l t lc.(Local.promises) e M1 M2)
+    (MEM: pi_step_lift_mem l t lc.(Local.promises) k e M1 M2)
     (TID: tid <> tid_except):
   pi_step_lift_except l t tid_except (cS1,cT1,M1) (cS2,cT2,M2)
 .
@@ -65,21 +65,14 @@ Definition mem_eqlerel (m1 m2: Memory.t) : Prop :=
   <<LR: mem_sub Capability.le m1 m2>> /\
   <<RL: mem_sub (fun x y => Capability.le y x) m2 m1>>.
 
-Inductive mem_eqlerel_lift l t p e (m1 m2: Memory.t) : Prop :=
+Inductive mem_eqlerel_lift l t p k e (m1 m2: Memory.t) : Prop :=
 | mem_le_lift_intro m1'
   (MEMEQ: mem_eqlerel m1 m1')
-  (MEMWR: pi_step_lift_mem l t p e m1' m2)
+  (MEMWR: pi_step_lift_mem l t p k e m1' m2)
 .
 
 Definition conf_update_global (c: Configuration.t) sc (m: Memory.t) : Configuration.t :=
   Configuration.mk c.(Configuration.threads) sc m.
-
-Inductive promises_aux tid cS cT loc ts : Prop :=
-| promises_aux_intro
-    (IN: exists from msg, Memory.get loc ts cT.(Configuration.memory) = Some(from,msg))
-    (NOSRC: Memory.get loc ts cS.(Configuration.memory) = None)
-    (NOPRM: ~Threads.is_promised tid loc ts cT.(Configuration.threads))
-.
 
 Lemma pi_steps_lift_except_pi_steps
       cSTM1 cSTM2 l t tid
@@ -127,6 +120,13 @@ Proof.
   (* ss; split; [by eapply small_step_find; eauto|]. *)
   admit.
 Admitted. (* easy *)
+
+Inductive promises_aux tid cS cT loc ts : Prop :=
+| promises_aux_intro
+    (IN: exists from msg, Memory.get loc ts cT.(Configuration.memory) = Some(from,msg))
+    (NOSRC: Memory.get loc ts cS.(Configuration.memory) = None)
+    (NOPRM: ~Threads.is_promised tid loc ts cT.(Configuration.threads))
+.
 
 Lemma rtc_pi_step_except_local_wf
       l t tid cS1 cT1 cSTM2
@@ -195,9 +195,9 @@ Proof.
 Admitted. (* ? *)
 
 Lemma pi_step_lift_mem_get
-      l t p1 p2 e m1 m1' m2 m2' loc ts from1 msg2 from2' msg2'
-      (LIFT1: pi_step_lift_mem l t p1 e m1 m1')
-      (LIFT2: pi_step_lift_mem l t p2 e m2 m2')
+      l t p1 p2 k e m1 m1' m2 m2' loc ts from1 msg2 from2' msg2'
+      (LIFT1: pi_step_lift_mem l t p1 k e m1 m1')
+      (LIFT2: pi_step_lift_mem l t p2 k e m2 m2')
       (IN1: Memory.get loc ts m1 = Some (from1, msg2))
       (IN2: Memory.get loc ts m2' = Some (from2', msg2')):
   exists from2 msg2,
@@ -236,27 +236,27 @@ Proof.
 Admitted. (* jeehoon *)
 
 Lemma lift_write
-      com1 com2 com2' sc1 sc2 sc2' m1 m2 m2' prm prm' l t e loc from to val relr1 relr2 relw2 ord kind
+      com1 com2 com2' sc1 sc2 sc2' m1 m2 m2' prm prm' l t k e loc from to val relr1 relr2 relw2 ord kind
       (LOCAL: Local.write_step (Local.mk com2 prm) sc2 m2 loc from to val relr2 relw2 ord (Local.mk com2' prm') sc2' m2' kind)
       (CoMLE: Commit.le com1 com2)
       (SC: TimeMap.le sc1 sc2)
       (REL: Capability.le relr1 relr2)
-      (MEMLE: mem_eqlerel_lift l t prm e m1 m2):
+      (MEMLE: mem_eqlerel_lift l t prm k e m1 m2):
   exists com1' sc1' m1' relw1,
   <<LOCAL: Local.write_step (Local.mk com1 prm) sc1 m1 loc from to val relr1 relw1 ord (Local.mk com1' prm') sc1' m1' kind>> /\
   <<CoMLE: Commit.le com1' com2'>> /\
   <<SC: TimeMap.le sc1' sc2'>> /\
-  <<MEMLE: mem_eqlerel_lift l t prm' e m1' m2'>>.
+  <<MEMLE: mem_eqlerel_lift l t prm' k e m1' m2'>>.
 Proof.
 Admitted. (* jeehoon *)
 
 Lemma lift_read
-      com1 com2 com2' m1 m2 prm l t e loc to val rel2 ordr
+      com1 com2 com2' m1 m2 prm l t k e loc to val rel2 ordr
       (LOCAL: Local.read_step (Local.mk com2 prm) m2 loc to val rel2 ordr (Local.mk com2' prm))
       (CoMLE: Commit.le com1 com2)
-      (MEMLE: mem_eqlerel_lift l t prm e m1 m2):
-  (exists from ordw kind,
-   <<EVENT: ThreadEvent.is_writing e = Some (loc, from, to, val, rel2, ordw, kind)>>)
+      (MEMLE: mem_eqlerel_lift l t prm k e m1 m2):
+  (exists from ordw,
+   <<EVENT: ThreadEvent.is_writing e = Some (loc, from, to, val, rel2, ordw)>>)
   \/
   (exists com1' rel1,
    <<LOCAL: Local.read_step (Local.mk com1 prm) m1 loc to val rel1 ordr (Local.mk com1' prm)>> /\
@@ -265,21 +265,21 @@ Proof.
 Admitted. (* jeehoon *)
 
 Inductive thread_event_eqlerel: ThreadEvent.t -> ThreadEvent.t -> Prop :=
-| teel_promise loc from to val rel1 rel2 kind
+| teel_promise loc from to val rel1 rel2
     (LEREL: Capability.le rel1 rel2):
-  thread_event_eqlerel (ThreadEvent.promise loc from to val rel1 kind) (ThreadEvent.promise loc from to val rel2 kind) 
+  thread_event_eqlerel (ThreadEvent.promise loc from to val rel1) (ThreadEvent.promise loc from to val rel2) 
 | teel_silent:
   thread_event_eqlerel (ThreadEvent.silent) (ThreadEvent.silent)
 | teel_read loc ts val rel1 rel2 ord
     (LEREL: Capability.le rel1 rel2):
   thread_event_eqlerel (ThreadEvent.read loc ts val rel1 ord) (ThreadEvent.read loc ts val rel2 ord)
-| teel_write loc from to val rel1 rel2 ord kind
+| teel_write loc from to val rel1 rel2 ord
     (LEREL: Capability.le rel1 rel2):
-  thread_event_eqlerel (ThreadEvent.write loc from to val rel1 ord kind) (ThreadEvent.write loc from to val rel2 ord kind)
-| teel_update loc tsr tsw valr valw relr1 relr2 relw1 relw2 ordr ordw kind
+  thread_event_eqlerel (ThreadEvent.write loc from to val rel1 ord) (ThreadEvent.write loc from to val rel2 ord)
+| teel_update loc tsr tsw valr valw relr1 relr2 relw1 relw2 ordr ordw
     (LEREL: Capability.le relr1 relr2)
     (LEREL: Capability.le relw1 relw2):
-  thread_event_eqlerel (ThreadEvent.update loc tsr tsw valr valw relr1 relw1 ordr ordw kind) (ThreadEvent.update loc tsr tsw valr valw relr2 relw2 ordr ordw kind)
+  thread_event_eqlerel (ThreadEvent.update loc tsr tsw valr valw relr1 relw1 ordr ordw) (ThreadEvent.update loc tsr tsw valr valw relr2 relw2 ordr ordw)
 | teel_fence ordr ordw:
   thread_event_eqlerel (ThreadEvent.fence ordr ordw) (ThreadEvent.fence ordr ordw)
 | teel_syscall e:
@@ -287,18 +287,18 @@ Inductive thread_event_eqlerel: ThreadEvent.t -> ThreadEvent.t -> Prop :=
 .
 
 Lemma lift_step
-      lang (thS1 thT1 thT2: @Thread.t lang) eT l t e
+      lang (thS1 thT1 thT2: @Thread.t lang) eT l t k e
       (STEP: Thread.step eT thT1 thT2)
       (NOPRM: ThreadEvent_is_promising eT = None)
       (ST: thS1.(Thread.state) = thT1.(Thread.state))
       (COM: Commit.le thS1.(Thread.local).(Local.commit) thT1.(Thread.local).(Local.commit))
       (PRM: thS1.(Thread.local).(Local.promises) = thT1.(Thread.local).(Local.promises))
       (SC: TimeMap.le thS1.(Thread.sc) thT1.(Thread.sc))
-      (MEM: mem_eqlerel_lift l t thT1.(Thread.local).(Local.promises) e thS1.(Thread.memory) thT1.(Thread.memory))
+      (MEM: mem_eqlerel_lift l t thT1.(Thread.local).(Local.promises) k e thS1.(Thread.memory) thT1.(Thread.memory))
 : 
-  (exists loc ts from val relr relw ordr ordw kind,
+  (exists loc ts from val relr relw ordr ordw,
    <<EVTR: ThreadEvent.is_reading eT = Some (loc, ts, val, relr, ordr)>> /\
-   <<EVTW: ThreadEvent.is_writing e = Some (loc, from, ts, val, relw, ordw, kind)>>)
+   <<EVTW: ThreadEvent.is_writing e = Some (loc, from, ts, val, relw, ordw)>>)
   \/
   (exists eS thS2,
    <<EVT: thread_event_eqlerel eS eT>> /\
@@ -307,6 +307,6 @@ Lemma lift_step
    <<COM: Commit.le thS2.(Thread.local).(Local.commit) thT2.(Thread.local).(Local.commit)>> /\
    <<PRM: thS2.(Thread.local).(Local.promises) = thT2.(Thread.local).(Local.promises)>> /\
    <<SC: TimeMap.le thS2.(Thread.sc) thT2.(Thread.sc)>> /\
-   <<MEM: mem_eqlerel_lift l t thT2.(Thread.local).(Local.promises) e thS2.(Thread.memory) thT2.(Thread.memory)>>).
+   <<MEM: mem_eqlerel_lift l t thT2.(Thread.local).(Local.promises) k e thS2.(Thread.memory) thT2.(Thread.memory)>>).
 Proof.
 Admitted. (* jeehoon *)

@@ -11,6 +11,7 @@ Require Import DenseOrder.
 Require Import Event.
 Require Import Time.
 Require Import Language.
+
 Require Import View.
 Require Import Cell.
 Require Import Memory.
@@ -21,11 +22,11 @@ Set Implicit Arguments.
 
 Module ThreadEvent.
   Inductive t :=
-  | promise (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:Capability.t) (kind: Memory.promise_kind)
+  | promise (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:Capability.t)
   | silent
   | read (loc:Loc.t) (ts:Time.t) (val:Const.t) (released:Capability.t) (ord:Ordering.t)
-  | write (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:Capability.t) (ord:Ordering.t) (kind: Memory.promise_kind)
-  | update (loc:Loc.t) (tsr tsw:Time.t) (valr valw:Const.t) (releasedr releasedw:Capability.t) (ordr ordw:Ordering.t) (kind: Memory.promise_kind)
+  | write (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:Capability.t) (ord:Ordering.t)
+  | update (loc:Loc.t) (tsr tsw:Time.t) (valr valw:Const.t) (releasedr releasedw:Capability.t) (ordr ordw:Ordering.t)
   | fence (ordr ordw:Ordering.t)
   | syscall (e:Event.t)
   .
@@ -39,14 +40,14 @@ Module ThreadEvent.
   Definition is_reading (e:t): option (Loc.t * Time.t * Const.t * Capability.t * Ordering.t) :=
     match e with
     | read loc ts val released ord => Some (loc, ts, val, released, ord)
-    | update loc tsr _ valr _ releasedr _ ordr _ _ => Some (loc, tsr, valr, releasedr, ordr)
+    | update loc tsr _ valr _ releasedr _ ordr _ => Some (loc, tsr, valr, releasedr, ordr)
     | _ => None
     end.
 
-  Definition is_writing (e:t): option (Loc.t * Time.t * Time.t * Const.t * Capability.t * Ordering.t * Memory.promise_kind) :=
+  Definition is_writing (e:t): option (Loc.t * Time.t * Time.t * Const.t * Capability.t * Ordering.t) :=
     match e with
-    | write loc from to val released ord kind => Some (loc, from, to, val, released, ord, kind)
-    | update loc tsr tsw _ valw _ releasedw _ ordw kind => Some (loc, tsr, tsw, valw, releasedw, ordw, kind)
+    | write loc from to val released ord => Some (loc, from, to, val, released, ord)
+    | update loc tsr tsw _ valw _ releasedw _ ordw => Some (loc, tsr, tsw, valw, releasedw, ordw)
     | _ => None
     end.
 End ThreadEvent.
@@ -340,7 +341,7 @@ Module Thread.
         loc from to val released kind
         lc2 mem2
         (LOCAL: Local.promise_step lc1 mem1 loc from to val released lc2 mem2 kind):
-        promise_step (ThreadEvent.promise loc from to val released kind) (mk st lc1 sc1 mem1) (mk st lc2 sc1 mem2)
+        promise_step (ThreadEvent.promise loc from to val released) (mk st lc1 sc1 mem1) (mk st lc2 sc1 mem2)
     .
 
     (* NOTE: Syscalls act like a write SC fence.  We did not let
@@ -369,7 +370,7 @@ Module Thread.
         st2 loc from to val released ord lc2 sc2 mem2 kind
         (STATE: lang.(Language.step) (Some (ProgramEvent.write loc val ord)) st1 st2)
         (LOCAL: Local.write_step lc1 sc1 mem1 loc from to val Capability.bot released ord lc2 sc2 mem2 kind):
-        program_step (ThreadEvent.write loc from to val released ord kind) (mk st1 lc1 sc1 mem1) (mk st2 lc2 sc2 mem2)
+        program_step (ThreadEvent.write loc from to val released ord) (mk st1 lc1 sc1 mem1) (mk st2 lc2 sc2 mem2)
     | step_update
         st1 lc1 sc1 mem1
         st3 loc ordr ordw
@@ -378,7 +379,7 @@ Module Thread.
         (STATE: lang.(Language.step) (Some (ProgramEvent.update loc valr valw ordr ordw)) st1 st3)
         (LOCAL1: Local.read_step lc1 mem1 loc tsr valr releasedr ordr lc2)
         (LOCAL2: Local.write_step lc2 sc1 mem1 loc tsr tsw valw releasedr releasedw ordw lc3 sc3 mem3 kind):
-        program_step (ThreadEvent.update loc tsr tsw valr valw releasedr releasedw ordr ordw kind) (mk st1 lc1 sc1 mem1) (mk st3 lc3 sc3 mem3)
+        program_step (ThreadEvent.update loc tsr tsw valr valw releasedr releasedw ordr ordw) (mk st1 lc1 sc1 mem1) (mk st3 lc3 sc3 mem3)
     | step_fence
         st1 lc1 sc1 mem1
         st2 ordr ordw lc2 sc2
