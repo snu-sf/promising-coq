@@ -180,14 +180,18 @@ Proof.
   inv STEP_TGT.
   assert (RELT_LE:
    Capability.le
-     (Capability.join releasedm_src
+     (if Ordering.le Ordering.relaxed ord_src
+      then Capability.join releasedm_src
         (Commit.rel
            (Commit.write_commit (Local.commit lc1_src) sc1_src loc to
-              ord_src) loc))
-     (Capability.join releasedm_tgt
+              ord_src) loc)
+      else Capability.bot)
+     (if Ordering.le Ordering.relaxed ord_tgt
+      then Capability.join releasedm_tgt
         (Commit.rel
            (Commit.write_commit (Local.commit lc1_tgt) sc1_tgt loc to
-              ord_tgt) loc))).
+              ord_tgt) loc)
+      else Capability.bot)).
   { repeat (try condtac; aggrtac).
     - rewrite <- Capability.join_r.
       rewrite <- ? Capability.join_l.
@@ -331,8 +335,7 @@ Lemma sim_local_fence
     <<SC2: TimeMap.le sc2_src sc2_tgt>>.
 Proof.
   inv STEP_TGT. esplits; eauto.
-  - econs; eauto. i. eapply sim_local_memory_bot; eauto.
-    apply RELEASE. etrans; eauto.
+  - econs; eauto.
   - econs; try apply LOCAL1. s.
     apply CommitFacts.write_fence_commit_mon; auto; try refl.
     apply CommitFacts.read_fence_commit_mon; auto; try refl.

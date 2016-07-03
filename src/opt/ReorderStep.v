@@ -109,7 +109,7 @@ Proof.
   { i. unfold Commit.write_sc. apply TimeMap.antisym; repeat (condtac; aggrtac). }
   inversion STEP. subst lc2 sc2. esplits.
   - rewrite COMMIT. rewrite SC_EQ at 3. econs; eauto.
-    + etrans; eauto. apply Capability.join_spec.
+    + etrans; eauto. condtac; committac. apply Capability.join_spec.
       * rewrite <- Capability.join_l. auto.
       * rewrite <- Capability.join_r. rewrite COMMIT. refl.
     + econs; try apply WRITABLE.
@@ -323,10 +323,8 @@ Lemma reorder_read_fence
       lc0 sc0 mem0
       lc1
       lc2 sc2
-      (ORD1: Ordering.le Ordering.relaxed ord1)
       (ORDR2: Ordering.le ordr2 Ordering.relaxed)
       (ORDW2: Ordering.le ordw2 Ordering.acqrel)
-      (RLX: Ordering.le Ordering.relaxed ordw2 -> Ordering.le ord1 Ordering.relaxed)
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
       (STEP1: Local.read_step lc0 mem0 loc1 ts1 val1 released1 ord1 lc1)
@@ -537,6 +535,63 @@ Proof.
   exploit sim_local_write; try exact STEP3; try exact LOCAL; try refl; eauto. i. des.
   exploit reorder_fulfill_write; try exact STEP4; try exact STEP_SRC; eauto. i. des.
   esplits; eauto.
+Qed.
+
+Lemma reorder_write_fence
+      loc1 from1 to1 val1 releasedm1 released1 ord1 kind1
+      lc0 sc0 mem0
+      lc1 sc1 mem1
+      lc2 sc2
+      (ORD1: Ordering.le ord1 Ordering.unordered \/ Ordering.le Ordering.acqrel ord1)
+      (WF0: Local.wf lc0 mem0)
+      (SC0: Memory.closed_timemap sc0 mem0)
+      (MEM0: Memory.closed mem0)
+      (REL_WF: Capability.wf releasedm1)
+      (REL_CLOSED: Memory.closed_capability releasedm1 mem0)
+      (STEP1: Local.write_step lc0 sc0 mem0 loc1 from1 to1 val1 releasedm1 released1 ord1 lc1 sc1 mem1 kind1)
+      (STEP2: Local.fence_step lc1 sc1 Ordering.relaxed Ordering.acqrel lc2 sc2):
+  exists released1 lc1' lc2' sc1',
+    <<STEP1: Local.fence_step lc0 sc0 Ordering.relaxed Ordering.acqrel lc1' sc1'>> /\
+    <<STEP2: Local.write_step lc1' sc1' mem0 loc1 from1 to1 val1 releasedm1 released1 ord1 lc2' sc2 mem1 kind1>> /\
+    <<LOCAL: sim_local lc2' lc2>>.
+Proof.
+  guardH ORD1.
+  exploit Local.write_step_future; eauto. i. des.
+  inv STEP1. inv STEP2.
+  unfold Local.commit at 1 3. unfold Local.promises.
+  assert (REL_EQ:
+            (if Ordering.le Ordering.relaxed ord1
+             then
+              Capability.join releasedm1
+                (Commit.rel
+                   (Commit.write_commit (Local.commit lc0) sc0 loc1
+                      to1 ord1) loc1)
+             else Capability.bot) =
+     (if Ordering.le Ordering.relaxed ord1
+      then
+       Capability.join releasedm1
+         (Commit.rel
+            (Commit.write_commit
+               (Commit.write_fence_commit
+                  (Commit.read_fence_commit (Local.commit lc0)
+                     Ordering.relaxed) sc0 Ordering.acqrel)
+               (Commit.write_fence_sc
+                  (Commit.read_fence_commit (Local.commit lc0)
+                     Ordering.relaxed) sc0 Ordering.acqrel) loc1 to1
+               ord1) loc1)
+      else Capability.bot)).
+  { condtac; [|auto]. f_equal.
+    unfold Commit.write_fence_commit, Commit.write_fence_sc.
+    apply Capability.antisym; repeat (try condtac; aggrtac; try apply WF0).
+    unguardH ORD1. des; [|congr]. destruct ord1; inv ORD1; inv COND.
+  }
+  esplits.
+  - econs; eauto.
+  - econs; eauto. ss. inv WRITABLE. econs; eauto.
+  - s. econs; ss.
+    + unfold Commit.write_fence_sc, Commit.write_fence_commit.
+      econs; repeat (try condtac; aggrtac; try apply WF0).
+    + apply SimPromises.sem_bot.
 Qed.
 
 Lemma reorder_update_read
@@ -767,6 +822,56 @@ Proof.
   esplits; eauto.
 Qed.
 
+Lemma reorder_fence_read
+      ordr1 ordw1
+      loc2 to2 val2 released2 ord2
+      lc0 sc0 mem0
+      lc1 sc1
+      lc2
+      (ORDR1: Ordering.le ordr1 Ordering.acqrel)
+      (ORDW1: Ordering.le ordw1 Ordering.relaxed)
+      (ORD2: Ordering.le ord2 Ordering.unordered \/ Ordering.le Ordering.acqrel ord2)
+      (WF0: Local.wf lc0 mem0)
+      (SC0: Memory.closed_timemap sc0 mem0)
+      (MEM0: Memory.closed mem0)
+      (STEP1: Local.fence_step lc0 sc0 ordr1 ordw1 lc1 sc1)
+      (STEP2: Local.read_step lc1 mem0 loc2 to2 val2 released2 ord2 lc2):
+  exists lc1' lc2' sc2',
+    <<STEP1: Local.read_step lc0 mem0 loc2 to2 val2 released2 ord2 lc1'>> /\
+    <<STEP2: Local.fence_step lc1' sc0 ordr1 ordw1 lc2' sc2'>> /\
+    <<LOCAL: sim_local lc2' lc2>> /\
+    <<SC: TimeMap.le sc2' sc1>>.
+Proof.
+  guardH ORD2. inv STEP1. inv STEP2.
+  esplits.
+  - econs; eauto.
+    eapply CommitFacts.readable_mon; eauto; try refl.
+    etrans.
+    + apply CommitFacts.write_fence_commit_incr. apply WF0.
+    + apply CommitFacts.write_fence_commit_mon; try refl; try apply WF0.
+      apply CommitFacts.read_fence_commit_incr. apply WF0.
+  - econs; eauto.
+  - s. econs; s.
+    + inversion MEM0. exploit CLOSED; eauto. i. des.
+      exploit CommitFacts.read_future; try exact GET; try apply WF0; eauto. i. des.
+      exploit CommitFacts.read_fence_future; try apply WF0; eauto. i. des.
+      etrans; [|etrans].
+      * apply CommitFacts.write_fence_commit_mon; [|refl|refl|].
+        { apply ReorderCommit.read_fence_read_commit; auto. apply WF0. }
+        { inversion MEM0. exploit CLOSED; eauto. i. des.
+          eapply CommitFacts.read_fence_future; eauto.
+        }
+      * apply ReorderCommit.write_fence_read_commit; eauto.
+      * apply CommitFacts.read_commit_mon; auto; try refl.
+        eapply CommitFacts.write_fence_future; eauto.
+    + apply SimPromises.sem_bot.
+  - s. etrans.
+    + apply CommitFacts.write_fence_sc_mon; [|refl|refl].
+      apply ReorderCommit.read_fence_read_commit; auto. apply WF0.
+    + eapply ReorderCommit.write_fence_read_sc; auto.
+      eapply CommitFacts.read_fence_future; eauto; apply WF0.
+Qed.
+
 Lemma reorder_fence_promise
       ordr1 ordw1
       loc2 from2 to2 val2 released2
@@ -774,8 +879,6 @@ Lemma reorder_fence_promise
       lc1 sc1
       lc2 mem2
       kind
-      (ORDR1: Ordering.le ordr1 Ordering.acqrel)
-      (ORDW1: Ordering.le ordw1 Ordering.relaxed)
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
       (STEP1: Local.fence_step lc0 sc0 ordr1 ordw1 lc1 sc1)
@@ -787,7 +890,7 @@ Proof.
   inv STEP1. inv STEP2. ss.
   esplits.
   - econs; eauto.
-  - econs; eauto. i. destruct ordw1; inv ORDW1; inv H.
+  - econs; eauto.
 Qed.
 
 Lemma reorder_fence_fulfill
@@ -816,7 +919,7 @@ Proof.
   hexploit CommitFacts.write_fence_future; eauto. i. des.
   esplits.
   - econs; eauto.
-    + etrans; eauto. apply Capability.join_spec.
+    + etrans; eauto. condtac; [|by committac]. apply Capability.join_spec.
       * rewrite <- Capability.join_l. refl.
       * rewrite <- Capability.join_r.
         apply CommitFacts.write_commit_mon; eauto; try refl.
@@ -833,7 +936,7 @@ Proof.
           eapply CommitFacts.read_fence_future; apply WF0.
         }
       * apply CommitFacts.write_fence_sc_incr.
-  - econs; eauto. i. destruct ordw1; inv H; inv ORDW1.
+  - econs; eauto.
   - s. econs; s.
     + etrans; [|etrans].
       * apply CommitFacts.write_fence_commit_mon; [|refl|refl|].

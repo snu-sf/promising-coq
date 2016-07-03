@@ -188,16 +188,18 @@ Lemma merge_split
     <<SC3: TimeMap.le sc3' sc3>> /\
     <<MEM3: sim_memory mem1' mem0>> /\
     <<REL1': released1' =
-             Capability.join released0
-               (Commit.rel
-                  (Commit.write_commit (Local.commit lc0) sc0 loc ts2 ord)
-                  loc)>>.
+             if Ordering.le Ordering.relaxed ord
+             then Capability.join
+                    released0
+                    (Commit.rel (Commit.write_commit (Local.commit lc0) sc0 loc ts2 ord) loc)
+             else Capability.bot>>.
 Proof.
   set (released1' :=
-      Capability.join released0
-        (Commit.rel
-           (Commit.write_commit (Local.commit lc0) sc0 loc ts2 ord)
-           loc)).
+         if Ordering.le Ordering.relaxed ord
+         then Capability.join
+                released0
+                (Commit.rel (Commit.write_commit (Local.commit lc0) sc0 loc ts2 ord) loc)
+         else Capability.bot).
   assert (REL1'_WF: Capability.wf released1').
   { unfold released1'. repeat (try condtac; aggrtac; try by apply WF0). }
   exploit fulfill_step_future; eauto. i. des.

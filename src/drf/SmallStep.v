@@ -217,7 +217,7 @@ Lemma write_step_lt
       tid c c1 e lst lc loc from ts val rel ord withprm
       (STEP: small_step withprm tid e c c1)
       (EVENT: ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord))
-      (THREAD: IdentMap.find tid (Configuration.threads c) = Some (lst, lc))
-: Time.lt (lc.(Local.commit).(Commit.cur).(Capability.rw) loc) ts.
+      (THREAD: IdentMap.find tid (Configuration.threads c) = Some (lst, lc)):
+  Time.lt (lc.(Local.commit).(Commit.cur).(Capability.rw) loc) ts.
 Proof.
 Admitted. (* jeehoon easy; maybe add condition *)

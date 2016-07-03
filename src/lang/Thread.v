@@ -11,6 +11,7 @@ Require Import DenseOrder.
 Require Import Event.
 Require Import Time.
 Require Import Language.
+
 Require Import View.
 Require Import Cell.
 Require Import Memory.
@@ -103,7 +104,9 @@ Module Local.
   Inductive write_step (lc1:t) (sc1:TimeMap.t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (releasedm released:Capability.t) (ord:Ordering.t): forall (lc2:t) (sc2:TimeMap.t) (mem2:Memory.t) (kind:Memory.promise_kind), Prop :=
   | step_write
       promises2 mem2 kind
-      (RELEASED: released = (Capability.join releasedm ((Commit.write_commit lc1.(commit) sc1 loc to ord).(Commit.rel) loc)))
+      (RELEASED: released = if Ordering.le Ordering.relaxed ord
+                            then Capability.join releasedm ((Commit.write_commit lc1.(commit) sc1 loc to ord).(Commit.rel) loc)
+                            else Capability.bot)
       (WRITABLE: Commit.writable lc1.(commit) sc1 loc to ord)
       (WRITE: Memory.write lc1.(promises) mem1 loc from to val released promises2 mem2 kind)
       (RELEASE: Ordering.le Ordering.acqrel ord ->
@@ -118,8 +121,7 @@ Module Local.
   Inductive fence_step (lc1:t) (sc1:TimeMap.t) (ordr ordw:Ordering.t): forall (lc2:t) (sc2:TimeMap.t), Prop :=
   | step_fence
       commit2
-      (READ: Commit.read_fence_commit lc1.(commit) ordr = commit2)
-      (RELEASE: Ordering.le Ordering.acqrel ordw -> lc1.(promises) = Memory.bot):
+      (READ: Commit.read_fence_commit lc1.(commit) ordr = commit2):
       fence_step lc1 sc1 ordr ordw (mk (Commit.write_fence_commit commit2 sc1 ordw) lc1.(promises)) (Commit.write_fence_sc commit2 sc1 ordw)
   .
 
@@ -172,9 +174,11 @@ Module Local.
         (CLOSED3: Memory.closed_capability releasedm mem1)
         (PROMISE: Memory.promise promises1 mem1 loc from to val released promises2 mem2 kind):
     Memory.closed_capability
-      (Capability.join
-         releasedm
-         (Commit.rel (Commit.write_commit commit1 sc1 loc to ord) loc))
+      (if Ordering.le Ordering.relaxed ord
+       then Capability.join
+              releasedm
+              (Commit.rel (Commit.write_commit commit1 sc1 loc to ord) loc)
+       else Capability.bot)
       mem2.
   Proof.
     exploit Memory.promise_future0; eauto; try by committac. i. des.
@@ -196,9 +200,11 @@ Module Local.
         (CLOSED3: Memory.closed_capability releasedm mem1)
         (WRITE: Memory.write promises1 mem1 loc from to val released promises2 mem2 kind):
     Memory.closed_capability
-      (Capability.join
-         releasedm
-         (Commit.rel (Commit.write_commit commit1 sc1 loc to ord) loc))
+      (if Ordering.le Ordering.relaxed ord
+       then Capability.join
+              releasedm
+              (Commit.rel (Commit.write_commit commit1 sc1 loc to ord) loc)
+       else Capability.bot)
       mem2.
   Proof.
     inv WRITE. eapply promise_closed_capability; eauto.
@@ -389,7 +395,7 @@ Module Thread.
         st1 lc1 sc1 mem1
         st2 e lc2 sc2
         (STATE: lang.(Language.step) (Some (ProgramEvent.syscall e)) st1 st2)
-        (LOCAL: Local.fence_step lc1 sc1 Ordering.unordered Ordering.seqcst lc2 sc2):
+        (LOCAL: Local.fence_step lc1 sc1 Ordering.seqcst Ordering.seqcst lc2 sc2):
         program_step (ThreadEvent.syscall e) (mk st1 lc1 sc1 mem1) (mk st2 lc2 sc2 mem1)
     .
 

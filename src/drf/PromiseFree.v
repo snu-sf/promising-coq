@@ -28,7 +28,7 @@ Set Implicit Arguments.
 
 Inductive can_fulfill (tid: Ident.t) loc ts (c1 c4: Configuration.t) : Prop :=
 | can_fulfill_intro
-    c2 c3 e ord lst2 lc2 from2 msg2 from val rel 
+    c2 c3 e ord lst2 lc2 from2 msg2 from val rel
     (STEPS: rtc (small_step_evt false tid) c1 c2)
     (STEP: small_step false tid e c2 c3)
     (THREAD: IdentMap.find tid c2.(Configuration.threads) = Some (lst2, lc2))
@@ -199,7 +199,7 @@ Proof.
   assert (WF2: pi_wf (cS2,cT2)).
   { eapply rtc_pi_step_future; eauto.
     eapply rtc_implies, STEPS; eauto. }
-  move WF2 after cSTM3.
+  move WF2 after STEPS_LIFT.
 
   revert_until STEPS_LIFT.
   apply Operators_Properties.clos_rt_rt1n_iff, 
@@ -215,7 +215,7 @@ Proof.
 
   destruct y as [[cS3 cT3] M3].
   destruct z as [[cS4 cT4] M4].
-  rename H into PSTEP.
+  rename H into PSTEP. ss.
 
   assert (WF3: pi_wf (cS3, cT3)).
   { eapply rtc_pi_step_future; eauto.
@@ -224,14 +224,20 @@ Proof.
     i. inv PR. eauto. }
 
   assert (WF4: pi_wf (cS4, cT4)).
-  { inv PSTEP. inv PI_STEP. inv USTEP.
-    eapply pi_step_future; eauto. }
+  { inv PSTEP. eapply pi_step_future; eauto. }
   
-  s. i. assert (X := PSTEP). inv X. inv PI_STEP. inv USTEP. rename cM4 into cM4'.
+  s. i. assert (X := PSTEP). inv X. rename cM4 into cM4'.
+
+  hexploit rtc_pi_step_lift_except_find.
+  { etrans; [apply STEPS_LIFT|].
+    econs 2; [|reflexivity]. eauto. }
+  s; intro THEQ; des.
+
+  rewrite <-THEQ0, THREAD2 in FIND. inv FIND.
 
   cut ((exists cS3' cM3' lst3' com3' com4' prm3',
        <<STEPS3: rtc (pi_step_evt false tid) (cS3, conf_update_global cT2 (Configuration.sc cT3) M3) (cS3',cM3')>> /\
-       <<MEMLE: mem_eqlerel_lift loc ts e cM3'.(Configuration.memory) cM4'.(Configuration.memory)>> /\
+       <<MEMLE: mem_eqlerel_lift loc ts prm3' k e cM3'.(Configuration.memory) cM4'.(Configuration.memory)>> /\
        <<SCLE: TimeMap.le cM3'.(Configuration.sc) cM4'.(Configuration.sc)>> /\
        <<THS3: IdentMap.find tid cM3'.(Configuration.threads) = Some (lst3', Local.mk com3' prm3') >> /\
        <<THS4: IdentMap.find tid cM4'.(Configuration.threads) = Some (lst3', Local.mk com4' prm3') >> /\
@@ -241,7 +247,7 @@ Proof.
        <<EQPRE: pre = pi_pre_proj pre'>>)).
   { i; des. exists cS4'; esplits; eauto. }
 
-  move WF2 after cM4'. move tid0 after cM4'. move TID after cM4'. move e after cM4'. move PI_STEP after cM4'. move MEM after cM4'. move PSTEP after cM4'.
+  move cM4' at bottom. move lst4 at bottom. move lc4 at bottom. move TIMELT at bottom.
   revert_until PI_STEPS.
   induction PI_STEPS; i.
   { destruct lc4 as [com4 prm4]. subst. ss.
@@ -255,8 +261,8 @@ Proof.
       exploit THREADS; eauto. i.
       exploit Thread.step_future; eauto. s. i. des. auto.
     }
-    { s. eauto. }
-    { s. eauto. }
+    { s. rewrite THREAD2 in THREAD4. inv THREAD4. eauto. }
+    { s. rewrite THREAD2 in THREAD4. inv THREAD4. eauto. }
     { reflexivity. }
     { eauto. }
     { eauto. }
@@ -294,7 +300,7 @@ Proof.
   (* Read the message "e" *)
   { destruct (Loc.eq_dec loc loc0) eqn: NEQ.
     { exfalso. subst. inv PI_STEP.
-      destruct lst2.
+      destruct lst.
       eapply NOWR; eauto.
       econs; [|by apply PROMISE2].
       apply rtc_pi_step_lift_except_find in STEPS_LIFT.
@@ -380,10 +386,11 @@ Proof.
 
   destruct lcx as [comx prmx].
   destruct lc4 as [com4 prm4].
+  ss. subst.
   split.
   { esplits; [by eapply with_pre_rtc_step_union, STEPS0|..]; eauto.
     { s. rewrite IdentMap.gss. eauto. }
-    { ss. rewrite IdentMap.gss, PRM. eauto. }
+    { s. rewrite IdentMap.gss. eauto. }
   }
 
   rename e0 into evt.
@@ -464,8 +471,8 @@ Proof.
       - s. by rewrite !IdentMap.gss.
       - i. des. inv WRITE. inv STEPS0. inv PSTEP0. inv EVT.
         hexploit NOWR; s; eauto.
-        intros X PRM. apply X.
-        inv PRM. econs; eauto.
+        intros X PRM2. apply X.
+        inv PRM2. econs; eauto.
         rewrite <- TID0.
         apply with_pre_rtc_step_union in PI_STEPS.
         apply pi_steps_small_steps_snd_with_pre in PSTEPS.
@@ -648,36 +655,4 @@ Proof.
   by rewrite THS, TH0.
 Grab Existential Variables. exact false.
 Qed.
-
-
-(* Lemma promise_small_steps *)
-(*       c1 c2 c3 tid loc ts withprm *)
-(*       lst1 lc1 from1 msg1  *)
-(*       (THREAD1 : IdentMap.find tid (Configuration.threads c1) = Some (lst1, lc1)) *)
-(*       (PROMISE1 : Memory.get loc ts (Local.promises lc1) = Some (from1, msg1)) *)
-(*       lst3 lc3 from3 msg3  *)
-(*       (THREAD3 : IdentMap.find tid (Configuration.threads c3) = Some (lst3, lc3)) *)
-(*       (PROMISE3 : Memory.get loc ts (Local.promises lc3) = Some (from3, msg3)) *)
-(*       (STEPS1: rtc (small_step_evt withprm tid) c1 c2) *)
-(*       (STEPS2: rtc (small_step_evt withprm tid) c2 c3): *)
-(*   exists lst2 lc2 from2 msg2,  *)
-(*   <<THREAD: IdentMap.find tid (Configuration.threads c2) = Some (lst2, lc2)>> /\ *)
-(*   <<PROMISE: Memory.get loc ts (Local.promises lc2) = Some (from2, msg2)>>. *)
-(* Proof. *)
-(* Admitted. *)
-
-
-(* Lemma rtc_pi_step_lang_match *)
-(*       cST1 cST2 tid withprm *)
-(*       (MATCH: option_map fst (IdentMap.find tid cST1.(fst).(Configuration.threads)) = *)
-(*        option_map fst (IdentMap.find tid cST1.(snd).(Configuration.threads))) *)
-(*       (STEPS: rtc (pi_step_evt withprm tid) cST1 cST2): *)
-(*   option_map fst (IdentMap.find tid cST2.(fst).(Configuration.threads)) = *)
-(*   option_map fst (IdentMap.find tid cST2.(snd).(Configuration.threads)). *)
-(* Proof. *)
-(*   induction STEPS; eauto. *)
-(*   inv H. inv USTEP. eauto. *)
-(* Qed. *)
-
-
 

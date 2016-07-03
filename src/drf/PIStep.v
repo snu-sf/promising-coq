@@ -379,7 +379,7 @@ Lemma pi_consistent_small_step_pi_rw
       (PI_RACEFREE: pf_racefree cST1.(fst))
       (PI_STEPS: rtc (pi_step_evt true tid) cST1 cST2)
       (STEP: small_step withprm tid e cST2.(snd) cT3):
-  forall loc from to val ord rel tid' ts
+  forall loc from to val rel ord tid' ts
     (NEQ: tid <> tid')
     (RW: ThreadEvent.is_reading e = Some (loc, to, val, rel, ord) \/
          ThreadEvent.is_writing e = Some (loc, from, to, val, rel, ord)),
@@ -473,7 +473,7 @@ Proof.
         + ss. setoid_rewrite IdentMap.Properties.F.map_o.
           by rewrite TID.
         + econs 2; econs 3; eauto.
-          ss. econs; eauto. admit. (* jeehoon ?; construct pi_step; write case *)
+          ss. admit. (* jeehoon ?; construct pi_step; write case *)
         + eauto.
         + eauto.
       - s. by rewrite !IdentMap.gss.

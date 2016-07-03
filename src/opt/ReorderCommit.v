@@ -178,6 +178,61 @@ Proof.
   ii. unfold Commit.write_sc. aggrtac.
 Qed.
 
+Lemma write_read_fence_commit
+      loc1 ts1 ord1
+      ord2
+      commit0 sc0
+      (ORD2: Ordering.le ord2 Ordering.relaxed)
+      (WF0: Commit.wf commit0):
+  Commit.le
+    (Commit.write_commit
+       (Commit.read_fence_commit commit0 ord2)
+       sc0 loc1 ts1 ord1)
+    (Commit.read_fence_commit
+       (Commit.write_commit commit0 sc0 loc1 ts1 ord1)
+       ord2).
+Proof.
+  econs; repeat (try condtac; aggrtac; try apply WF0).
+Qed.
+
+Lemma write_write_fence_commit
+      loc1 ts1 ord1
+      ord2
+      commit0 sc0
+      (ORD2: Ordering.le ord2 Ordering.acqrel)
+      (WF0: Commit.wf commit0):
+  Commit.le
+    (Commit.write_commit
+       (Commit.write_fence_commit commit0 sc0 ord2)
+       (Commit.write_fence_sc commit0 sc0 ord2)
+       loc1 ts1 ord1)
+    (Commit.write_fence_commit
+       (Commit.write_commit commit0 sc0 loc1 ts1 ord1)
+       (Commit.write_sc sc0 loc1 ts1 ord1)
+       ord2).
+Proof.
+  unfold Commit.write_fence_commit, Commit.write_fence_sc.
+  econs; repeat (try condtac; aggrtac; try apply WF0).
+Qed.
+
+Lemma read_fence_read_commit
+      ord1
+      loc2 ts2 released2 ord2
+      commit0
+      (ORD2: Ordering.le ord2 Ordering.unordered \/ Ordering.le Ordering.acqrel ord2)
+      (WF0: Commit.wf commit0):
+  Commit.le
+    (Commit.read_fence_commit
+       (Commit.read_commit commit0 loc2 ts2 released2 ord2)
+       ord1)
+    (Commit.read_commit
+       (Commit.read_fence_commit commit0 ord1)
+       loc2 ts2 released2 ord2).
+Proof.
+  econs; repeat (try condtac; aggrtac; try apply WF0).
+  des; [|congr]. destruct ord2; inv ORD2; inv COND0.
+Qed.
+
 Lemma read_fence_write_commit
       ord1
       loc2 ts2 ord2
@@ -192,6 +247,40 @@ Lemma read_fence_write_commit
        sc0 loc2 ts2 ord2).
 Proof.
   econs; repeat (try condtac; aggrtac; try apply WF0).
+Qed.
+
+Lemma write_fence_read_commit
+      ord1
+      loc2 ts2 released2 ord2
+      commit0 sc0
+      (ORD1: Ordering.le ord1 Ordering.relaxed)
+      (WF0: Commit.wf commit0)
+      (WF2: Capability.wf released2):
+  Commit.le
+    (Commit.write_fence_commit
+       (Commit.read_commit commit0 loc2 ts2 released2 ord2) sc0 ord1)
+    (Commit.read_commit
+       (Commit.write_fence_commit commit0 sc0 ord1)
+       loc2 ts2 released2 ord2).
+Proof.
+  econs; aggrtac;
+    (try by apply WF0);
+    (repeat (condtac; aggrtac; try apply WF0)).
+Qed.
+
+Lemma write_fence_read_sc
+      ord1
+      loc2 ts2 released2 ord2
+      commit0 sc0
+      (ORD1: Ordering.le ord1 Ordering.relaxed)
+      (WF0: Commit.wf commit0):
+  TimeMap.le
+    (Commit.write_fence_sc
+       (Commit.read_commit commit0 loc2 ts2 released2 ord2) sc0 ord1)
+    (Commit.write_fence_sc commit0 sc0 ord1).
+Proof.
+  ii. unfold Commit.write_sc, Commit.write_fence_sc.
+  repeat condtac; aggrtac.
 Qed.
 
 Lemma write_fence_write_commit

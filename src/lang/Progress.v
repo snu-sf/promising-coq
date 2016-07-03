@@ -77,13 +77,18 @@ Lemma progress_promise_step
       (CLOSED_REL: Memory.closed_capability releasedm mem1):
   exists promises2 mem2,
     Local.promise_step lc1 mem1 loc (Memory.max_ts loc mem1) to val
-                       (Capability.join
-                          releasedm
-                          (Commit.rel
-                             (Commit.write_commit (Local.commit lc1) sc1 loc to ord) loc))
+                       (if Ordering.le Ordering.relaxed ord
+                        then Capability.join
+                               releasedm
+                               (Commit.rel (Commit.write_commit (Local.commit lc1) sc1 loc to ord) loc)
+                        else Capability.bot)
                        (Local.mk lc1.(Local.commit) promises2) mem2 Memory.promise_kind_add.
 Proof.
-  exploit (@Memory.add_exists_max_ts mem1 loc to val (Capability.join releasedm (Commit.rel (Commit.write_commit (Local.commit lc1) sc1 loc to ord) loc))); eauto.
+  exploit (@Memory.add_exists_max_ts
+             mem1 loc to val
+             (if Ordering.le Ordering.relaxed ord
+              then Capability.join releasedm (Commit.rel (Commit.write_commit (Local.commit lc1) sc1 loc to ord) loc)
+              else Capability.bot)); eauto.
   { committac; try apply WF1. repeat condtac; committac; try apply WF1. }
   i. des.
   exploit Memory.add_exists_le; try apply WF1; eauto. i. des.
@@ -139,7 +144,9 @@ Proof.
   assert (PROMISES2:
             promises2 = Memory.singleton
                           loc val
-                          (Capability.join releasedm (Commit.rel (Commit.write_commit (Local.commit lc1) sc1 loc to ord) loc))
+                          (if Ordering.le Ordering.relaxed ord
+                           then Capability.join releasedm (Commit.rel (Commit.write_commit (Local.commit lc1) sc1 loc to ord) loc)
+                           else Capability.bot)
                           LT).
   { apply Memory.ext. i.
     inv PROMISE. erewrite Memory.add_o; eauto.
@@ -157,8 +164,7 @@ Qed.
 
 Lemma progress_fence_step
       lc1 sc1
-      ordr ordw
-      (PROMISES1: lc1.(Local.promises) = Memory.bot):
+      ordr ordw:
   exists lc2 sc2,
     Local.fence_step lc1 sc1 ordr ordw lc2 sc2.
 Proof.
