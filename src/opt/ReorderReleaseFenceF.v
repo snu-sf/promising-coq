@@ -41,6 +41,10 @@ Inductive reorder_release_fenceF: forall (i2:Instr.t), Prop :=
     l2 v2 o2
     (ORD2: Ordering.le o2 Ordering.unordered \/ Ordering.le Ordering.acqrel o2):
     reorder_release_fenceF (Instr.store l2 v2 o2)
+| reorder_release_fenceF_update
+    r2 l2 rmw2 or2 ow2
+    (ORDW2: Ordering.le ow2 Ordering.unordered \/ Ordering.le Ordering.acqrel ow2):
+    reorder_release_fenceF (Instr.update r2 l2 rmw2 or2 ow2)
 .
 
 Inductive sim_release_fenceF: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (sc1_src:TimeMap.t) (mem1_src:Memory.t)
@@ -232,6 +236,33 @@ Proof.
       * econs 2. econs 5; eauto. econs. econs.
       * auto.
     + econs 2. econs 2. econs 3; eauto. econs. econs.
+    + auto.
+    + etrans; eauto.
+      inv x0. unfold Commit.write_fence_sc. condtac; ss. refl.
+    + auto.
+    + left. eapply paco9_mon; [apply sim_release_fenceF_sim_thread|]; ss.
+      econs 1; eauto. etrans; eauto.
+  - (* update *)
+    guardH ORDW2.
+    exploit Local.read_step_future; eauto. i. des.
+    exploit Local.write_step_future; eauto. i. des.
+    exploit progress_fence_step; eauto. i. des.
+    exploit sim_local_read; eauto; try refl. i. des.
+    exploit Local.read_step_future; eauto. i. des.
+    exploit reorder_write_fence; try exact LOCAL2; eauto. i. des.
+    exploit Local.fence_step_future; eauto. i. des.
+    exploit sim_local_fence; try exact SC; eauto; try refl. i. des.
+    exploit reorder_read_fence; try exact STEP_SRC; eauto; try refl. i. des.
+    exploit Local.fence_step_future; eauto. i. des.
+    exploit Local.read_step_future; eauto. i. des.
+    generalize LOCAL5. i. rewrite LOCAL4 in LOCAL6.
+    generalize SC3. i. rewrite SC1 in SC5.
+    hexploit sim_local_write; try exact STEP2; try exact LOCAL6; try exact SC5; eauto; try refl. i. des.
+    esplits.
+    + econs 2; eauto. econs.
+      { econs 2. econs 5; eauto. econs. econs. }
+      { auto. }
+    + econs 2. econs 2. econs 4; eauto. econs. econs. eauto.
     + auto.
     + etrans; eauto.
       inv x0. unfold Commit.write_fence_sc. condtac; ss. refl.
