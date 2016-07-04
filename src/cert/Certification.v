@@ -277,8 +277,92 @@ Proof.
           { auto. }
         * auto.
   }
-  { admit. }
-  { admit. }
+  { inv PROMISE0.
+    - exploit MemoryReorder.split_add; try exact PROMISES; try exact PROMISES0; eauto. i. des.
+      exploit MemoryReorder.split_add; try exact MEM; try exact MEM0; eauto. i. des.
+      esplits.
+      + econs.
+        * econs; eauto.
+        * eapply REL_CLOSED. econs; eauto.
+      + right. esplits; eauto.
+        refine (Local.step_promise _ _ _); eauto.
+        econs; eauto.
+        eapply Memory.add_closed_capability; eauto.
+      + auto.
+    - exploit MemoryReorder.split_split; try exact PROMISES; try exact PROMISES0; eauto. i. des.
+      exploit MemoryReorder.split_split; try exact MEM; try exact MEM0; eauto. i. des.
+      esplits.
+      + econs.
+        * econs 2; eauto.
+        * eapply REL_CLOSED. econs 2; eauto.
+      + right. esplits; cycle 2.
+        * refine (Local.step_promise _ _ _); eauto.
+          { econs 2; eauto. }
+          { eapply Memory.split_closed_capability; eauto. }
+        * admit.
+        * admit.
+      + auto.
+    - exploit MemoryReorder.split_lower; try exact PROMISES; try exact PROMISES0; eauto. i. des.
+      exploit MemoryReorder.split_lower; try exact MEM; try exact MEM0; eauto. i. des.
+      esplits.
+      + econs.
+        * econs 3; eauto.
+        * eapply REL_CLOSED. econs 3; eauto.
+      + right. esplits; cycle 2.
+        * refine (Local.step_promise _ _ _); eauto.
+          { econs 2; eauto. }
+          { eapply Memory.lower_closed_capability; eauto. }
+        * auto.
+        * auto.
+      + auto.
+  }
+  { inv PROMISE0.
+    - exploit MemoryReorder.lower_add; try exact PROMISES; try exact PROMISES0; eauto. i. des.
+      exploit MemoryReorder.lower_add; try exact MEM; try exact MEM0; eauto. i. des.
+      esplits.
+      + econs.
+        * econs; eauto.
+        * eapply REL_CLOSED. econs; eauto.
+      + right. esplits; eauto.
+        refine (Local.step_promise _ _ _); eauto.
+        econs; eauto.
+        eapply Memory.add_closed_capability; eauto.
+      + auto.
+    - exploit MemoryReorder.lower_split; try exact PROMISES; try exact PROMISES0; eauto. i. des.
+      exploit MemoryReorder.lower_split; try exact MEM; try exact MEM0; eauto. i. des.
+      admit.
+      (* esplits. *)
+      (* + econs. *)
+      (*   * econs 2; eauto. *)
+      (*   * eapply REL_CLOSED. econs 2; eauto. *)
+      (* + right. esplits; cycle 2. *)
+      (*   * refine (Local.step_promise _ _ _); eauto. *)
+      (*     { econs 2; eauto. } *)
+      (*     { eapply Memory.split_closed_capability; eauto. } *)
+      (*   * admit. *)
+      (*   * admit. *)
+      (* + auto. *)
+    - exploit MemoryReorder.lower_lower; try exact PROMISES; try exact PROMISES0; eauto. i. des.
+      + subst.
+        exploit MemoryReorder.lower_lower; try exact MEM; try exact MEM0; eauto. i. des; [|congr].
+        esplits.
+        * econs; eauto. econs 3; eauto.
+        * left. auto.
+        * congr.
+      + exploit MemoryReorder.lower_lower; try exact MEM; try exact MEM0; eauto. i. des; [congr|].
+        esplits.
+        * econs.
+          { econs 3; eauto. }
+          { eapply REL_CLOSED. econs 3; eauto. }
+        * right. esplits; cycle 2.
+          { refine (Local.step_promise _ _ _); eauto.
+            - econs 3; eauto.
+            - eapply Memory.lower_closed_capability; eauto.
+          }
+          { auto. }
+          { auto. }
+        * auto.
+  }
 Admitted.
 
 Lemma reorder_promise_fulfill
