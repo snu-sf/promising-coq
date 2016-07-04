@@ -227,7 +227,6 @@ Proof.
   - econs; eauto.
     + etrans; eauto. repeat (try condtac; aggrtac; try apply WF0).
     + eapply CommitFacts.writable_mon; eauto; try refl.
-      s. apply CommitFacts.read_commit_incr.
   - econs; eauto.
     s. inv READABLE.
     econs; repeat (try condtac; aggrtac; try apply WF0; eauto; unfold TimeMap.singleton).

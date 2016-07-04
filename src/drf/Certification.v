@@ -23,6 +23,8 @@ Require Import SimLocal.
 Require Import FulfillStep.
 Require Import MemoryReorder.
 
+Require Import PromiseConsistent.
+
 Set Implicit Arguments.
 
 
@@ -492,7 +494,8 @@ Lemma reorder_promise_write
     <<STEP1: Local.write_step lc0 sc0 mem0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc1' sc2 mem1' kind2'>> /\
     <<STEP2: __guard__
                ((lc2, mem2) = (lc1', mem1') \/
-                (exists from1' kind1', <<STEP2: Local.promise_step lc1' mem1' loc1 from1' to1 val1 released1 lc2 mem2 kind1'>>))>> /\
+                ((loc1, to1) <> (loc2, to2) /\
+                 exists from1' kind1', <<STEP2: Local.promise_step lc1' mem1' loc1 from1' to1 val1 released1 lc2 mem2 kind1'>>))>> /\
     <<KIND2: kind2 = Memory.promise_kind_add -> kind2' = Memory.promise_kind_add>>.
 Proof.
   exploit Local.promise_step_future; eauto. i. des.
@@ -526,7 +529,42 @@ Proof.
       ss. unfold Memory.get in GET. rewrite x, Cell.bot_get in *. congr.
     }
     { condtac; [|auto]. do 3 f_equal. inv STEP1. ss. }
-    i. esplits; eauto. right. esplits. eauto.
+    i. esplits; eauto. right. esplits; eauto.
+Qed.
+
+Lemma reorder_promise_write'
+      lc0 sc0 mem0
+      lc1 mem1
+      lc2 sc2 mem2
+      loc1 from1 to1 val1 released1 kind1
+      loc2 from2 to2 val2 releasedm2 released2 ord2 kind2
+      (STEP1: Local.promise_step lc0 mem0 loc1 from1 to1 val1 released1 lc1 mem1 kind1)
+      (STEP2: Local.write_step lc1 sc0 mem1 loc2 from2 to2 val2 releasedm2 released2 ord2 lc2 sc2 mem2 kind2)
+      (REL_WF: Capability.wf releasedm2)
+      (REL_CLOSED: Memory.closed_capability releasedm2 mem0)
+      (LOCAL0: Local.wf lc0 mem0)
+      (SC0: Memory.closed_timemap sc0 mem0)
+      (MEM0: Memory.closed mem0):
+  (loc1 = loc2 /\ Time.lt to1 to2) \/
+  (exists kind2' lc1' mem1',
+     <<STEP1: Local.write_step lc0 sc0 mem0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc1' sc2 mem1' kind2'>> /\
+     <<STEP2: __guard__
+                ((lc2, mem2) = (lc1', mem1') \/
+                 ((loc1, to1) <> (loc2, to2) /\
+                  exists from1' kind1', <<STEP2: Local.promise_step lc1' mem1' loc1 from1' to1 val1 released1 lc2 mem2 kind1'>>))>> /\
+     <<KIND2: kind2 = Memory.promise_kind_add -> kind2' = Memory.promise_kind_add>>).
+Proof.
+  destruct (classic (loc1 = loc2 /\ Time.lt to1 to2)); auto.
+  right. eapply reorder_promise_write; eauto. i. subst. splits.
+  - ii. subst. apply H. splits; auto.
+    inv STEP1. inv PROMISE. inv MEM. inv SPLIT. auto.
+  - ii. subst. apply H. splits; auto.
+    inv STEP2. inv WRITE. inv PROMISE. exploit Memory.split_get0; eauto. i. des.
+    inv STEP1. inv PROMISE. revert GET3. erewrite Memory.split_o; eauto. repeat condtac; ss.
+    + i. des. inv GET3. inv MEM1. inv SPLIT.
+      exfalso. eapply Time.lt_strorder. eauto.
+    + guardH o. i. des. inv GET3. inv MEM. inv SPLIT. auto.
+    + guardH o. des; congr.
 Qed.
 
 Lemma reorder_promise_program
@@ -534,6 +572,7 @@ Lemma reorder_promise_program
       e1 th0 th1 th2
       (STEP1: @Thread.promise_step lang e1 th0 th1)
       (STEP2: @tau_program_step lang th1 th2)
+      (CONS2: promise_consistent th2.(Thread.local))
       (LOCAL: Local.wf th0.(Thread.local) th0.(Thread.memory))
       (SC: Memory.closed_timemap th0.(Thread.sc) th0.(Thread.memory))
       (MEMORY: Memory.closed th0.(Thread.memory)):
@@ -548,16 +587,23 @@ Proof.
     + right. esplits. econs. eauto.
   - (* read *)
     exploit reorder_promise_read; try exact LOCAL0; eauto; try by committac.
-    { admit. (* read + promise *) }
+    { ii. inv H.
+      inv LOCAL0. exploit Memory.promise_get2; eauto. i.
+      exploit promise_consistent_promise_read; eauto. i.
+      eapply Time.lt_strorder. eauto.
+    }
     i. des. esplits.
     + econs.
       * econs 2; eauto.
       * auto.
     + right. esplits. econs; eauto.
   - (* write *)
-    exploit reorder_promise_write; try exact LOCAL0; eauto; try by committac.
-    { admit. (* write + promise *) }
-    i. des. esplits.
+    exploit reorder_promise_write'; try exact LOCAL0; eauto; try by committac. i. des.
+    { subst. inv LOCAL0. exploit Memory.promise_get2; eauto. i.
+      exploit promise_consistent_promise_write; eauto. i.
+      exfalso. eapply Time.lt_strorder. eapply TimeFacts.le_lt_lt; eauto.
+    }
+    esplits.
     + econs.
       * econs 3; eauto.
       * auto.
@@ -566,11 +612,19 @@ Proof.
       * right. esplits. econs; eauto.
   - (* update *)
     exploit reorder_promise_read; try exact LOCAL1; eauto; try by committac.
-    { admit. (* read + promise *) }
+    { ii. inv H.
+      inv LOCAL0. exploit Memory.promise_get2; eauto. i.
+      exploit promise_consistent_promise_read; eauto.
+      { eapply write_step_promise_consistent; eauto. }
+      i. eapply Time.lt_strorder. eauto.
+    }
     i. des.
     exploit Local.read_step_future; eauto. i. des.
-    exploit reorder_promise_write; try exact LOCAL2; eauto; try by committac.
-    { admit. (* write + promise *) }
+    exploit reorder_promise_write'; try exact LOCAL2; eauto; try by committac. i. des.
+    { subst. inv STEP2. exploit Memory.promise_get2; eauto. i.
+      exploit promise_consistent_promise_write; eauto. i.
+      exfalso. eapply Time.lt_strorder. eapply TimeFacts.le_lt_lt; eauto.
+    }
     i. des. esplits.
     + econs.
       * econs 4; eauto.
@@ -584,7 +638,7 @@ Proof.
       * econs 5; eauto. econs; eauto.
       * auto.
     + right. esplits. econs. econs; eauto.
-Admitted.
+Qed.
 
 Lemma steps_pf_steps
       lang
@@ -617,7 +671,16 @@ Proof.
     exploit Memory.promise_get2; eauto. rewrite Memory.bot_get. congr.
   }
   inversion A12. exploit Thread.program_step_future; eauto. i. des.
-  exploit reorder_promise_program; eauto. i. des.
+  exploit reorder_promise_program; eauto.
+  { exploit rtcn_rtc; try exact A0; eauto. i.
+    eapply rtc_tau_step_promise_consistent.
+    - eapply rtc_implies; [|eauto]. i. inv PR. econs; eauto. econs 2; eauto.
+    - ii. rewrite PROMISES0, Memory.bot_get in *. congr.
+    - auto.
+    - auto.
+    - auto.
+  }
+  i. des.
   inversion STEP1.
   exploit Thread.program_step_future; eauto. i. des.
   unguardH STEP2. des.
