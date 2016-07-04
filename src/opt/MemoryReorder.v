@@ -221,7 +221,7 @@ Module MemoryReorder.
     }
     i. des.
     splits.
-    { ii. inv H. 
+    { ii. inv H.
       hexploit Memory.add_get0; try exact ADD2; eauto.
       erewrite Memory.split_o; eauto. repeat condtac; ss.
       guardH o0. des; congr.
@@ -248,27 +248,123 @@ Module MemoryReorder.
         mem0 loc1 ts11 ts12 ts13 val12 val13 released12 released13
         mem1 loc2 ts21 ts22 ts23 val22 val23 released22 released23
         mem2
+        (LOCTS1: (loc1, ts13) <> (loc2, ts23))
         (SPLIT1: Memory.split mem0 loc1 ts11 ts12 ts13 val12 val13 released12 released13 mem1)
         (SPLIT2: Memory.split mem1 loc2 ts21 ts22 ts23 val22 val23 released22 released23 mem2):
-    exists mem1',
-      <<SPLIT1: Memory.split mem0 loc2 ts21 ts22 ts23 val22 val23 released22 released23 mem1'>> /\
-      <<SPLIT2: Memory.split mem1' loc1 ts11 ts12 ts13 val12 val13 released12 released13 mem2>>.
+    (loc1 = loc2 /\ ts21 = ts11 /\ ts23 = ts12 /\
+     exists mem1',
+       <<SPLIT1: Memory.split mem0 loc2 ts21 ts22 ts13 val22 val13 released22 released13 mem1'>> /\
+       <<SPLIT2: Memory.split mem1' loc1 ts22 ts12 ts13 val12 val13 released12 released13 mem2>>) \/
+    ((loc2, ts21, ts23) <> (loc1, ts11, ts12) /\
+     exists mem1',
+       <<SPLIT1: Memory.split mem0 loc2 ts21 ts22 ts23 val22 val23 released22 released23 mem1'>> /\
+       <<SPLIT2: Memory.split mem1' loc1 ts11 ts12 ts13 val12 val13 released12 released13 mem2>>).
   Proof.
-  Admitted.
+    exploit Memory.split_get0; try exact SPLIT2; eauto. i. des.
+    revert GET3. erewrite Memory.split_o; eauto. repeat condtac; ss.
+    - i. des. inv GET3. left. splits; auto.
+      exploit Memory.split_get0; try exact SPLIT1; eauto. i. des.
+      exploit Memory.split_get0; try exact SPLIT2; eauto. i. des.
+      revert GET4. erewrite Memory.split_o; eauto. condtac; ss.
+      exploit (@Memory.split_exists mem0 loc1 ts21 ts22 ts13);
+        try by inv SPLIT2; inv SPLIT; eauto.
+      { etrans.
+        - inv SPLIT2. inv SPLIT. eauto.
+        - inv SPLIT1. inv SPLIT. eauto.
+      }
+      i. des.
+      exploit (@Memory.split_exists mem3 loc1 ts22 ts12 ts13);
+        (try by inv SPLIT1; inv SPLIT; eauto);
+        (try by inv SPLIT2; inv SPLIT; eauto).
+      { erewrite Memory.split_o; eauto. repeat condtac; ss.
+        - des. subst. inv x0. inv SPLIT.
+          exfalso. eapply Time.lt_strorder. eauto.
+        - guardH o. des; congr.
+      }
+      i. des.
+      cut (mem4 = mem2); [by i; subst; eauto|].
+      apply Memory.ext. i.
+      erewrite Memory.split_o; eauto. erewrite Memory.split_o; eauto.
+      erewrite (@Memory.split_o mem2); eauto. erewrite (@Memory.split_o mem1); eauto.
+      repeat (condtac; ss).
+      + des. repeat subst. inv x1. inv SPLIT.
+        exfalso. eapply Time.lt_strorder. eauto.
+      + guardH o. des. repeat subst. inv x0. inv SPLIT.
+        exfalso. eapply Time.lt_strorder. eauto.
+    - guardH o. i. des. inv GET3. congr.
+    - guardH o. guardH o0. i. right.
+      exploit (@Memory.split_exists mem0 loc2 ts21 ts22 ts23);
+        try by inv SPLIT2; inv SPLIT; eauto. i. des.
+      exploit (@Memory.split_exists mem3 loc1 ts11 ts12 ts13);
+        try by inv SPLIT1; inv SPLIT; eauto.
+      { erewrite Memory.split_o; eauto. repeat condtac; ss.
+        - des. subst. hexploit Memory.split_get0; try exact SPLIT2; eauto. i. des.
+          revert GET0. erewrite Memory.split_o; eauto. repeat condtac; ss.
+        - guardH o1. des. subst. unguardH o0. des; congr.
+        - eapply Memory.split_get0. eauto.
+      }
+      i. des. splits.
+      { ii. inv H. unguardH o. des; congr. }
+      cut (mem4 = mem2); [by i; subst; eauto|].
+      apply Memory.ext. i.
+      erewrite Memory.split_o; eauto. erewrite Memory.split_o; eauto.
+      erewrite (@Memory.split_o mem2); eauto. erewrite (@Memory.split_o mem1); eauto.
+      repeat (condtac; ss).
+      + des. repeat subst.
+        exploit Memory.split_get0; try exact SPLIT2; eauto. i. des.
+        revert GET0. erewrite Memory.split_o; eauto. repeat condtac; ss.
+      + guardH o1. des. repeat subst. unguardH o. des; congr.
+      + guardH o1. des. repeat subst.
+        exploit Memory.split_get0; try exact SPLIT2; eauto. i. des.
+        revert GET0. erewrite Memory.split_o; eauto. repeat condtac; ss.
+      + guardH o1. guardH o2. des. repeat subst. unguardH o0. des; congr.
+  Qed.
 
   Lemma split_lower
         mem0 loc1 ts11 ts12 ts13 val12 val13 released12 released13
         mem1 loc2 from2 to2 val2 released2 released2'
         mem2
+        (LOCTS1: (loc1, ts13) <> (loc2, to2))
         (SPLIT1: Memory.split mem0 loc1 ts11 ts12 ts13 val12 val13 released12 released13 mem1)
         (LOWER2: Memory.lower mem1 loc2 from2 to2 val2 released2 released2' mem2):
-    (<<LOCTS1: (loc1, ts12) <> (loc2, to2)>> /\
-     <<LOCTS2: (loc1, ts13) <> (loc2, to2)>> /\
+    (loc1 = loc2 /\ ts11 = from2 /\ ts12 = to2 /\ val12 = val2 /\ released12 = released2 /\
+     Memory.split mem0 loc1 ts11 ts12 ts13 val12 val13 released2' released13 mem2) \/
+    ((loc1, ts12) <> (loc2, to2) /\
      exists mem1',
-       <<LOWER1: Memory.lower mem0 loc2 from2 to2 val2 released2 released2' mem1'>> /\
-       <<SPLIT2: Memory.split mem1' loc1 ts11 ts12 ts13 val12 val13 released12 released13 mem2>>).
+        <<LOWER1: Memory.lower mem0 loc2 from2 to2 val2 released2 released2' mem1'>> /\
+        <<SPLIT2: Memory.split mem1' loc1 ts11 ts12 ts13 val12 val13 released12 released13 mem2>>).
   Proof.
-  Admitted.
+    exploit Memory.lower_get0; eauto. erewrite Memory.split_o; eauto. repeat condtac; ss.
+    - des. subst. i. inv x0. left. splits; auto.
+      inv SPLIT1. inv SPLIT. inv LOWER2. inv LOWER.
+      rewrite LocFun.add_add_eq. econs; auto.
+      unfold Cell.split in *.
+      destruct r, r0. ss. subst.
+      unfold LocFun.add. condtac; [|congr]. s.
+      rewrite DOMap.add_add_eq. econs; auto.
+    - guardH o. des. subst. congr.
+    - guardH o. guardH o0. i. right.
+      exploit (@Memory.lower_exists mem0 loc2 from2 to2);
+        try by inv LOWER2; inv LOWER; eauto. i. des.
+      exploit (@Memory.split_exists mem3 loc1 ts11 ts12 ts13);
+        try by inv SPLIT1; inv SPLIT; eauto.
+      { erewrite Memory.lower_o; eauto. condtac; ss.
+        { des. subst. congr. }
+        eapply Memory.split_get0. eauto.
+      }
+      i. des.
+      splits.
+      { ii. inv H. exploit Memory.split_get0; try exact SPLIT1; eauto. i. des.
+        revert GET2. erewrite Memory.lower_get0; eauto. congr.
+      }
+      cut (mem4 = mem2); [by i; subst; eauto|].
+      apply Memory.ext. i.
+      erewrite Memory.split_o; eauto. erewrite Memory.lower_o; eauto.
+      erewrite (@Memory.lower_o mem2); eauto. erewrite (@Memory.split_o mem1); eauto.
+      repeat (condtac; ss).
+      + des. repeat subst. congr.
+      + guardH o1. des. repeat subst. congr.
+  Qed.
 
   Lemma split_remove
         mem0 loc1 ts11 ts12 ts13 val12 val13 released12 released13
@@ -351,7 +447,9 @@ Module MemoryReorder.
         (SPLIT2: Memory.split mem1 loc2 ts21 ts22 ts23 val22 val23 released22 released23 mem2):
     exists from1' released23' mem1',
       <<SPLIT1: Memory.split mem0 loc2 ts21 ts22 ts23 val22 val23 released22 released23' mem1'>> /\
-      <<LOWER2: Memory.lower mem1' loc1 from1' to1 val1 released1 released1' mem2>>.
+      <<LOWER2: Memory.lower mem1' loc1 from1' to1 val1 released1 released1' mem2>> /\
+      <<FROM1: __guard__ ((loc1, to1, from1', released1', released23') = (loc2, ts23, ts22, released23, released1) \/
+                          ((loc1, to1) <> (loc2, ts23) /\ (from1', released23') = (from1, released23)))>>.
   Proof.
     destruct (loc_ts_eq_dec (loc1, to1) (loc2, ts23)); ss.
     - des. subst.
@@ -371,7 +469,8 @@ Module MemoryReorder.
       }
       { inv SPLIT2. inv SPLIT. auto. }
       i. des.
-      esplits; eauto.
+      esplits; eauto; cycle 1.
+      { left. eauto. }
       cut (mem4 = mem2); [by i; subst; eauto|].
       apply Memory.ext. i.
       erewrite Memory.lower_o; eauto. erewrite Memory.split_o; eauto.
@@ -397,7 +496,8 @@ Module MemoryReorder.
         - eapply Memory.lower_get0. eauto.
       }
       i. des.
-      esplits; eauto.
+      esplits; eauto; cycle 1.
+      { right. splits; eauto. ii. inv H. unguardH o. des; congr. }
       cut (mem4 = mem2); [by i; subst; eauto|].
       apply Memory.ext. i.
       erewrite Memory.lower_o; eauto. erewrite Memory.split_o; eauto.
