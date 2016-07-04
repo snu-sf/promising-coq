@@ -385,13 +385,88 @@ Proof.
   destruct withprm; eauto 10.
 Qed.
 
+Lemma rtcn_pi_step_remove_promises
+      tid n cST1 cST2
+      (PSTEP: rtcn (pi_step_except true tid) n cST1 cST2)
+      (PWF: pi_wf cST1):
+  exists n' cT2',
+    <<N: n' <= n>> /\
+    <<STEPS: rtcn (pi_step_except false tid) n' cST1 (cST2.(fst),cT2')>>.
+Proof.
+  revert_until n. induction n using strong_induction; i.
+  inv PSTEP.
+  { destruct cST2. esplits; eauto. }
+  exploit IH; eauto.
+  { inv A12. eapply pi_step_future; eauto. }
+  i. des.
+  inversion A12. inv PI_STEP. inv USTEP.
+  revert STEPS0. condtac; cycle 1.
+  { i. esplits; cycle 1.
+    - econs 2; eauto. econs; eauto. econs; eauto. econs; eauto.
+      + inv STEPT. econs; eauto.
+      + rewrite COND. auto.
+    - omega.
+  }
+  i. subst. inv STEPS.
+  { esplits; cycle 1.
+    - econs.
+    - auto.
+  }
+  inv A0. inv PI_STEP. inv USTEP.
+  assert (E0: ThreadEvent_is_promising e0 = None); [by inv STEPT0|].
+  assert ((<<TID: tid0 = tid1>> /\
+           <<STEP: small_step false tid0 e0 cT1 cT3>>) \/
+          (exists cT2',
+              <<STEP1: small_step false tid1 e0 cT1 cT2'>> /\
+              <<STEP2: small_step true tid0 e cT2' cT3>>)).
+  { admit. }
+  des.
+  { subst. esplits; cycle 1.
+    - econs 2; eauto. econs; eauto. econs. econs; eauto.
+      admit. (* NOWR *)
+    - omega.
+  }
+  assert (STEPS2: rtcn (pi_step_except true tid) (S n) (cS0, cT2'0) (fst cST2, cT2')).
+  { econs 2.
+    - econs; try exact TID. econs. econs.
+      + eauto.
+      + rewrite COND. ss.
+      + destruct (Ident.eq_dec tid0 tid1); subst; ss.
+        rewrite E0 in *.
+        inv STEPS. s. rewrite IdentMap.gso; auto.
+        inv STEPT0. s. rewrite IdentMap.gso; auto.
+      + admit. (* NOWR *)
+    - eapply rtcn_imply; try exact A1; eauto. clear.
+      i. inv PR. econs; eauto. inv PI_STEP. econs.
+      inv USTEP. econs; eauto. inv STEPT. econs; eauto.
+  }
+  assert (STEP3: pi_step_except false tid (cS2, cT1) (cS0, cT2'0)).
+  { eauto. econs; eauto. econs; eauto. econs; eauto.
+    - etrans; eauto. inv STEP2. s. rewrite IdentMap.Facts.add_o. condtac; ss.
+      subst. inv STEP; [|by inv STEP0]. inv STEP0.
+      rewrite TID1. ss.
+    - admit. (* NOWR *)
+  }
+  exploit IH; try exact STEPS2.
+  { omega. }
+  { inv STEP3. eapply pi_step_future; eauto. }
+  i. des.
+  esplits; cycle 1.
+  - econs 2; eauto.
+  - omega.
+Admitted. (* jeehoon: very important lemma *)
+
 Lemma rtc_pi_step_remove_promises
       tid cST1 cST2
+      (WF: pi_wf cST1)
       (PSTEP: rtc (pi_step_except true tid) cST1 cST2):
   exists cT2',
   rtc (pi_step_except false tid) cST1 (cST2.(fst),cT2').
 Proof.
-Admitted. (* jeehoon: very important lemma *)
+  apply rtc_rtcn in PSTEP. des.
+  eapply rtcn_pi_step_remove_promises in PSTEP; eauto. des.
+  eapply rtcn_rtc in STEPS. esplits; eauto.
+Qed.
 
 Lemma pi_consistent_small_step_pi_rw
       e tid cST1 cST2 cT3 withprm

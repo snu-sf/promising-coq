@@ -2,6 +2,7 @@ Require String.
 Require Import RelationClasses.
 Require Import List.
 Require Import PArith.
+Require Import Omega.
 Require Import UsualFMapPositive.
 Require Import FMapFacts.
 Require Import MSetList.
@@ -97,6 +98,53 @@ Lemma fapp A (B:A->Type) (a:A) (P Q:forall (a:A), B a)
       (EQ: P = Q):
   P a = Q a.
 Proof. rewrite EQ. auto. Qed.
+
+Inductive rtcn A (R: A -> A -> Prop): forall (n:nat) (a1 a2:A), Prop :=
+| rtcn_nil
+    a:
+    rtcn R 0 a a
+| rtcn_cons
+    a1 a2 a3 n
+    (A12: R a1 a2)
+    (A23: rtcn R n a2 a3):
+    rtcn R (S n) a1 a3
+.
+Hint Constructors rtcn.
+
+Lemma rtcn_rtc A (R: A -> A -> Prop) n a1 a2
+      (RTCN: rtcn R n a1 a2):
+  rtc R a1 a2.
+Proof.
+  induction RTCN; auto. econs; eauto.
+Qed.
+
+Lemma rtc_rtcn A (R: A -> A -> Prop) a1 a2
+      (RTC: rtc R a1 a2):
+  exists n, rtcn R n a1 a2.
+Proof.
+  induction RTC; eauto. i. des.
+  esplits; eauto.
+Qed.
+
+Lemma rtcn_imply
+      A (R1 R2: A -> A -> Prop) n a1 a2
+      (LE: R1 <2= R2)
+      (RTCN: rtcn R1 n a1 a2):
+  rtcn R2 n a1 a2.
+Proof.
+  induction RTCN; auto. econs; eauto.
+Qed.
+
+Lemma strong_induction
+      (P : nat -> Prop)
+      (IH: forall (n:nat) (IH: forall k (LT: k < n), P k), P n):
+  forall n : nat, P n.
+Proof.
+  i. cut (forall m k, k < m -> P k); [by eauto|].
+  induction m.
+  - i. omega.
+  - i. apply lt_le_S in H. inv H; eauto.
+Qed.
 
 Ltac condtac :=
   match goal with

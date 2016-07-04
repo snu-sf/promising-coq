@@ -347,3 +347,75 @@ Proof.
     + apply LOCAL1.
     + apply WF1_TGT.
 Qed.
+
+Lemma sim_local_program_step
+      lang
+      th1_src
+      th1_tgt th2_tgt e_tgt
+      (STEP_TGT: @Thread.program_step lang e_tgt th1_tgt th2_tgt)
+      (WF1_SRC: Local.wf th1_src.(Thread.local) th1_src.(Thread.memory))
+      (WF1_TGT: Local.wf th1_tgt.(Thread.local) th1_tgt.(Thread.memory))
+      (SC1_SRC: Memory.closed_timemap th1_src.(Thread.sc) th1_src.(Thread.memory))
+      (SC1_TGT: Memory.closed_timemap th1_tgt.(Thread.sc) th1_tgt.(Thread.memory))
+      (MEM1_SRC: Memory.closed th1_src.(Thread.memory))
+      (MEM1_TGT: Memory.closed th1_tgt.(Thread.memory))
+      (STATE: th1_src.(Thread.state) = th1_tgt.(Thread.state))
+      (LOCAL: sim_local th1_src.(Thread.local) th1_tgt.(Thread.local))
+      (SC: TimeMap.le th1_src.(Thread.sc) th1_tgt.(Thread.sc))
+      (MEM: sim_memory th1_src.(Thread.memory) th1_tgt.(Thread.memory)):
+  exists e_src th2_src,
+    <<STEP_SRC: @Thread.program_step lang e_src th1_src th2_src>> /\
+    <<EVENT: ThreadEvent.get_event e_src = ThreadEvent.get_event e_tgt>> /\
+    <<STATE: th2_src.(Thread.state) = th2_tgt.(Thread.state)>> /\
+    <<LOCAL: sim_local th2_src.(Thread.local) th2_tgt.(Thread.local)>> /\
+    <<SC: TimeMap.le th2_src.(Thread.sc) th2_tgt.(Thread.sc)>> /\
+    <<MEM: sim_memory th2_src.(Thread.memory) th2_tgt.(Thread.memory)>>.
+Proof.
+  destruct th1_src. ss. subst. inv STEP_TGT; ss.
+  - esplits; (try by econs 1; eauto); eauto.
+  - exploit sim_local_read; eauto; try refl. i. des.
+    esplits; (try by econs 2; eauto); eauto.
+  - hexploit sim_local_write; eauto; try refl; try by committac. i. des.
+    esplits; (try by econs 3; eauto); eauto.
+  - exploit Local.read_step_future; eauto. i. des.
+    exploit sim_local_read; eauto; try refl. i. des.
+    exploit Local.read_step_future; eauto. i. des.
+    hexploit sim_local_write; eauto; try refl; try by committac. i. des.
+    esplits; (try by econs 4; eauto); eauto.
+  - exploit sim_local_fence; eauto; try refl. i. des.
+    esplits; (try by econs 5; eauto); eauto.
+  - exploit sim_local_fence; eauto; try refl. i. des.
+    esplits; (try by econs 6; eauto); eauto.
+Qed.
+
+Lemma sim_local_rtcn_program_step
+      lang n
+      th1_src
+      th1_tgt th2_tgt
+      (STEPS_TGT: rtcn (@tau_program_step lang) n th1_tgt th2_tgt)
+      (WF1_SRC: Local.wf th1_src.(Thread.local) th1_src.(Thread.memory))
+      (WF1_TGT: Local.wf th1_tgt.(Thread.local) th1_tgt.(Thread.memory))
+      (SC1_SRC: Memory.closed_timemap th1_src.(Thread.sc) th1_src.(Thread.memory))
+      (SC1_TGT: Memory.closed_timemap th1_tgt.(Thread.sc) th1_tgt.(Thread.memory))
+      (MEM1_SRC: Memory.closed th1_src.(Thread.memory))
+      (MEM1_TGT: Memory.closed th1_tgt.(Thread.memory))
+      (STATE: th1_src.(Thread.state) = th1_tgt.(Thread.state))
+      (LOCAL: sim_local th1_src.(Thread.local) th1_tgt.(Thread.local))
+      (SC: TimeMap.le th1_src.(Thread.sc) th1_tgt.(Thread.sc))
+      (MEM: sim_memory th1_src.(Thread.memory) th1_tgt.(Thread.memory)):
+  exists th2_src,
+    <<STEP_SRC: rtcn (@tau_program_step lang) n th1_src th2_src>> /\
+    <<STATE: th2_src.(Thread.state) = th2_tgt.(Thread.state)>> /\
+    <<LOCAL: sim_local th2_src.(Thread.local) th2_tgt.(Thread.local)>> /\
+    <<SC: TimeMap.le th2_src.(Thread.sc) th2_tgt.(Thread.sc)>> /\
+    <<MEM: sim_memory th2_src.(Thread.memory) th2_tgt.(Thread.memory)>>.
+Proof.
+  revert_until n. induction n; i.
+  { inv STEPS_TGT. esplits; eauto. }
+  inv STEPS_TGT. inv A12.
+  exploit Thread.program_step_future; eauto. i. des.
+  exploit sim_local_program_step; try exact MEM; eauto. i. des.
+  exploit Thread.program_step_future; eauto. i. des.
+  exploit IHn; try exact MEM0; eauto. i. des.
+  esplits; eauto. econs; eauto. econs; eauto. etrans; eauto.
+Qed.
