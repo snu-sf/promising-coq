@@ -148,6 +148,7 @@ Proof.
   ii. rewrite PROMISES, Memory.bot_get in *. congr.
 Qed.
 
+(* TODO *)
 Lemma join_lt_des a b c
       (LT: Time.lt (Time.join a b) c):
   <<AC: Time.lt a c>> /\

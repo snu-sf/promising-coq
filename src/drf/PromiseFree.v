@@ -474,6 +474,7 @@ Proof.
   (* Write step *)
   { hexploit local_simul_write; try apply LOCAL.
     { inv SEMI_WF4. ii. apply LR in IN. des. esplits; eauto. }
+    { admit. (* memory & promises are disjoint *) }
     intro WRITE4. des.
 
     assert (X:= SEMI_WF4). inv X. ss.
@@ -507,6 +508,7 @@ Proof.
 
     hexploit local_simul_write; try apply LOCAL2. 
     { inv SEMI_WF4. ii. apply LR in IN. des. esplits; eauto. }
+    { admit. (* memory & promises are disjoint *) }
     intro WRITE4. des.
     
     inv STEP2. inv SEMI_WF4. inv STEP; inv STEP1.

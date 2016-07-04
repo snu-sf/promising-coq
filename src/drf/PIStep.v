@@ -623,15 +623,31 @@ Proof.
           exploit FULFILL; s; eauto.
           intro LT. ss.
           inv READABLE; eauto.
-          admit. (* with LT; jeehoon easy *)
+
+(* TODO *)
+Lemma join_lt_des a b c
+      (LT: Time.lt (Time.join a b) c):
+  <<AC: Time.lt a c>> /\
+  <<BC: Time.lt b c>>.
+Proof.
+  splits.
+  - eapply TimeFacts.le_lt_lt; eauto. apply Time.join_l.
+  - eapply TimeFacts.le_lt_lt; eauto. apply Time.join_r.
+Qed.
+
+          apply join_lt_des in LT. des.
+          apply join_lt_des in AC. des.
+          revert BC0. unfold TimeMap.singleton, LocFun.add. condtac; [|congr]. i.
+          eapply Time.lt_strorder. eauto.
         + eauto.
         + eauto.
       - s. by rewrite !IdentMap.gss.
       - i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); eauto.
     }
-    { destruct lc1, lc2. exploit local_simul_write; [|by eapply LOCAL|..].
+    { destruct lc1, lc2. exploit local_simul_write; [| |by eapply LOCAL|..].
       { instantiate (1:= memory). ii. eapply LR in IN.
         des; eauto. }
+      { admit. (* memory & promises are disjoint *) }
       intro WRITE; des.
       eexists; econs. 
       - eauto.
@@ -640,9 +656,10 @@ Proof.
       - s. by rewrite !IdentMap.gss.
       - i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); eauto.
     }
-    { destruct lc2, lc3. exploit local_simul_write; [|by eapply LOCAL2|..].
+    { destruct lc2, lc3. exploit local_simul_write; [| |by eapply LOCAL2|..].
       { instantiate (1:= memory). ii. eapply LR in IN.
         des; eauto. }
+      { admit. (* memory & promises are disjoint *) }
       intro WRITE; des.
 
       inv LOCAL1. eexists. econs.
@@ -669,7 +686,12 @@ Proof.
             s; intro LT.
             inv LOCAL2.
             s in LT. move LT at bottom.
-            admit. (* with LT; jeehoon easy *)
+            apply join_lt_des in LT. des.
+            apply join_lt_des in AC. des.
+            apply join_lt_des in AC0. des.
+            apply join_lt_des in AC. des.
+            revert BC2. unfold TimeMap.singleton, LocFun.add. condtac; [|congr]. i.
+            eapply Time.lt_strorder. eauto.
           }
           { eauto. }
         + eauto.
@@ -701,7 +723,7 @@ Proof.
       - s. by rewrite !IdentMap.gss.
       - i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); eauto.
     }
-Admitted. (* jeehoon: very easy *)
+Admitted. (* memory & promises disojint *)
 
 Lemma pi_consistent_rtc_small_step_pi
       tid cST1 cST2 withprm
