@@ -553,11 +553,7 @@ Definition sc_ext x y :=
 
 Definition sb_ext :=
   <| fun x => In x acts |> ;; 
-  (fun x y => thread x = thread y) ;; <| eq a |>.
-
-Definition sb_init :=
-  <| fun x => In x acts |> ;; 
-  (fun x y => is_init x) ;; <| eq a |>.
+  (fun x y => thread x = thread y \/ is_init x) ;; <| eq a |>.
 
 Lemma max_elt_sc_ext : max_elt sc_ext a.
 Proof. cdes GSTEP; unfold sc_ext; red; ins; desf. Qed.
@@ -601,16 +597,18 @@ Proof.
   apply SB_TID in H; desf; eauto.
 Qed.
 
-Lemma sb_sb_ext : inclusion (sb;; sb_ext) (sb_ext +++ sb_init).
+Lemma sb_sb_ext : inclusion (sb;; sb_ext) sb_ext.
 Proof.
   cdes COH; cdes WF; cdes WF_SB; cdes WF_ACTS.
   rewrite inclusion_sb1, inclusion_seq_eqv_r.
-  unfold sb_ext, sb_init, seq, eqv_rel, init_pair; red; ins; desc; subst.
-desf.
-- left; exists z1; splits; eauto.
+  unfold sb_ext, seq, eqv_rel, init_pair; red; ins; desc; subst.  exists z1; splits; eauto.
   exists y; splits; eauto.
-  desf. congruence.
-- right; exists z1; splits; eauto.
+  desf.
+  - left; splits. congruence. 
+  - right; splits; try done. eapply init_events_wf2; eauto.
+    intro. eapply init_proper_thread; eauto.
+  - right; splits; eauto.
+  - exfalso. eapply init_not_proper with (a:=z0); eauto.
 Qed.
 
 
@@ -648,9 +646,9 @@ Proof.
   intuition.
 Qed.  
 
-Lemma gstep_sb : sb' <--> sb +++ sb_ext +++ sb_init.
+Lemma gstep_sb : sb' <--> sb +++ sb_ext.
 Proof.
-  unfold sb_ext, sb_init; cdes GSTEP; cdes INC.
+  unfold sb_ext; cdes GSTEP; cdes INC.
   cdes WF'; cdes WF_SB.
   assert (is_proper a).
     eapply gstep_proper.
@@ -660,14 +658,17 @@ Proof.
   exploit SB_TID; try edone;
   rewrite SB_STEP in *; ins.
   - destruct H0; eauto; desc; subst a.
-  destruct H0.    
-  left; right; exists x; splits; eauto.
-  rewrite ACT_STEP in x1; ins; destruct x1; eauto; subst y.
-  exfalso; auto.
-  right; eexists. splits; eauto.
-  apply COH; done.
-  - desf; eauto; try subst a; try subst y; try subst x.
-    all: apply SB_STEP; right; splits; eauto; intro; subst z; eauto.
+    right; exists x; splits; eauto.
+    rewrite ACT_STEP in x1; ins; destruct x1; eauto; subst y.
+    exfalso; auto.
+  - destruct H0; eauto; desc; subst a.
+    subst z z0.
+    destruct H1.
+    * apply SB_STEP.
+      right; splits; eauto.
+      intro; subst x; eauto.
+    * apply WF_SB. done.
+      rewrite ACT_STEP; left; done.
 Qed.
 
 Lemma gstep_rmw :
@@ -714,7 +715,6 @@ Lemma gstep_rseq :
   rseq acts' sb' rmw' rf' <--> 
   rseq acts sb rmw rf +++ 
   <| is_write |> ;; restr_eq_rel loc sb_ext ;; <| is_write |> +++
-  <| is_write |> ;; restr_eq_rel loc sb_init;; <| is_write |> +++
   <| is_write |> ;; <| eq a |>.
 Proof.
   unfold rseq; rewrite gstep_in_acts; relsimp.
@@ -726,13 +726,8 @@ Proof.
     by rewrite (seq2 (seq_eqvK _)).
   rewrite gstep_sb at 1; relsimp. 
   apply union_more.
-  apply union_more.
     by rewrite gstep_useq.
   unfold sb_ext; relsimp.
-  rewrite (seq_eqvAC (eq a)).
-  rewrite (seq_eq_max_r), (seq_eqvC (eq a)); eauto with rel rel_max.
-  by rewrite (seq_eqvAC is_write), (seq2 (seq_eqvK _)).
-  unfold sb_init; relsimp.
   rewrite (seq_eqvAC (eq a)).
   rewrite (seq_eq_max_r), (seq_eqvC (eq a)); eauto with rel rel_max.
   by rewrite (seq_eqvAC is_write), (seq2 (seq_eqvK _)).
