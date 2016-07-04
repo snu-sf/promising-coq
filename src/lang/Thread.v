@@ -134,6 +134,7 @@ Module Local.
     <<SC2: Memory.closed_timemap sc1 mem2>> /\
     <<CLOSED2: Memory.closed mem2>> /\
     <<FUTURE: Memory.future mem1 mem2>> /\
+    <<COMMIT_FUTURE: Commit.le lc1.(commit) lc2.(commit)>> /\
     <<REL_WF: Capability.wf released>> /\
     <<REL_TS: Time.le (Capability.rw released loc) to>> /\
     <<REL_CLOSED: Memory.closed_capability released mem2>>.
@@ -143,6 +144,7 @@ Module Local.
     splits; ss.
     - econs; ss. eapply Commit.future_closed; eauto.
     - eapply Memory.future_closed_timemap; eauto.
+    - refl.
     - inv PROMISE.
       + inv PROMISES0. inv ADD. auto.
       + inv PROMISES0. inv SPLIT. auto.
@@ -155,6 +157,7 @@ Module Local.
         (WF1: wf lc1 mem1)
         (CLOSED1: Memory.closed mem1):
     <<WF2: wf lc2 mem1>> /\
+    <<COMMIT_FUTURE: Commit.le lc1.(commit) lc2.(commit)>> /\
     <<REL_WF: Capability.wf released>> /\
     <<REL_CLOSED: Memory.closed_capability released mem1>>.
   Proof.
@@ -162,7 +165,9 @@ Module Local.
     exploit CommitFacts.read_future; eauto.
     { eapply CLOSED1. eauto. }
     inv CLOSED1. exploit CLOSED; eauto. i. des.
-    splits; auto. econs; eauto.
+    splits; auto.
+    - econs; eauto.
+    - apply CommitFacts.read_commit_incr.
   Qed.
 
   Lemma promise_closed_capability
@@ -220,6 +225,7 @@ Module Local.
     <<WF2: wf lc2 mem2>> /\
     <<SC2: Memory.closed_timemap sc2 mem2>> /\
     <<CLOSED2: Memory.closed mem2>> /\
+    <<COMMIT_FUTURE: Commit.le lc1.(commit) lc2.(commit)>> /\
     <<SC_FUTURE: TimeMap.le sc1 sc2>> /\
     <<MEM_FUTURE: Memory.future mem1 mem2>> /\
     <<REL_WF: Capability.wf released>> /\
@@ -240,6 +246,7 @@ Module Local.
     { eapply Memory.future_closed_timemap; eauto. }
     i. des. splits; eauto.
     - econs; ss.
+    - apply CommitFacts.write_commit_incr. auto.
     - apply CommitFacts.write_sc_incr.
   Qed.
 
@@ -250,6 +257,7 @@ Module Local.
         (CLOSED1: Memory.closed mem1):
     <<WF2: wf lc2 mem1>> /\
     <<SC2: Memory.closed_timemap sc2 mem1>> /\
+    <<COMMIT_FUTURE: Commit.le lc1.(commit) lc2.(commit)>> /\
     <<SC_FUTURE: TimeMap.le sc1 sc2>>.
   Proof.
     inv WF1. inv STEP.
@@ -257,6 +265,10 @@ Module Local.
     exploit CommitFacts.write_fence_future; eauto. i. des.
     splits; eauto.
     - econs; eauto.
+    - etrans.
+      + apply CommitFacts.write_fence_commit_incr. auto.
+      + apply CommitFacts.write_fence_commit_mon; eauto; try refl.
+        apply CommitFacts.read_fence_commit_incr. auto.
     - apply CommitFacts.write_fence_sc_incr.
   Qed.
 
@@ -443,6 +455,7 @@ Module Thread.
       <<WF2: Local.wf e2.(local) e2.(memory)>> /\
       <<SC2: Memory.closed_timemap e2.(sc) e2.(memory)>> /\
       <<CLOSED2: Memory.closed e2.(memory)>> /\
+      <<COMMIT_FUTURE: Commit.le e1.(Thread.local).(Local.commit) e2.(Thread.local).(Local.commit)>> /\
       <<FUTURE: Memory.future e1.(memory) e2.(memory)>>.
     Proof.
       inv STEP. ss.
@@ -458,15 +471,17 @@ Module Thread.
       <<WF2: Local.wf e2.(local) e2.(memory)>> /\
       <<SC2: Memory.closed_timemap e2.(sc) e2.(memory)>> /\
       <<CLOSED2: Memory.closed e2.(memory)>> /\
+      <<COMMIT_FUTURE: Commit.le e1.(Thread.local).(Local.commit) e2.(Thread.local).(Local.commit)>> /\
       <<SC_FUTURE: TimeMap.le e1.(sc) e2.(sc)>> /\
       <<MEM_FUTURE: Memory.future e1.(memory) e2.(memory)>>.
     Proof.
       inv STEP; ss.
       - splits; eauto; refl.
       - exploit Local.read_step_future; eauto. i. des. splits; ss; refl.
-      - exploit Local.write_step_future; eauto; committac. i. des. auto.
+      - exploit Local.write_step_future; eauto; committac. i. des. splits; ss.
       - exploit Local.read_step_future; eauto. i. des.
-        exploit Local.write_step_future; eauto. i. des. auto.
+        exploit Local.write_step_future; eauto. i. des. splits; ss.
+        etrans; eauto.
       - exploit Local.fence_step_future; eauto. i. des. splits; ss. refl.
       - exploit Local.fence_step_future; eauto. i. des. splits; ss. refl.
     Qed.
@@ -479,6 +494,7 @@ Module Thread.
       <<WF2: Local.wf e2.(local) e2.(memory)>> /\
       <<SC2: Memory.closed_timemap e2.(sc) e2.(memory)>> /\
       <<CLOSED2: Memory.closed e2.(memory)>> /\
+      <<COMMIT_FUTURE: Commit.le e1.(Thread.local).(Local.commit) e2.(Thread.local).(Local.commit)>> /\
       <<SC_FUTURE: TimeMap.le e1.(sc) e2.(sc)>> /\
       <<MEM_FUTURE: Memory.future e1.(memory) e2.(memory)>>.
     Proof.
@@ -496,6 +512,7 @@ Module Thread.
       <<WF2: Local.wf e2.(local) e2.(memory)>> /\
       <<SC2: Memory.closed_timemap e2.(sc) e2.(memory)>> /\
       <<CLOSED2: Memory.closed e2.(memory)>> /\
+      <<COMMIT_FUTURE: Commit.le e1.(Thread.local).(Local.commit) e2.(Thread.local).(Local.commit)>> /\
       <<SC_FUTURE: TimeMap.le e1.(sc) e2.(sc)>> /\
       <<MEM_FUTURE: Memory.future e1.(memory) e2.(memory)>>.
     Proof.
@@ -512,6 +529,7 @@ Module Thread.
       <<WF2: Local.wf e2.(local) e2.(memory)>> /\
       <<SC2: Memory.closed_timemap e2.(sc) e2.(memory)>> /\
       <<CLOSED2: Memory.closed e2.(memory)>> /\
+      <<COMMIT_FUTURE: Commit.le e1.(Thread.local).(Local.commit) e2.(Thread.local).(Local.commit)>> /\
       <<SC_FUTURE: TimeMap.le e1.(sc) e2.(sc)>> /\
       <<MEM_FUTURE: Memory.future e1.(memory) e2.(memory)>>.
     Proof.

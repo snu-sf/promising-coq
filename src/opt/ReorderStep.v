@@ -227,7 +227,6 @@ Proof.
   - econs; eauto.
     + etrans; eauto. repeat (try condtac; aggrtac; try apply WF0).
     + eapply CommitFacts.writable_mon; eauto; try refl.
-      s. apply CommitFacts.read_commit_incr.
   - econs; eauto.
     s. inv READABLE.
     econs; repeat (try condtac; aggrtac; try apply WF0; eauto; unfold TimeMap.singleton).
@@ -990,4 +989,37 @@ Proof.
   }
   i. des.
   esplits; eauto.
+Qed.
+
+Lemma reorder_fence_fence
+      ordr1 ordw1
+      ordr2 ordw2
+      lc0 sc0 mem0
+      lc1 sc1
+      lc2 sc2
+      (ORDR1: Ordering.le ordr1 Ordering.acqrel)
+      (ORDW1: Ordering.le ordw1 Ordering.relaxed)
+      (ORDR2: Ordering.le ordr2 Ordering.relaxed)
+      (ORDW2: Ordering.le ordw2 Ordering.acqrel)
+      (WF0: Local.wf lc0 mem0)
+      (SC0: Memory.closed_timemap sc0 mem0)
+      (MEM0: Memory.closed mem0)
+      (STEP1: Local.fence_step lc0 sc0 ordr1 ordw1 lc1 sc1)
+      (STEP2: Local.fence_step lc1 sc1 ordr2 ordw2 lc2 sc2):
+  exists lc1' lc2' sc1' sc2',
+    <<STEP1: Local.fence_step lc0 sc0 ordr2 ordw2 lc1' sc1'>> /\
+    <<STEP2: Local.fence_step lc1' sc1' ordr1 ordw1 lc2' sc2'>> /\
+    <<LOCAL: sim_local lc2' lc2>> /\
+    <<SC: TimeMap.le sc2' sc2>>.
+Proof.
+  inv STEP1. inv STEP2. ss.
+  esplits.
+  - econs; eauto.
+  - econs; eauto.
+  - ss. econs; ss.
+    + unfold Commit.write_fence_commit, Commit.write_fence_sc.
+      econs; repeat (try condtac; aggrtac; try apply WF0).
+    + apply SimPromises.sem_bot.
+  - unfold Commit.write_fence_sc.
+    repeat (try condtac; aggrtac; try apply WF0).
 Qed.

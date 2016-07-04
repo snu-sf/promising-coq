@@ -131,7 +131,13 @@ Lemma promise_fulfill_write
   exists released' mem2',
     <<STEP: Local.write_step lc0 sc0 mem0 loc from to val releasedm released' ord lc2 sc2 mem2' kind>> /\
     <<REL_LE: Capability.le released' released>> /\
-    <<MEM: sim_memory mem2' mem2>>.
+    <<MEM: sim_memory mem2' mem2>> /\
+    <<REL: released' =
+           if Ordering.le Ordering.relaxed ord
+           then Capability.join
+                  releasedm
+                  (Commit.rel (Commit.write_commit (Local.commit lc0) sc0 loc to ord) loc)
+           else Capability.bot>>.
 Proof.
   exploit Local.promise_step_future; eauto. i. des.
   inv PROMISE. inv FULFILL.
@@ -144,6 +150,33 @@ Proof.
     econs; eauto.
     eapply MemoryMerge.promise_promise_promise; eauto.
   - eapply promise_lower_sim_memory. eauto.
+Qed.
+
+Lemma promise_fulfill_write_exact
+      lc0 sc0 mem0 loc from to val releasedm released ord lc1 lc2 sc2 mem2 kind
+      (PROMISE: Local.promise_step lc0 mem0 loc from to val released lc1 mem2 kind)
+      (FULFILL: fulfill_step lc1 sc0 loc from to val releasedm released ord lc2 sc2)
+      (REL_WF: Capability.wf releasedm)
+      (REL_CLOSED: Memory.closed_capability releasedm mem0)
+      (ORD: Ordering.le Ordering.acqrel ord -> lc0.(Local.promises) loc = Cell.bot /\
+                                              kind = Memory.promise_kind_add)
+      (WF0: Local.wf lc0 mem0)
+      (SC0: Memory.closed_timemap sc0 mem0)
+      (MEM0: Memory.closed mem0)
+      (REL: released =
+            if Ordering.le Ordering.relaxed ord
+            then Capability.join
+                   releasedm
+                   (Commit.rel (Commit.write_commit (Local.commit lc0) sc0 loc to ord) loc)
+            else Capability.bot):
+  Local.write_step lc0 sc0 mem0 loc from to val releasedm released ord lc2 sc2 mem2 kind.
+Proof.
+  exploit Local.promise_step_future; eauto. i. des.
+  inv PROMISE. inv FULFILL.
+  exploit MemorySplit.remove_promise_remove;
+    try exact REMOVE; eauto; try apply WF2; try refl. i. des.
+  refine (Local.step_write _ _ _ _ _ _); eauto.
+  econs; eauto.
 Qed.
 
 Lemma fulfill_step_promises_diff

@@ -191,33 +191,105 @@ Proof.
   eauto using small_step_find.
 Qed.
 
-Lemma thread_step_commit_future
+Lemma thread_step_commit_le
      lang e (t1 t2: @Thread.t lang)
-     (STEP: Thread.step e t1 t2):
+     (STEP: Thread.step e t1 t2)
+     (LOCALWF: Local.wf t1.(Thread.local) t1.(Thread.memory))
+     (SCWF: Memory.closed_timemap t1.(Thread.sc) t1.(Thread.memory))
+     (MEMWF: Memory.closed t1.(Thread.memory)):
   Commit.le t1.(Thread.local).(Local.commit) t2.(Thread.local).(Local.commit).
 Proof.
-Admitted. (* jeehoon easy; add condition *)
+  eapply Thread.step_future; eauto.
+Qed.
 
-Lemma rtc_small_step_commit_future
+Lemma rtc_small_step_commit_le
      c1 c2 tid lst1 lst2 lc1 lc2 withprm
      (STEPS: rtc (small_step_evt withprm tid) c1 c2)
      (THREAD1: IdentMap.find tid c1.(Configuration.threads) = Some (lst1, lc1))
-     (THREAD2: IdentMap.find tid c2.(Configuration.threads) = Some (lst2, lc2)):
+     (THREAD2: IdentMap.find tid c2.(Configuration.threads) = Some (lst2, lc2))
+     (WF: Configuration.wf c1):
   Commit.le lc1.(Local.commit) lc2.(Local.commit).
 Proof.
   ginduction STEPS; i.
   - rewrite THREAD1 in THREAD2. depdes THREAD2. reflexivity.
-  - destruct H. destruct USTEP. rewrite THREAD1 in TID. depdes TID.
-      etrans; [apply (thread_step_commit_future STEP)|].
-      eapply IHSTEPS; eauto.
-      s. subst. rewrite IdentMap.gss. eauto.
+  - inv H. exploit small_step_future; eauto.
+    intros [WF2 _].
+    inv WF.
+    destruct USTEP. rewrite THREAD1 in TID. depdes TID.
+    etrans; [apply (thread_step_commit_le STEP)|]; eauto.
+    eapply WF0; eauto.
+    eapply IHSTEPS; eauto.
+    s. subst. rewrite IdentMap.gss. eauto.
 Qed.
 
-Lemma write_step_lt
+Lemma small_step_write_lt
       tid c c1 e lst lc loc from ts val rel ord withprm
       (STEP: small_step withprm tid e c c1)
       (EVENT: ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord))
       (THREAD: IdentMap.find tid (Configuration.threads c) = Some (lst, lc)):
   Time.lt (lc.(Local.commit).(Commit.cur).(Capability.rw) loc) ts.
 Proof.
-Admitted. (* jeehoon easy; maybe add condition *)
+  inv STEP. rewrite THREAD in TID. inv TID.
+  inv STEP0; inv STEP; inv EVENT.
+  - inv LOCAL. apply WRITABLE.
+  - eapply TimeFacts.le_lt_lt; cycle 1.
+    + inv LOCAL2. inv WRITABLE. apply TS.
+    + inv LOCAL1. s. do 2 (etrans; [|apply TimeMap.join_l]). refl.
+Qed.
+
+Lemma small_step_promise_decr
+      tid tid' loc ts e c1 c2 lst2 lc2 from2 msg2
+      (STEPT: small_step false tid e c1 c2)
+      (FIND2: IdentMap.find tid' c2.(Configuration.threads) = Some (lst2,lc2))
+      (PROMISES: Memory.get loc ts lc2.(Local.promises) = Some (from2, msg2)):
+  exists lst1 lc1 from1 msg1,
+  <<FIND1: IdentMap.find tid' c1.(Configuration.threads) = Some (lst1,lc1)>> /\
+  <<PROMISES: Memory.get loc ts lc1.(Local.promises) = Some (from1, msg1)>>.
+Proof.
+  inv STEPT; ss. revert FIND2. rewrite IdentMap.gsspec. condtac.
+  - i. inv FIND2.
+    inv STEP; inv STEP0; inv PFREE; try inv LOCAL;
+      (try by esplits; eauto).
+    + inv WRITE.
+      revert PROMISES. erewrite Memory.remove_o; eauto. condtac; ss.
+      guardH o. i. destruct msg2.
+      exploit MemoryFacts.MemoryFacts.promise_get_promises_inv_diff; eauto.
+      { ii. inv H. unguardH o. des; congr. }
+      i. des. esplits; eauto.
+    + inv LOCAL1.
+      inv LOCAL2. inv WRITE.
+      revert PROMISES. erewrite Memory.remove_o; eauto. condtac; ss.
+      guardH o. i. destruct msg2.
+      exploit MemoryFacts.MemoryFacts.promise_get_promises_inv_diff; eauto.
+      { ii. inv H. unguardH o. des; congr. }
+      i. des. esplits; eauto.
+  - i. esplits; eauto.
+Qed.
+
+Corollary small_step_promise_decr_bot
+      tid tid' e c1 c2 lst1 lc1 lst2 lc2
+      (STEPT: small_step false tid e c1 c2)
+      (FIND1: IdentMap.find tid' c1.(Configuration.threads) = Some (lst1,lc1))
+      (FIND2: IdentMap.find tid' c2.(Configuration.threads) = Some (lst2,lc2))
+      (PROMISES: lc1.(Local.promises) = Memory.bot):
+  lc2.(Local.promises) = Memory.bot.
+Proof.
+  apply Memory.ext. i. setoid_rewrite Cell.bot_get.
+  destruct (Memory.get loc ts (Local.promises lc2)) as [[from msg]|] eqn: EQ; eauto.
+  exploit small_step_promise_decr; eauto.
+  i; des. rewrite FIND0 in FIND1. inv FIND1.
+  rewrite PROMISES in *. 
+  setoid_rewrite Cell.bot_get in PROMISES0. done.
+Qed.
+
+Lemma small_step_update_promise
+      withprm tid loc tsr tsw valr valw relr1 relw1 ordr ordw c1 c2 lst1 lst2 lc1 lc2 from1 msg1
+      (STEP: small_step withprm tid (ThreadEvent.update loc tsr tsw valr valw relr1 relw1 ordr ordw) c1 c2)
+      (FIND1: IdentMap.find tid c1.(Configuration.threads) = Some (lst1, lc1))
+      (FIND2: IdentMap.find tid c2.(Configuration.threads) = Some (lst2, lc2))
+      (GET: Memory.get loc tsr lc1.(Local.promises) = Some (from1, msg1)):
+  exists from2 msg2,
+  Memory.get loc tsr lc2.(Local.promises) = Some (from2, msg2).
+Proof.
+Admitted. (* jeehoon: easy *)
+
