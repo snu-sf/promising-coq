@@ -330,8 +330,8 @@ Proof.
       try solve [exploit urr_actb; try eassumption; eauto]; congruence. 
     left; right; desf; eexists; splits; eauto;
       try solve [exploit urr_actb; try eassumption; eauto].
-  by unfold seq; right; desf; eexists; splits; eauto;
-      try solve [exploit urr_actb; try eassumption; eauto].
+  by unfold seq; right; desf; eexists; splits; eauto
+      try solve [exploit urr_actb; try eassumption; eauto .
 Qed.
 
 Lemma gstep_msg_rel_rwr_write1 l (LOC: loc a = Some l) l' :

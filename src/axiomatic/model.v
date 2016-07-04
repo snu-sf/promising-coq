@@ -76,15 +76,15 @@ Section Consistency.
   Definition c_rel i l' tmr :=  
     tmr ;; 
     <| is_rel |> ;; <| fun x => is_write x /\ loc x = Some l' \/ is_fence x |> ;;
-    <| fun x => thread x = i |>.
+    <| fun x => thread x = i \/ is_init x |>.
 
   Definition c_cur i tmr := 
     tmr ;; 
-    <| fun x => thread x = i |>.
+    <| fun x => thread x = i \/ is_init x |>.
 
   Definition c_acq i tmr :=  
     tmr ;; clos_refl (rel ;; rf ;; <| is_rlx_rw |>) ;;
-    <| fun x => thread x = i |>.
+    <| fun x => thread x = i \/ is_init x |>.
 
   Definition m_rel tmr :=
     tmr ;; rel.
@@ -422,7 +422,7 @@ Proof. red; ins; apply scr_doma in REL; desf. Qed.
 
 Lemma c_rel_doma i l' tmr d: doma tmr d -> doma (c_rel i l' tmr) d.
 Proof. unfold c_rel; eauto with rel. Qed.
-Lemma c_rel_domb1 i l' tmr: domb (c_rel i l' tmr) (fun a => thread a = i).
+Lemma c_rel_domb1 i l' tmr: domb (c_rel i l' tmr) (fun a => thread a = i \/ is_init a).
 Proof. unfold c_rel; eauto with rel. Qed.
 Lemma c_rel_domb2 i l' tmr: 
   domb (c_rel i l' tmr) (fun x => is_write x /\ loc x = Some l' \/ is_fence x). 
@@ -432,12 +432,12 @@ Proof. unfold c_rel; rewrite <- !seqA; eauto with rel. Qed.
 
 Lemma c_cur_doma i tmr d: doma tmr d -> doma (c_cur i tmr) d.
 Proof. unfold c_cur; eauto with rel. Qed.
-Lemma c_cur_domb i tmr: domb (c_cur i tmr) (fun a => thread a = i).
+Lemma c_cur_domb i tmr: domb (c_cur i tmr) (fun a => thread a = i \/ is_init a).
 Proof. unfold c_cur; eauto with rel. Qed.
 
 Lemma c_acq_doma i tmr d: doma tmr d -> doma (c_acq i tmr) d.
 Proof. unfold c_acq; eauto with rel. Qed.
-Lemma c_acq_domb i tmr: domb (c_acq i tmr) (fun a => thread a = i).
+Lemma c_acq_domb i tmr: domb (c_acq i tmr) (fun a => thread a = i \/ is_init a).
 Proof. unfold c_acq; eauto with rel. Qed.
 
 Lemma m_rel_doma tmr d: doma tmr d -> doma (m_rel tmr) d.

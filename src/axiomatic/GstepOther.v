@@ -155,7 +155,7 @@ Proof.
   unfold c_rel; split; eauto with mon.
   rewrite !eqv_join; rewrite !seq_eqv_r; red; ins; desc; subst. 
   splits; try done; apply GA; eauto; intro; desf; eauto;
-  by destruct a as [??[]].
+  try by destruct a as [??[]]; try eby eapply init_not_rel.
 Qed.
 
 Lemma gstep_c_cur_other tm tm' 
@@ -166,6 +166,7 @@ Proof.
   unfold c_cur; split; eauto with mon.
   rewrite !seq_eqv_r; red; ins; desc; subst. 
   splits; try done; apply GA; eauto; intro; desf; eauto.
+  eby eapply gstep_not_init.
 Qed.
 
 Lemma gstep_c_acq_other tm tm' 
@@ -173,13 +174,15 @@ Lemma gstep_c_acq_other tm tm'
       i (NT: thread a <> i) :
   c_acq acts' sb' rmw' rf' i tm' <--> c_acq acts sb rmw rf i tm.
 Proof.
+  assert (~ is_init a). eby eapply gstep_not_init.
   unfold c_acq; split; eauto 8 with mon.
   rewrite (gstep_seq_max (a:=a) MON); eauto 8 with rel rel_max.
   apply seq_mori; ins.
   rewrite (gstep_seq_max (a:=a) (rel_mon GSTEP)); eauto with rel rel_max.
   rewrite !crE; relsimp.
   rewrite (gstep_seq_max (a:=a) (rf_mon GSTEP)); eauto with rel rel_max.
-Qed.
+admit.
+Admitted.
 
 Lemma gstep_t_rel_other tm l
    (GA: gstep_a a (tm acts sb rmw rf sc l) (tm acts' sb' rmw' rf' sc' l)) 

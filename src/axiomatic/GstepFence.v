@@ -291,8 +291,8 @@ Proof.
   rewrite !(fun x => seq2 (gstep_sb_ext_helper_dom GSTEP _ x)); try done.
   rewrite !(fun x => seq2 (seq_sb_ext_max_r GSTEP x)); eauto with rel rel_max.
   rewrite !(fun x => seq2 (seq_sc_ext_max_r acts x)); eauto with rel rel_max.
-  rewrite !(gstep_sb_ext_helper_dom GSTEP); try done.
-  rewrite !(gstep_sc_ext_helper_dom acts); try done.
+  rewrite !(gstep_sb_ext_helper_dom GSTEP); auto 2.
+  rewrite !(gstep_sc_ext_helper_dom acts); auto 2.
   rewrite (gstep_seq_max (a:=a) (rel_mon GSTEP)); eauto with rel rel_max.
   rewrite (gstep_rf_nonread COH GSTEP), !unionA; eauto with rel rel_max.
   apply union_more; ins.
@@ -366,6 +366,8 @@ Proof.
     exists x; split; vauto; exists a; split; vauto.
     destruct (classic (y = a)); desf. 
       red in D; desf. 
+    eby exfalso; eapply gstep_not_init.
+    all: try eby exfalso; eapply init_not_rel.
     eapply clos_refl_seq_step; eauto using hb_trans.
     by eapply sb_in_hb; cdes GSTEP; apply SB_STEP; eauto.
 
@@ -451,7 +453,8 @@ Lemma gstep_sb_ext_helper_w l dom :
         <| fun x => thread x = thread a |> ;; sb_ext acts a ;; <| dom |>.
 Proof.
   unfold sb_ext; rewrite !seqA, !eqv_join, <- !seqA, !eqv_join, !seq_eqv_l, !seq_eqv_r.
-  by split; red; ins; desf; eauto 10.
+  assert (~ is_init a). eby eapply gstep_not_init.
+  by split; red; ins; desf; eauto 12.
 Qed.
 
 Lemma gstep_sc_ext_helper_fence l :

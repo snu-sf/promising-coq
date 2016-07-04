@@ -907,11 +907,12 @@ Definition proof_obligation ax_st ax_st' op_st i lang st st' :=
    (CONS_OP_ST : Configuration.consistent op_st)
    (STATES : ts ax_st = IdentMap.map fst (Configuration.threads op_st))
    f (TIME : sim_time op_st ax_st f) commit
+   j (THREAD: i = Some j)
    (COMMIT : sim_commit f (acts ax_st) (sb ax_st) (rmw ax_st) 
           (rf ax_st) (sc ax_st) commit i),
   exists te commit' sc' mem' op_st' threads' local', 
     << OP_ST': op_st' = Configuration.mk threads' sc' mem' >> /\ 
-    << THREAD': threads' = IdentMap.add i (existT Language.state lang st', local') 
+    << THREAD': threads' = IdentMap.add j (existT Language.state lang st', local') 
                                           (Configuration.threads op_st) >> /\ 
     << LOCAL': local' = Local.mk commit' Memory.bot >> /\ 
     << STEP: Thread.program_step te 
@@ -967,7 +968,7 @@ splits; eauto.
 - eapply Thread.step_read; eauto.
   econstructor; eauto.
   red in COMMIT; red in SIMMSG; desc.
-  eapply Readable_full; eauto. 
+  eapply Readable_full;eauto. 
 - exists f; splits; eauto.
   * rewrite <- gstep_non_write_mo; eauto with acts.
   * eapply commit_step_read with (acts := acts) (acts0 := acts0); eauto.
@@ -1091,7 +1092,7 @@ Proof.
   assert (TID' := TID).
   apply NO_PROMISES in TID'; ins; subst.
 
-  cut (proof_obligation ax_st ax_st' op_st i lang st st').
+  cut (proof_obligation ax_st ax_st' op_st (Some i) lang st st').
   {
     intro X; exploit X; eauto; clear X; ins; desc. 
        by eapply TIME; eauto.
@@ -1114,6 +1115,7 @@ Proof.
       all: eapply sim_commit_other_threads; eauto 2.
       all: try eapply sim_commit_other_threads; eauto 2.
       all: try intro; subst; eauto.
+      all: congruence.
    }
   clear f TIME.
 
@@ -1126,6 +1128,7 @@ Proof.
     red in TIME; ins; desc; subst.
     exists f; splits; eauto.
   }
+all: try rewrite <- TIDa; try rewrite <- TIDar; try rewrite <- TIDaw.
   by eapply ax_op_sim_step_read; eauto.
   by eapply ax_op_sim_step_write; eauto.
   by eapply ax_op_sim_step_update; eauto.

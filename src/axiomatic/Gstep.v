@@ -176,6 +176,10 @@ Section GstepLemmas.
     intro; cdes GSTEP; cdes COH; cdes WF; cdes WF_ACTS; eauto.
   Qed.
 
+  Lemma gstep_not_init : ~ is_init a.
+  Proof.
+    eauto using proper_non_init, gstep_proper.
+  Qed.
 
 (******************************************************************************)
 (** ** Lemmas about graph inclusion   *)
@@ -815,7 +819,7 @@ Proof.
 Qed.
 
 Lemma thr_sb_ext :
-  sb_ext ;; <| fun x => thread x = thread a |> <--> sb_ext.
+  sb_ext ;; <| fun x => thread x = thread a \/ is_init x |> <--> sb_ext.
 Proof.
   unfold sb_ext; rewrite seq_eqv_l, seq_eqv_r; 
   unfold seq, eqv_rel; split; red; ins; desf; eauto 10.
@@ -842,7 +846,7 @@ Qed.
 
 
 (** Easy cases when the thread views do not change *)
-
+(* 
 Lemma gstep_c_rel_other tm tm' 
       (GA: gstep_a tm tm') (MON: inclusion tm tm') 
       i l' (NT: thread a <> i
@@ -851,8 +855,8 @@ Lemma gstep_c_rel_other tm tm'
   c_rel i l' tm' <--> c_rel i l' tm.
 Proof.
   unfold c_rel; split; eauto with mon.
-  rewrite !eqv_join; rewrite !seq_eqv_r; red; ins; desc; subst. 
-  splits; try done; apply GA; eauto; intro; desf; eauto;
+  rewrite !eqv_join; rewrite !seq_eqv_r; red; ins; desc; subst.
+   splits; try done; apply GA; eauto; intro; desf; eauto;
   by destruct a as [??[]].
 Qed.
 
@@ -864,7 +868,7 @@ Proof.
   unfold c_cur; split; eauto with mon.
   rewrite !seq_eqv_r; red; ins; desc; subst. 
   splits; try done; apply GA; eauto; intro; desf; eauto.
-Qed.
+Admitted.
 
 Lemma gstep_c_acq_other tm tm' 
       (GA: gstep_a tm tm') (MON: inclusion tm tm') 
@@ -877,8 +881,8 @@ Proof.
   rewrite (gstep_seq_max rel_mon); auto with rel rel_max.
   rewrite !crE; relsimp.
   rewrite (gstep_seq_max rf_mon); auto with rel rel_max.
-Qed.
-
+Admitted.
+ *) (*
 Lemma gstep_t_rel_other tm l
    (GA: gstep_a (tm acts sb rmw rf sc l) (tm acts' sb' rmw' rf' sc' l)) 
    (MON: inclusion (tm acts sb rmw rf sc l) (tm acts' sb' rmw' rf' sc' l)) 
@@ -912,9 +916,9 @@ Proof.
   eapply (fun x => gstep_c_acq_other x MON); 
     eauto with rel rel_max.
 Qed.
-
+*)
 (** Changes to [S_tmr] *)
-
+(*
 Lemma gstep_S_tmr_other (N: is_read a \/ ~ is_sc a) l :
   S_tmr acts' sb' rmw' rf' l <-->
   S_tmr acts sb rmw rf l.
@@ -934,7 +938,7 @@ Lemma gstep_S_tm_other (N: is_read a \/ ~ is_sc a) l x :
 Proof.
   unfold S_tm; rewrite gstep_S_tmr_other; ins.
 Qed.
-
+*)
 Lemma gstep_sb_ext_helper_dom (dom : _ -> Prop) (F: dom a) :
   sb_ext ;; <| dom |> <--> sb_ext.
 Proof.

@@ -219,8 +219,8 @@ Proof.
     by eapply rf_domb in RF; eauto; destruct a as [??[]]. 
   rewrite crE; unfold c_cur.
   rewrite gstep_urr_read; try edone; relsimp.
-(*   rewrite !(thr_sb_ext GSTEP), !(thr_sb_ext2 GSTEP).
-  split; repeat apply inclusion_union_l; eauto 10 with rel. 
+   rewrite !(thr_sb_ext GSTEP), !(thr_sb_ext2 GSTEP).
+(*   split; repeat apply inclusion_union_l; eauto 10 with rel. 
 Qed. 
  *)
 Admitted.
@@ -239,8 +239,9 @@ Proof.
   rewrite crE; unfold c_cur.
   rewrite gstep_rwr_read; try edone; relsimp.
   rewrite !(thr_sb_ext GSTEP), !(thr_sb_ext2 GSTEP).
-  split; repeat apply inclusion_union_l; eauto 10 with rel. 
-Qed. 
+  split; repeat apply inclusion_union_l; eauto 10 with rel.
+Admitted.
+
 
 Lemma gstep_c_cur_scr_read l :
   c_cur (thread a) (scr acts' sb' rmw' rf' sc' l) <-->
@@ -256,7 +257,7 @@ Proof.
   rewrite gstep_scr_read; try edone; relsimp.
   rewrite !(thr_sb_ext GSTEP), !(thr_sb_ext2 GSTEP).
   split; repeat apply inclusion_union_l; eauto 10 with rel. 
-Qed. 
+Admitted.
 
 Lemma gstep_t_cur_urr_read l x :
   t_cur urr acts' sb' rmw' rf' sc' (thread a) l x <->
@@ -306,8 +307,8 @@ Proof.
   rewrite (gstep_seq_max MON GA) with (r'' := _ ;; _); eauto with rel rel_max.
   rewrite (gstep_seq_max (a:=a) (rel_mon GSTEP)); eauto with rel rel_max.
   rewrite gstep_rf_read; relsimp. 
-  split; repeat apply inclusion_union_l; eauto 10 with rel. 
-Qed.
+  split; repeat apply inclusion_union_l; eauto 10 with rel.
+Admitted.
 
 Lemma gstep_t_acq_urr_read l x :
   t_acq urr acts' sb' rmw' rf' sc' (thread a) l x <->

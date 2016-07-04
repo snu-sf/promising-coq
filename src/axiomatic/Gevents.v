@@ -186,5 +186,17 @@ Lemma init_is_rlx a (A: is_init a) : is_rlx_rw a.
 Proof. unfold is_init, init_event, is_rlx_rw in *; desc. 
 destruct a; destruct lb; ins; desf. Qed.
 
+Lemma init_not_acq a (A: is_init a) : ~ is_acq a.
+Proof. unfold is_init, init_event, is_rlx_rw in *; desc. 
+destruct a; destruct lb; ins; desf. Qed.
+
+Lemma init_not_rel a (A: is_init a) : ~ is_rel a.
+Proof. unfold is_init, init_event, is_rlx_rw in *; desc. 
+destruct a; destruct lb; ins; desf. Qed.
+
+Lemma init_not_sc a (A: is_init a) : ~ is_sc a.
+Proof. unfold is_init, init_event, is_rlx_rw in *; desc. 
+destruct a; destruct lb; ins; desf. Qed.
+
 Hint Resolve  init_not_proper proper_non_init init_proper_thread thread_proper 
-  init_is_write init_is_rlx : acts.
+  init_is_write init_is_rlx init_not_acq init_not_rel init_not_sc : acts.
