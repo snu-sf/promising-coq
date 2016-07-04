@@ -105,3 +105,30 @@ Lemma with_pre_trans
 Proof.
   ginduction STEPS2; s; i; des; subst; eauto.
 Qed.
+
+
+
+Definition mem_sub (cmp: Capability.t -> Capability.t -> Prop) (m1 m2: Memory.t) : Prop :=
+  forall loc ts from val rel1
+    (IN: Memory.get loc ts m1 = Some (from, Message.mk val rel1)),
+  exists rel2,
+  <<IN: Memory.get loc ts m2 = Some (from, Message.mk val rel2)>> /\
+  <<CMP: cmp rel1 rel2>>.
+
+Lemma local_simul_fence
+      com prm prm' sc ordr ordw com' sc'
+      (LOCAL: Local.fence_step (Local.mk com prm) sc ordr ordw (Local.mk com' prm') sc'):
+  Local.fence_step (Local.mk com Memory.bot) sc ordr ordw (Local.mk com' Memory.bot) sc'.
+Proof.
+  inv LOCAL. econs; eauto.
+Qed.
+
+Lemma local_simul_write
+      com com' sc sc' mS mT mT' loc from to val relr relw ord kind prm prm'
+      (SUB: mem_sub eq mS mT)
+      (WRITE: Local.write_step (Local.mk com prm) sc mT loc from to val relr relw ord (Local.mk com' prm') sc' mT' kind):
+  exists mS',
+  Local.write_step (Local.mk com Memory.bot) sc mS loc from to val relr relw ord (Local.mk com' Memory.bot) sc' mS' kind.
+Proof.
+Admitted. (* closedness may be needed *)
+
