@@ -24,9 +24,6 @@ Section Graph_steps_fence.
   Hypothesis (COH: Coherent acts sb rmw rf mo sc).
   Variables (prev a : event).
   Hypothesis (GSTEP: gstep acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc' prev a).
-  Variable b : event.
-  Hypothesis (RF: rf' b a).
-
 
   Lemma gstep_wf : Wf acts'  sb' rmw' rf' mo' sc'.
   Proof. cdes GSTEP; done. Qed.

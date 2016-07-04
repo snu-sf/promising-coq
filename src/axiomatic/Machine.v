@@ -21,7 +21,7 @@ Require Import Commit.
 
 Require Import Gevents.
 Require Import model.
-Require Import Gsteps.
+Require Import Gstep.
 
 Set Implicit Arguments.
 Remove Hints plus_n_O.
@@ -50,14 +50,14 @@ Inductive mstep mc mc' e i : Prop :=
       (LABa: lab a = Aload l v o) 
       (TIDa: thread a = i) 
       (GSTEP: gstep (acts mc) (sb mc) (rmw mc) (rf mc) (mo mc) (sc mc)
-                    (acts mc') (sb mc') (rmw mc') (rf mc') (mo mc') (sc mc') a)
+                    (acts mc') (sb mc') (rmw mc') (rf mc') (mo mc') (sc mc') a a)
       (COH': Coherent (acts mc') (sb mc') (rmw mc') (rf mc') (mo mc') (sc mc'))
   | write a l v o 
       (EVENT: e = Some (ProgramEvent.write l v o)) 
       (LABa: lab a = Astore l v o) 
       (TIDa: thread a = i) 
       (GSTEP: gstep (acts mc) (sb mc) (rmw mc) (rf mc) (mo mc) (sc mc)
-                    (acts mc') (sb mc') (rmw mc') (rf mc') (mo mc') (sc mc') a)
+                    (acts mc') (sb mc') (rmw mc') (rf mc') (mo mc') (sc mc') a a)
       (COH': Coherent (acts mc') (sb mc') (rmw mc') (rf mc') (mo mc') (sc mc'))
   | update a_r a_w l v_r v_w o_r o_w 
       (EVENT: e = Some (ProgramEvent.update l v_r v_w o_r o_w)) 
@@ -65,9 +65,9 @@ Inductive mstep mc mc' e i : Prop :=
       (TIDar: thread a_r = i) (TIDaw: thread a_w = i) 
       mc_mid
       (GSTEPr: gstep (acts mc) (sb mc) (rmw mc) (rf mc) (mo mc) (sc mc)
-           (acts mc_mid) (sb mc_mid) (rmw mc_mid) (rf mc_mid) (mo mc_mid) (sc mc_mid) a_r)
+           (acts mc_mid) (sb mc_mid) (rmw mc_mid) (rf mc_mid) (mo mc_mid) (sc mc_mid) a_r a_r)
       (GSTEPw: gstep (acts mc_mid) (sb mc_mid) (rmw mc_mid) (rf mc_mid) (mo mc_mid) (sc mc_mid)
-                     (acts mc') (sb mc') (rmw mc') (rf mc') (mo mc') (sc mc') a_w)
+                     (acts mc') (sb mc') (rmw mc') (rf mc') (mo mc') (sc mc') a_r a_w)
       (COHmid: Coherent (acts mc_mid) (sb mc_mid) (rmw mc_mid) (rf mc_mid) (mo mc_mid) 
                         (sc mc_mid))
       (COH': Coherent (acts mc') (sb mc') (rmw mc') (rf mc') (mo mc') (sc mc'))
@@ -75,7 +75,7 @@ Inductive mstep mc mc' e i : Prop :=
       (LABa: lab a = Afence o_r o_w) 
       (TIDa: thread a = i) 
       (GSTEP: gstep (acts mc) (sb mc) (rmw mc) (rf mc) (mo mc) (sc mc)
-                    (acts mc') (sb mc') (rmw mc') (rf mc') (mo mc') (sc mc') a)
+                    (acts mc') (sb mc') (rmw mc') (rf mc') (mo mc') (sc mc') a a)
       (COH': Coherent (acts mc') (sb mc') (rmw mc') (rf mc') (mo mc') (sc mc')).
 
 Inductive step mc mc' : Prop :=
