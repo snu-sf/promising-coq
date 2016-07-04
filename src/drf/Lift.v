@@ -40,7 +40,8 @@ Definition pi_step_lift_mem l t p k e M1 M2 : Prop :=
   match ThreadEvent.is_writing e with
   | Some (loc,from,to,val,rel,ord) =>
     exists pm1 pm2,
-      <<DISJ: Memory.disjoint p pm1>> /\
+      <<NOPRM: Memory.get loc to p = None>> /\
+      <<DISJ: forall t' v' r' (KIND: k = Memory.promise_kind_split t' v' r'), Memory.get loc t' p = None>> /\
       <<PMREL: Memory.promise pm1 M1 loc from to val (if Loc.eq_dec l loc then rel else Capability_lift l t rel) pm2 M2 k>>
   | None =>
     M1 = M2
@@ -251,10 +252,11 @@ Qed.
 
 Lemma pi_step_lift_mem_split
       loc ts1 ts2 ts3 val2 val3 released2 released3
-      m1 m2 m2'
+      m1 m2 m2' prm'
       l t prm k e
       (MEMLE: pi_step_lift_mem l t prm k e m1 m2)
-      (SPLIT2: Memory.split m2 loc ts1 ts2 ts3 val2 val3 released2 released3 m2'):
+      (SPLIT2: Memory.split m2 loc ts1 ts2 ts3 val2 val3 released2 released3 m2')
+      (SPLITP2: Memory.split prm loc ts1 ts2 ts3 val2 val3 released2 released3 prm'):
   exists m1',
     <<SPLIT2: Memory.split m1 loc ts1 ts2 ts3 val2 val3 released2 released3 m1'>> /\
     <<MEMLE': pi_step_lift_mem l t prm k e m1' m2'>>.
@@ -264,25 +266,30 @@ Proof.
   { i. subst. esplits; eauto. }
   i. des. inv PMREL.
   - exploit MemoryReorder.add_split; try exact MEM; eauto. i. des.
-    { subst. admit. }
+    { subst. exploit Memory.split_get0; try exact SPLITP2; eauto.
+      i. des. congr.
+    }
     esplits; eauto. econs; eauto.
   - exploit MemoryReorder.split_split; try exact MEM; eauto.
-    { admit. }
+    { ii. inv H. exploit DISJ; eauto. i.
+      exploit Memory.split_get0; try exact SPLITP2; eauto. i. des. congr.
+    }
     i. des.
-    { subst. admit. }
+    { subst. exploit Memory.split_get0; try exact SPLITP2; eauto. i. des. congr. }
     esplits; eauto. econs; eauto.
   - exploit MemoryReorder.lower_split; try exact MEM; eauto. i. des.
     unguardH FROM1. des.
-    { inv FROM1. admit. }
+    { inv FROM1. subst. exploit Memory.split_get0; try exact SPLITP2; eauto. i. des. congr. }
     inv FROM0. esplits; eauto. econs; eauto.
-Admitted.
+Qed.
 
 Lemma pi_step_lift_mem_lower
       loc from to val released released'
-      m1 m2 m2'
+      m1 m2 m2' prm'
       l t prm k e
       (MEMLE: pi_step_lift_mem l t prm k e m1 m2)
-      (LOWER2: Memory.lower m2 loc from to val released released' m2'):
+      (LOWER2: Memory.lower m2 loc from to val released released' m2')
+      (LOWERP2: Memory.lower prm loc from to val released released' prm'):
   exists m1',
     <<LOWER1: Memory.lower m1 loc from to val released released' m1'>> /\
     <<MEMLE': pi_step_lift_mem l t prm k e m1' m2'>>.
@@ -292,17 +299,19 @@ Proof.
   { i. subst. esplits; eauto. }
   i. des. inv PMREL.
   - exploit MemoryReorder.add_lower; try exact MEM; eauto. i. des.
-    { subst. admit. }
+    { subst. erewrite Memory.lower_get0 in NOPRM; eauto. congr. }
     esplits; eauto. econs; eauto.
   - exploit MemoryReorder.split_lower; try exact MEM; eauto.
-    { admit. }
+    { ii. inv H. exploit DISJ; eauto. i.
+      exploit Memory.lower_get0; try exact LOWERP2; eauto. i. congr.
+    }
     i. des.
-    { subst. admit. }
+    { subst. erewrite Memory.lower_get0 in NOPRM; eauto. congr. }
     esplits; eauto. econs; eauto.
   - exploit MemoryReorder.lower_lower; try exact MEM; eauto. i. des.
-    { subst. admit. }
+    { subst. erewrite Memory.lower_get0 in NOPRM; eauto. congr. }
     esplits; eauto. econs; eauto.
-Admitted.
+Qed.
 
 Lemma mem_eqlerel_add
       loc from to val released
@@ -335,8 +344,8 @@ Lemma mem_eqlerel_split
       m1 m2 m2'
       (MEMLE: mem_eqlerel m1 m2)
       (SPLIT2: Memory.split m2 loc ts1 ts2 ts3 val2 val3 released2 released3 m2'):
-  exists m1',
-    <<SPLIT2: Memory.split m1 loc ts1 ts2 ts3 val2 val3 released2 released3 m1'>> /\
+  exists released3' m1',
+    <<SPLIT2: Memory.split m1 loc ts1 ts2 ts3 val2 val3 released2 released3' m1'>> /\
     <<MEMLE': mem_eqlerel m1' m2'>>.
 Proof.
   exploit Memory.split_get0; eauto. i. des.
@@ -344,18 +353,43 @@ Proof.
   exploit (@Memory.split_exists m1 loc ts1 ts2 ts3);
     try by inv SPLIT2; inv SPLIT; eauto. i. des.
   esplits; eauto.
-Admitted.
+  econs; splits; ii; revert IN0.
+  - erewrite Memory.split_o; eauto. erewrite (@Memory.split_o m2'); eauto.
+    repeat condtac; ss.
+    + i. des. inv IN0. esplits; eauto. refl.
+    + guardH o. i. des. inv IN0. esplits; eauto.
+    + eapply MEMLE.
+  - erewrite Memory.split_o; eauto. erewrite (@Memory.split_o mem2); eauto.
+    repeat condtac; ss.
+    + i. des. inv IN0. esplits; eauto. refl.
+    + guardH o. i. des. inv IN0. esplits; eauto.
+    + eapply MEMLE.
+Qed.
 
 Lemma mem_eqlerel_lower
-      loc from to val released released'
+      loc from to val released1 released2
       m1 m2 m2'
       (MEMLE: mem_eqlerel m1 m2)
-      (LOWER2: Memory.lower m2 loc from to val released released' m2'):
-  exists m1',
-    <<LOWER1: Memory.lower m1 loc from to val released released' m1'>> /\
+      (LOWER2: Memory.lower m2 loc from to val released1 released2 m2'):
+  exists released1' released2' m1',
+    <<LOWER1: Memory.lower m1 loc from to val released1' released2' m1'>> /\
     <<MEMLE': mem_eqlerel m1' m2'>>.
 Proof.
-Admitted.
+  exploit Memory.lower_get0; eauto. i.
+  eapply MEMLE in x0. des.
+  exploit (@Memory.lower_exists m1 loc from to val rel2 Capability.bot);
+    try by inv LOWER2; inv LOWER; eauto; try by committac. i. des.
+  esplits; eauto.
+  econs; esplits; ii; revert IN0.
+  - erewrite Memory.lower_o; eauto. erewrite (@Memory.lower_o m2'); eauto.
+    condtac; ss.
+    + i. des. inv IN0. esplits; eauto. apply Capability.bot_spec.
+    + eapply MEMLE.
+  - erewrite Memory.lower_o; eauto. erewrite (@Memory.lower_o mem2); eauto.
+    condtac; ss.
+    + i. des. inv IN0. esplits; eauto. apply Capability.bot_spec.
+    + eapply MEMLE.
+Qed.
 
 Lemma lift_write
       com1 com2 com2' sc1 sc2 sc2' m1 m2 m2' prm prm' l t k e loc from to val relr1 relr2 relw2 ord kind
