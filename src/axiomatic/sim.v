@@ -1072,7 +1072,6 @@ Proof.
 
   * destruct (classic (is_sc a)); 
       [ eapply commit_step_scfence|eapply commit_step_rafence]; eauto.
-    by destruct a as [??[]]; ins; destruct o_w; ins. 
 admit. (* Assume all SC fences are ACQ *)
   * 
 admit.
@@ -1133,10 +1132,5 @@ Proof.
   by eapply ax_op_sim_step_update; eauto.
   by eapply ax_op_sim_step_fence; eauto.
 Qed.
-
-(* Lemma ax_sim_op :
-  forall op_st ax_st (SIM: sim op_st ax_st) op_st' e tid (OPSTEP: Configuration.step tid e op_st op_st'),
-  exists ax_st', m_step ax_st ax_st' /\ sim op_st' ax_st'.
-Proof. *)
 
 
