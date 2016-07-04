@@ -176,13 +176,15 @@ Lemma gstep_c_acq_other tm tm'
 Proof.
   assert (~ is_init a). eby eapply gstep_not_init.
   unfold c_acq; split; eauto 8 with mon.
-  rewrite (gstep_seq_max (a:=a) MON); eauto 8 with rel rel_max.
+  rewrite (gstep_seq_max (a:=a) MON); eauto with rel rel_max; cycle 1.
+    eapply max_elt_seq2; eauto 6 with rel rel_max.
+    by unfold eqv_rel; red; ins; desf; eauto.
   apply seq_mori; ins.
   rewrite (gstep_seq_max (a:=a) (rel_mon GSTEP)); eauto with rel rel_max.
   rewrite !crE; relsimp.
   rewrite (gstep_seq_max (a:=a) (rf_mon GSTEP)); eauto with rel rel_max.
-admit.
-Admitted.
+  by unfold seq, eqv_rel; red; ins; desf; eauto.
+Qed.
 
 Lemma gstep_t_rel_other tm l
    (GA: gstep_a a (tm acts sb rmw rf sc l) (tm acts' sb' rmw' rf' sc' l)) 

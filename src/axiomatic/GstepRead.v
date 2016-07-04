@@ -138,12 +138,12 @@ Proof.
   }
   {
     rewrite !seq_eqv_r, !seq_eqv_l; unfold seq, union, eqv_rel, singl_rel; red; ins; desc.
-    assert (y = a); [by clear H0; desf|clear H; desf]. 
+    assert (y = a); [by clear H0; desf|clear H; des; subst y z]. 
       by exfalso; apply GSTEP.
-admit. 
+      by eapply rf_domb in RF; eauto; unfold is_init in *; desf.
       by exfalso; apply GSTEP; eapply rel_acta in H0; eauto.
   }
-Admitted.
+Qed.
 
 
 Lemma gstep_urr_read l :
@@ -171,6 +171,12 @@ Proof.
   cdes GSTEP. 
   exploit rf_acta; eauto; rewrite ACT_STEP; clear ACT_STEP; ins; desf. 
   by exfalso; eapply irr_rf in RF; eauto.
+Qed. 
+
+Lemma gstep_singl_domE (d : event -> Prop) (D : d a) : 
+  singl_rel b a ;;  <| d |> <--> singl_rel b a.
+Proof.
+  rewrite seq_eqv_r; split; unfold singl_rel; red; ins; desf.
 Qed. 
 
 Lemma gstep_rwr_read l :
@@ -213,51 +219,50 @@ Lemma gstep_c_cur_urr_read l :
   c_cur (thread a) (urr acts' sb' rmw' rf' sc' l) <-->
   c_cur (thread a) (urr acts sb rmw rf sc l) ;; clos_refl (sb_ext acts a) +++
   urr acts sb rmw rf sc l ;; rel acts sb rmw rf ;; singl_rel b a ;; 
-    <| is_acq |> ;; <| fun x => thread x = thread a |>.
+    <| is_acq |>.
 Proof.
   assert (N: ~ is_write a).
     by eapply rf_domb in RF; eauto; destruct a as [??[]]. 
   rewrite crE; unfold c_cur.
   rewrite gstep_urr_read; try edone; relsimp.
-   rewrite !(thr_sb_ext GSTEP), !(thr_sb_ext2 GSTEP).
-(*   split; repeat apply inclusion_union_l; eauto 10 with rel. 
+  rewrite !(thr_sb_ext GSTEP), !(thr_sb_ext2 GSTEP), seq_eqvC.
+  rewrite (fun x => seq2 (gstep_singl_domE _ x)); auto.
 Qed. 
- *)
-Admitted.
 
 
 Lemma gstep_c_cur_rwr_read l :
   c_cur (thread a) (rwr acts' sb' rmw' rf' sc' l) <-->
   c_cur (thread a) (rwr acts sb rmw rf sc l) ;; clos_refl (sb_ext acts a) +++
-  <| fun x => is_write x /\ loc x = Some l |> ;;
-    singl_rel b a ;; <| fun x : event => thread x = thread a |> +++
-  rwr acts sb rmw rf sc l ;; rel acts sb rmw rf ;; singl_rel b a ;; 
-    <| is_acq |> ;; <| fun x : event => thread x = thread a |>.
+  <| fun x => is_write x /\ loc x = Some l |> ;; singl_rel b a +++
+  rwr acts sb rmw rf sc l ;; rel acts sb rmw rf ;; singl_rel b a ;; <| is_acq |>.
 Proof.
   assert (N: ~ is_write a).
     by eapply rf_domb in RF; eauto; destruct a as [??[]]. 
   rewrite crE; unfold c_cur.
   rewrite gstep_rwr_read; try edone; relsimp.
-  rewrite !(thr_sb_ext GSTEP), !(thr_sb_ext2 GSTEP).
+  rewrite !(thr_sb_ext GSTEP), !(thr_sb_ext2 GSTEP), seq_eqvC.
+  rewrite !(fun x => seq2 (gstep_singl_domE (fun x => thread x = thread a \/ is_init x) x));
+    auto.
+  rewrite !(gstep_singl_domE (fun x => thread x = thread a \/ is_init x)); auto.
   split; repeat apply inclusion_union_l; eauto 10 with rel.
-Admitted.
-
+Qed.
 
 Lemma gstep_c_cur_scr_read l :
   c_cur (thread a) (scr acts' sb' rmw' rf' sc' l) <-->
   c_cur (thread a) (scr acts sb rmw rf sc l) ;; clos_refl (sb_ext acts a) +++
-  <| fun x : event => is_write x /\ loc x = Some l |> ;;
-      singl_rel b a ;; <| fun x => thread x = thread a |> +++
-  scr acts sb rmw rf sc l ;; rel acts sb rmw rf ;; singl_rel b a ;; 
-    <| is_acq |> ;; <| fun x : event => thread x = thread a |>.
+  <| fun x : event => is_write x /\ loc x = Some l |> ;; singl_rel b a +++
+  scr acts sb rmw rf sc l ;; rel acts sb rmw rf ;; singl_rel b a ;; <| is_acq |>.
 Proof.
   assert (N: ~ is_write a).
     by eapply rf_domb in RF; eauto; destruct a as [??[]].
   rewrite crE; unfold c_cur.
   rewrite gstep_scr_read; try edone; relsimp.
-  rewrite !(thr_sb_ext GSTEP), !(thr_sb_ext2 GSTEP).
+  rewrite !(thr_sb_ext GSTEP), !(thr_sb_ext2 GSTEP), seq_eqvC.
+  rewrite !(fun x => seq2 (gstep_singl_domE (fun x => thread x = thread a \/ is_init x) x));
+    auto.
+  rewrite !(gstep_singl_domE (fun x => thread x = thread a \/ is_init x)); auto.
   split; repeat apply inclusion_union_l; eauto 10 with rel. 
-Admitted.
+Qed.
 
 Lemma gstep_t_cur_urr_read l x :
   t_cur urr acts' sb' rmw' rf' sc' (thread a) l x <->
@@ -300,15 +305,16 @@ Lemma gstep_c_acq_read
   c_acq acts' sb' rmw' rf' (thread a) tm' <-->
   c_cur (thread a) tm' +++
   c_acq acts sb rmw rf (thread a) tm +++
-  m_rel acts sb rmw rf tm ;; singl_rel b a ;; 
-  <| is_rlx_rw |> ;; <| fun x : event => thread x = thread a |>.
+  m_rel acts sb rmw rf tm ;; singl_rel b a ;; <| is_rlx_rw |>.
 Proof.
   unfold c_acq, m_rel; rewrite !crE; relsimp.
   rewrite (gstep_seq_max MON GA) with (r'' := _ ;; _); eauto with rel rel_max.
   rewrite (gstep_seq_max (a:=a) (rel_mon GSTEP)); eauto with rel rel_max.
-  rewrite gstep_rf_read; relsimp. 
-  split; repeat apply inclusion_union_l; eauto 10 with rel.
-Admitted.
+  rewrite gstep_rf_read, seq_eqvC; relsimp.
+  rewrite !(fun x => seq2 (gstep_singl_domE (fun x => thread x = thread a \/ is_init x) x));
+    auto.
+   split; repeat apply inclusion_union_l; eauto 10 with rel.
+Qed.
 
 Lemma gstep_t_acq_urr_read l x :
   t_acq urr acts' sb' rmw' rf' sc' (thread a) l x <->
@@ -317,7 +323,7 @@ Lemma gstep_t_acq_urr_read l x :
 Proof.
   unfold t_acq, msg_rel. 
   rewrite gstep_c_acq_read; try apply (urr_mon GSTEP); eauto with rel rel_max. 
-  rewrite !dom_union, eqv_join, seq_eqv_r. 
+  rewrite !dom_union, seq_eqv_r. 
   unfold singl_rel, dom_rel at 3, seq; split; ins; desf; eauto 8.
   eapply gstep_t_cur_urr_read in H; unfold c_acq in *; desf; eauto.
     by rewrite crE; relsimp; rewrite dom_union; eauto.
@@ -333,7 +339,7 @@ Lemma gstep_t_acq_rwr_read l x :
 Proof.
   unfold t_acq, msg_rel. 
   rewrite gstep_c_acq_read; try apply (rwr_mon GSTEP); eauto with rel rel_max. 
-  rewrite !dom_union, eqv_join, seq_eqv_r. 
+  rewrite !dom_union, seq_eqv_r. 
   unfold singl_rel, dom_rel at 3, seq; split; ins; desf; eauto 8.
   eapply gstep_t_cur_rwr_read in H; unfold c_acq in *; desf; desf; eauto.
     by rewrite crE; relsimp; rewrite dom_union; eauto.
@@ -350,7 +356,7 @@ Lemma gstep_t_acq_scr_read l x :
 Proof.
   unfold t_acq, msg_rel. 
   rewrite gstep_c_acq_read; try apply (scr_mon GSTEP); eauto with rel rel_max. 
-  rewrite !dom_union, eqv_join, seq_eqv_r. 
+  rewrite !dom_union, seq_eqv_r. 
   unfold singl_rel, dom_rel at 3, seq; split; ins; desf; eauto 8.
   eapply gstep_t_cur_scr_read in H; unfold c_acq in *; desf; desf; eauto.
     by rewrite crE; relsimp; rewrite dom_union; eauto.
