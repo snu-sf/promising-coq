@@ -313,7 +313,22 @@ Lemma mem_eqlerel_add
     <<ADD1: Memory.add m1 loc from to val released m1'>> /\
     <<MEMLE': mem_eqlerel m1' m2'>>.
 Proof.
-Admitted.
+  exploit (@Memory.add_exists m1 loc from to);
+    try by inv ADD2; inv ADD; eauto.
+  { i. destruct msg2. eapply MEMLE in GET2. des.
+    inv ADD2. inv ADD. eapply DISJOINT. eauto.
+  }
+  i. des. esplits; eauto.
+  econs; splits; ii; revert IN.
+  - erewrite Memory.add_o; eauto. erewrite (@Memory.add_o m2'); eauto.
+    condtac; ss.
+    + i. des. inv IN. esplits; eauto. refl.
+    + i. eapply MEMLE. eauto.
+  - erewrite Memory.add_o; eauto. erewrite (@Memory.add_o mem2); eauto.
+    condtac; ss.
+    + i. des. inv IN. esplits; eauto. refl.
+    + i. eapply MEMLE. eauto.
+Qed.
 
 Lemma mem_eqlerel_split
       loc ts1 ts2 ts3 val2 val3 released2 released3
@@ -324,6 +339,11 @@ Lemma mem_eqlerel_split
     <<SPLIT2: Memory.split m1 loc ts1 ts2 ts3 val2 val3 released2 released3 m1'>> /\
     <<MEMLE': mem_eqlerel m1' m2'>>.
 Proof.
+  exploit Memory.split_get0; eauto. i. des.
+  eapply MEMLE in GET3. des.
+  exploit (@Memory.split_exists m1 loc ts1 ts2 ts3);
+    try by inv SPLIT2; inv SPLIT; eauto. i. des.
+  esplits; eauto.
 Admitted.
 
 Lemma mem_eqlerel_lower

@@ -485,6 +485,7 @@ Proof.
   inv PI_CONSISTENT. ss.
   guardH RW. destruct cST2 as [cS2 cT2].
   exploit (@rtc_pi_step_remove_promises tid').
+  { admit. }
   { eapply rtc_implies, PI_STEPS. i. inv PR. eauto. }
   intro PI_STEPS'. des. ss.
   exploit CONSIS.
@@ -515,7 +516,7 @@ Proof.
     ; econs; eauto; first [by econs 1; ss|by econs 2; ss].
   }
   i. des. destruct ord0; inv ORD; inv ORDW.
-Qed.
+Admitted.
 
 Lemma fulfill_unset_promises
       loc from ts val rel
