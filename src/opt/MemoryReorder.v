@@ -15,6 +15,7 @@ Require Import Cell.
 Require Import Memory.
 Require Import MemoryFacts.
 
+Require Import SimMemory.
 Require Import MemorySplit.
 
 Set Implicit Arguments.
@@ -208,7 +209,9 @@ Module MemoryReorder.
   Proof.
     exploit (@Memory.add_exists mem0 loc2 from2 to2);
       try by inv ADD2; inv ADD; eauto.
-    { admit. }
+    { apply covered_disjoint_get_disjoint. i. rewrite <- split_covered in H; eauto.
+      eapply get_disjoint_covered_disjoint; eauto. inv ADD2. inv ADD. auto.
+    }
     i. des.
     exploit (@Memory.split_exists mem3 loc1 ts11 ts12 ts13);
       try by inv SPLIT1; inv SPLIT; eauto.
@@ -242,7 +245,7 @@ Module MemoryReorder.
     - guardH o. des. repeat subst.
       hexploit Memory.add_get0; try exact ADD2; eauto.
       erewrite Memory.split_o; eauto. repeat condtac; ss.
-  Admitted.
+  Qed.
 
   Lemma split_split
         mem0 loc1 ts11 ts12 ts13 val12 val13 released12 released13
@@ -415,7 +418,9 @@ Module MemoryReorder.
   Proof.
     exploit (@Memory.add_exists mem0 loc2 from2 to2);
       try by inv ADD2; inv ADD; eauto.
-    { admit. }
+    { apply covered_disjoint_get_disjoint. i. rewrite <- lower_covered in H; eauto.
+      eapply get_disjoint_covered_disjoint; eauto. inv ADD2. inv ADD. auto.
+    }
     i. des.
     exploit (@Memory.lower_exists mem3 loc1 from1 to1);
       try by inv LOWER1; inv LOWER; eauto.
@@ -437,7 +442,7 @@ Module MemoryReorder.
     repeat (condtac; ss). des. repeat subst.
     exploit Memory.add_get0; try exact ADD2; eauto.
     erewrite Memory.lower_o; eauto. condtac; ss.
-  Admitted.
+  Qed.
 
   Lemma lower_split
         mem0 loc1 from1 to1 val1 released1 released1'

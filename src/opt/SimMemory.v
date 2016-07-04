@@ -129,6 +129,22 @@ Proof.
   i. inv x0. eapply DISJOINT; eauto.
 Qed.
 
+Lemma get_disjoint_covered_disjoint
+      mem loc from to:
+  (forall t f m, Memory.get loc t mem = Some (f, m) -> Interval.disjoint (from, to) (f, t)) ->
+  (forall ts, covered loc ts mem -> ~ Interval.mem (from, to) ts).
+Proof.
+  ii. inv H0. eapply H; eauto.
+Qed.
+
+Lemma covered_disjoint_get_disjoint
+      mem loc from to:
+  (forall ts, covered loc ts mem -> ~ Interval.mem (from, to) ts) ->
+  (forall t f m, Memory.get loc t mem = Some (f, m) -> Interval.disjoint (from, to) (f, t)).
+Proof.
+  ii. eapply H; eauto. econs; eauto.
+Qed.
+
 Lemma add_covered
       mem2 mem1 loc from to val released
       l t
