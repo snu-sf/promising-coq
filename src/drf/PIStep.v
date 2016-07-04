@@ -623,20 +623,8 @@ Proof.
           exploit FULFILL; s; eauto.
           intro LT. ss.
           inv READABLE; eauto.
-
-(* TODO *)
-Lemma join_lt_des a b c
-      (LT: Time.lt (Time.join a b) c):
-  <<AC: Time.lt a c>> /\
-  <<BC: Time.lt b c>>.
-Proof.
-  splits.
-  - eapply TimeFacts.le_lt_lt; eauto. apply Time.join_l.
-  - eapply TimeFacts.le_lt_lt; eauto. apply Time.join_r.
-Qed.
-
-          apply join_lt_des in LT. des.
-          apply join_lt_des in AC. des.
+          apply TimeFacts.join_lt_des in LT. des.
+          apply TimeFacts.join_lt_des in AC. des.
           revert BC0. unfold TimeMap.singleton, LocFun.add. condtac; [|congr]. i.
           eapply Time.lt_strorder. eauto.
         + eauto.
@@ -686,10 +674,10 @@ Qed.
             s; intro LT.
             inv LOCAL2.
             s in LT. move LT at bottom.
-            apply join_lt_des in LT. des.
-            apply join_lt_des in AC. des.
-            apply join_lt_des in AC0. des.
-            apply join_lt_des in AC. des.
+            apply TimeFacts.join_lt_des in LT. des.
+            apply TimeFacts.join_lt_des in AC. des.
+            apply TimeFacts.join_lt_des in AC0. des.
+            apply TimeFacts.join_lt_des in AC. des.
             revert BC2. unfold TimeMap.singleton, LocFun.add. condtac; [|congr]. i.
             eapply Time.lt_strorder. eauto.
           }

@@ -156,7 +156,7 @@ Proof.
   (*   rewrite PROMISES in PROMISE0.  *)
   (*   by setoid_rewrite Cell.bot_get in PROMISE0. *)
   (* - done. *)
-Admitted. (* gil: very easy, almost done *)
+Admitted. (* gil; very easy; use Certification.consistent_pf_consistent *)
 
 Lemma can_fulfill_promises_promise_consistent
       tid c
@@ -304,6 +304,12 @@ Proof.
   intros [SEMI_WF4 _]. des.
 
   exploit (@lift_step _ (Thread.mk _ st1 (Local.mk com3' prm3') cM3'.(Configuration.sc) cM3'.(Configuration.memory))); [apply STEP|..]; eauto.
+  { admit. (* Local.wf *) }
+  { admit. (* Local.wf *) }
+  { admit. (* sc is closed w.r.t. mem *) }
+  { admit. (* sc is closed w.r.t. mem *) }
+  { admit. (* mem is closed *) }
+  { admit. (* mem is closed *) }
   i; des.
 
   (* Read the message "e" *)

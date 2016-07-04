@@ -773,6 +773,16 @@ Module DenseOrderFacts.
     etrans; eauto.
   Qed.
 
+  Lemma join_lt_des a b c
+        (LT: DenseOrder.lt (DenseOrder.join a b) c):
+    <<AC: DenseOrder.lt a c>> /\
+    <<BC: DenseOrder.lt b c>>.
+  Proof.
+    splits.
+    - eapply le_lt_lt; eauto. apply DenseOrder.join_l.
+    - eapply le_lt_lt; eauto. apply DenseOrder.join_r.
+  Qed.
+
   Lemma antisym a b
         (AB: DenseOrder.le a b)
         (BA: DenseOrder.le b a):

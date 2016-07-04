@@ -148,17 +148,6 @@ Proof.
   ii. rewrite PROMISES, Memory.bot_get in *. congr.
 Qed.
 
-(* TODO *)
-Lemma join_lt_des a b c
-      (LT: Time.lt (Time.join a b) c):
-  <<AC: Time.lt a c>> /\
-  <<BC: Time.lt b c>>.
-Proof.
-  splits.
-  - eapply TimeFacts.le_lt_lt; eauto. apply Time.join_l.
-  - eapply TimeFacts.le_lt_lt; eauto. apply Time.join_r.
-Qed.
-
 Lemma promise_consistent_promise_read
       lc1 mem1 loc to val ord released lc2
       f t m
@@ -168,8 +157,8 @@ Lemma promise_consistent_promise_read
   Time.lt to t.
 Proof.
   inv STEP. exploit CONS; eauto. s. i.
-  apply join_lt_des in x. des.
-  apply join_lt_des in AC. des.
+  apply TimeFacts.join_lt_des in x. des.
+  apply TimeFacts.join_lt_des in AC. des.
   revert BC0. unfold TimeMap.singleton, LocFun.add. condtac; ss. congr.
 Qed.
 
@@ -184,8 +173,8 @@ Proof.
   destruct (Memory.get loc t (Local.promises lc2)) as [[]|] eqn:X.
   - inv STEP. inv WRITE. destruct m.
     exploit CONS; eauto. i. ss.
-    apply join_lt_des in x. des.
-    apply join_lt_des in AC. des.
+    apply TimeFacts.join_lt_des in x. des.
+    apply TimeFacts.join_lt_des in AC. des.
     left. revert BC0. unfold TimeMap.singleton, LocFun.add. condtac; ss. congr.
   - inv STEP. inv WRITE. destruct m.
     exploit Memory.promise_promises_get1; eauto. i. des.
