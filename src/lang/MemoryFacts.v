@@ -58,7 +58,7 @@ Module MemoryFacts.
     - erewrite Memory.lower_o; eauto. condtac; ss.
       + des. subst. congr.
       + esplits; eauto.
-  Qed.        
+  Qed.
 
   Lemma promise_get_inv_diff
         promises1 mem1 loc from to val released promises2 mem2 kind
@@ -81,6 +81,28 @@ Module MemoryFacts.
       + des. subst. congr.
       + i. inv GET. esplits; eauto.
   Qed.        
+
+  Lemma promise_get_promises_inv_diff
+        promises1 mem1 loc from to val released promises2 mem2 kind
+        l t f v r
+        (PROMISE: Memory.promise promises1 mem1 loc from to val released promises2 mem2 kind)
+        (GET: Memory.get l t promises2 = Some (f, Message.mk v r))
+        (DIFF: (loc, to) <> (l, t)):
+    exists f', Memory.get l t promises1 = Some (f', Message.mk v r).
+  Proof.
+    revert GET. inv PROMISE.
+    - erewrite Memory.add_o; eauto. condtac; ss.
+      + des. subst. congr.
+      + i. inv GET. esplits; eauto.
+    - erewrite Memory.split_o; eauto. repeat condtac; ss.
+      + des. subst. congr.
+      + guardH o. des. subst. i. inv GET.
+        exploit Memory.split_get0; try exact PROMISES; eauto. i. des. esplits; eauto.
+      + i. esplits; eauto.
+    - erewrite Memory.lower_o; eauto. condtac; ss.
+      + des. subst. congr.
+      + i. inv GET. esplits; eauto.
+  Qed.
 
   Lemma remove_get_diff
         promises0 mem0 loc from to val released promises1

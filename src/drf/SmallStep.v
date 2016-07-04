@@ -199,7 +199,8 @@ Lemma thread_step_commit_le
      (MEMWF: Memory.closed t1.(Thread.memory)):
   Commit.le t1.(Thread.local).(Local.commit) t2.(Thread.local).(Local.commit).
 Proof.
-Admitted. (* jeehoon very easy; add condition *)
+  eapply Thread.step_future; eauto.
+Qed.
 
 Lemma rtc_small_step_commit_le
      c1 c2 tid lst1 lst2 lc1 lc2 withprm
@@ -228,7 +229,13 @@ Lemma small_step_write_lt
       (THREAD: IdentMap.find tid (Configuration.threads c) = Some (lst, lc)):
   Time.lt (lc.(Local.commit).(Commit.cur).(Capability.rw) loc) ts.
 Proof.
-Admitted. (* jeehoon very easy; maybe add condition *)
+  inv STEP. rewrite THREAD in TID. inv TID.
+  inv STEP0; inv STEP; inv EVENT.
+  - inv LOCAL. apply WRITABLE.
+  - eapply TimeFacts.le_lt_lt; cycle 1.
+    + inv LOCAL2. inv WRITABLE. apply TS.
+    + inv LOCAL1. s. do 2 (etrans; [|apply TimeMap.join_l]). refl.
+Qed.
 
 Lemma small_step_promise_decr
       tid tid' loc ts e c1 c2 lst2 lc2 from2 msg2
@@ -239,7 +246,25 @@ Lemma small_step_promise_decr
   <<FIND1: IdentMap.find tid' c1.(Configuration.threads) = Some (lst1,lc1)>> /\
   <<PROMISES: Memory.get loc ts lc1.(Local.promises) = Some (from1, msg1)>>.
 Proof.
-Admitted. (* jeehoon: very easy *)
+  inv STEPT; ss. revert FIND2. rewrite IdentMap.gsspec. condtac.
+  - i. inv FIND2.
+    inv STEP; inv STEP0; inv PFREE; try inv LOCAL;
+      (try by esplits; eauto).
+    + inv WRITE.
+      revert PROMISES. erewrite Memory.remove_o; eauto. condtac; ss.
+      guardH o. i. destruct msg2.
+      exploit MemoryFacts.MemoryFacts.promise_get_promises_inv_diff; eauto.
+      { ii. inv H. unguardH o. des; congr. }
+      i. des. esplits; eauto.
+    + inv LOCAL1.
+      inv LOCAL2. inv WRITE.
+      revert PROMISES. erewrite Memory.remove_o; eauto. condtac; ss.
+      guardH o. i. destruct msg2.
+      exploit MemoryFacts.MemoryFacts.promise_get_promises_inv_diff; eauto.
+      { ii. inv H. unguardH o. des; congr. }
+      i. des. esplits; eauto.
+  - i. esplits; eauto.
+Qed.
 
 Corollary small_step_promise_decr_bot
       tid tid' e c1 c2 lst1 lc1 lst2 lc2
