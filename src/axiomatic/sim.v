@@ -314,10 +314,9 @@ Lemma Writable_cur_rwr acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
   t f f' (F : forall b, In b acts -> f' b = f b)
   (MON: monotone mo' f') l v o (LABa: lab a = Astore l v o)
   (CUR: max_value f (t_cur rwr acts sb rmw rf sc (thread a) l) t) 
-   : Time.lt t (f' a).
+  (N_ZERO: Time.lt Time.bot (f' a)) : Time.lt t (f' a).
 Proof.
-red in CUR; desf.
-admit.
+red in CUR; desf; try done.
 eapply TimeFacts.le_lt_lt with (b:=f a_max); try done.
 cdes GSTEP.
 rewrite <- F; eauto with acts.
@@ -336,8 +335,8 @@ eapply monotone_converse_strict with (acts:=(a :: acts)); eauto.
   eapply rwr_hb.
   eapply rwr_mon; eauto.
   eapply rwr_actb; eauto.
-- intro; subst; eauto with acts. 
-Admitted.
+- intro; subst; eauto with acts.
+Qed.
 
 Lemma Writable_cur_scr acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
   prev a (GSTEP: gstep acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc' prev a)
@@ -346,10 +345,10 @@ Lemma Writable_cur_scr acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
   t f f' (F : forall b, In b acts -> f' b = f b)
   (MON: monotone mo' f') l v o (LABa: lab a = Astore l v o)
   (CUR: max_value f (t_cur scr acts sb rmw rf sc (thread a) l) t) 
-  (SC: is_sc a) : Time.lt t (f' a).
+  (SC: is_sc a) 
+  (N_ZERO: Time.lt Time.bot (f' a)) : Time.lt t (f' a).
 Proof.
-red in CUR; desf.
-admit.
+red in CUR; desf; try done.
 eapply TimeFacts.le_lt_lt with (b:=f a_max); try done.
 cdes GSTEP.
 rewrite <- F; eauto with acts.
@@ -368,7 +367,7 @@ eapply monotone_converse_strict with (acts:=(a :: acts)); eauto.
   eapply scr_mon; eauto.
   eapply scr_actb; eauto.
 - intro; subst; eauto with acts. 
-Admitted.
+Qed.
 
 Lemma Writable_sc_map acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
   prev a (GSTEP: gstep acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc' prev a)
@@ -377,10 +376,10 @@ Lemma Writable_sc_map acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
   t f f' (F : forall b, In b acts -> f' b = f b)
   (MON: monotone mo' f') l v o (LABa: lab a = Astore l v o)
   (SCMAP: max_value f (S_tm acts sb rmw rf l) t)
-  (SC: is_sc a) : Time.lt t (f' a).
+  (SC: is_sc a) 
+  (N_ZERO: Time.lt Time.bot (f' a)) : Time.lt t (f' a).
 Proof.
-red in SCMAP; desf.
-admit.
+red in SCMAP; desf; try done.
 eapply TimeFacts.le_lt_lt with (b:=f a_max); try done.
 cdes GSTEP.
 rewrite <- F; eauto with acts.
@@ -400,14 +399,14 @@ eapply monotone_converse_strict with (acts:=(a :: acts)); eauto.
   apply SC_AT_END; eauto.
   apply S_tmr_domb in INam; done.
   - intro; subst; eauto with acts. 
-Admitted.
+Qed.
 
 Lemma Writable_full acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
   prev a (GSTEP: gstep acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc' prev a)
   (COH: Coherent acts sb rmw rf mo sc) 
   (COH': Coherent acts' sb' rmw' rf' mo' sc') 
   f f' (F : forall b, In b acts -> f' b = f b)
-  (MON: monotone mo' f')
+  (MON: monotone mo' f') (N_ZERO: Time.lt Time.bot (f' a))
   l v o (LABa: lab a = Astore l v o)
   commit sc_map
   (SC : forall l : Loc.t, max_value f (S_tm acts sb rmw rf l) (sc_map l))

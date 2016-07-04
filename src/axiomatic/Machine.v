@@ -84,7 +84,7 @@ Inductive step mc mc' : Prop :=
     (TID: IdentMap.find i (ts mc) = Some (existT _ lang st))
     (STATE: lang.(Language.step) e st st')
     (MTS: ts mc' = IdentMap.add i (existT _ _ st') (ts mc))
-    (MSTEP: mstep mc mc' e i)
+    (MSTEP: mstep mc mc' e (Some i))
 .
 
 End Operational.

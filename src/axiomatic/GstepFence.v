@@ -107,7 +107,7 @@ Proof.
                      (gstep_rf_nonread COH GSTEP); try edone. 
   relsimp; rewrite !crE; relsimp.
   rewrite unionA; apply union_more; ins.
-  rewrite (gstep_sb GSTEP); unfold sb_ext; relsimp.
+  rewrite (gstep_sb COH GSTEP); unfold sb_ext; relsimp.
   apply union_more; ins.
   do 5 (apply seq_more; ins); unfold eqv_rel, seq; split; red; ins; desf; eauto 8.
 Qed.
@@ -119,7 +119,7 @@ Lemma gstep_hb_fence :
   (sb_ext acts a +++ 
    rel acts sb rmw rf;; rf ;; <| is_rlx_rw |>;; sb_ext acts a ;; <| is_acq |>).
 Proof.
-  unfold hb; rewrite gstep_sw_fence, (gstep_sb GSTEP); try edone.
+  unfold hb; rewrite gstep_sw_fence, (gstep_sb COH GSTEP); try edone.
   rewrite unionAC, unionA, unionAC, <- unionA.
   rewrite path_decomp_u_3, cr_of_t; ins. 
     rewrite inclusion_seq_eqv_r.

@@ -104,7 +104,7 @@ Proof.
   rewrite union_eq_helper2; cycle 1.
     rewrite !inclusion_seq_eqv_l; unfold sb_ext; relsimp.
     rewrite (fun x => seq2 (seq_eq_max x)); eauto with rel rel_max; relsimp.
-  rewrite (gstep_rf_nonread COH GSTEP), (gstep_sb GSTEP); ins; relsimp; auto 2 with acts.
+  rewrite (gstep_rf_nonread COH GSTEP), (gstep_sb COH GSTEP); ins; relsimp; auto 2 with acts.
   apply union_eq_helper2; ins.
   rewrite seq_sb_ext_max; relsimp; eauto with rel.
 Qed.
@@ -117,7 +117,7 @@ Lemma gstep_hb_write :
   sb_ext acts a.
 Proof.
   unfold hb; rewrite gstep_sw_write; ins.
-  rewrite (gstep_sb GSTEP); relsimp.
+  rewrite (gstep_sb COH GSTEP); relsimp.
   rewrite unionA, unionAC, unionC.
   rewrite path_decomp_u_3, crtE. 
     by relsimp; repeat split; repeat apply inclusion_union_l; eauto with rel.

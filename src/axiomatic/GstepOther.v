@@ -91,7 +91,7 @@ Ltac relsimp :=
 Lemma gstep_rseq_nonwrite (N: ~ is_write a) :
   rseq acts' sb' rmw' rf' <--> rseq acts sb rmw rf.
 Proof.
-  unfold rseq; rewrite <- (gstep_useq COH GSTEP), (gstep_in_acts GSTEP), (gstep_sb GSTEP).
+  unfold rseq; rewrite <- (gstep_useq COH GSTEP), (gstep_in_acts GSTEP), (gstep_sb COH GSTEP).
   unfold sb_ext; relsimp.
   rewrite !seq_eq_max; eauto with rel rel_max; relsimp.
 Qed.
@@ -100,7 +100,7 @@ Lemma gstep_rel_nonwrite (N: ~ is_write a) :
   rel acts' sb' rmw' rf' <--> 
   rel acts sb rmw rf.
 Proof.
-  unfold rel; rewrite gstep_rseq_nonwrite, (gstep_sb GSTEP);
+  unfold rel; rewrite gstep_rseq_nonwrite, (gstep_sb COH GSTEP);
   unfold sb_ext; eauto; relsimp.
   unfold rseq at 3; relsimp.
   rewrite (seq2 (gstep_a_acts GSTEP)); relsimp.

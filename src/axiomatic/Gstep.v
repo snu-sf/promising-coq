@@ -145,7 +145,7 @@ Definition gstep prev a :=
   << FRESH: ~ In a acts >> /\
   << ACT_STEP: acts' = a :: acts >> /\
   << SB_STEP: forall x y, sb' x y <-> sb x y 
-                                      \/ (thread x = thread a /\ ~(x=a) /\ y = a) >> /\
+              \/ ((thread x = thread a \/ is_init x) /\ ~(x=a) /\ y = a) >> /\
   << RMW_STEP: rmw_step prev a >> /\
   << SC_AT_END: forall (SCa: is_sc a) x (SCa: is_sc x), sc' x a >> /\
   << INC: graph_inclusion >> /\
@@ -168,6 +168,14 @@ Section GstepLemmas.
   Proof. cdes GSTEP; done. Qed.
 
   Hint Resolve gstep_wf gstep_inc coh_wf.
+
+  Lemma gstep_proper : is_proper a.
+  Proof.
+    eapply init_events_wf1; eauto.
+    cdes GSTEP; rewrite ACT_STEP; ins; auto.
+    intro; cdes GSTEP; cdes COH; cdes WF; cdes WF_ACTS; eauto.
+  Qed.
+
 
 (******************************************************************************)
 (** ** Lemmas about graph inclusion   *)
@@ -234,7 +242,7 @@ Section GstepLemmas.
     apply SB_STEP in REL; desf; try edone.
     cdes COH; cdes WF; cdes WF_SB; apply SB_ACTa in REL; edone.
   Qed.
-  
+
   Lemma max_elt_rmw : max_elt rmw' a.
   Proof.
     red; ins; cdes COH; cdes GSTEP; cdes INC.
@@ -360,6 +368,12 @@ Section GstepLemmas.
   Lemma gstep_sb_a : gstep_a sb sb'.
   Proof.
     red; ins; cdes GSTEP; cdes INC.
+    assert (is_proper y).
+      eapply sb_domb; eauto.
+    assert (In y acts).
+      eapply sb_actb with (acts:=acts') in H; eauto.
+      rewrite ACT_STEP in H; ins; desf; eauto.
+      exfalso; eauto.
     apply SB_STEP in H; desf; try edone.
   Qed.
 
@@ -538,7 +552,12 @@ Definition sc_ext x y :=
   In x acts /\ is_sc x /\ is_sc y /\ y = a.
 
 Definition sb_ext :=
-  <| fun x => In x acts |> ;; (fun x y => thread x = thread y) ;; <| eq a |>.
+  <| fun x => In x acts |> ;; 
+  (fun x y => thread x = thread y) ;; <| eq a |>.
+
+Definition sb_init :=
+  <| fun x => In x acts |> ;; 
+  (fun x y => is_init x) ;; <| eq a |>.
 
 Lemma max_elt_sc_ext : max_elt sc_ext a.
 Proof. cdes GSTEP; unfold sc_ext; red; ins; desf. Qed.
@@ -573,19 +592,25 @@ Qed.
 
 Lemma inclusion_sb1 : 
   inclusion sb 
-            (<| fun x => In x acts |> ;; (fun x y => thread x = thread y) ;; 
-             <| fun x => In x acts |>).
+    (<| fun x => In x acts |> ;; (fun x y => thread x = thread y \/ init_pair x y) ;; 
+     <| fun x => In x acts |>).
 Proof.
   clear a GSTEP.
   rewrite seq_eqv_r, seq_eqv_l; red; ins.
-  cdes COH; cdes WF; cdes WF_SB; eauto 6.
+  cdes COH; cdes WF; cdes WF_SB; splits; eauto 6.
+  apply SB_TID in H; desf; eauto.
 Qed.
 
-Lemma sb_sb_ext : inclusion (sb;; sb_ext) sb_ext.
+Lemma sb_sb_ext : inclusion (sb;; sb_ext) (sb_ext +++ sb_init).
 Proof.
+  cdes COH; cdes WF; cdes WF_SB; cdes WF_ACTS.
   rewrite inclusion_sb1, inclusion_seq_eqv_r.
-  unfold sb_ext, seq, eqv_rel; red; ins; desf. 
-  rewrite H1 in *; eauto 8.
+  unfold sb_ext, sb_init, seq, eqv_rel, init_pair; red; ins; desc; subst.
+desf.
+- left; exists z1; splits; eauto.
+  exists y; splits; eauto.
+  desf. congruence.
+- right; exists z1; splits; eauto.
 Qed.
 
 
@@ -623,18 +648,26 @@ Proof.
   intuition.
 Qed.  
 
-Lemma gstep_sb : sb' <--> sb +++ sb_ext.
+Lemma gstep_sb : sb' <--> sb +++ sb_ext +++ sb_init.
 Proof.
-  unfold sb_ext; cdes GSTEP; cdes INC.
+  unfold sb_ext, sb_init; cdes GSTEP; cdes INC.
   cdes WF'; cdes WF_SB.
+  assert (is_proper a).
+    eapply gstep_proper.
   split; red; ins; unfold union, seq, eqv_rel in *.
   exploit SB_ACTa; try edone; 
   exploit SB_ACTa; try edone;
-  exploit SB_TID; try edone; 
-  rewrite SB_STEP in *; desf; ins; desf; try subst a; try subst x; eauto 8;
-  try by exfalso; eauto 1.
-  rewrite SB_STEP; desf; eauto.
-  subst y; right; splits; eauto; congruence.
+  exploit SB_TID; try edone;
+  rewrite SB_STEP in *; ins.
+  - destruct H0; eauto; desc; subst a.
+  destruct H0.    
+  left; right; exists x; splits; eauto.
+  rewrite ACT_STEP in x1; ins; destruct x1; eauto; subst y.
+  exfalso; auto.
+  right; eexists. splits; eauto.
+  apply COH; done.
+  - desf; eauto; try subst a; try subst y; try subst x.
+    all: apply SB_STEP; right; splits; eauto; intro; subst z; eauto.
 Qed.
 
 Lemma gstep_rmw :
@@ -681,6 +714,7 @@ Lemma gstep_rseq :
   rseq acts' sb' rmw' rf' <--> 
   rseq acts sb rmw rf +++ 
   <| is_write |> ;; restr_eq_rel loc sb_ext ;; <| is_write |> +++
+  <| is_write |> ;; restr_eq_rel loc sb_init;; <| is_write |> +++
   <| is_write |> ;; <| eq a |>.
 Proof.
   unfold rseq; rewrite gstep_in_acts; relsimp.
@@ -692,8 +726,13 @@ Proof.
     by rewrite (seq2 (seq_eqvK _)).
   rewrite gstep_sb at 1; relsimp. 
   apply union_more.
+  apply union_more.
     by rewrite gstep_useq.
   unfold sb_ext; relsimp.
+  rewrite (seq_eqvAC (eq a)).
+  rewrite (seq_eq_max_r), (seq_eqvC (eq a)); eauto with rel rel_max.
+  by rewrite (seq_eqvAC is_write), (seq2 (seq_eqvK _)).
+  unfold sb_init; relsimp.
   rewrite (seq_eqvAC (eq a)).
   rewrite (seq_eq_max_r), (seq_eqvC (eq a)); eauto with rel rel_max.
   by rewrite (seq_eqvAC is_write), (seq2 (seq_eqvK _)).
@@ -788,7 +827,7 @@ Proof.
 Qed.
 
 Lemma thr_sb_ext2 :
-  <| fun x => thread x = thread a |> ;; sb_ext <--> sb_ext.
+  <| fun x => thread x = thread a \/ is_init x|> ;; sb_ext <--> sb_ext.
 Proof.
   unfold sb_ext; rewrite seq_eqv_l, seq_eqv_r; 
   unfold seq, eqv_rel; split; red; ins; desf; eauto 10.
@@ -918,7 +957,7 @@ Qed.
 
 Lemma dom_rel_sb_ext r (D: domb r (fun x => In x acts)) x :
   dom_rel (r ;; sb_ext) x <->
-  dom_rel (r ;; <|fun x => thread x = thread a|>) x.
+  dom_rel (r ;; <|fun x => thread x = thread a \/ is_init x|>) x.
 Proof.
   unfold sb_ext; rewrite <- seqA, !seq_eqv_r; unfold seq, dom_rel.
   split; ins; desf; eauto 8.

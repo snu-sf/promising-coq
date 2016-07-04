@@ -117,7 +117,7 @@ Proof.
   apply union_more; ins.
   2: by rewrite (fun x => seq2 (seq_singl_max_r _ x)); eauto with rel rel_max. 
    do 2 (apply seq_more; ins). 
-  rewrite (gstep_sb GSTEP); unfold sb_ext; relsimp.
+  rewrite (gstep_sb COH GSTEP); unfold sb_ext; relsimp.
   rewrite seq_eq_contra2; relsimp.
 Qed.
 
@@ -127,7 +127,7 @@ Lemma gstep_hb_read :
   clos_refl (hb acts sb rmw rf) ;; 
   (sb_ext acts a +++ rel acts sb rmw rf ;; singl_rel b a ;; <| is_acq |>).
 Proof.
-  unfold hb; rewrite gstep_sw_read, (gstep_sb GSTEP); try edone.
+  unfold hb; rewrite gstep_sw_read, (gstep_sb COH GSTEP); try edone.
   rewrite unionAC, unionA, unionAC, <- unionA.
   rewrite path_decomp_u_3, cr_of_t; ins; unfold sb_ext.
   {
@@ -139,10 +139,11 @@ Proof.
   {
     rewrite !seq_eqv_r, !seq_eqv_l; unfold seq, union, eqv_rel, singl_rel; red; ins; desc.
     assert (y = a); [by clear H0; desf|clear H; desf]. 
-      by exfalso; apply GSTEP. 
+      by exfalso; apply GSTEP.
+admit. 
       by exfalso; apply GSTEP; eapply rel_acta in H0; eauto.
   }
-Qed.
+Admitted.
 
 
 Lemma gstep_urr_read l :
@@ -218,9 +219,12 @@ Proof.
     by eapply rf_domb in RF; eauto; destruct a as [??[]]. 
   rewrite crE; unfold c_cur.
   rewrite gstep_urr_read; try edone; relsimp.
-  rewrite !(thr_sb_ext GSTEP), !(thr_sb_ext2 GSTEP).
+(*   rewrite !(thr_sb_ext GSTEP), !(thr_sb_ext2 GSTEP).
   split; repeat apply inclusion_union_l; eauto 10 with rel. 
 Qed. 
+ *)
+Admitted.
+
 
 Lemma gstep_c_cur_rwr_read l :
   c_cur (thread a) (rwr acts' sb' rmw' rf' sc' l) <-->

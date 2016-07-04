@@ -38,7 +38,8 @@ Lemma new_f acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
   prev a (GSTEP: gstep acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc' prev a)
   f (MON: monotone mo f): 
   exists f', << F: forall b, In b acts -> f' b = f b >> /\
-             << MON: monotone mo' f' >>.
+             << MON: monotone mo' f' >> /\
+             << N_ZERO: Time.lt Time.bot (f' a) >>.
 Admitted.
 
 Lemma new_from (f: event -> Time.t) a: 
@@ -159,7 +160,7 @@ Definition sim_time  (op_st: Configuration.t) (ax_st: Machine.configuration) f :
   << SIM_COMMIT: forall i foo local
         (TID: IdentMap.find i (Configuration.threads op_st) = Some (foo, local)),
         sim_commit f (acts ax_st) (sb ax_st) (rmw ax_st) (rf ax_st) (sc ax_st) 
-                   local.(Local.commit) i >> /\
+                   local.(Local.commit) (Some i) >> /\
   << SIM_SC_MAP: forall l, max_value f (S_tm (acts ax_st) (sb ax_st) (rmw ax_st) 
                                              (rf ax_st) l) 
                                      (LocFun.find l (Configuration.sc op_st))  >> /\

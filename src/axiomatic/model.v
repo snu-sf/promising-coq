@@ -24,11 +24,7 @@ Ltac cdes H :=
 Section Consistency.
 
   Variable acts : list event.  
-  Variable sb : event -> event -> Prop. 
-  Variable rmw : event -> event -> Prop. 
-  Variable rf : event -> event -> Prop. 
-  Variable mo : event -> event -> Prop. 
-  Variable sc : event -> event -> Prop. 
+  Variable sb rmw rf mo sc : event -> event -> Prop. 
 
 (******************************************************************************)
 (** ** Derived relations  *)
@@ -186,10 +182,17 @@ Section Consistency.
 (** ** Well-formed relations *)
 (******************************************************************************)
 
+Definition WfACTS := 
+  << ACTS_INIT: forall a (INIT: is_init a), In a acts >> /\
+  << ACTS_TID: forall a (IN: In a acts), is_init a \/ is_proper a >>.
+
 Definition WfSB := 
   << SB_ACTa: forall a b (SB: sb a b), In a acts >> /\
   << SB_ACTb: forall a b (SB: sb a b), In b acts >> /\
-  << SB_TID: forall a b (SB: sb a b), (thread a = thread b) >> /\
+  << SB_TID: forall a b (SB: sb a b), 
+              (thread a = thread b /\ is_proper a /\ is_proper b) \/ 
+              (init_pair a b) >> /\
+  << SB_INIT: forall a b (INIT: init_pair a b) (IN: In b acts), sb a b >> /\
   << CsbT: transitive sb >>.
 
 Definition WfRMW := 
@@ -230,16 +233,28 @@ Definition WfSC :=
   << SC_TOT: is_total (fun a => In a acts /\ is_sc a) sc >>.
 
 Definition Wf :=
-  << WF_SB : WfSB >> /\
-  << WF_RMW : WfRMW >> /\
-  << WF_RF : WfRF >> /\
-  << WF_MO : WfMO >> /\
-  << WF_SC : WfSC >>.
+  << WF_ACTS : WfACTS >> /\
+  << WF_SB   : WfSB >> /\
+  << WF_RMW  : WfRMW >> /\
+  << WF_RF   : WfRF >> /\
+  << WF_MO   : WfMO >> /\
+  << WF_SC   : WfSC >>.
 
 
 (******************************************************************************)
 (** ** Basic properties *)
 (******************************************************************************)
+
+Lemma init_events_wf1 (C: Wf) a (IN: In a acts) : ~ is_init a <->  is_proper a.
+Proof.
+cdes C; cdes WF_ACTS; split; ins; unfold is_init, is_proper in *; desc.
+specialize (ACTS_TID a IN); desf; eauto.
+try exfalso; apply H; eauto.
+intro; desc; desf.
+Qed.
+
+Lemma init_events_wf2 (C: Wf) a (IN: In a acts) : is_init a <->  ~ is_proper a.
+Proof. generalize (init_events_wf1 C a IN); intros; tauto. Qed.
 
 Lemma rf_lv (C: WfRF) x y (H: rf x y) l v o (LABR: lab y = Aload l v o)
  : exists o', lab x = Astore l v o'.
@@ -340,6 +355,12 @@ Qed.
 
 Hypothesis WF: Wf.
 
+Lemma sb_domb : domb sb is_proper.
+Proof. cdes WF; cdes WF_SB.
+red; ins.
+specialize (SB_TID x y REL); desf.
+red in SB_TID; desc; done.
+Qed.
 Lemma rmw_doma : doma rmw is_read.
 Proof. cdes WF; cdes WF_RMW; eauto. Qed.
 Lemma rmw_domb : domb rmw is_write.
@@ -1010,7 +1031,7 @@ Definition msg_rel tm (acts : list event) (sb rmw rf sc : relation event) (l: Lo
 
 Section Exports.
 
-  Variable acts : list event.
+  Variable acts actsi : list event.
   Variables sb rmw rf mo sc : relation event.
   Hypothesis WF : Wf acts sb rmw rf mo sc.
   Variables i : thread_id.
@@ -1239,6 +1260,12 @@ Add Parametric Morphism : (hb) with signature
 Proof.
   by unfold hb; ins; rewrite H, H0, H1.
 Qed. 
+
+Add Parametric Morphism : (WfACTS) with signature 
+  eq ==> iff as WfACTS_more.
+Proof.
+  done.
+Qed.
 
 Add Parametric Morphism : (WfSB) with signature 
   eq ==> same_relation ==> iff as WfSB_more.

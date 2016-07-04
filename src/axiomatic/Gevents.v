@@ -10,7 +10,7 @@ Require Import Basic Event.
 Set Implicit Arguments.
 
 Definition act_id := nat.
-Definition thread_id := IdentMap.key.
+Definition thread_id := option IdentMap.key.
 
 Inductive label := 
   | Aload (l:Loc.t) (v:Const.t) (o:Ordering.t)
@@ -158,3 +158,33 @@ Hint Resolve  read_non_write read_non_fence write_non_read fence_non_read
      write_non_fence write_non_fence 
      fence_is_fence fence_non_write: acts.
 
+(******************************************************************************)
+(** ** Initialization *)
+(******************************************************************************)
+
+  Definition init_event l := Event 0 None (Astore l 0 Ordering.relaxed).
+  Definition is_init a := exists l, a = init_event l.
+  Definition is_proper a := exists i_a, thread a = Some i_a.
+  Definition init_pair a b := is_init a /\ is_proper b.
+
+Lemma init_not_proper a (INIT: is_init a): ~ is_proper a.
+Proof. ins; intro H; unfold is_init, is_proper in *; desc; desf. Qed.
+
+Lemma proper_non_init a (NON_INIT: is_proper a): ~ is_init a.
+Proof. ins; intro H; unfold is_init, is_proper in *; desc; desf. Qed.
+
+Lemma init_proper_thread a b (INIT: is_init a) (NON_INIT: is_proper b): ~ thread a = thread b.
+Proof. ins; intro H; unfold is_init, is_proper, thread in *; desc; desf. Qed.
+
+Lemma thread_proper a b (T: thread a = thread b): is_proper a <-> is_proper b.
+Proof. split; intro H; unfold is_proper in *; desc; subst; ins; exists i_a; congruence. Qed.
+
+Lemma init_is_write a (A: is_init a) : is_write a.
+Proof. unfold is_init in *; desc; destruct a; destruct lb; ins. Qed.
+
+Lemma init_is_rlx a (A: is_init a) : is_rlx_rw a.
+Proof. unfold is_init, init_event, is_rlx_rw in *; desc. 
+destruct a; destruct lb; ins; desf. Qed.
+
+Hint Resolve  init_not_proper proper_non_init init_proper_thread thread_proper 
+  init_is_write init_is_rlx : acts.
