@@ -21,7 +21,7 @@ Require Import Commit.
 
 Require Import Gevents.
 Require Import model.
-Require Import Gsteps.
+Require Import Gstep.
 Require Import Machine.
 
 Set Implicit Arguments.
@@ -35,7 +35,7 @@ Definition monotone (mo : event -> event -> Prop) f :=
   forall a b, mo a b -> Time.lt (f a) (f b).
 
 Lemma new_f acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
-  a (GSTEP: gstep acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc' a)
+  prev a (GSTEP: gstep acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc' prev a)
   f (MON: monotone mo f): 
   exists f', << F: forall b, In b acts -> f' b = f b >> /\
              << MON: monotone mo' f' >>.
