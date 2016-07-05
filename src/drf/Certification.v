@@ -23,18 +23,12 @@ Require Import SimLocal.
 Require Import FulfillStep.
 Require Import MemoryReorder.
 
+Require Import SmallStep.
 Require Import PromiseConsistent.
 Require Import ReorderThreadStepSame.
 
 Set Implicit Arguments.
 
-
-Inductive tau_program_step lang e1 e2: Prop :=
-| step_program_tau
-    e
-    (STEP: @Thread.program_step lang e e1 e2)
-    (TAU: ThreadEvent.get_event e = None)
-.
 
 Definition pf_consistent lang (e:Thread.t lang): Prop :=
   forall sc1 mem1

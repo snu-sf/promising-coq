@@ -26,6 +26,12 @@ Definition Thread_step_all {lang} (t1 t2:Thread.t lang) : Prop :=
   step_union (@Thread.step lang) t1 t2.
 Hint Unfold Thread_step_all.
 
+Inductive tau_program_step lang e1 e2: Prop :=
+| step_program_tau
+    e
+    (STEP: @Thread.program_step lang e e1 e2)
+    (TAU: ThreadEvent.get_event e = None)
+.
 
 Inductive small_step (withprm: bool) (tid:Ident.t) (e:ThreadEvent.t) (c1:Configuration.t): forall (c2:Configuration.t), Prop :=
 | small_step_intro
@@ -147,6 +153,67 @@ Lemma rtc_thread_step_rtc_small_step
       (Configuration.mk (IdentMap.add tid (existT _ lang st2, lc2) threads) sc2 mem2).
 Proof.
   exploit rtc_thread_step_rtc_small_step_aux; eauto. auto.
+Qed.
+
+Lemma tau_program_step_small_step
+      lang tid threads
+      st1 lc1 sc1 mem1
+      st2 lc2 sc2 mem2
+      (TID: IdentMap.find tid threads = Some (existT _ lang st1, lc1))
+      (STEP: tau_program_step (Thread.mk lang st1 lc1 sc1 mem1) (Thread.mk lang st2 lc2 sc2 mem2)):
+  small_step_evt false tid 
+             (Configuration.mk threads sc1 mem1)
+             (Configuration.mk (IdentMap.add tid (existT _ lang st2, lc2) threads) sc2 mem2).
+Proof.
+  inv STEP. econs. econs; eauto. inv STEP0; eauto.
+Qed.
+
+Lemma tau_program_step_small_step_aux
+      lang tid threads
+      st1 lc1 sc1 mem1
+      st2 lc2 sc2 mem2
+      (STEP: tau_program_step (Thread.mk lang st1 lc1 sc1 mem1) (Thread.mk lang st2 lc2 sc2 mem2)):
+  small_step_evt false tid
+             (Configuration.mk (IdentMap.add tid (existT _ lang st1, lc1) threads) sc1 mem1)
+             (Configuration.mk (IdentMap.add tid (existT _ lang st2, lc2) threads) sc2 mem2).
+Proof.
+  exploit tau_program_step_small_step; eauto.
+  { eapply IdentMap.Facts.add_eq_o. eauto. }
+  rewrite (IdentMap.add_add_eq tid (existT Language.state lang st2, lc2)). eauto.
+Qed.
+
+Lemma rtc_tau_program_step_rtc_small_step_aux
+      lang tid threads
+      th1 th2
+      (TID: IdentMap.find tid threads = Some (existT _ lang th1.(Thread.state), th1.(Thread.local)))
+      (STEP: (rtc (@tau_program_step lang)) th1 th2):
+  rtc (small_step_evt false tid)
+      (Configuration.mk threads th1.(Thread.sc) th1.(Thread.memory))
+      (Configuration.mk (IdentMap.add tid (existT _ lang th2.(Thread.state), th2.(Thread.local)) threads) th2.(Thread.sc) th2.(Thread.memory)).
+Proof.
+  revert threads TID. induction STEP; i.
+  - apply rtc_refl. f_equal. apply IdentMap.eq_leibniz. ii.
+    rewrite IdentMap.Facts.add_o. condtac; auto. subst. auto.
+  - inv H. destruct x, y. ss. econs 2.
+    + econs; eauto. econs; eauto. inv STEP0; eauto.
+    + etrans; [eapply IHSTEP|].
+      * apply IdentMap.Facts.add_eq_o. auto.
+      * apply rtc_refl. f_equal. apply IdentMap.eq_leibniz. ii.
+        rewrite ? IdentMap.Facts.add_o. condtac; auto.
+Qed.
+
+Lemma rtc_tau_program_step_rtc_small_step
+      lang tid threads
+      st1 lc1 sc1 mem1
+      st2 lc2 sc2 mem2
+      (TID: IdentMap.find tid threads = Some (existT _ lang st1, lc1))
+      (STEP: (rtc (@tau_program_step lang)) (Thread.mk lang st1 lc1 sc1 mem1) (Thread.mk lang st2 lc2 sc2 mem2)):
+  rtc (small_step_evt false tid)
+      (Configuration.mk threads sc1 mem1)
+      (Configuration.mk (IdentMap.add tid (existT _ lang st2, lc2) threads) sc2 mem2).
+Proof.
+  exploit rtc_tau_program_step_rtc_small_step_aux; eauto. 
+  eauto.
 Qed.
 
 Lemma step_small_steps

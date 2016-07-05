@@ -23,6 +23,7 @@ Require Import Race.
 Require Import PIStep.
 Require Import Lift.
 Require Import PromiseConsistent.
+Require Import Certification.
 
 Set Implicit Arguments.
 
@@ -136,27 +137,25 @@ Lemma consistent_can_fulfill_promises_future
       (MEM: Memory.closed mem1):
   can_fulfill_promises tid (Configuration.mk ths sc1 mem1).
 Proof.
-  admit.
-  (* ii. destruct lst as [lang st]. econs. i. *)
-  (* exploit CONSISTENT; ss; eauto. *)
-  (* i; des. destruct e2. *)
-  (* exploit rtc_thread_step_rtc_small_step; swap 1 2. *)
-  (* { eapply rtc_implies, STEPS. i. inv PR. eauto. } *)
-  (* { eauto. } *)
-  (* intro STEPS1. ss. *)
-  (* match goal with [STEPS1: rtc _ _ ?cfg|-_] => set (c2 := cfg) end. *)
-  (* exploit (@rtc_small_step_unset_fulfill tid loc ts (Configuration.mk c.(Configuration.threads) sc1 mem1)); cycle 1. *)
-  (* - apply THREAD. *)
-  (* - apply PROMISE. *)
-  (* - instantiate (3:=c2). s. rewrite IdentMap.gss. eauto. *)
-  (* - rewrite PROMISES. apply Cell.bot_get. *)
-  (* - intro FULFILL. exists c2; split; eauto. *)
-  (*   econs; i. unfold c2 in *. ss. *)
-  (*   rewrite IdentMap.gss in THREAD0. depdes THREAD0. *)
-  (*   rewrite PROMISES in PROMISE0.  *)
-  (*   by setoid_rewrite Cell.bot_get in PROMISE0. *)
-  (* - done. *)
-Admitted. (* gil; very easy; use Certification.consistent_pf_consistent *)
+  apply consistent_pf_consistent in CONSISTENT.
+  econs. ii. destruct lst1 as [lang1 st1].
+  exploit CONSISTENT; ss; eauto.
+  i; des. destruct e2.
+  exploit rtc_tau_program_step_rtc_small_step; swap 1 2; eauto.
+  intro STEPS1. ss.
+  match goal with [STEPS1: rtc _ _ ?cfg|-_] => set (c2 := cfg) in * end.
+  exploit (@rtc_small_step_unset_fulfill tid loc ts (Configuration.mk ths sc1 mem1)); cycle 1.
+  - apply THREAD.
+  - apply PROMISE.
+  - instantiate (3:=c2). s. rewrite IdentMap.gss. eauto.
+  - rewrite PROMISES. apply Cell.bot_get.
+  - intro FULFILL. exists c2; split; eauto.
+    econs; i. unfold c2 in *. ss.
+    rewrite IdentMap.gss in THREAD0. depdes THREAD0.
+    rewrite PROMISES in PROMISE0.
+    by setoid_rewrite Cell.bot_get in PROMISE0.
+  - eauto.
+Qed.
 
 Lemma can_fulfill_promises_promise_consistent
       tid c
