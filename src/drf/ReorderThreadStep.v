@@ -77,7 +77,8 @@ Proof.
     inv STEP; [|by inv STEP1; inv E1].
     inv STEP0; [by inv STEP; inv PFREE0|].
     inv STEP1. ss. inv E1.
-    exploit reorder_promise_program_diff; eauto. i. des.
+    exploit reorder_promise_program_diff; eauto;
+      (try by eapply WF; eauto). i. des.
     esplits.
     + econs; eauto.
     + right. esplits. econs; eauto.
