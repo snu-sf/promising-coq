@@ -26,6 +26,12 @@ Hint Constructors Thread.step.
 Definition option_app {A} (a b: option A) : option A :=
   if a then a else b.
 
+Lemma strengthen
+      (A B: Prop)
+      (H: A /\ (A -> B)):
+  A /\ B.
+Proof. intuition. Qed.
+
 Lemma option_map_map 
       A B C (f: B -> C) (g: A -> B) (a: option A):
   option_map f (option_map g a) = option_map (fun x => f (g x)) a.
@@ -108,12 +114,15 @@ Qed.
 
 
 
-Definition mem_sub (cmp: Capability.t -> Capability.t -> Prop) (m1 m2: Memory.t) : Prop :=
+Definition mem_sub (cmp: Loc.t -> Time.t -> Capability.t -> Capability.t -> Prop) (m1 m2: Memory.t) : Prop :=
   forall loc ts from val rel1
     (IN: Memory.get loc ts m1 = Some (from, Message.mk val rel1)),
   exists rel2,
   <<IN: Memory.get loc ts m2 = Some (from, Message.mk val rel2)>> /\
-  <<CMP: cmp rel1 rel2>>.
+  <<CMP: cmp loc ts rel1 rel2>>.
+
+Definition loctmeq (l: Loc.t) (t: Time.t) (r1 r2: Capability.t) : Prop := r1 = r2.
+Hint Unfold loctmeq.
 
 Lemma local_simul_fence
       com prm prm' sc ordr ordw com' sc'
@@ -126,8 +135,8 @@ Qed.
 Require Import MemoryFacts.
 
 Lemma local_simul_write
-      com com' sc sc' mS mT mT' loc from to val relr relw ord kind prm prm'
-      (SUB: mem_sub eq mS mT)
+      cmp com com' sc sc' mS mT mT' loc from to val relr relw ord kind prm prm'
+      (SUB: mem_sub cmp mS mT)
       (DISJOINT: Memory.disjoint mS prm)
       (WRITE: Local.write_step (Local.mk com prm) sc mT loc from to val relr relw ord (Local.mk com' prm') sc' mT' kind):
   exists mS',

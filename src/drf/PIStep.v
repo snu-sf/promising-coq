@@ -70,12 +70,12 @@ Inductive pi_wf cmp: Configuration.t*Configuration.t -> Prop :=
     (SC: cS.(Configuration.sc) = cT.(Configuration.sc))
     (LR: forall loc ts from val rel1
            (IN: Memory.get loc ts cS.(Configuration.memory) = Some (from, Message.mk val rel1)),
-         <<IN: exists rel2, Memory.get loc ts cT.(Configuration.memory) = Some (from, Message.mk val rel2) /\ <<CMP: cmp rel1 rel2>>>> /\
+         <<IN: exists rel2, Memory.get loc ts cT.(Configuration.memory) = Some (from, Message.mk val rel2) /\ <<CMP: cmp loc ts rel1 rel2>>>> /\
          <<NOT: forall tid, ~Threads.is_promised tid loc ts cT.(Configuration.threads)>>)
     (RL: forall loc ts from val rel2
            (IN: Memory.get loc ts cT.(Configuration.memory) = Some (from, Message.mk val rel2))
            (NOT: forall tid, ~Threads.is_promised tid loc ts cT.(Configuration.threads)),
-         exists rel1, Memory.get loc ts cS.(Configuration.memory) = Some (from, Message.mk val rel1) /\ <<CMP: cmp rel1 rel2>>):
+         exists rel1, Memory.get loc ts cS.(Configuration.memory) = Some (from, Message.mk val rel1) /\ <<CMP: cmp loc ts rel1 rel2>>):
   pi_wf cmp (cS,cT)
 .
 Hint Constructors pi_wf.
@@ -101,7 +101,7 @@ Definition pi_pre_proj (pre: option (Configuration.t*Configuration.t*ThreadEvent
 Lemma pi_step_future
       tid cST1 cST2 withprm cmp
       (WF1: pi_wf cmp cST1)
-      (REFL: forall r, cmp r r)
+      (REFL: forall l t r, cmp l t r r)
       (STEP: pi_step_evt withprm tid cST1 cST2):
   <<WF2: pi_wf cmp cST2>> /\
   <<FUTURES: Memory.future cST1.(fst).(Configuration.memory) cST2.(fst).(Configuration.memory)>> /\
@@ -290,7 +290,7 @@ Admitted. (* jeehoon: half done, not hard *)
 Lemma rtc_pi_step_future
       cST1 cST2 withprm cmp
       (WF1: pi_wf cmp cST1)
-      (REFL: forall r, cmp r r)
+      (REFL: forall l t r, cmp l t r r)
       (STEPS: rtc (pi_step_all withprm) cST1 cST2):
   <<WF2: pi_wf cmp cST2>> /\
   <<FUTURES: Memory.future cST1.(fst).(Configuration.memory) cST2.(fst).(Configuration.memory)>> /\
@@ -413,7 +413,7 @@ Qed.
 Lemma rtcn_pi_step_remove_promises
       tid n cST1 cST2
       (PSTEP: rtcn (pi_step_except true tid) n cST1 cST2)
-      (PWF: pi_wf eq cST1):
+      (PWF: pi_wf loctmeq cST1):
   exists n' cT2',
     <<N: n' <= n>> /\
     <<STEPS: rtcn (pi_step_except false tid) n' cST1 (cST2.(fst),cT2')>>.
@@ -484,7 +484,7 @@ Admitted. (* jeehoon: very important lemma *)
 
 Lemma rtc_pi_step_remove_promises
       tid cST1 cST2
-      (WF: pi_wf eq cST1)
+      (WF: pi_wf loctmeq cST1)
       (PSTEP: rtc (pi_step_except true tid) cST1 cST2):
   exists cT2',
   rtc (pi_step_except false tid) cST1 (cST2.(fst),cT2').
@@ -496,7 +496,7 @@ Qed.
 
 Lemma pi_consistent_small_step_pi_rw
       e tid cST1 cST2 cT3 withprm
-      (WF: pi_wf eq cST1)
+      (WF: pi_wf loctmeq cST1)
       (PI_CONSISTENT: pi_consistent cST1)
       (PI_RACEFREE: pf_racefree cST1.(fst))
       (PI_STEPS: rtc (pi_step_evt true tid) cST1 cST2)
@@ -546,7 +546,7 @@ Qed.
 
 Lemma pi_consistent_small_step_pi
       e tid cST1 cST2 cT3 withprm
-      (WF: pi_wf eq cST1)
+      (WF: pi_wf loctmeq cST1)
       (PI_CONSISTENT: pi_consistent cST1)
       (PI_RACEFREE: pf_racefree cST1.(fst))
       (PI_STEPS: rtc (pi_step_evt true tid) cST1 cST2)
@@ -582,7 +582,7 @@ Proof.
           by rewrite TID.
         + econs 2; econs 2; eauto.
           econs; eauto.
-          s. hexploit RL; [| |by intro X; des; subst; apply X]; eauto.
+          s. hexploit RL; [| |by intro X; des; unfold loctmeq in *; subst; apply X]; eauto.
           i. destruct (Ident.eq_dec tid tid0) eqn: EQ; cycle 1.
           { eapply RW; s; eauto. }
           subst. intro PROMISED. inv PROMISED.
@@ -626,7 +626,7 @@ Proof.
         + econs 2; econs 4; [by eauto|..].
           { 
             econs; eauto.
-            s. hexploit RL; [| |by intro X; des; subst; apply X]; eauto.
+            s. hexploit RL; [| |by intro X; des; unfold loctmeq in *; subst; apply X]; eauto.
             i. destruct (Ident.eq_dec tid tid0) eqn: EQ; cycle 1.
             { eapply RW; s; eauto. }
             subst. intro PROMISED. inv PROMISED.
@@ -679,7 +679,7 @@ Admitted. (* memory & promises disojint *)
 
 Lemma pi_consistent_rtc_small_step_pi
       tid cST1 cST2 withprm
-      (WF: pi_wf eq cST1)
+      (WF: pi_wf loctmeq cST1)
       (PI_CONSISTENT: pi_consistent cST1)
       (PI_RACEFREE: pf_racefree cST1.(fst))
       (PI_STEPS: rtc (pi_step_evt true tid) cST1 cST2)
@@ -711,7 +711,7 @@ Qed.
 
 Theorem pi_consistent_step_pi
       cST1 cT2 e tid
-      (WF: pi_wf eq cST1)
+      (WF: pi_wf loctmeq cST1)
       (PI_CONSISTENT: pi_consistent cST1)
       (CONSISTENT: Configuration.consistent cST1.(snd))
       (PI_RACEFREE: pf_racefree cST1.(fst))

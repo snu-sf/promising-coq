@@ -50,6 +50,34 @@ Definition pi_step_lift_mem l t p k e M1 M2 : Prop :=
     M1 = M2
   end.
 
+Definition msg_add e msgs := 
+  match ThreadEvent.is_writing e with
+  | Some (loc, from, ts, val, rel, ord) => (loc,ts)::msgs
+  | None => msgs
+  end.
+
+Inductive thread_event_eqlerel: ThreadEvent.t -> ThreadEvent.t -> Prop :=
+| teel_promise loc from to val rel1 rel2
+    (LEREL: Capability.le rel1 rel2):
+  thread_event_eqlerel (ThreadEvent.promise loc from to val rel1) (ThreadEvent.promise loc from to val rel2) 
+| teel_silent:
+  thread_event_eqlerel (ThreadEvent.silent) (ThreadEvent.silent)
+| teel_read loc ts val rel1 rel2 ord
+    (LEREL: Capability.le rel1 rel2):
+  thread_event_eqlerel (ThreadEvent.read loc ts val rel1 ord) (ThreadEvent.read loc ts val rel2 ord)
+| teel_write loc from to val rel1 rel2 ord
+    (LEREL: Capability.le rel1 rel2):
+  thread_event_eqlerel (ThreadEvent.write loc from to val rel1 ord) (ThreadEvent.write loc from to val rel2 ord)
+| teel_update loc tsr tsw valr valw relr1 relr2 relw1 relw2 ordr ordw
+    (LEREL: Capability.le relr1 relr2)
+    (LEREL: Capability.le relw1 relw2):
+  thread_event_eqlerel (ThreadEvent.update loc tsr tsw valr valw relr1 relw1 ordr ordw) (ThreadEvent.update loc tsr tsw valr valw relr2 relw2 ordr ordw)
+| teel_fence ordr ordw:
+  thread_event_eqlerel (ThreadEvent.fence ordr ordw) (ThreadEvent.fence ordr ordw)
+| teel_syscall e:
+  thread_event_eqlerel (ThreadEvent.syscall e) (ThreadEvent.syscall e)
+.
+
 Lemma remove_pi_step_lift_mem
       l t prm prm' k e
       loc from to val released
@@ -64,23 +92,26 @@ Proof.
     eapply DISJ; eauto.
 Qed.
 
-Inductive pi_step_lift_except l t (tid_except:Ident.t): (Configuration.t*Configuration.t*Memory.t) -> (Configuration.t*Configuration.t*Memory.t) -> Prop :=
-| pi_step_lift_except_intro tid k e cS1 cS2 cT1 cT2 M1 M2 lst lc
+Inductive pi_step_lift_except_aux l t (tid_except:Ident.t) e: (Configuration.t*Configuration.t*Memory.t) -> (Configuration.t*Configuration.t*Memory.t) -> Prop :=
+| pi_step_lift_except_intro tid k cS1 cS2 cT1 cT2 M1 M2 lst lc
     (PI_STEP: pi_step false tid e (cS1,cT1) (cS2,cT2))
     (FIND: IdentMap.find tid_except cT2.(Configuration.threads) = Some (lst,lc))
     (MEM: pi_step_lift_mem l t lc.(Local.promises) k e M1 M2)
     (TID: tid <> tid_except):
-  pi_step_lift_except l t tid_except (cS1,cT1,M1) (cS2,cT2,M2)
+  pi_step_lift_except_aux l t tid_except e (cS1,cT1,M1) (cS2,cT2,M2)
 .
-Hint Constructors pi_step_lift_except.
+Hint Constructors pi_step_lift_except_aux.
 
-Definition mem_eqrel (cmp: Capability.t -> Capability.t -> Prop) (m1 m2: Memory.t) : Prop :=
+Definition pi_step_lift_except l t tid_except := step_union (pi_step_lift_except_aux l t tid_except).
+Hint Unfold pi_step_lift_except.
+
+Definition mem_eqrel (cmp: Loc.t -> Time.t -> Capability.t -> Capability.t -> Prop) (m1 m2: Memory.t) : Prop :=
   <<LR: mem_sub cmp m1 m2>> /\
-  <<RL: mem_sub (fun x y => cmp y x) m2 m1>>.
+  <<RL: mem_sub (fun l t x y => cmp l t y x) m2 m1>>.
 Hint Unfold mem_eqrel.
 
 Definition mem_eqlerel (m1 m2: Memory.t) : Prop :=
-  mem_eqrel Capability.le m1 m2.
+  mem_eqrel (fun _ _ => Capability.le) m1 m2.
 Hint Unfold mem_eqlerel.
 
 Program Instance mem_eqlerel_PreOrder: PreOrder mem_eqlerel.
@@ -97,22 +128,24 @@ Next Obligation.
     esplits; eauto. etrans; eauto.
 Qed.
 
-Definition Capability_lift_le l t cap1 cap2 : Prop :=
-  cap1 = cap2 \/ cap2 = Capability_lift l t cap1.
+Definition Capability_lift_le l t (msgs: list (Loc.t*Time.t)) loc ts cap1 cap2 : Prop :=
+  cap1 = cap2 \/ (List.In (loc,ts) msgs /\ cap2 = Capability_lift l t cap1).
 Hint Unfold Capability_lift_le.
 
-Global Program Instance Capability_lift_le_PreOrder l t : PreOrder (Capability_lift_le l t).
+Global Program Instance Capability_lift_le_PreOrder l t msgs loc ts : PreOrder (Capability_lift_le l t msgs loc ts).
 Next Obligation. 
   ii. unfold Capability_lift_le in *.
   des; subst; eauto.
   right. destruct x. s.
+  splits; eauto.
   unfold TimeMap_lift.
   f_equal.
-  - extensionality y. destruct (LocSet.Facts.eq_dec l y); eauto.
+  - extensionality y. destruct (LocSet.Facts.eq_dec l y); subst; eauto.
     admit.
-  - extensionality y. destruct (LocSet.Facts.eq_dec l y); eauto.
+  - extensionality y. destruct (LocSet.Facts.eq_dec l y); subst; eauto.
     admit.
 Admitted.
+
 
 Lemma lower_mem_eqlerel
       m1 loc from to val r1 r2 m2
@@ -146,14 +179,24 @@ Lemma pi_steps_lift_except_pi_steps
 Proof.
   induction STEPS; eauto.
   etrans; [|apply IHSTEPS].
-  inv H. econs; eauto.
+  inv H. inv USTEP. econs; eauto.
+Qed.
+
+Lemma rtc_pi_step_lift_except_find
+      cSTM1 cSTM2 tid l t
+      (STEPS: rtc (pi_step_lift_except l t tid) cSTM1 cSTM2):
+  IdentMap.find tid cSTM1.(fst).(fst).(Configuration.threads) = IdentMap.find tid cSTM2.(fst).(fst).(Configuration.threads) /\
+  IdentMap.find tid cSTM1.(fst).(snd).(Configuration.threads) = IdentMap.find tid cSTM2.(fst).(snd).(Configuration.threads).
+Proof.
+  apply pi_steps_lift_except_pi_steps in STEPS.
+  apply rtc_pi_step_except_find in STEPS. eauto.
 Qed.
 
 Lemma pi_step_lifting_aux
       tid cS1 cT1 cS2 cT2 M1 l t
       (PISTEP: pi_step_except false tid (cS1,cT1) (cS2,cT2))
       (FIND: IdentMap.find tid cT2.(Configuration.threads) <> None)
-      (WF: pi_wf eq (cS1,cT1))
+      (WF: pi_wf loctmeq (cS1,cT1))
       (EQLEREL: mem_eqlerel cT1.(Configuration.memory) M1):
   exists M2, 
   pi_step_lift_except l t tid (cS1,cT1,M1) (cS2,cT2,M2) /\
@@ -170,7 +213,7 @@ Lemma rtc_pi_step_lifting_aux
       tid cST1 cST2 M1 l t
       (PISTEP: rtc (pi_step_except false tid) cST1 cST2)
       (FIND: IdentMap.find tid cST2.(snd).(Configuration.threads) <> None)
-      (WF: pi_wf eq cST1)
+      (WF: pi_wf loctmeq cST1)
       (EQLEREL: mem_eqlerel cST1.(snd).(Configuration.memory) M1):
   exists M2, 
   rtc (pi_step_lift_except l t tid) (cST1,M1) (cST2,M2) /\
@@ -204,7 +247,7 @@ Lemma pi_step_lifting
       tid cST1 cST2 l t
       (PI_STEPS: rtc (pi_step_except false tid) cST1 cST2)
       (FIND: IdentMap.find tid cST2.(snd).(Configuration.threads) <> None)
-      (WF: pi_wf eq cST1):
+      (WF: pi_wf loctmeq cST1):
   exists M2, rtc (pi_step_lift_except l t tid) (cST1,cST1.(snd).(Configuration.memory)) (cST2,M2).
 Proof.
   exploit rtc_pi_step_lifting_aux; eauto; cycle 1.
@@ -212,135 +255,90 @@ Proof.
   - rr. split; ii; esplits; eauto; reflexivity.
 Qed.
 
-
-Lemma rtc_pi_step_lift_except_wf_aux1
-      l t c M
-      (EQMEM: mem_eqrel (Capability_lift_le l t) c.(Configuration.memory) M)
-      (IN: Memory.get l t M <> None)
-      (WF: Configuration.wf c):
-  Configuration.wf (conf_update_memory c M).
+Lemma conf_update_memory_wf
+      l t msgs cS1 cT1 M1
+      (WF: pi_wf loctmeq (cS1,cT1))
+      (EQMEM: mem_eqrel (Capability_lift_le l t msgs) cT1.(Configuration.memory) M1)
+      (IN: Memory.get l t cT1.(Configuration.memory) <> None):
+  pi_wf (Capability_lift_le l t msgs) (cS1,conf_update_memory cT1 M1).
 Proof.
 Admitted.
-
-Lemma rtc_pi_step_lift_except_wf_aux2
-      l t tid cS1 cT1 cSTM2
-      (WF: pi_wf eq (cS1,cT1))
-      (IN: Memory.get l t cT1.(Configuration.memory) <> None)
-      (STEPS_LIFT : rtc (pi_step_lift_except l t tid) (cS1, cT1, cT1.(Configuration.memory)) cSTM2):
-  mem_eqrel (Capability_lift_le l t) cSTM2.(fst).(snd).(Configuration.memory) cSTM2.(snd) /\
-  Memory.get l t cSTM2.(snd) <> None /\
-  pi_wf (Capability_lift_le l t) cSTM2.(fst).
-Proof.
-  apply Operators_Properties.clos_rt_rt1n_iff, 
-        Operators_Properties.clos_rt_rtn1_iff in STEPS_LIFT.
-  induction STEPS_LIFT; s.
-  { esplits; try r; esplits; ii; esplits; eauto. 
-    inv WF. econs; eauto.
-    - ii; exploit LR; eauto; i; des; subst; esplits; eauto.
-    - ii; exploit RL; eauto; i; des; subst; esplits; eauto.
-  }
-  clear STEPS_LIFT.
-  inv H. ss. des.
-  exploit pi_step_future; eauto. intros [WF2 _].
-  inv PI_STEP. inv STEPT. inv STEP; inv STEP0; try by rdes MEM; ss; subst; eauto.
-  { esplits; eauto.
-    - admit.
-    - admit. 
-  }
-  { esplits; eauto.
-    - admit.
-    - admit. 
-  }
-Admitted.
-
-Lemma rtc_pi_step_lift_except_wf
-      l t tid cS1 cT1 cS2 cT2 M2
-      (WF: pi_wf eq (cS1,cT1))
-      (IN: Memory.get l t cT1.(Configuration.memory) <> None)
-      (STEPS_LIFT : rtc (pi_step_lift_except l t tid) (cS1, cT1, cT1.(Configuration.memory)) (cS2,cT2,M2)):
-  pi_wf (Capability_lift_le l t) (cS2, conf_update_memory cT2 M2).
-Proof.
-  eapply rtc_pi_step_lift_except_wf_aux2 in STEPS_LIFT; eauto. des. ss.
-  inv STEPS_LIFT1.
-  econs; eauto using rtc_pi_step_lift_except_wf_aux1.
-  - i. ss. eapply LR in IN0. des.
-    eapply STEPS_LIFT in IN1. des. 
-    esplits; eauto.
-    etrans; eauto.
-  - i. ss. eapply STEPS_LIFT in IN0. des.
-    exploit RL; eauto.
-    intro GET; des.
-    esplits; eauto.
-    etrans; eauto.
-Qed.
 
 Lemma pi_step_lift_except_future
+      l t msgs tid cS1 cT1 cS2 cT2 M1 M2 e
+      (WF: pi_wf loctmeq (cS1,cT1))
+      (EQMEM: mem_eqrel (Capability_lift_le l t msgs) cT1.(Configuration.memory) M1)
+      (IN: Memory.get l t cT1.(Configuration.memory) <> None)
+      (PI_STEP: pi_step_lift_except_aux l t tid e (cS1,cT1,M1) (cS2,cT2,M2))
+:
+  <<EQMEM: mem_eqrel (Capability_lift_le l t (msg_add e msgs)) cT2.(Configuration.memory) M2>> /\
+  <<IN: Memory.get l t cT2.(Configuration.memory) <> None>> /\
+  <<MEMFUT: Memory.future M1 M2>> /\
+  <<TIMELE: TimeMap.le cT1.(Configuration.sc) cT2.(Configuration.sc)>>.
+Proof.
+Admitted.
+
+Lemma rtc_pi_step_lift_except_future
       l t tid cS1 cT1 cSTM2 lst1 lc1
-      (WF: pi_wf eq (cS1,cT1))
+      (WF: pi_wf loctmeq (cS1,cT1))
       (IN: Memory.get l t cT1.(Configuration.memory) <> None)
       (PI_STEPS: rtc (pi_step_lift_except l t tid) (cS1,cT1,cT1.(Configuration.memory)) cSTM2)
       (FIND: IdentMap.find tid cT1.(Configuration.threads) = Some (lst1,lc1)):
+  <<WF: exists msgs, pi_wf (Capability_lift_le l t msgs) (cSTM2.(fst).(fst),(conf_update_memory cSTM2.(fst).(snd) cSTM2.(snd)))>> /\
   <<MEMFUT: Memory.future cT1.(Configuration.memory) cSTM2.(snd)>> /\
   <<TIMELE: TimeMap.le cT1.(Configuration.sc) cSTM2.(fst).(snd).(Configuration.sc)>> /\
   <<LOCWF: Local.wf lc1 cSTM2.(snd)>> /\
   <<MEMCLOTM: Memory.closed_timemap (cSTM2.(fst).(snd).(Configuration.sc)) cSTM2.(snd)>> /\
   <<MEMCLO: Memory.closed cSTM2.(snd)>>.
 Proof.
-  exploit pi_steps_lift_except_pi_steps; eauto. intro STEPS. ss.
-  exploit rtc_small_step_future; swap 1 2.
+  apply (@proj2 (<<EQMEM: exists msgs, mem_eqrel (Capability_lift_le l t msgs) cSTM2.(fst).(snd).(Configuration.memory) cSTM2.(snd)>> /\
+                 <<IN: Memory.get l t cSTM2.(fst).(snd).(Configuration.memory) <> None>>)).
+  revert FIND.
+  apply Operators_Properties.clos_rt_rt1n_iff, 
+        Operators_Properties.clos_rt_rtn1_iff in PI_STEPS.
+  induction PI_STEPS.
+  { set (X:=WF). inv X. inv WFT. inv WF0. destruct lst1.
+    i; esplits; s; eauto; try reflexivity. 
+    split; ii; esplits; eauto. 
+    eapply conf_update_memory_wf; eauto.
+    split; ii; esplits; eauto.
+  }
+  apply Operators_Properties.clos_rt_rtn1_iff, 
+        Operators_Properties.clos_rt_rt1n_iff in PI_STEPS.
 
-(* eapply rtc_implies, pi_steps_small_steps_snd, rtc_implies, STEPS; eauto. *)
-(*     i. inv PR. eauto. *)
+  i. exploit IHPI_STEPS; eauto. i; des. clear IHPI_STEPS.
+  inv H. destruct y as [[]], z as [[]].
+  exploit pi_step_lift_except_future; try apply USTEP; eauto. 
+  { eapply rtc_pi_step_future; eauto.
+    eapply rtc_implies, (@pi_steps_lift_except_pi_steps (_,_) (_,_)), PI_STEPS.
+    i. inv PR. eauto. }
+  i; des. destruct lst1.
 
+  exploit conf_update_memory_wf; [|eauto|eauto|].
+  { eapply rtc_pi_step_future; eauto.
+    etrans.
+    - eapply rtc_implies, (@pi_steps_lift_except_pi_steps (_,_) (_,_)), PI_STEPS.
+      i. inv PR. eauto.
+    - s. econs 2; [|reflexivity]. inv USTEP. eauto. }
+  intro X. inv X. inv WFT. inv WF1.
+  s. esplits; eauto; try etrans; eauto.
+  { eapply conf_update_memory_wf; eauto.
+    eapply rtc_pi_step_future; eauto.
+    etrans. 
+    { eapply rtc_implies, (@pi_steps_lift_except_pi_steps (_,_) (_,_)), PI_STEPS.
+      i; inv PR; eauto. }
+    ss. inv USTEP.
+    econs 2; [|reflexivity]. eauto. }
 
-(* eapply rtc_implies pi_steps_small_steps_snd. *)
+  eapply THREADS. s.
 
-
-(*   exploit rtc_pi_step_future; [eauto|eauto|..]. *)
-(*   { eapply rtc_implies, STEPS. i. inv PR. eauto. } *)
-(*   i; des. *)
-(*   esplits. *)
-(*   - admit. *)
-(*   -  *)
-
-(*   exploit rtc_pi_step_lift_except_wf; eauto. *)
-(*   intro WF2. inv WF2. inv WFT. *)
-(*   esplits; eauto. *)
-(*   -  *)
-
-Admitted.
-
-Lemma rtc_pi_step_lift_except_find
-      cSTM1 cSTM2 tid l t
-      (STEPS: rtc (pi_step_lift_except l t tid) cSTM1 cSTM2):
-  IdentMap.find tid cSTM1.(fst).(fst).(Configuration.threads) = IdentMap.find tid cSTM2.(fst).(fst).(Configuration.threads) /\
-  IdentMap.find tid cSTM1.(fst).(snd).(Configuration.threads) = IdentMap.find tid cSTM2.(fst).(snd).(Configuration.threads).
-Proof.
-  apply pi_steps_lift_except_pi_steps in STEPS.
-  apply rtc_pi_step_except_find in STEPS. eauto.
+  hexploit rtc_pi_step_lift_except_find.
+  { etrans; [eauto|].
+    econs 2; [|reflexivity]. eauto. }
+  s. intro EQ. des. rewrite <-EQ0.
+  eauto.
+Grab Existential Variables. exact []. exact [].
 Qed.
-
-Inductive thread_event_eqlerel: ThreadEvent.t -> ThreadEvent.t -> Prop :=
-| teel_promise loc from to val rel1 rel2
-    (LEREL: Capability.le rel1 rel2):
-  thread_event_eqlerel (ThreadEvent.promise loc from to val rel1) (ThreadEvent.promise loc from to val rel2) 
-| teel_silent:
-  thread_event_eqlerel (ThreadEvent.silent) (ThreadEvent.silent)
-| teel_read loc ts val rel1 rel2 ord
-    (LEREL: Capability.le rel1 rel2):
-  thread_event_eqlerel (ThreadEvent.read loc ts val rel1 ord) (ThreadEvent.read loc ts val rel2 ord)
-| teel_write loc from to val rel1 rel2 ord
-    (LEREL: Capability.le rel1 rel2):
-  thread_event_eqlerel (ThreadEvent.write loc from to val rel1 ord) (ThreadEvent.write loc from to val rel2 ord)
-| teel_update loc tsr tsw valr valw relr1 relr2 relw1 relw2 ordr ordw
-    (LEREL: Capability.le relr1 relr2)
-    (LEREL: Capability.le relw1 relw2):
-  thread_event_eqlerel (ThreadEvent.update loc tsr tsw valr valw relr1 relw1 ordr ordw) (ThreadEvent.update loc tsr tsw valr valw relr2 relw2 ordr ordw)
-| teel_fence ordr ordw:
-  thread_event_eqlerel (ThreadEvent.fence ordr ordw) (ThreadEvent.fence ordr ordw)
-| teel_syscall e:
-  thread_event_eqlerel (ThreadEvent.syscall e) (ThreadEvent.syscall e)
-.
 
 Lemma mem_eqlerel_get
       m1 m2
