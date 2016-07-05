@@ -19,6 +19,7 @@ Require Import Progress.
 
 Require Import DRFBase.
 Require Import SmallStep.
+Require Import ReorderThreadStep.
 Require Import Race.
 
 Set Implicit Arguments.
@@ -385,6 +386,33 @@ Proof.
   destruct withprm; eauto 10.
 Qed.
 
+Lemma pi_wf_small_step_is_reading
+      e s1 s2 t1
+      withprm tid l t v r o
+      (PWF: pi_wf (s1, t1))
+      (STEP: small_step withprm tid e s1 s2)
+      (READING: ThreadEvent.is_reading e = Some (l, t, v, r, o)):
+  forall tid', ~ Threads.is_promised tid' l t t1.(Configuration.threads).
+Proof.
+  inv STEP. inv STEP0; inv STEP; inv READING.
+  - inv LOCAL. inv PWF. eapply LR; eauto.
+  - inv LOCAL1. inv PWF. eapply LR; eauto.
+Qed.
+
+Lemma pi_wf_small_step_is_promising
+      e s1 t1 t2
+      withprm tid l t
+      (PWF: pi_wf (s1, t1))
+      (STEP: small_step withprm tid e t1 t2)
+      (PROMISING: ThreadEvent_is_promising e = Some (l, t)):
+  Threads.is_promised tid l t t2.(Configuration.threads).
+Proof.
+  inv STEP. inv STEP0; inv STEP; inv PROMISING.
+  s. econs.
+  - rewrite IdentMap.gss. eauto.
+  - inv LOCAL. s. eapply Memory.promise_get2. eauto.
+Qed.
+
 Lemma rtcn_pi_step_remove_promises
       tid n cST1 cST2
       (PSTEP: rtcn (pi_step_except true tid) n cST1 cST2)
@@ -396,10 +424,9 @@ Proof.
   revert_until n. induction n using strong_induction; i.
   inv PSTEP.
   { destruct cST2. esplits; eauto. }
-  exploit IH; eauto.
-  { inv A12. eapply pi_step_future; eauto. }
-  i. des.
-  inversion A12. inv PI_STEP. inv USTEP.
+  inversion A12. exploit pi_step_future; eauto. i. des.
+  exploit IH; eauto. i. des.
+  inv PI_STEP. inv USTEP.
   revert STEPS0. condtac; cycle 1.
   { i. esplits; cycle 1.
     - econs 2; eauto. econs; eauto. econs; eauto. econs; eauto.
@@ -414,23 +441,24 @@ Proof.
   }
   inv A0. inv PI_STEP. inv USTEP.
   assert (E0: ThreadEvent_is_promising e0 = None); [by inv STEPT0|].
-  assert ((<<TID: tid0 = tid1>> /\
-           <<STEP: small_step false tid0 e0 cT1 cT3>>) \/
-          (exists cT2',
-              <<STEP1: small_step false tid1 e0 cT1 cT2'>> /\
-              <<STEP2: small_step true tid0 e cT2' cT3>>)).
-  { admit. }
-  des.
-  { subst. esplits; cycle 1.
+  destruct p.
+  exploit reorder_promise_small_step; try exact STEPT; eauto.
+  { inv PWF. auto. }
+  { rewrite E0 in *. ii.
+    hexploit pi_wf_small_step_is_reading; try exact WF2; eauto. i.
+    hexploit pi_wf_small_step_is_promising; eauto.
+  }
+  i. des. unguardH STEP2. des.
+  { inv STEP2. esplits; cycle 1.
     - econs 2; eauto. econs; eauto. econs. econs; eauto.
       admit. (* NOWR *)
     - omega.
   }
-  assert (STEPS2: rtcn (pi_step_except true tid) (S n) (cS0, cT2'0) (fst cST2, cT2')).
+  assert (STEPS2: rtcn (pi_step_except true tid) (S n) (cS0, c1') (fst cST2, cT2')).
   { econs 2.
     - econs; try exact TID. econs. econs.
       + eauto.
-      + rewrite COND. ss.
+      + rewrite PROMISING. ss.
       + destruct (Ident.eq_dec tid0 tid1); subst; ss.
         rewrite E0 in *.
         inv STEPS. s. rewrite IdentMap.gso; auto.
@@ -440,11 +468,11 @@ Proof.
       i. inv PR. econs; eauto. inv PI_STEP. econs.
       inv USTEP. econs; eauto. inv STEPT. econs; eauto.
   }
-  assert (STEP3: pi_step_except false tid (cS2, cT1) (cS0, cT2'0)).
-  { eauto. econs; eauto. econs; eauto. econs; eauto.
-    - etrans; eauto. inv STEP2. s. rewrite IdentMap.Facts.add_o. condtac; ss.
-      subst. inv STEP; [|by inv STEP0]. inv STEP0.
-      rewrite TID1. ss.
+  assert (STEP3: pi_step_except false tid (cS2, cT1) (cS0, c1')).
+  { econs; eauto. econs; eauto. econs; eauto.
+    - etrans; eauto. inv STEP0. s. rewrite IdentMap.Facts.add_o. condtac; ss.
+      subst. inv STEP; [|by inv STEP0; inv PROMISING]. inv STEP0. ss. inv PROMISING.
+      rewrite TID1. eauto.
     - admit. (* NOWR *)
   }
   exploit IH; try exact STEPS2.
