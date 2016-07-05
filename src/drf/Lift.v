@@ -39,13 +39,68 @@ Definition Capability_lift (l: Loc.t) (t: Time.t) (rel: Capability.t) : Capabili
     Capability.mk ur (TimeMap_lift l t rw) (TimeMap_lift l t sc)
   end.
 
-Definition pi_step_lift_mem l t p k e M1 M2 : Prop :=
+Lemma TimeMap_lift_incr l t tm:
+  TimeMap.le tm (TimeMap_lift l t tm).
+Proof.
+  ii. unfold TimeMap_lift. condtac; try refl. apply Time.join_l.
+Qed.
+
+Lemma TimeMap_lift_mon l t tm1 tm2
+      (LE: TimeMap.le tm1 tm2):
+  TimeMap.le (TimeMap_lift l t tm1) (TimeMap_lift l t tm2).
+Proof.
+  ii. unfold TimeMap_lift. condtac; auto.
+  apply Time.join_spec.
+  - rewrite <- Time.join_l. auto.
+  - apply Time.join_r.
+Qed.
+
+Lemma Capability_lift_wf l t cap
+      (WF: Capability.wf cap):
+  Capability.wf (Capability_lift l t cap).
+Proof.
+  unfold Capability_lift. destruct cap. inv WF. econs; ss.
+  - etrans; eauto. apply TimeMap_lift_incr.
+  - apply TimeMap_lift_mon. auto.
+Qed.
+
+Lemma Capability_lift_incr l t cap:
+  Capability.le cap (Capability_lift l t cap).
+Proof.
+  unfold Capability_lift. destruct cap. econs; try refl.
+  - apply TimeMap_lift_incr.
+  - apply TimeMap_lift_incr.
+Qed.
+
+Lemma Capability_lift_mon l t cap1 cap2
+      (LE: Capability.le cap1 cap2):
+  Capability.le (Capability_lift l t cap1) (Capability_lift l t cap2).
+Proof.
+  inv LE. unfold Capability_lift. destruct cap1, cap2. econs; ss.
+  - apply TimeMap_lift_mon. auto.
+  - apply TimeMap_lift_mon. auto.
+Qed.
+
+Inductive Memory_op mem1 loc from to val rel mem2: forall (kind:Memory.promise_kind), Prop :=
+| Memory_op_add
+    (ADD: Memory.add mem1 loc from to val rel mem2):
+    Memory_op mem1 loc from to val rel mem2 Memory.promise_kind_add
+| Memory_op_split
+    to3 val3 rel3
+    (SPLIT: Memory.split mem1 loc from to to3 val val3 rel rel3 mem2):
+    Memory_op mem1 loc from to val rel mem2 (Memory.promise_kind_split to3 val3 rel3)
+| Memory_op_change
+    rel0
+    (LOWER: Memory.lower mem1 loc from to val rel0 rel mem2):
+    Memory_op mem1 loc from to val rel mem2 (Memory.promise_kind_lower rel0)
+.
+
+Definition pi_step_lift_mem l t p k (e:ThreadEvent.t) M1 M2 : Prop :=
   match ThreadEvent.is_writing e with
   | Some (loc,from,to,val,rel,ord) =>
-    exists pm1 pm2,
-      <<NOPRM: Memory.get loc to p = None>> /\
-      <<DISJ: forall t' v' r' (KIND: k = Memory.promise_kind_split t' v' r'), Memory.get loc t' p = None>> /\
-      <<PMREL: Memory.promise pm1 M1 loc from to val (if Loc.eq_dec l loc then rel else Capability_lift l t rel) pm2 M2 k>>
+    <<NOPRM: Memory.get loc to p = None>> /\
+    <<DISJ: forall t' v' r' (KIND: k = Memory.promise_kind_split t' v' r'), Memory.get loc t' p = None>> /\
+    <<PMREL: Memory_op M1 loc from to val (if Loc.eq_dec l loc then rel else Capability_lift l t rel) M2 k>>
   | None =>
     M1 = M2
   end.
@@ -140,26 +195,32 @@ Next Obligation.
   splits; eauto.
   unfold TimeMap_lift.
   f_equal.
-  - extensionality y. destruct (LocSet.Facts.eq_dec l y); subst; eauto.
-    admit.
-  - extensionality y. destruct (LocSet.Facts.eq_dec l y); subst; eauto.
-    admit.
-Admitted.
+  - extensionality y. destruct (LocSet.Facts.eq_dec l y); eauto.
+    apply TimeFacts.antisym; repeat apply Time.join_spec;
+      (try apply Time.join_l);
+      (try apply Time.join_r).
+    rewrite <- ? Time.join_l. refl.
+  - extensionality y. destruct (LocSet.Facts.eq_dec l y); eauto.
+    apply TimeFacts.antisym; repeat apply Time.join_spec;
+      (try apply Time.join_l);
+      (try apply Time.join_r).
+    rewrite <- ? Time.join_l. refl.
+Qed.
 
 
 Lemma lower_mem_eqlerel
       m1 loc from to val r1 r2 m2
-      (LOWER: Memory.lower m1 loc from to val r1 r2 m2):
+      (LOWER: Memory.lower m1 loc from to val r1 r2 m2)
+      (LE: Capability.le r2 r1):
   mem_eqlerel m2 m1.
 Proof.
   econs; ii.
   - revert IN. erewrite Memory.lower_o; eauto. condtac; ss.
-    + i. des. inv IN. exploit Memory.lower_get0; eauto. i. esplits; eauto.
-      inv LOWER. inv LOWER0. auto.
+    + i. des. inv IN. exploit Memory.lower_get0; eauto.
     + i. esplits; eauto. refl.
   - erewrite Memory.lower_o; eauto. condtac; ss.
     + des. subst. revert IN. erewrite Memory.lower_get0; eauto. i. inv IN.
-      esplits; eauto. inv LOWER. inv LOWER0. auto.
+      esplits; eauto.
     + esplits; eauto. refl.
 Qed.
 
@@ -192,6 +253,174 @@ Proof.
   apply rtc_pi_step_except_find in STEPS. eauto.
 Qed.
 
+Lemma mem_eqlerel_add_forward
+      loc from to val released1 released2
+      m1 m2 m2'
+      (MEMLE: mem_eqlerel m2 m1)
+      (ADD2: Memory.add m2 loc from to val released2 m2')
+      (RELLE: Capability.le released2 released1)
+      (RELWF: Capability.wf released1):
+  exists m1',
+    <<ADD1: Memory.add m1 loc from to val released1 m1'>> /\
+    <<MEMLE': mem_eqlerel m2' m1'>>.
+Proof.
+  exploit (@Memory.add_exists m1 loc from to); eauto;
+    try by inv ADD2; inv ADD; eauto.
+  { i. destruct msg2. eapply MEMLE in GET2. des.
+    inv ADD2. inv ADD. eapply DISJOINT. eauto.
+  }
+  i. des. esplits; eauto.
+  econs; splits; ii; revert IN.
+  - erewrite Memory.add_o; eauto. erewrite (@Memory.add_o mem2); eauto.
+    condtac; ss.
+    + i. des. inv IN. esplits; eauto.
+    + i. eapply MEMLE. eauto.
+  - erewrite Memory.add_o; eauto. erewrite (@Memory.add_o m2'); eauto.
+    condtac; ss.
+    + i. des. inv IN. esplits; eauto.
+    + i. eapply MEMLE. eauto.
+Qed.
+
+Lemma mem_eqlerel_split_forward
+      loc ts1 ts2 ts3 val2 val3 released2 released2' released3
+      m1 m2 m2'
+      (MEMLE: mem_eqlerel m2 m1)
+      (SPLIT2: Memory.split m2 loc ts1 ts2 ts3 val2 val3 released2 released3 m2')
+      (RELLE: Capability.le released2 released2')
+      (RELWF: Capability.wf released2'):
+  exists released3' m1',
+    <<SPLIT2: Memory.split m1 loc ts1 ts2 ts3 val2 val3 released2' released3' m1'>> /\
+    <<MEMLE': mem_eqlerel m2' m1'>>.
+Proof.
+  exploit Memory.split_get0; eauto. i. des.
+  apply MEMLE in GET3. i. des.
+  exploit (@Memory.split_exists m1 loc ts1 ts2 ts3); eauto;
+    try by inv SPLIT2; inv SPLIT; eauto. i. des.
+  esplits; eauto.
+  econs; splits; ii; revert IN0.
+  - erewrite Memory.split_o; eauto. erewrite (@Memory.split_o mem2); eauto.
+    repeat condtac; ss.
+    + i. des. inv IN0. esplits; eauto.
+    + guardH o. i. des. inv IN0. esplits; eauto.
+    + eapply MEMLE.
+  - erewrite Memory.split_o; eauto. erewrite (@Memory.split_o m2'); eauto.
+    repeat condtac; ss.
+    + i. des. inv IN0. esplits; eauto.
+    + guardH o. i. des. inv IN0. esplits; eauto.
+    + eapply MEMLE.
+Qed.
+
+Lemma mem_eqlerel_lower_forward
+      loc from to val released1 released2 released2'
+      m1 m2 m2'
+      (MEMLE: mem_eqlerel m2 m1)
+      (LOWER2: Memory.lower m2 loc from to val released1 released2 m2')
+      (RELLE: Capability.le released2 released2')
+      (RELWF: Capability.wf released2'):
+  exists released1' m1',
+    <<LOWER1: Memory.lower m1 loc from to val released1' released2' m1'>> /\
+    <<MEMLE': mem_eqlerel m2' m1'>>.
+Proof.
+  exploit Memory.lower_get0; eauto. i.
+  apply MEMLE in x0. des.
+  exploit (@Memory.lower_exists m1 loc from to val rel2 released2'); eauto;
+    try by inv LOWER2; inv LOWER; eauto; try by committac.
+  i. des.
+  esplits; eauto.
+  econs; esplits; ii; revert IN0.
+  - erewrite Memory.lower_o; eauto. erewrite (@Memory.lower_o mem2); eauto.
+    condtac; ss.
+    + i. des. inv IN0. esplits; eauto.
+    + eapply MEMLE.
+  - erewrite Memory.lower_o; eauto. erewrite (@Memory.lower_o m2'); eauto.
+    condtac; ss.
+    + i. des. inv IN0. esplits; eauto.
+    + eapply MEMLE.
+Qed.
+
+Definition Capability_lift_if loc l t rel :=
+  if Loc.eq_dec l loc then rel else Capability_lift l t rel.
+
+Lemma Capability_lift_if_wf loc l t rel
+      (WF: Capability.wf rel):
+  Capability.wf (Capability_lift_if loc l t rel).
+Proof.
+  unfold Capability_lift_if. condtac; auto.
+  apply Capability_lift_wf. auto.
+Qed.
+
+Lemma Capability_lift_if_incr loc l t rel:
+  Capability.le rel (Capability_lift_if loc l t rel).
+Proof.
+  unfold Capability_lift_if. condtac; [refl|].
+  apply Capability_lift_incr.
+Qed.
+
+Lemma Capability_lift_if_mon loc l t rel1 rel2
+      (LE: Capability.le rel1 rel2):
+  Capability.le (Capability_lift_if loc l t rel1) (Capability_lift_if loc l t rel2).
+Proof.
+  unfold Capability_lift_if. condtac; auto.
+  apply Capability_lift_mon. auto.
+Qed.
+
+Lemma write_step_pi_step_lift_mem
+      lc0 sc0 mem0 mem0'
+      lc1 sc1 mem1
+      loc from to val releasedm released ord kind
+      lco l t
+      (WRITE: Local.write_step lc0 sc0 mem0 loc from to val releasedm released ord lc1 sc1 mem1 kind)
+      (EQLEREL: mem_eqlerel mem0 mem0')
+      (RELM_WF: Capability.wf releasedm)
+      (RELM_CLOSED: Memory.closed_capability releasedm mem0)
+      (LOCAL1: Local.wf lc0 mem0)
+      (LOCAL2: Local.wf lco mem0)
+      (SC0: Memory.closed_timemap sc0 mem0)
+      (MEM0: Memory.closed mem0)
+      (DISJ: Local.disjoint lc0 lco):
+  exists mem1' kind',
+    <<LIFT: forall e (E: ThreadEvent.is_writing e = Some (loc, from, to, val, released, ord)),
+      pi_step_lift_mem l t lco.(Local.promises) kind' e mem0' mem1'>> /\
+    <<EQLEREL: mem_eqlerel mem1 mem1'>>.
+Proof.
+  (* TODO *)
+  Require Import FulfillStep.
+  exploit write_promise_fulfill; eauto. i. des.
+  exploit Local.promise_step_future; eauto. i. des.
+  exploit Local.promise_step_disjoint; eauto. i. des.
+  exploit Capability_lift_if_wf; eauto. i.
+  inv STEP1. inv PROMISE.
+  - exploit mem_eqlerel_add_forward; eauto.
+    { apply Capability_lift_if_incr. }
+    i. des. esplits; eauto. i.
+    unfold pi_step_lift_mem. rewrite E. splits; cycle 2.
+    + econs 1; eauto.
+    + destruct (Memory.get loc to (Local.promises lco)) as [[]|] eqn:X; auto.
+      exfalso. eapply Memory.disjoint_get; try apply DISJOINT2; eauto. s.
+      erewrite Memory.add_o; eauto. condtac; ss. des; congr.
+    + congr.
+  - exploit mem_eqlerel_split_forward; eauto.
+    { apply Capability_lift_if_incr. }
+    i. des. esplits; eauto. i.
+    unfold pi_step_lift_mem. rewrite E. splits; cycle 2.
+    + econs 2; eauto.
+    + destruct (Memory.get loc to (Local.promises lco)) as [[]|] eqn:X; auto.
+      exfalso. eapply Memory.disjoint_get; try apply DISJOINT2; eauto. s.
+      erewrite Memory.split_o; eauto. condtac; ss. des; congr.
+    + i. inv KIND. destruct (Memory.get loc t' (Local.promises lco)) as [[]|] eqn:X; auto.
+      exfalso. eapply Memory.disjoint_get; try apply DISJ; eauto.
+      hexploit Memory.split_get0; try exact PROMISES; eauto. i. des. eauto.
+  - exploit mem_eqlerel_lower_forward; try exact x0; eauto.
+    { apply Capability_lift_if_incr. }
+    i. des. esplits; eauto. i.
+    unfold pi_step_lift_mem. rewrite E. splits; cycle 2.
+    + econs 3; eauto.
+    + destruct (Memory.get loc to (Local.promises lco)) as [[]|] eqn:X; auto.
+      exfalso. eapply Memory.disjoint_get; try apply DISJOINT2; eauto. s.
+      erewrite Memory.lower_o; eauto. condtac; ss. des; congr.
+    + congr.
+Qed.
+
 Lemma pi_step_lifting_aux
       tid cS1 cT1 cS2 cT2 M1 l t
       (PISTEP: pi_step_except false tid (cS1,cT1) (cS2,cT2))
@@ -204,10 +433,37 @@ Lemma pi_step_lifting_aux
 Proof.
   inv PISTEP. inv PI_STEP. assert (X:= USTEP). inv X.
   destruct (IdentMap.find tid cT2.(Configuration.threads)) as [[]|]eqn: EQ; [|by exfalso; eauto].
-  inv STEPT. inv STEP; inv STEP0; try by esplits; s; eauto; econs; eauto; ss.
-  { admit. }
-  { admit. }
-Admitted. (* similar to an existing proof. *)
+  inv STEPT. inv STEP; inv STEP0; try by esplits; s; eauto; econs; econs; eauto; ss.
+  { inversion WF. subst.
+    ss. generalize EQ. i. rewrite IdentMap.gso in EQ0; eauto. destruct s.
+    exploit write_step_pi_step_lift_mem; eauto; try apply WFT; try by committac.
+    { inv WFT. committac. }
+    { eapply WFT. eauto. }
+    { eapply WFT. apply EQ0. }
+    { eapply WFT; eauto. }
+    i. des. esplits; eauto.
+  }
+  { inversion WF. subst.
+    ss. generalize EQ. i. rewrite IdentMap.gso in EQ0; eauto. destruct s.
+    exploit Local.read_step_future; try eapply WFT; eauto. i. des.
+    exploit Local.read_step_disjoint; try exact LOCAL1.
+    { eapply WFT. eauto. }
+    { eapply WFT; eauto. }
+    { eapply WFT. eauto. }
+    i. des.
+    exploit write_step_pi_step_lift_mem; try exact x1; eauto; try apply WFT.
+    { eapply WFT. eauto. }
+    i. des. esplits; eauto.
+  }
+Grab Existential Variables.
+  { apply Memory.promise_kind_add. }
+  { apply Memory.promise_kind_add. }
+  { apply Memory.promise_kind_add. }
+  { apply Memory.promise_kind_add. }
+  { apply Capability.bot. }
+  { apply Capability.bot. }
+  { apply Memory.promise_kind_add. }
+Qed.
 
 Lemma rtc_pi_step_lifting_aux
       tid cST1 cST2 M1 l t
@@ -350,10 +606,10 @@ Lemma mem_eqlerel_get
     <<REL: Capability.le r1 r2>>.
 Proof. inv LE. des. exploit H0; eauto. Qed.
 
-Lemma Memory_promise_get
-      promises1 mem1 loc from to val released promises2 mem2 kind
+Lemma Memory_op_get
+      mem1 loc from to val released mem2 kind
       l f t v r
-      (PROMISE: Memory.promise promises1 mem1 loc from to val released promises2 mem2 kind)
+      (OP: Memory_op mem1 loc from to val released mem2 kind)
       (GET2: Memory.get l t mem2 = Some (f, Message.mk v r)):
   (l = loc /\ f = from /\ t = to /\ v = val /\ r = released) \/
   (__guard__ (l <> loc \/ t <> to) /\
@@ -361,7 +617,7 @@ Lemma Memory_promise_get
      <<GET1: Memory.get l t mem1 = Some (f', Message.mk v r)>> /\
      <<FROM: Time.le f' f>>).
 Proof.
-  revert GET2. inv PROMISE.
+  revert GET2. inv OP.
   - erewrite Memory.add_o; eauto. condtac; ss.
     + i. des. inv GET2. left. auto.
     + i. right. esplits; eauto. refl.
@@ -369,7 +625,7 @@ Proof.
     + i. des. inv GET2. left. auto.
     + guardH o. i. des. inv GET2. right. splits; auto.
       exploit Memory.split_get0; try exact MEM; eauto. i. des.
-      rewrite GET3. esplits; eauto. inv MEM. inv SPLIT. left. auto.
+      rewrite GET3. esplits; eauto. inv SPLIT. inv SPLIT0. left. auto.
     + i. right. esplits; eauto. refl.
   - erewrite Memory.lower_o; eauto. condtac; ss.
     + i. des. inv GET2. left. auto.
@@ -389,7 +645,7 @@ Lemma mem_eqlerel_lift_get
 Proof.
   inv LIFT. revert MEMWR. unfold pi_step_lift_mem.
   destruct (ThreadEvent.is_writing e) as [[[[[[] ?] ?] ?] ?]|] eqn:E; ss.
-  - i. des. exploit Memory_promise_get; eauto. i. des.
+  - i. des. exploit Memory_op_get; eauto. i. des.
     + subst. eauto.
     + exploit mem_eqlerel_get; eauto. i. des.
       right. esplits; eauto. ii. inv H. unguardH x0. des; congr.
@@ -752,7 +1008,7 @@ Proof.
   - apply CommitFacts.write_sc_mon; auto. refl.
   - inv MEMLE'. econs; eauto.
     + etrans; eauto.
-      eapply lower_mem_eqlerel. inv PROMISE0. eauto.
+      eapply lower_mem_eqlerel; eauto. inv PROMISE0. eauto.
     + eapply remove_pi_step_lift_mem; [|eauto]. eauto.
 Qed.
 

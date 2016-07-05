@@ -95,16 +95,6 @@ Module Memory.
       + econs; auto. left. auto.
   Qed.
 
-  (* Inductive disjoint (lhs rhs:t): Prop := *)
-  (* | disjoint_intro *)
-  (*     (DISJOINT: forall loc, Cell.disjoint (lhs loc) (rhs loc)) *)
-  (* . *)
-
-  (* Global Program Instance disjoint_Symmetric: Symmetric disjoint. *)
-  (* Next Obligation. *)
-  (*   econs. ii. symmetry. apply H. *)
-  (* Qed. *)
-
   Definition bot: t := fun _ => Cell.bot.
 
   Lemma bot_get loc ts: get loc ts bot = None.
@@ -235,6 +225,7 @@ Module Memory.
       (LOWER: lower mem1 loc from to val released1 released2 mem2)
       (CLOSED: closed_capability released2 mem2)
       (TS: Time.le (Capability.rw released2 loc) to)
+      (REL_LE: Capability.le released2 released1)
   .
 
   Definition future := rtc future_imm.
@@ -264,7 +255,8 @@ Module Memory.
       released0
       (PROMISES: lower promises1 loc from to val released0 released promises2)
       (MEM: lower mem1 loc from to val released0 released mem2)
-      (TS: Time.le (Capability.rw released loc) to):
+      (TS: Time.le (Capability.rw released loc) to)
+      (REL_LE: Capability.le released released0):
       promise promises1 mem1 loc from to val released promises2 mem2 (promise_kind_lower released0)
   .
 
@@ -435,7 +427,7 @@ Module Memory.
       condtac; ss.
       + des. subst. erewrite lower_get0 in GET; try exact LOWER; eauto. inv GET.
         i. exploit IHLE; eauto. i. des. esplits; eauto.
-        etrans; eauto. inv LOWER. inv LOWER0. auto.
+        etrans; eauto.
       + i. eapply IHLE; eauto.
   Qed.      
 
@@ -734,7 +726,7 @@ Module Memory.
       + esplits; eauto. refl.
     - erewrite lower_o; eauto. condtac; ss.
       + des. subst. erewrite lower_get0 in GET; eauto. inv GET.
-        esplits; eauto. inv MEM. inv LOWER. auto.
+        esplits; eauto.
       + esplits; eauto. refl.
   Qed.
 
@@ -772,7 +764,7 @@ Module Memory.
       + esplits; eauto. refl.
     - erewrite lower_o; eauto. condtac; ss.
       + des. subst. erewrite lower_get0 in GET; eauto. inv GET.
-        esplits; eauto. inv MEM. inv LOWER. auto.
+        esplits; eauto.
       + esplits; eauto. refl.
   Qed.
 
@@ -1238,8 +1230,7 @@ Module Memory.
         mem1 loc from to val released1 released2
         (GET: get loc to mem1 = Some (from, Message.mk val released1))
         (TS: Time.lt from to)
-        (REL_WF: Capability.wf released2)
-        (REL_LE: Capability.le released2 released1):
+        (REL_WF: Capability.wf released2):
     exists mem2, lower mem1 loc from to val released1 released2 mem2.
   Proof.
     exploit Cell.lower_exists; eauto. i. des.
@@ -1285,7 +1276,8 @@ Module Memory.
     exploit lower_exists_same; eauto. i.
     exploit lower_exists_same; try apply LE; eauto. i.
     econs; eauto.
-    eapply MEM. eauto.
+    - eapply MEM. eauto.
+    - refl.
   Qed.
 
   Lemma remove_singleton
