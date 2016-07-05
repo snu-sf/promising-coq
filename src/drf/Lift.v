@@ -74,9 +74,14 @@ Inductive pi_step_lift_except l t (tid_except:Ident.t): (Configuration.t*Configu
 .
 Hint Constructors pi_step_lift_except.
 
+Definition mem_eqrel (cmp: Capability.t -> Capability.t -> Prop) (m1 m2: Memory.t) : Prop :=
+  <<LR: mem_sub cmp m1 m2>> /\
+  <<RL: mem_sub (fun x y => cmp y x) m2 m1>>.
+Hint Unfold mem_eqrel.
+
 Definition mem_eqlerel (m1 m2: Memory.t) : Prop :=
-  <<LR: mem_sub Capability.le m1 m2>> /\
-  <<RL: mem_sub (fun x y => Capability.le y x) m2 m1>>.
+  mem_eqrel Capability.le m1 m2.
+Hint Unfold mem_eqlerel.
 
 Program Instance mem_eqlerel_PreOrder: PreOrder mem_eqlerel.
 Next Obligation.
@@ -127,14 +132,89 @@ Proof.
   inv H. econs; eauto.
 Qed.
 
+Lemma pi_step_lifting_aux
+      tid cS1 cT1 cS2 cT2 M1 l t
+      (PISTEP: pi_step_except false tid (cS1,cT1) (cS2,cT2))
+      (FIND: IdentMap.find tid cT2.(Configuration.threads) <> None)
+      (WF: pi_wf (cS1,cT1))
+      (EQLEREL: mem_eqlerel cT1.(Configuration.memory) M1):
+  exists M2, 
+  pi_step_lift_except l t tid (cS1,cT1,M1) (cS2,cT2,M2) /\
+  mem_eqlerel cT2.(Configuration.memory) M2.
+Proof.
+  inv PISTEP. inv PI_STEP. assert (X:= USTEP). inv X.
+  destruct (IdentMap.find tid cT2.(Configuration.threads)) as [[]|]eqn: EQ; [|by exfalso; eauto].
+  inv STEPT. inv STEP; inv STEP0; try by esplits; s; eauto; econs; eauto; ss.
+  { admit. }
+  { admit. }
+Admitted. (* similar to an existing proof. *)
+
+Lemma rtc_pi_step_lifting_aux
+      tid cST1 cST2 M1 l t
+      (PISTEP: rtc (pi_step_except false tid) cST1 cST2)
+      (FIND: IdentMap.find tid cST2.(snd).(Configuration.threads) <> None)
+      (WF: pi_wf cST1)
+      (EQLEREL: mem_eqlerel cST1.(snd).(Configuration.memory) M1):
+  exists M2, 
+  rtc (pi_step_lift_except l t tid) (cST1,M1) (cST2,M2) /\
+  mem_eqlerel cST2.(snd).(Configuration.memory) M2.
+Proof.
+  apply Operators_Properties.clos_rt_rt1n_iff, 
+        Operators_Properties.clos_rt_rtn1_iff in PISTEP.
+  ginduction PISTEP; eauto.
+  apply Operators_Properties.clos_rt_rtn1_iff, 
+        Operators_Properties.clos_rt_rt1n_iff in PISTEP.
+
+  i. exploit IHPISTEP; eauto.
+  { inv H. inv PI_STEP. inv USTEP.
+    exploit small_step_find; eauto.
+    intro TEQ. ss. rewrite <-TEQ in FIND. eauto. }
+  intro RES. des.
+
+  destruct y, z.
+  exploit pi_step_lifting_aux; eauto.
+  { eapply rtc_pi_step_future; eauto.
+    eapply rtc_implies, PISTEP. i. inv PR. eauto. }
+  intro STEP'; des.
+
+  esplits.
+  - etrans; [eauto|].
+    econs; [|reflexivity]; eauto.
+  - eauto.
+Qed.
+
 Lemma pi_step_lifting
       tid cST1 cST2 l t
-      (PI_STEPS: rtc (pi_step_except false tid) cST1 cST2):
+      (PI_STEPS: rtc (pi_step_except false tid) cST1 cST2)
+      (FIND: IdentMap.find tid cST2.(snd).(Configuration.threads) <> None)
+      (WF: pi_wf cST1):
   exists M2, rtc (pi_step_lift_except l t tid) (cST1,cST1.(snd).(Configuration.memory)) (cST2,M2).
 Proof.
-  (* TODO: assume that (l, t) is already in cST2.(snd)'s promises (or memory) *)
-  (* TODO: assume WF? closedness? *)
-Admitted. (* pi_step_lifting: pi_step => exists pi_step_lift ?, not hard *)
+  exploit rtc_pi_step_lifting_aux; eauto; cycle 1.
+  - i; des. eauto.
+  - rr. split; ii; esplits; eauto; reflexivity.
+Qed.
+
+Definition Capability_lift_rel l t cap1 cap2 : Prop :=
+  cap1 = cap2 \/ cap2 = Capability_lift l t cap1.
+
+(* Lemma rtc_pi_step_lift_except_wf_aux *)
+(*       l t tid cS1 cT1 cSTM2 *)
+(*       (WF: pi_wf (cS1,cT1)) *)
+(*       (STEPS_LIFT : rtc (pi_step_lift_except l t tid) (cS1, cT1, cT1.(Configuration.memory)) cSTM2): *)
+(*   mem_eqrel (fun x y => y =  *)
+(*   pi_wf (cSTM2.(fst).(fst), conf_update_memory cSTM2.(fst).(snd) cSTM2.(snd)). *)
+
+Lemma rtc_pi_step_lift_except_wf
+      l t tid cS1 cT1 cSTM2
+      (WF: pi_wf (cS1,cT1))
+      (STEPS_LIFT : rtc (pi_step_lift_except l t tid) (cS1, cT1, cT1.(Configuration.memory)) cSTM2):
+  pi_wf (cSTM2.(fst).(fst), conf_update_memory cSTM2.(fst).(snd) cSTM2.(snd)).
+Proof.
+  (* destruct cSTM *)
+  (* exploit rtc_pi_step_future; [eauto|..]. *)
+  (* { eapply rtc_implies, (@pi_steps_lift_except_pi_steps (_,_) (_,_)). STEPS_LIFT. *)
+Admitted.
 
 Lemma pi_step_lift_except_future
       l t tid cS1 cT1 cSTM2 lst1 lc1
@@ -150,15 +230,6 @@ Proof.
   (* TODO: assume that (x, t) is already in cT1's promises (or memory) *)
   (* TODO: assume WF? closedness? *)
 Admitted. (* pi_step_lift_except_future *)
-
-Lemma rtc_pi_step_lift_except_wf
-      l t tid cS1 cT1 cSTM2
-      (WF: pi_wf (cS1,cT1))
-      (STEPS_LIFT : rtc (pi_step_lift_except l t tid) (cS1, cT1, cT1.(Configuration.memory)) cSTM2):
-  pi_wf (cSTM2.(fst).(fst), conf_update_memory cSTM2.(fst).(snd) cSTM2.(snd)).
-Proof.
-Admitted. (* rtc_pi_step_lift_except_wf: easy? *)
-
 
 Lemma rtc_pi_step_lift_except_find
       cSTM1 cSTM2 tid l t

@@ -282,14 +282,3 @@ Proof.
   setoid_rewrite Cell.bot_get in PROMISES0. done.
 Qed.
 
-Lemma small_step_update_promise
-      withprm tid loc tsr tsw valr valw relr1 relw1 ordr ordw c1 c2 lst1 lst2 lc1 lc2 from1 msg1
-      (STEP: small_step withprm tid (ThreadEvent.update loc tsr tsw valr valw relr1 relw1 ordr ordw) c1 c2)
-      (FIND1: IdentMap.find tid c1.(Configuration.threads) = Some (lst1, lc1))
-      (FIND2: IdentMap.find tid c2.(Configuration.threads) = Some (lst2, lc2))
-      (GET: Memory.get loc tsr lc1.(Local.promises) = Some (from1, msg1)):
-  exists from2 msg2,
-  Memory.get loc tsr lc2.(Local.promises) = Some (from2, msg2).
-Proof.
-Admitted. (* jeehoon: easy *)
-

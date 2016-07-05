@@ -22,9 +22,9 @@ Require Import SmallStep.
 Require Import Race.
 Require Import PIStep.
 Require Import Lift.
+Require Import PromiseConsistent.
 
 Set Implicit Arguments.
-
 
 Inductive can_fulfill (tid: Ident.t) loc ts (c1 c4: Configuration.t) : Prop :=
 | can_fulfill_intro
@@ -162,7 +162,7 @@ Lemma can_fulfill_promises_promise_consistent
       tid c
       (FULFILL: can_fulfill_promises tid c)
       (WF: Configuration.wf c):
-  promise_consistent tid c.
+  promise_consistent_th tid c.
 Proof.
   ii. inv FULFILL. exploit FULFILL0; eauto.
   i; des.
@@ -183,7 +183,7 @@ Lemma key_lemma
       (STEPS_LIFT : rtc (pi_step_lift_except loc ts tid) (cS2, cT2, cT2.(Configuration.memory)) cSTM3)
       cM4 pre
       (PI_STEPS : with_pre (small_step false tid) (conf_update_memory cSTM3.(fst).(snd) cSTM3.(snd)) pre cM4)
-      (PRCONSIS: promise_consistent tid cM4)
+      (PRCONSIS: promise_consistent_th tid cM4)
       lst4 lc4
       (THREAD4 : IdentMap.find tid (Configuration.threads cM4) = Some (lst4, lc4))
       (TIMELT: Time.lt (lc4.(Local.commit).(Commit.cur).(Capability.rw) loc) ts)
@@ -284,7 +284,7 @@ Proof.
   { inv WF4'. eauto. }
   intros [WF4'' _].
   
-  exploit IHPI_STEPS; eauto using promise_consistent_small_step.
+  exploit IHPI_STEPS; eauto using promise_consistent_th_small_step.
   { eapply TimeFacts.le_lt_lt; eauto.
     inv WF4''. exploit thread_step_commit_le; eauto. 
     { eapply WF0. eauto. }
@@ -627,7 +627,7 @@ Proof.
   destruct cST1 as [cS1 cT1], cST2 as [cS2 cT2].
   econs. i. 
   destruct (Ident.eq_dec tid0 tid); cycle 1.
-  { exploit (@rtc_pi_step_remove_promises tid0).
+  { exploit (@rtc_pi_step_remove_promises tid0); [eauto|..].
     { etrans; cycle 1.
       - eapply rtc_implies, STEPS. eauto using pi_step_except_withoutprm.
       - eapply rtc_implies, STEP. eauto. }
@@ -644,7 +644,11 @@ Proof.
   }
   subst. rename cS0 into cS3, cT0 into cT3, lst2 into lst3, lc2 into lc3.
 
-  assert (STEPS_LIFT:=pi_step_lifting loc ts STEPS). des.
+  exploit (pi_step_lifting loc ts STEPS).
+  { ss. rewrite THREAD. done. }
+  { eapply rtc_pi_step_future; eauto.
+    eapply rtc_implies, STEP. eauto. }
+  intro STEPS_LIFT; des.
   rename M2 into M3. ss.
 
   exploit rtc_pi_step_future; [eauto|..].
@@ -698,7 +702,7 @@ Proof.
   rewrite <-EQ0 in TH.
   exploit key_lemma; eauto.
   { apply can_fulfill_promises_promise_consistent in FULFILL2; eauto.
-    eapply promise_consistent_rtc_small_step, FULFILL2; eauto.
+    eapply promise_consistent_th_rtc_small_step, FULFILL2; eauto.
     etrans; [|apply STEPS1]. 
     econs 2; [|reflexivity]. eauto. }
   { eauto using small_step_write_lt. }
