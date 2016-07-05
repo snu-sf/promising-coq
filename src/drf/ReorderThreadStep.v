@@ -26,6 +26,7 @@ Require Import MemoryReorder.
 
 Require Import DRFBase.
 Require Import SmallStep.
+Require Import PromiseConsistent.
 Require Import ReorderThreadStepSame.
 Require Import ReorderThreadStepDiff.
 
@@ -42,7 +43,8 @@ Lemma reorder_promise_small_step
       (STEP2: small_step false tid2 e2 c1 c2)
       (E1: ThreadEvent_is_promising e1 = Some (loc, to))
       (E2: ThreadEvent_is_promising e2 = None)
-      (E12: forall val released ord, ThreadEvent.is_reading e2 <> Some (loc, to, val, released, ord)):
+      (E12: forall val released ord, ThreadEvent.is_reading e2 <> Some (loc, to, val, released, ord))
+      (PCONS: promise_consistent_th tid2 c2):
   exists c1',
     <<STEP1: small_step false tid2 e2 c0 c1'>> /\
     <<STEP2: __guard__
@@ -57,7 +59,7 @@ Proof.
     inv STEP; [|by inv STEP1; inv E1].
     inv STEP0; [by inv STEP; inv PFREE0|].
     exploit reorder_promise_program; eauto; s.
-    { admit. (* promise consistent *) }
+    { eapply PCONS. ss. rewrite IdentMap.gss. eauto. }
     { eapply WF. eauto. }
     { eapply WF. }
     { eapply WF. }
@@ -82,4 +84,5 @@ Proof.
       * s. rewrite IdentMap.gso; eauto.
       * econs 1. econs; eauto.
       * rewrite IdentMap.add_add; auto.
-Admitted.
+      * s. eauto.
+Qed.

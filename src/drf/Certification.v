@@ -81,7 +81,7 @@ Proof.
   exploit reorder_promise_program; eauto.
   { exploit rtcn_rtc; try exact A0; eauto. i.
     eapply rtc_tau_step_promise_consistent.
-    - eapply rtc_implies; [|eauto]. i. inv PR. econs; eauto. econs 2; eauto.
+    - eapply rtc_implies; [|eauto]. i. inv PR. econs; eauto.
     - ii. rewrite PROMISES0, Memory.bot_get in *. congr.
     - auto.
     - auto.
@@ -100,7 +100,7 @@ Proof.
       - econs.
         + econs 1. apply STEP2.
         + by inv STEP2.
-      - eapply rtcn_imply; try exact A0. i. inv PR. econs; eauto. econs 2; eauto.
+      - eapply rtcn_imply; try exact A0. i. inv PR. econs; eauto.
     }
     exploit IH; try exact STEPS; eauto.
     { omega. }

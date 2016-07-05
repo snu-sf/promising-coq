@@ -443,6 +443,7 @@ Proof.
     hexploit pi_wf_small_step_is_reading; try exact WF2; eauto. i.
     hexploit pi_wf_small_step_is_promising; eauto.
   }
+  { admit. (* promise consistent *) }
   i. des. unguardH STEP2. des.
   { inv STEP2. esplits; cycle 1.
     - econs 2; eauto. econs; eauto. econs. econs; eauto.

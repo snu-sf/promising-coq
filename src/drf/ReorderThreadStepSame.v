@@ -445,9 +445,9 @@ Lemma reorder_promise_program
 Proof.
   exploit Thread.promise_step_future; eauto. i. des.
   inv STEP1. inv STEP2; ss.
-  - esplits; eauto.
-    + econs 1; eauto.
-    + right. esplits. econs. eauto.
+  - (* silent *)
+    esplits; eauto.
+    right. esplits. econs. eauto.
   - (* read *)
     exploit reorder_promise_read; try exact LOCAL0; eauto; try by committac.
     { ii. inv H.
