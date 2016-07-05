@@ -119,6 +119,7 @@ Proof.
       by eapply small_step_future, STEPS. }
     assert (STEPS' :=STEPS).
 
+    generalize STEPT. intro STEPT'.
     destruct cS, cT. inv STEPT. inv STEP; inv STEP0; ss.
     { subst. inv LOCAL. econs; eauto.
       - apply IdentMap.eq_leibniz.
@@ -127,8 +128,90 @@ Proof.
         + subst. setoid_rewrite IdentMap.Properties.F.map_o.
           rewrite IdentMap.gss, TID. done.
         + by rewrite IdentMap.gso.
-      - admit. (* LR *)
-      - admit. (* RL *)
+      - s. i. exploit LR; eauto. i. des. inv PROMISE.
+        + erewrite Memory.add_o; eauto. condtac; ss; i.
+          * des. subst. exploit Memory.add_get0; eauto. congr.
+          * guardH o. esplits; eauto.
+            ii. inv H. revert TID0. rewrite IdentMap.gsspec. condtac; ss.
+            { i. inv TID0. apply inj_pair2 in H1. subst. ss.
+              revert PROMISES0. erewrite Memory.add_o; eauto. condtac; ss. i.
+              eapply NOT. econs; eauto.
+            }
+            { i. eapply NOT. econs; eauto. }
+        + erewrite Memory.split_o; eauto. repeat condtac; ss; i.
+          * des. subst. exploit Memory.split_get0; eauto. i. des. congr.
+          * guardH o. des. subst. esplits; eauto.
+            { exfalso. eapply NOT. econs; eauto. eapply Memory.split_get0. eauto. }
+            ii. inv H. revert TID0. rewrite IdentMap.gsspec. condtac; ss.
+            { i. inv TID0. apply inj_pair2 in H1. subst. ss.
+              revert PROMISES0. erewrite Memory.split_o; eauto. repeat condtac; ss. i. inv PROMISES0.
+              eapply NOT. econs; eauto. eapply Memory.split_get0; eauto.
+            }
+            { i. eapply NOT. econs; eauto. }
+          * guardH o. guardH o0. esplits; eauto.
+            ii. inv H. revert TID0. rewrite IdentMap.gsspec. condtac; ss.
+            { i. inv TID0. apply inj_pair2 in H1. subst. ss.
+              revert PROMISES0. erewrite Memory.split_o; eauto. repeat condtac; ss. i.
+              eapply NOT. econs; eauto.
+            }
+            { i. eapply NOT. econs; eauto. }
+        + erewrite Memory.lower_o; eauto. condtac; ss; i.
+          * des. subst. exploit Memory.lower_get0; try exact PROMISES; eauto. i.
+            exfalso. eapply NOT. econs; eauto.
+          * guardH o. esplits; eauto.
+            ii. inv H. revert TID0. rewrite IdentMap.gsspec. condtac; ss.
+            { i. inv TID0. apply inj_pair2 in H1. subst. ss.
+              revert PROMISES0. erewrite Memory.lower_o; eauto. repeat condtac; ss. i.
+              eapply NOT. econs; eauto.
+            }
+            { i. eapply NOT. econs; eauto. }
+      - s. i. revert IN. inv PROMISE.
+        + erewrite Memory.add_o; eauto. condtac; ss.
+          * i. des. inv IN. exfalso. eapply NOT. econs.
+            { rewrite IdentMap.gss. eauto. }
+            { s. erewrite Memory.add_o; eauto. condtac; ss. }
+          * guardH o. i. eapply RL; eauto. ii. inv H.
+            destruct (Ident.eq_dec tid0 tid).
+            { subst. rewrite TID in TID0. inv TID0. apply inj_pair2 in H1. subst.
+              eapply NOT. econs.
+              - rewrite IdentMap.gss. eauto.
+              - s. erewrite Memory.add_o; eauto. condtac; [|eauto]; ss.
+            }
+            { eapply NOT. econs; eauto.
+              rewrite IdentMap.gso; eauto.
+            }
+        + erewrite Memory.split_o; eauto. repeat condtac; ss.
+          * i. des. inv IN. exfalso. eapply NOT. econs.
+            { rewrite IdentMap.gss. eauto. }
+            { s. erewrite Memory.split_o; eauto. condtac; ss. }
+          * guardH o. i. des. inv IN.
+            exfalso. eapply NOT. econs.
+            { rewrite IdentMap.gss. eauto. }
+            { s. erewrite Memory.split_o; eauto. repeat condtac; [|eauto|]; ss. }
+          * guardH o. i. eapply RL; eauto. ii. inv H.
+            destruct (Ident.eq_dec tid0 tid).
+            { subst. rewrite TID in TID0. inv TID0. apply inj_pair2 in H1. subst.
+              eapply NOT. econs.
+              - rewrite IdentMap.gss. eauto.
+              - s. erewrite Memory.split_o; eauto. repeat condtac; [| |eauto]; ss.
+            }
+            { eapply NOT. econs; eauto.
+              rewrite IdentMap.gso; eauto.
+            }
+        + erewrite Memory.lower_o; eauto. condtac; ss.
+          * i. des. inv IN. exfalso. eapply NOT. econs.
+            { rewrite IdentMap.gss. eauto. }
+            { s. erewrite Memory.lower_o; eauto. condtac; ss. }
+          * guardH o. i. eapply RL; eauto. ii. inv H.
+            destruct (Ident.eq_dec tid0 tid).
+            { subst. rewrite TID in TID0. inv TID0. apply inj_pair2 in H1. subst.
+              eapply NOT. econs.
+              - rewrite IdentMap.gss. eauto.
+              - s. erewrite Memory.lower_o; eauto. condtac; [|eauto]; ss.
+            }
+            { eapply NOT. econs; eauto.
+              rewrite IdentMap.gso; eauto.
+            }
     }
     { inv STEPS. inv STEP; inv STEP0; try done. econs; eauto; ss.
       - apply IdentMap.eq_leibniz. ii.
@@ -199,8 +282,38 @@ Proof.
           eauto.
         + by rewrite !IdentMap.gso.
       - inv LOCAL. inv LOCAL0. eauto.
-      - admit. (* LR *)
-      - admit. (* RL *) 
+      - s. i.
+        hexploit writing_small_step_nonpromise_backward; try exact STEPS'; ss; eauto.
+        { econs; eauto. s. ii. inv H. revert TID1.
+          rewrite IdentMap.gsspec. condtac.
+          - i. inv TID1. admit.
+          - rewrite IdentMap.Properties.F.map_o. unfold remove_promise.
+            destruct (UsualFMapPositive.UsualPositiveMap'.find tid0 threads0); ss.
+            i. inv TID1. rewrite Memory.bot_get in PROMISES. congr.
+        }
+        i. des.
+        + inv H. exploit LR; eauto. i. des.
+          hexploit writing_small_step_nonpromise_forward; try exact STEPT'; ss; eauto.
+          { econs; eauto. }
+          i. inv H. esplits; eauto.
+        + inv H.
+          hexploit writing_small_step_nonpromise_new; try exact STEPT'; ss; eauto.
+          i. inv H. esplits; eauto.
+      - i.
+        hexploit writing_small_step_nonpromise_backward; try exact STEPT'; ss; eauto.
+        { econs; eauto. }
+        i. des.
+        + inv H. exploit RL; eauto. i. des.
+          hexploit writing_small_step_nonpromise_forward; try exact STEPS'; ss; eauto.
+          { econs; eauto. s. ii. inv H. revert TID1.
+            rewrite IdentMap.Properties.F.map_o. unfold remove_promise.
+            destruct (UsualFMapPositive.UsualPositiveMap'.find tid0 threads0); ss.
+            i. inv TID1. rewrite Memory.bot_get in PROMISES. congr.
+          }
+          i. inv H. esplits; eauto.
+        + inv H.
+          hexploit writing_small_step_nonpromise_new; try exact STEPS'; ss; eauto.
+          i. inv H. esplits; eauto.
     }
     { inv STEPS. inv STEP; inv STEP0; try done. econs; eauto; ss.
       - apply IdentMap.eq_leibniz. ii.
@@ -220,8 +333,38 @@ Proof.
           eauto.
         + by rewrite !IdentMap.gso.
       - inv LOCAL1. inv LOCAL2. inv LOCAL0. inv LOCAL3. eauto.
-      - admit. (* LR *)
-      - admit. (* RL *) 
+      - s. i.
+        hexploit writing_small_step_nonpromise_backward; try exact STEPS'; ss; eauto.
+        { econs; eauto. s. ii. inv H. revert TID1.
+          rewrite IdentMap.gsspec. condtac.
+          - i. inv TID1. admit.
+          - rewrite IdentMap.Properties.F.map_o. unfold remove_promise.
+            destruct (UsualFMapPositive.UsualPositiveMap'.find tid0 threads0); ss.
+            i. inv TID1. rewrite Memory.bot_get in PROMISES. congr.
+        }
+        i. des.
+        + inv H. exploit LR; eauto. i. des.
+          hexploit writing_small_step_nonpromise_forward; try exact STEPT'; ss; eauto.
+          { econs; eauto. }
+          i. inv H. esplits; eauto.
+        + inv H.
+          hexploit writing_small_step_nonpromise_new; try exact STEPT'; ss; eauto.
+          i. inv H. esplits; eauto.
+      - i.
+        hexploit writing_small_step_nonpromise_backward; try exact STEPT'; ss; eauto.
+        { econs; eauto. }
+        i. des.
+        + inv H. exploit RL; eauto. i. des.
+          hexploit writing_small_step_nonpromise_forward; try exact STEPS'; ss; eauto.
+          { econs; eauto. s. ii. inv H. revert TID1.
+            rewrite IdentMap.Properties.F.map_o. unfold remove_promise.
+            destruct (UsualFMapPositive.UsualPositiveMap'.find tid0 threads0); ss.
+            i. inv TID1. rewrite Memory.bot_get in PROMISES. congr.
+          }
+          i. inv H. esplits; eauto.
+        + inv H.
+          hexploit writing_small_step_nonpromise_new; try exact STEPS'; ss; eauto.
+          i. inv H. esplits; eauto.
     }
     { inv STEPS. inv STEP; inv STEP0; try done. econs; eauto; ss.
       - apply IdentMap.eq_leibniz. ii.
