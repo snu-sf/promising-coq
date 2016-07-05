@@ -58,7 +58,6 @@ Module MemoryMerge.
     destruct r, r0. ss. subst.
     unfold LocFun.add. condtac; [|congr]. s.
     rewrite DOMap.add_add_eq. econs; auto.
-    etrans; eauto.
   Qed.
 
   Lemma promise_promise_promise
@@ -77,5 +76,6 @@ Module MemoryMerge.
     - econs; eauto.
       + eapply lower_lower_lower; eauto.
       + eapply lower_lower_lower; eauto.
+      + etrans; eauto.
   Qed.
 End MemoryMerge.

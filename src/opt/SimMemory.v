@@ -307,7 +307,7 @@ Proof.
   inv PROMISE_SRC; inv PROMISE_TGT.
   - eapply sim_memory_add; eauto.
   - eapply sim_memory_split; eauto.
-  - eapply sim_memory_lower; eauto.
+  - eapply sim_memory_lower; try exact MEM0; eauto.
 Qed.
 
 Lemma sim_memory_closed_timemap
@@ -336,7 +336,8 @@ Qed.
 
 Lemma lower_sim_memory
       mem1 loc from to val released1 released2 mem2
-      (LOWER: Memory.lower mem1 loc from to val released1 released2 mem2):
+      (LOWER: Memory.lower mem1 loc from to val released1 released2 mem2)
+      (LE: Capability.le released2 released1):
   sim_memory mem2 mem1.
 Proof.
   econs.
@@ -344,7 +345,7 @@ Proof.
   - i. erewrite Memory.lower_o; eauto. condtac; ss.
     + des. subst.
       erewrite Memory.lower_get0 in GET; eauto. inv GET.
-      esplits; eauto. inv LOWER. inv LOWER0. auto.
+      esplits; eauto.
     + esplits; eauto. refl.
 Qed.
 
@@ -353,7 +354,7 @@ Lemma promise_lower_sim_memory
       (PROMISE: Memory.promise promises1 mem1 loc from to val released2 promises2 mem2 (Memory.promise_kind_lower released1)):
   sim_memory mem2 mem1.
 Proof.
-  inv PROMISE. eapply lower_sim_memory. eauto.
+  inv PROMISE. eapply lower_sim_memory; eauto.
 Qed.
 
 Lemma split_sim_memory

@@ -177,17 +177,17 @@ Qed.
 
 Lemma lower_mem_eqlerel
       m1 loc from to val r1 r2 m2
-      (LOWER: Memory.lower m1 loc from to val r1 r2 m2):
+      (LOWER: Memory.lower m1 loc from to val r1 r2 m2)
+      (LE: Capability.le r2 r1):
   mem_eqlerel m2 m1.
 Proof.
   econs; ii.
   - revert IN. erewrite Memory.lower_o; eauto. condtac; ss.
-    + i. des. inv IN. exploit Memory.lower_get0; eauto. i. esplits; eauto.
-      inv LOWER. inv LOWER0. auto.
+    + i. des. inv IN. exploit Memory.lower_get0; eauto.
     + i. esplits; eauto. refl.
   - erewrite Memory.lower_o; eauto. condtac; ss.
     + des. subst. revert IN. erewrite Memory.lower_get0; eauto. i. inv IN.
-      esplits; eauto. inv LOWER. inv LOWER0. auto.
+      esplits; eauto.
     + esplits; eauto. refl.
 Qed.
 
@@ -282,7 +282,6 @@ Proof.
   apply MEMLE in x0. des.
   exploit (@Memory.lower_exists m1 loc from to val rel2 released2'); eauto;
     try by inv LOWER2; inv LOWER; eauto; try by committac.
-  { admit. (* we have to use something different than lower *) }
   i. des.
   esplits; eauto.
   econs; esplits; ii; revert IN0.
@@ -294,7 +293,7 @@ Proof.
     condtac; ss.
     + i. des. inv IN0. esplits; eauto.
     + eapply MEMLE.
-Admitted.
+Qed.
 
 Definition Capability_lift_if loc l t rel :=
   if Loc.eq_dec l loc then rel else Capability_lift l t rel.
@@ -368,7 +367,7 @@ Proof.
     + i. inv KIND. destruct (Memory.get loc t' (Local.promises lco)) as [[]|] eqn:X; auto.
       exfalso. eapply Memory.disjoint_get; try apply DISJ; eauto.
       hexploit Memory.split_get0; try exact PROMISES; eauto. i. des. eauto.
-  - exploit mem_eqlerel_lower_forward; eauto.
+  - exploit mem_eqlerel_lower_forward; try exact x0; eauto.
     { apply Capability_lift_if_incr. }
     i. des. esplits; eauto. i.
     unfold pi_step_lift_mem. rewrite E. splits; cycle 2.
@@ -1009,7 +1008,7 @@ Proof.
   - apply CommitFacts.write_sc_mon; auto. refl.
   - inv MEMLE'. econs; eauto.
     + etrans; eauto.
-      eapply lower_mem_eqlerel. inv PROMISE0. eauto.
+      eapply lower_mem_eqlerel; eauto. inv PROMISE0. eauto.
     + eapply remove_pi_step_lift_mem; [|eauto]. eauto.
 Qed.
 
