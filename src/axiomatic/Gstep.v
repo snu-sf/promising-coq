@@ -703,7 +703,7 @@ Qed.
 Lemma gstep_useq :
   useq rmw' rf' <--> useq rmw rf.
 Proof.
-  by unfold useq; rewrite gstep_rf_rmw.
+  by unfold useq; rewrite (seq2 gstep_rf_rmw), seqA.
 Qed.
 
 Lemma gstep_rf_nonread (N: ~ is_read a) :
@@ -718,21 +718,21 @@ Qed.
 Lemma gstep_rseq :
   rseq acts' sb' rmw' rf' <--> 
   rseq acts sb rmw rf +++ 
-  <| is_write |> ;; restr_eq_rel loc sb_ext ;; <| is_write |> +++
-  <| is_write |> ;; <| eq a |>.
+  <| is_write |> ;; restr_eq_rel loc sb_ext ;; <| is_write |> ;; <| is_rlx_rw |> +++
+  <| is_write |> ;; <| is_rlx_rw |> ;; <| eq a |> .
 Proof.
   unfold rseq; rewrite gstep_in_acts; relsimp.
   apply union_more; cycle 1.
     rewrite (seq_eqvAC (eq a)).
     rewrite (fun x => seq2 (seq_eq_max_r x)); auto with rel rel_max.
-    rewrite (seq_eqvAC (eq a)).
+    rewrite 2!(seq_eqvAC (eq a)).
     rewrite (fun x => seq_eq_max_r x); auto with rel rel_max.
     by rewrite (seq2 (seq_eqvK _)).
   rewrite gstep_sb at 1; relsimp. 
   apply union_more.
     by rewrite gstep_useq.
   unfold sb_ext; relsimp.
-  rewrite (seq_eqvAC (eq a)).
+  rewrite 3!(seq_eqvAC (eq a)).
   rewrite (seq_eq_max_r), (seq_eqvC (eq a)); eauto with rel rel_max.
   by rewrite (seq_eqvAC is_write), (seq2 (seq_eqvK _)).
 Qed.
@@ -747,28 +747,33 @@ Lemma gstep_rel :
   rel acts' sb' rmw' rf' <--> 
   rel acts sb rmw rf +++
   <| is_rel |> ;; <| is_write |> ;; <| eq a |> +++
-  <| is_rel |> ;; <| is_write |> ;; restr_eq_rel loc sb_ext ;; <| is_write |> +++
-  <| is_rel |> ;; <| is_fence |> ;; sb_ext ;; <| is_write |>.
+  <| is_rel |> ;; <| is_write |> ;; restr_eq_rel loc sb_ext ;; 
+  <| is_write |> ;; <| is_rlx_rw |> +++
+  <| is_rel |> ;; <| is_fence |> ;; sb_ext ;; <| is_write |> ;; <| is_rlx_rw |>.
 Proof.
   unfold rel at 1; rewrite gstep_sb at 1; relsimp.
-  assert (X: sb_ext;; rseq acts' sb' rmw' rf' <--> sb_ext;; <| is_write |>).
+  assert (X: sb_ext;; rseq acts' sb' rmw' rf' <--> 
+             sb_ext;; <| is_write |> ;; <| is_rlx_rw |>).
     unfold sb_ext, rseq; rewrite !seqA.
     rewrite (seq2 gstep_eq_acts').
     rewrite (seq_eqvAC (eq a)).
     rewrite (fun x => seq2 (seq_eq_max_r x)); auto with rel rel_max.
-    rewrite (seq_eqvAC (eq a)).
+    rewrite 3!(seq_eqvAC (eq a)).
     rewrite (fun x => seq_eq_max_r x); auto with rel rel_max.
     rewrite (seq2 (seq_eqvK _)).
     by rewrite (seq_eqvC _).  
   rewrite X; clear X.
   unfold rel; relsimp.
   rewrite gstep_rseq; relsimp.
-  rewrite !(seq2 (seq_eqvK _)).
+  rewrite !(seq2 (seq_eqvK _)), !eqv_join.
   split; repeat apply inclusion_union_l; eauto 20 with rel.
-    apply inclusion_union_r; right; do 2 (apply seq_mori; ins).
+  * by unfold eqv_rel; do 2 left; right; ins; desf.
+  * apply inclusion_union_r; right; do 2 (apply seq_mori; ins).
     by rewrite inclusion_restr_eq, inclusion_seq_eqv_l, <- seqA, sb_sb_ext. 
-  red; ins; exfalso; revert H; unfold seq, eqv_rel; ins; desf.
-  apply GSTEP; eapply sb_actb in H1; eauto.
+  * red; ins; exfalso; revert H; unfold seq, eqv_rel; ins; desf.
+    apply GSTEP; eapply sb_actb in H1; eauto.
+  * unfold eqv_rel; left; right; ins; desf; splits; ins.
+    by destruct y as [??[]]; ins; destruct o.
 Qed.
 
 Lemma gstep_rseq_nonwrite (N: ~ is_write a) :

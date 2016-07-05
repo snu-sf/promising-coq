@@ -155,6 +155,7 @@ Qed.
 Lemma Readable_msg_sc acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
   prev a (GSTEP: gstep acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc' prev a)
   (COH: Coherent acts sb rmw rf mo sc) 
+  (COH': Coherent acts' sb' rmw' rf' mo' sc') 
   t f (MON: monotone mo f) l v o b (LABa: lab a = Aload l v o)
   (MSG: max_value f (fun a => msg_rel scr acts sb rmw rf sc l a b) t)
   (RFb: rf' b a) (SC: is_sc a): Time.le t (f b).
@@ -175,15 +176,11 @@ eapply monotone_converse with (acts:=(a :: acts)); eauto.
 - rewrite gstep_non_write_mo with (mo':=mo'); eauto.
   rewrite <- ACT_STEP.
   cdes WF'; eauto.
-- intro.
-admit.
-(*  eapply Coherent_scr_rel; eauto.
+- intro. 
+  eapply (Coherent_m_scr COH'); eauto. 
   eapply gstep_non_write_mo with (mo:=mo); eauto.
-  eapply gstep_scr_rel_nonwrite with (acts:=acts); eauto.
-  unfold scr_rel, msg_rel, m_rel, seq, eqv_rel in *; desc; subst.
-  eauto.
-*)
-Admitted.
+  eapply (gstep_msg_rel_scr_nonwrite COH GSTEP); eauto. 
+Qed.
 
 Lemma Readable_full acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
   prev a (GSTEP: gstep acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc' prev a)
@@ -679,6 +676,8 @@ assert (SCa: Ordering.le Ordering.seqcst o <-> is_sc a).
   by destruct a; ins; desf.
 assert (RAa: Ordering.le Ordering.acqrel o <-> is_rel a).
   by destruct a; ins; desf.
+assert (RLXa: Ordering.le Ordering.relaxed o <-> is_rlx_rw a).
+  by destruct a; ins; desf.
 assert (LOC_A: Gevents.loc a = Some l0). 
   by unfold Gevents.loc; destruct (lab a); ins; desf.
 assert (W: is_write a). 
@@ -722,12 +721,7 @@ all: try match goal with
              cdes GSTEP; eapply actb_msg_scr in H; try done; eauto
          end.
 all: try by exfalso; congruence.
-
-admit.
-all: try by destruct o; ins; desf; eauto.
-admit.
-admit.
-admit.
+all: try by exfalso; destruct o; ins; desf; eauto.
 - assert (OLD: Memory.get l0 to mem = Some (from0, Message.mk v0 rel0)).
     eapply memory_write1; try edone; tauto.
   assert (LOC_A: Gevents.loc a = Some l). 
@@ -750,7 +744,7 @@ admit.
      split; ins; desf; eauto.
   by ins; cdes GSTEP; rewrite (gstep_msg_rel_scr_write COH GSTEP W LOC_A); 
      split; ins; desf; eauto.
-Admitted.
+Qed.
 
 Lemma memory_step_write acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0
   (COH : Coherent acts sb rmw rf mo sc)
@@ -785,9 +779,10 @@ Lemma commit_step_scfence acts sb rmw rf mo sc sc_map acts0 sb0 rmw0 rf0 mo0 sc0
   (SIM_SC_MAP : forall l : Loc.t, max_value f (S_tm acts sb rmw rf l) (LocFun.find l sc_map))
   a o_r o_w (LABa : lab a = Afence o_r o_w)
   (SC: is_sc a)
-  (ACQ: is_acq a)
+  (IS_ACQ: is_acq a)
   (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a a)
-  commit (COMMIT: sim_commit f acts sb rmw rf sc commit (thread a)):
+  commit (COMMIT: sim_commit f acts sb rmw rf sc commit (thread a))
+  (WF: Commit.wf commit) :
   sim_commit f acts0 sb0 rmw0 rf0 sc0 (Commit.write_fence_commit
      (Commit.read_fence_commit commit o_r) sc_map o_w) (thread a).
 Proof.
@@ -803,7 +798,8 @@ Proof.
   assert (RAr: Ordering.le Ordering.acqrel o_w).
      by destruct a; ins; desf; destruct o_w.
 
-  destruct commit; simpl.
+  destruct WF.
+  destruct commit; simpls.
   unfold Commit.write_fence_commit, Commit.read_fence_commit,
          Commit.write_fence_sc.
   simpl; rewrite SCa, RAa, RAr.
@@ -830,9 +826,9 @@ all: try eapply max_value_same_set; try apply K;
      gstep_t_rel_rwr_scfence,
      gstep_t_rel_scr_scfence.
 all: try etransitivity; [|by apply TimeMap.join_r]; vauto.
-admit.
-admit.
-Admitted.
+by destruct ACQ; etransitivity; eauto.
+by destruct ACQ; eauto.
+Qed.
 
 
 Lemma commit_step_rafence acts sb rmw rf mo sc sc_map acts0 sb0 rmw0 rf0 mo0 sc0
@@ -909,7 +905,8 @@ Definition proof_obligation ax_st ax_st' op_st i lang st st' :=
    f (TIME : sim_time op_st ax_st f) commit
    j (THREAD: i = Some j)
    (COMMIT : sim_commit f (acts ax_st) (sb ax_st) (rmw ax_st) 
-          (rf ax_st) (sc ax_st) commit i),
+          (rf ax_st) (sc ax_st) commit i)
+   (LWF : Commit.wf commit),
   exists te commit' sc' mem' op_st' threads' local', 
     << OP_ST': op_st' = Configuration.mk threads' sc' mem' >> /\ 
     << THREAD': threads' = IdentMap.add j (existT Language.state lang st', local') 
@@ -1096,6 +1093,7 @@ Proof.
   {
     intro X; exploit X; eauto; clear X; ins; desc. 
        by eapply TIME; eauto.
+       by destruct WF_OP_ST; destruct WF; eapply THREADS; eauto.
     eexists _,i,_.
     apply foo; [|intro CSTEP].
   -  econstructor; try edone; try apply Thread.step_program; eauto.

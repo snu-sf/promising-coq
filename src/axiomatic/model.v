@@ -30,13 +30,14 @@ Section Consistency.
 (** ** Derived relations  *)
 (******************************************************************************)
 
-  Definition useq := clos_trans (rf ;; rmw).
+  Definition useq := clos_trans (rf ;; rmw ;; <| is_rlx_rw |>).
    
   Definition rseq :=
     <| fun a => In a acts |> ;; 
     <| is_write |> ;;
     clos_refl (restr_eq_rel loc sb) ;;
     <| is_write |> ;;
+    <| is_rlx_rw |> ;;
     clos_refl useq.
    
   Definition rel :=
@@ -164,18 +165,6 @@ Section Consistency.
   Proof.
     unfold scr; rewrite seq_union_l, rwr_hb, !seqA, cr_hb_hb.
     eauto 8 with rel.
-  Qed.
-
-  Lemma rseq_alt : 
-    rseq <--> 
-    <|fun a => In a acts|> ;; <|is_write|> +++
-    <|fun a => In a acts|> ;; <|is_write|> ;; useq +++
-    <|fun a => In a acts|> ;; <|is_write|> ;; restr_eq_rel loc sb ;; <|is_write|> +++
-    <|fun a => In a acts|> ;; <|is_write|> ;; restr_eq_rel loc sb ;; 
-    eqv_rel is_write ;; useq.
-  Proof.
-  unfold rseq; rewrite !crE; rel_simpl; rewrite !seq_eqvK, !(seq2 (seq_eqvK _)).
-  unfold same_relation, inclusion, union; split; ins; desf; eauto. 
   Qed.
 
 (******************************************************************************)
@@ -384,7 +373,7 @@ Proof. unfold useq; eauto using rmw_domb with rel. Qed.
 Lemma rseq_doma : doma rseq is_write.
 Proof. unfold rseq; eauto with rel. Qed.
 Lemma rseq_domb : domb rseq is_write.
-Proof. unfold rseq; eauto using useq_domb with rel. Qed.
+Proof. unfold rseq; rewrite <- !seqA; eauto using useq_domb with rel. Qed.
 Lemma rel_doma : doma rel is_rel.
 Proof. unfold rel; eauto with rel. Qed.
 Lemma rel_domb : domb rel is_write.
@@ -677,7 +666,7 @@ Proof. apply COH. Qed.
 
 Lemma useq_in_sb_rf : inclusion useq (clos_trans (sb +++ rf)).
 Proof.
-  unfold useq; rewrite rmw_in_sb;
+  unfold useq; rewrite rmw_in_sb, inclusion_seq_eqv_r.
   eauto using inclusion_t_t2, inclusion_step2_ct with rel.
 Qed.
 
@@ -778,7 +767,8 @@ Qed.
 
 Lemma useq_mo : inclusion useq mo.
 Proof.
- eapply inclusion_t_ind, COH; eauto using rf_rmw_mo. 
+ eapply inclusion_t_ind, COH.
+ rewrite inclusion_seq_eqv_r; eauto using rf_rmw_mo. 
 Qed.
 
 Lemma rseq_mo : inclusion rseq (clos_refl mo).
@@ -788,6 +778,7 @@ Proof.
   apply inclusion_union_l; [by rewrite !inclusion_seq_eqv_l|]. 
   rewrite <- !seqA; apply inclusion_seq_trans; ins.
     by apply cr_trans, COH.
+  rewrite inclusion_seq_eqv_r.
   rewrite seq_eqv_l, seq_eqv_r; unfold restr_eq_rel in *; red; ins; desf.
   cdes COH; cdes WF; cdes WF_MO.
   assert (X: exists l, loc x = Some l); desc; try rewrite X in *.
@@ -914,10 +905,10 @@ Qed.
 Lemma Coherent_rwr l a b c 
   (MO: mo a b) (RW: rwr l b c) (RF_INV: a=c \/ (rf a c /\ is_rlx_rw c)) : False.
 Proof.
-destruct RW.
-eapply Coherent_urr; eauto 9. tauto.
-unfold seq, clos_refl, eqv_rel in *.
-desf; try (by desf; eapply basic_coherence_lemma; eauto).
+  destruct RW.
+  eapply Coherent_urr; eauto 9. tauto.
+  unfold seq, clos_refl, eqv_rel in *.
+  desf; try (by desf; eapply basic_coherence_lemma; eauto).
 Qed.
 
 Lemma Coherent_scr l a b c  (SCc: is_sc c) 
@@ -948,12 +939,12 @@ Proof. destruct RSTEPa, RSTEPb; subst; eauto. right; eauto. Qed.
 Lemma Coherent_urr_rel l a b c
   (MO: mo a b) (UR: urr l b c) (REL: rel c a) : False.
 Proof.
-unfold urr, seq, eqv_rel in *; desf.
-eapply rel_hb_mo in REL; destruct REL as (d & K & L).
-eapply Coherent_urr with (a:=d) (b:=b) (c:=d); eauto. 
-  by red in L; desf; cdes COH; cdes WF; cdes WF_MO; eauto.
-eexists; split; eauto.
-repeat eexists; eauto using clos_refl_seq_clos_refl, hb_trans.
+  unfold urr, seq, eqv_rel in *; desf.
+  eapply rel_hb_mo in REL; destruct REL as (d & K & L).
+  eapply Coherent_urr with (a:=d) (b:=b) (c:=d); eauto. 
+    by red in L; desf; cdes COH; cdes WF; cdes WF_MO; eauto.
+  eexists; split; eauto.
+  repeat eexists; eauto using clos_refl_seq_clos_refl, hb_trans.
 Qed.
 
 Lemma Coherent_rwr_rel l a b c
@@ -978,6 +969,13 @@ Proof.
   right; eapply sw_in_hb, rel_rf; eauto.
   by eapply rf_domb in RF; eauto; destruct d as [??[]]; ins; destruct o.
 Qed.
+
+Lemma Coherent_m_scr l a b c 
+  (MO: mo a b) (SC: m_rel (scr l) b a) (RF: rf a c) (SCc: is_sc c) : False.
+Proof.
+  unfold m_rel, seq in *; desc; eapply Coherent_scr_rel; eauto.
+Qed.
+
 
 Lemma Coherent_urr_sb l a b c d
   (MO: mo a b) (UR: urr l b c) (SB: sb c d) (RF_INV: a=d \/ rf a d) : False.
@@ -1234,7 +1232,7 @@ Add Parametric Morphism : (useq) with signature
   same_relation ==> same_relation ==> same_relation as useq_more.
 Proof.
   unfold useq, same_relation; ins; repeat split; desc; unnw; eauto;
-  eapply clos_trans_mori; eapply seq_mori; eauto.
+  eapply clos_trans_mori; eapply seq_mori, seq_mori; ins; eauto.
 Qed. 
 
 Add Parametric Morphism : (rseq) with signature 

@@ -186,14 +186,14 @@ Lemma gstep_rel_write :
   rel acts' sb' rmw' rf' <--> 
   rel acts sb rmw rf +++
   <| is_rel |> ;; <| eq a |> +++
-  <| is_rel |> ;; <| is_write |>;; restr_eq_rel loc (sb_ext acts a) +++
-  <| is_rel |> ;; <| is_fence |> ;; sb_ext acts a.
+  <| is_rel |> ;; <| is_write |>;; restr_eq_rel loc (sb_ext acts a) ;; <| is_rlx_rw |> +++
+  <| is_rel |> ;; <| is_fence |> ;; sb_ext acts a  ;; <| is_rlx_rw |>.
 Proof.
   rewrite (gstep_rel COH GSTEP).
   assert (X : <| is_write |>;; <| eq a |> <--> <| eq a |>); [|rewrite X].
     by rewrite seq_eqv_l; unfold eqv_rel; split; red; ins; desf.
   rewrite seq_eqvC in X. 
-  unfold sb_ext; rewrite !seqA, X; relsimp; rewrite X.
+  unfold sb_ext; rewrite !seqA, (seq2 X); relsimp; rewrite (seq2 X).
   split; repeat apply inclusion_union_l; eauto 10 with rel.
 Qed.
 
@@ -252,8 +252,9 @@ Lemma gstep_urr_rel_write (F: is_write a) l :
   urr acts sb rmw rf sc l ;; rel acts sb rmw rf +++
   <| fun x => x = a /\ loc a = Some l /\ is_rel a |> +++
   urr acts sb rmw rf sc l ;; <| is_rel |> ;; <| is_write |> ;; 
-  restr_eq_rel loc (sb_ext acts a) +++
-  urr acts sb rmw rf sc l ;; <| is_rel |> ;; <| is_fence |> ;; sb_ext acts a +++
+  restr_eq_rel loc (sb_ext acts a) ;; <| is_rlx_rw |> +++
+  urr acts sb rmw rf sc l ;; <| is_rel |> ;; <| is_fence |> ;; 
+  sb_ext acts a ;; <| is_rlx_rw |>  +++
   urr acts sb rmw rf sc l ;; sb_ext acts a ;; <| is_rel |>.
 Proof.
   rewrite gstep_urr_write; ins; relsimp.
@@ -272,8 +273,9 @@ Lemma gstep_rwr_rel_write l :
   rwr acts sb rmw rf sc l ;; rel acts sb rmw rf +++
   <| fun x => x = a /\ loc a = Some l /\ is_rel a |> +++
   rwr acts sb rmw rf sc l ;; <| is_rel |> ;; <| is_write |> ;; 
-  restr_eq_rel loc (sb_ext acts a) +++
-  rwr acts sb rmw rf sc l ;; <| is_rel |> ;; <| is_fence |> ;; sb_ext acts a +++
+  restr_eq_rel loc (sb_ext acts a) ;; <| is_rlx_rw |> +++
+  rwr acts sb rmw rf sc l ;; <| is_rel |> ;; <| is_fence |> ;;
+  sb_ext acts a ;; <| is_rlx_rw |>  +++
   rwr acts sb rmw rf sc l ;; sb_ext acts a ;; <| is_rel |>.
 Proof.
   rewrite gstep_rwr_write; ins; relsimp.
@@ -292,8 +294,9 @@ Lemma gstep_scr_rel_write l :
   scr acts sb rmw rf sc l ;; rel acts sb rmw rf +++
   <| fun x => x = a /\ loc a = Some l /\ is_rel a |> +++
   scr acts sb rmw rf sc l ;; <| is_rel |> ;; <| is_write |> ;; 
-  restr_eq_rel loc (sb_ext acts a) +++
-  scr acts sb rmw rf sc l ;; <| is_rel |> ;; <| is_fence |> ;; sb_ext acts a +++
+  restr_eq_rel loc (sb_ext acts a) ;; <| is_rlx_rw |> +++
+  scr acts sb rmw rf sc l ;; <| is_rel |> ;; <| is_fence |> ;;
+  sb_ext acts a ;; <| is_rlx_rw |>  +++
   scr acts sb rmw rf sc l ;; sb_ext acts a ;; <| is_rel |> +++
   rfhbsc_opt acts sb rmw rf l ;; sc_ext acts a ;; <| is_rel |>.
 Proof.
@@ -312,20 +315,21 @@ Lemma gstep_msg_rel_urr_write1 l (LOC: loc a = Some l) l' :
   msg_rel urr acts' sb' rmw' rf' sc' l' <--> 
   msg_rel urr acts sb rmw rf sc l' +++
   <| fun x => x = a /\ loc a = Some l' /\ is_rel a |> +++
-  c_rel (thread a) l (urr acts sb rmw rf sc l') ;; (fun _ y => y = a) +++
+  c_rel (thread a) l (urr acts sb rmw rf sc l') ;; (fun _ y => y = a /\ is_rlx_rw a) +++
   c_cur (thread a) (urr acts sb rmw rf sc l') ;; (fun _ y => y = a /\ is_rel a). 
 Proof.
   unfold msg_rel, m_rel, c_rel, c_cur.
   rewrite gstep_urr_rel_write; ins; relsimp.
   unfold sb_ext.
-  rewrite !(seq2 (eqv_join _ _)), seq_eqv_r, (seq_eqv_l _ (fun x => In x acts)), 
-  !seq_eqv_l, !seq_eqv_r.
+  rewrite !seqA, !(seq2 (eqv_join _ _)), !eqv_join,
+           (seq_eqv_r _ (eq a)), (seq_eqv_l _ (fun x => In x acts)).
+  rewrite !seq_eqv_r, !seq_eqv_l.
   unfold restr_eq_rel.
   split; repeat apply inclusion_union_l; eauto 9 with rel.
   by unfold seq; left; right; desf; rewrite LOC in *; eauto 10.
   by unfold seq; left; right; desf; eauto 10.
   by unfold seq; right; desf; eauto 10.
-  unfold seq; red; ins; desc; destruct H3; desc; clarify. 
+  unfold seq; red; ins; desc; destruct H4; desc; clarify. 
     left; left; right; desf; eexists; splits; eauto; 
       try solve [exploit urr_actb; try eassumption; eauto]; congruence. 
     left; right; desf; eexists; splits; eauto;
@@ -338,20 +342,21 @@ Lemma gstep_msg_rel_rwr_write1 l (LOC: loc a = Some l) l' :
   msg_rel rwr acts' sb' rmw' rf' sc' l' <--> 
   msg_rel rwr acts sb rmw rf sc l' +++
   <| fun x => x = a /\ loc a = Some l' /\ is_rel a |> +++
-  c_rel (thread a) l (rwr acts sb rmw rf sc l') ;; (fun _ y => y = a) +++
+  c_rel (thread a) l (rwr acts sb rmw rf sc l') ;; (fun _ y => y = a /\ is_rlx_rw a) +++
   c_cur (thread a) (rwr acts sb rmw rf sc l') ;; (fun _ y => y = a /\ is_rel a). 
 Proof.
   unfold msg_rel, m_rel, c_rel, c_cur.
   rewrite gstep_rwr_rel_write; ins; relsimp.
   unfold sb_ext.
-  rewrite !(seq2 (eqv_join _ _)), seq_eqv_r, (seq_eqv_l _ (fun x => In x acts)), 
-  !seq_eqv_l, !seq_eqv_r.
+  rewrite !seqA, !(seq2 (eqv_join _ _)), !eqv_join,
+           (seq_eqv_r _ (eq a)), (seq_eqv_l _ (fun x => In x acts)).
+  rewrite !seq_eqv_r, !seq_eqv_l.
   unfold restr_eq_rel.
   split; repeat apply inclusion_union_l; eauto 9 with rel.
   by unfold seq; left; right; desf; rewrite LOC in *; eauto 10.
   by unfold seq; left; right; desf; eauto 10.
   by unfold seq; right; desf; eauto 10.
-  unfold seq; red; ins; desc; destruct H3; desc; clarify. 
+  unfold seq; red; ins; desc; destruct H4; desc; clarify. 
     left; left; right; desf; eexists; splits; eauto; 
       try solve [exploit rwr_actb; try eassumption; eauto]; congruence. 
     left; right; desf; eexists; splits; eauto;
@@ -364,22 +369,23 @@ Lemma gstep_msg_rel_scr_write1 l (LOC: loc a = Some l) l' :
   msg_rel scr acts' sb' rmw' rf' sc' l' <--> 
   msg_rel scr acts sb rmw rf sc l' +++
   <| fun x => x = a /\ loc a = Some l' /\ is_rel a |> +++
-  c_rel (thread a) l (scr acts sb rmw rf sc l') ;; (fun _ y => y = a) +++
+  c_rel (thread a) l (scr acts sb rmw rf sc l') ;; (fun _ y => y = a /\ is_rlx_rw a) +++
   c_cur (thread a) (scr acts sb rmw rf sc l') ;; (fun _ y => y = a /\ is_rel a) +++
   S_tmr acts sb rmw rf l' ;; (fun _ y => y = a /\ is_sc a).
 Proof.
   unfold msg_rel, m_rel, c_rel, c_cur, S_tmr.
   rewrite gstep_scr_rel_write; ins; relsimp.
   unfold sb_ext.
-  rewrite !(seq2 (eqv_join _ _)), seq_eqv_r, (seq_eqv_l _ (fun x => In x acts)), 
-  !seq_eqv_l, !seq_eqv_r.
+  rewrite !seqA, !(seq2 (eqv_join _ _)), !eqv_join,
+           (seq_eqv_r _ (eq a)), (seq_eqv_l _ (fun x => In x acts)).
+  rewrite !seq_eqv_r, !seq_eqv_l.
   unfold restr_eq_rel, sc_ext.
   split; repeat apply inclusion_union_l; eauto 9 with rel.
   by unfold seq; left; left; right; desf; rewrite LOC in *; eauto 10.
   by unfold seq; left; left; right; desf; eauto 10.
   by unfold seq; left; right; desf; eauto 10.
   by unfold seq; right; desf; eauto 10.
-  unfold seq; red; ins; desc; destruct H3; desc; clarify. 
+  unfold seq; red; ins; desc; destruct H4; desc; clarify. 
     left; left; left; right; desf; eexists; splits; eauto; 
       try solve [exploit scr_actb; try eassumption; eauto]; congruence. 
     left; left; right; desf; eexists; splits; eauto;
@@ -395,7 +401,7 @@ Lemma gstep_msg_rel_urr_write l (LOC: loc a = Some l) l' x y :
   msg_rel urr acts' sb' rmw' rf' sc' l' x y <-> 
   msg_rel urr acts sb rmw rf sc l' x y \/
   x = y /\ y = a /\ loc a = Some l' /\ is_rel a \/
-  t_rel urr acts sb rmw rf sc (thread a) l l' x /\ y = a \/
+  t_rel urr acts sb rmw rf sc (thread a) l l' x /\ y = a /\ is_rlx_rw a \/
   t_cur urr acts sb rmw rf sc (thread a) l' x /\ y = a /\ is_rel a. 
 Proof.
   rewrite (same_relation_exp (gstep_msg_rel_urr_write1 LOC l')).
@@ -406,7 +412,7 @@ Lemma gstep_msg_rel_rwr_write l (LOC: loc a = Some l) l' x y :
   msg_rel rwr acts' sb' rmw' rf' sc' l' x y <-> 
   msg_rel rwr acts sb rmw rf sc l' x y \/
   x = y /\ y = a /\ loc a = Some l' /\ is_rel a \/
-  t_rel rwr acts sb rmw rf sc (thread a) l l' x /\ y = a \/
+  t_rel rwr acts sb rmw rf sc (thread a) l l' x /\ y = a /\ is_rlx_rw a \/
   t_cur rwr acts sb rmw rf sc (thread a) l' x /\ y = a /\ is_rel a. 
 Proof.
   rewrite (same_relation_exp (gstep_msg_rel_rwr_write1 LOC l')).
@@ -417,7 +423,7 @@ Lemma gstep_msg_rel_scr_write l (LOC: loc a = Some l) l' x y :
   msg_rel scr acts' sb' rmw' rf' sc' l' x y <-> 
   msg_rel scr acts sb rmw rf sc l' x y \/
   x = y /\ y = a /\ loc a = Some l' /\ is_rel a \/
-  t_rel scr acts sb rmw rf sc (thread a) l l' x /\ y = a \/
+  t_rel scr acts sb rmw rf sc (thread a) l l' x /\ y = a /\ is_rlx_rw a \/
   t_cur scr acts sb rmw rf sc (thread a) l' x /\ y = a /\ is_rel a \/
   S_tm acts sb rmw rf l' x /\ y = a /\ is_sc a. 
 Proof.
