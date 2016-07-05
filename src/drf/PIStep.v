@@ -286,7 +286,12 @@ Proof.
         hexploit writing_small_step_nonpromise_backward; try exact STEPS'; ss; eauto.
         { econs; eauto. s. ii. inv H. revert TID1.
           rewrite IdentMap.gsspec. condtac.
-          - i. inv TID1. admit.
+          - i. inv TID1.
+            exploit (@small_step_promise_decr_bot tid tid); [apply STEPS'|..].
+            { ss. setoid_rewrite IdentMap.Properties.F.map_o. by rewrite TID. }
+            { s. rewrite IdentMap.gss. eauto. }
+            { s. eauto. }
+            i. rewrite x0 in *. rewrite Memory.bot_get in PROMISES. congr.
           - rewrite IdentMap.Properties.F.map_o. unfold remove_promise.
             destruct (UsualFMapPositive.UsualPositiveMap'.find tid0 threads0); ss.
             i. inv TID1. rewrite Memory.bot_get in PROMISES. congr.
@@ -337,7 +342,12 @@ Proof.
         hexploit writing_small_step_nonpromise_backward; try exact STEPS'; ss; eauto.
         { econs; eauto. s. ii. inv H. revert TID1.
           rewrite IdentMap.gsspec. condtac.
-          - i. inv TID1. admit.
+          - i. inv TID1.
+            exploit (@small_step_promise_decr_bot tid tid); [apply STEPS'|..].
+            { ss. setoid_rewrite IdentMap.Properties.F.map_o. by rewrite TID. }
+            { s. rewrite IdentMap.gss. eauto. }
+            { s. eauto. }
+            i. rewrite x0 in *. rewrite Memory.bot_get in PROMISES. congr.
           - rewrite IdentMap.Properties.F.map_o. unfold remove_promise.
             destruct (UsualFMapPositive.UsualPositiveMap'.find tid0 threads0); ss.
             i. inv TID1. rewrite Memory.bot_get in PROMISES. congr.
