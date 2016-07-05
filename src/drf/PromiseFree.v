@@ -172,7 +172,7 @@ Qed.
 Lemma key_lemma
       cS1 cT1 cS2 cT2 tid
       (PI_CONSISTENT : pi_consistent (cS1, cT1))
-      (WF : pi_wf (cS1, cT1))
+      (WF : pi_wf eq (cS1, cT1))
       (RACEFREE : pf_racefree cS1)
       (STEPS : rtc (pi_step_evt true tid) (cS1, cT1) (cS2, cT2))
       loc ts 
@@ -193,7 +193,7 @@ Lemma key_lemma
   /\
   <<EQPRE: pre = pi_pre_proj pre'>>.
 Proof.
-  assert (WF2: pi_wf (cS2,cT2)).
+  assert (WF2: pi_wf eq (cS2,cT2)).
   { eapply rtc_pi_step_future; eauto.
     eapply rtc_implies, STEPS; eauto. }
   move WF2 after STEPS_LIFT.
@@ -214,13 +214,13 @@ Proof.
   destruct z as [[cS4 cT4] M4].
   rename H into PSTEP. ss.
 
-  assert (WF3: pi_wf (cS3, cT3)).
+  assert (WF3: pi_wf eq (cS3, cT3)).
   { eapply rtc_pi_step_future; eauto.
     eapply pi_steps_lift_except_pi_steps in STEPS_LIFT.
     eapply rtc_implies, STEPS_LIFT.
     i. inv PR. eauto. }
 
-  assert (WF4: pi_wf (cS4, cT4)).
+  assert (WF4: pi_wf eq (cS4, cT4)).
   { inv PSTEP. eapply pi_step_future; eauto. }
   
   s. i. assert (X := PSTEP). inv X. rename cM4 into cM4'.

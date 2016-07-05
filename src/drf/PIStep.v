@@ -62,21 +62,21 @@ Hint Constructors pi_step_except.
 Definition remove_promise (th: {lang : Language.t & Language.state lang} * Local.t) :=
   (th.(fst), Local.mk th.(snd).(Local.commit) Memory.bot).
 
-Inductive pi_wf: Configuration.t*Configuration.t -> Prop :=
+Inductive pi_wf cmp: Configuration.t*Configuration.t -> Prop :=
 | pi_wf_intro cS cT
     (WFS: Configuration.wf cS)
     (WFT: Configuration.wf cT)
     (THS: cS.(Configuration.threads) = IdentMap.map remove_promise cT.(Configuration.threads))
     (SC: cS.(Configuration.sc) = cT.(Configuration.sc))
-    (LR: forall loc ts from msg
-           (IN: Memory.get loc ts cS.(Configuration.memory) = Some (from, msg)),
-         <<IN: Memory.get loc ts cT.(Configuration.memory) = Some (from, msg)>> /\
+    (LR: forall loc ts from val rel1
+           (IN: Memory.get loc ts cS.(Configuration.memory) = Some (from, Message.mk val rel1)),
+         <<IN: exists rel2, Memory.get loc ts cT.(Configuration.memory) = Some (from, Message.mk val rel2) /\ <<CMP: cmp rel1 rel2>>>> /\
          <<NOT: forall tid, ~Threads.is_promised tid loc ts cT.(Configuration.threads)>>)
-    (RL: forall loc ts from msg
-           (IN: Memory.get loc ts cT.(Configuration.memory) = Some (from, msg))
+    (RL: forall loc ts from val rel2
+           (IN: Memory.get loc ts cT.(Configuration.memory) = Some (from, Message.mk val rel2))
            (NOT: forall tid, ~Threads.is_promised tid loc ts cT.(Configuration.threads)),
-         Memory.get loc ts cS.(Configuration.memory) = Some (from, msg)):
-  pi_wf (cS,cT)
+         exists rel1, Memory.get loc ts cS.(Configuration.memory) = Some (from, Message.mk val rel1) /\ <<CMP: cmp rel1 rel2>>):
+  pi_wf cmp (cS,cT)
 .
 Hint Constructors pi_wf.
 
@@ -99,10 +99,11 @@ Definition pi_pre_proj (pre: option (Configuration.t*Configuration.t*ThreadEvent
   option_map (fun p => (p.(fst).(snd),p.(snd))) pre.
 
 Lemma pi_step_future
-      tid cST1 cST2 withprm
-      (WF1: pi_wf cST1)
+      tid cST1 cST2 withprm cmp
+      (WF1: pi_wf cmp cST1)
+      (REFL: forall r, cmp r r)
       (STEP: pi_step_evt withprm tid cST1 cST2):
-  <<WF2: pi_wf cST2>> /\
+  <<WF2: pi_wf cmp cST2>> /\
   <<FUTURES: Memory.future cST1.(fst).(Configuration.memory) cST2.(fst).(Configuration.memory)>> /\
   <<FUTURET: Memory.future cST1.(snd).(Configuration.memory) cST2.(snd).(Configuration.memory)>>.
 Proof.
@@ -287,10 +288,11 @@ Proof.
 Admitted. (* jeehoon: half done, not hard *)
 
 Lemma rtc_pi_step_future
-      cST1 cST2 withprm
-      (WF1: pi_wf cST1)
+      cST1 cST2 withprm cmp
+      (WF1: pi_wf cmp cST1)
+      (REFL: forall r, cmp r r)
       (STEPS: rtc (pi_step_all withprm) cST1 cST2):
-  <<WF2: pi_wf cST2>> /\
+  <<WF2: pi_wf cmp cST2>> /\
   <<FUTURES: Memory.future cST1.(fst).(Configuration.memory) cST2.(fst).(Configuration.memory)>> /\
   <<FUTURET: Memory.future cST1.(snd).(Configuration.memory) cST2.(snd).(Configuration.memory)>>.
 Proof.
@@ -383,8 +385,8 @@ Qed.
 
 Lemma pi_wf_small_step_is_reading
       e s1 s2 t1
-      withprm tid l t v r o
-      (PWF: pi_wf (s1, t1))
+      withprm cmp tid l t v r o
+      (PWF: pi_wf cmp (s1, t1))
       (STEP: small_step withprm tid e s1 s2)
       (READING: ThreadEvent.is_reading e = Some (l, t, v, r, o)):
   forall tid', ~ Threads.is_promised tid' l t t1.(Configuration.threads).
@@ -396,8 +398,8 @@ Qed.
 
 Lemma pi_wf_small_step_is_promising
       e s1 t1 t2
-      withprm tid l t
-      (PWF: pi_wf (s1, t1))
+      withprm cmp tid l t
+      (PWF: pi_wf cmp (s1, t1))
       (STEP: small_step withprm tid e t1 t2)
       (PROMISING: ThreadEvent_is_promising e = Some (l, t)):
   Threads.is_promised tid l t t2.(Configuration.threads).
@@ -411,7 +413,7 @@ Qed.
 Lemma rtcn_pi_step_remove_promises
       tid n cST1 cST2
       (PSTEP: rtcn (pi_step_except true tid) n cST1 cST2)
-      (PWF: pi_wf cST1):
+      (PWF: pi_wf eq cST1):
   exists n' cT2',
     <<N: n' <= n>> /\
     <<STEPS: rtcn (pi_step_except false tid) n' cST1 (cST2.(fst),cT2')>>.
@@ -482,7 +484,7 @@ Admitted. (* jeehoon: very important lemma *)
 
 Lemma rtc_pi_step_remove_promises
       tid cST1 cST2
-      (WF: pi_wf cST1)
+      (WF: pi_wf eq cST1)
       (PSTEP: rtc (pi_step_except true tid) cST1 cST2):
   exists cT2',
   rtc (pi_step_except false tid) cST1 (cST2.(fst),cT2').
@@ -494,7 +496,7 @@ Qed.
 
 Lemma pi_consistent_small_step_pi_rw
       e tid cST1 cST2 cT3 withprm
-      (WF: pi_wf cST1)
+      (WF: pi_wf eq cST1)
       (PI_CONSISTENT: pi_consistent cST1)
       (PI_RACEFREE: pf_racefree cST1.(fst))
       (PI_STEPS: rtc (pi_step_evt true tid) cST1 cST2)
@@ -528,7 +530,7 @@ Proof.
     - eapply rtc_implies, STEPS. by econs; eauto.
   }
   { ss. inv STEP. inv STEP0; [by inv STEP; inv RW; inv H|].
-    exploit rtc_pi_step_future; [|eapply rtc_implies; [eapply (@pi_step_evt_all_incl true)|]|]; eauto.
+    exploit rtc_pi_step_future; [| |eapply rtc_implies; [eapply (@pi_step_evt_all_incl true)|]|]; eauto.
     i; des. clear FUTURES FUTURET.
     assert (LC1: exists lc1', IdentMap.find tid (Configuration.threads cS3) = Some (existT _ lang0 st1, lc1')).
     { eexists. erewrite <-(@rtc_small_step_find _ _ cS2); eauto.
@@ -544,7 +546,7 @@ Qed.
 
 Lemma pi_consistent_small_step_pi
       e tid cST1 cST2 cT3 withprm
-      (WF: pi_wf cST1)
+      (WF: pi_wf eq cST1)
       (PI_CONSISTENT: pi_consistent cST1)
       (PI_RACEFREE: pf_racefree cST1.(fst))
       (PI_STEPS: rtc (pi_step_evt true tid) cST1 cST2)
@@ -554,7 +556,7 @@ Lemma pi_consistent_small_step_pi
 Proof.
   destruct cST1 as [cS1 cT1], cST2 as [cS2 cT2].
   assert (RW:= pi_consistent_small_step_pi_rw WF PI_CONSISTENT PI_RACEFREE PI_STEPS STEP).
-  exploit rtc_pi_step_future; [|eapply rtc_implies; [eapply pi_step_evt_all_incl|]|]; eauto.
+  exploit rtc_pi_step_future; [| |eapply rtc_implies; [eapply pi_step_evt_all_incl|]|]; eauto.
   i; des. destruct cS2. inv WF2. ss. assert (MSTEP:=STEP). inv STEP. inv STEP0.
   - eexists. econs; [by eauto|by inv STEP; s; eauto|..].
     + inv STEP. ss. rewrite IdentMap.gss.
@@ -580,7 +582,7 @@ Proof.
           by rewrite TID.
         + econs 2; econs 2; eauto.
           econs; eauto.
-          s. eapply RL; eauto.
+          s. hexploit RL; [| |by intro X; des; subst; apply X]; eauto.
           i. destruct (Ident.eq_dec tid tid0) eqn: EQ; cycle 1.
           { eapply RW; s; eauto. }
           subst. intro PROMISED. inv PROMISED.
@@ -624,7 +626,7 @@ Proof.
         + econs 2; econs 4; [by eauto|..].
           { 
             econs; eauto.
-            s. eapply RL; eauto.
+            s. hexploit RL; [| |by intro X; des; subst; apply X]; eauto.
             i. destruct (Ident.eq_dec tid tid0) eqn: EQ; cycle 1.
             { eapply RW; s; eauto. }
             subst. intro PROMISED. inv PROMISED.
@@ -677,7 +679,7 @@ Admitted. (* memory & promises disojint *)
 
 Lemma pi_consistent_rtc_small_step_pi
       tid cST1 cST2 withprm
-      (WF: pi_wf cST1)
+      (WF: pi_wf eq cST1)
       (PI_CONSISTENT: pi_consistent cST1)
       (PI_RACEFREE: pf_racefree cST1.(fst))
       (PI_STEPS: rtc (pi_step_evt true tid) cST1 cST2)
@@ -709,7 +711,7 @@ Qed.
 
 Theorem pi_consistent_step_pi
       cST1 cT2 e tid
-      (WF: pi_wf cST1)
+      (WF: pi_wf eq cST1)
       (PI_CONSISTENT: pi_consistent cST1)
       (CONSISTENT: Configuration.consistent cST1.(snd))
       (PI_RACEFREE: pf_racefree cST1.(fst))
