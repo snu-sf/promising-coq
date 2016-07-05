@@ -223,6 +223,7 @@ Proof.
       destruct cT2. unfold conf_update_memory in *. ss.
       eapply with_pre_implies in PI_STEPS.
       + exploit pi_consistent_rtc_small_step_pi; try eapply WF; eauto.
+        admit. (* promise consistent *)
       + i. inv STEP. eauto. 
   }
 
@@ -711,6 +712,7 @@ Proof.
     { etrans; cycle 1.
       - eapply rtc_implies, STEPS. eauto using pi_step_except_withoutprm.
       - eapply rtc_implies, STEP. eauto. }
+    { admit. (* promise consistent *) }
     intro STEPS'. des. ss.
 
     assert (TEQA:= rtc_pi_step_except_find STEPS). des. ss.
@@ -808,5 +810,5 @@ Proof.
   inv WF0. inv EVENT0.
   econs; eauto.
   by rewrite THS; setoid_rewrite IdentMap.Properties.F.map_o; rewrite TH0.
-Qed.
+Admitted.
 
