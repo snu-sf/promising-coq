@@ -438,7 +438,7 @@ Proof.
           - eauto. }
         econs; eauto. rewrite IdentMap.gso; eauto.
     }
-Admitted. (* jeehoon: half done, not hard *)
+Qed.
 
 Lemma rtc_pi_step_future
       cST1 cST2 withprm cmp

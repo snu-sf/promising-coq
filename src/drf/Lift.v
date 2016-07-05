@@ -23,6 +23,7 @@ Require Import SmallStep.
 Require Import Race.
 Require Import PIStep.
 
+Require Import FulfillStep.
 Require Import MemoryReorder.
 Require Import MemorySplit.
 Require Import MemoryMerge.
@@ -94,6 +95,17 @@ Inductive Memory_op mem1 loc from to val rel mem2: forall (kind:Memory.promise_k
     (LOWER: Memory.lower mem1 loc from to val rel0 rel mem2):
     Memory_op mem1 loc from to val rel mem2 (Memory.promise_kind_lower rel0)
 .
+
+Lemma memory_op_get
+      m1 l f t v r m2 k
+      (OP: Memory_op m1 l f t v r m2 k):
+  Memory.get l t m2 = Some (f, Message.mk v r).
+Proof.
+  inv OP.
+  - erewrite Memory.add_o; eauto. condtac; ss. des; congr.
+  - erewrite Memory.split_o; eauto. condtac; ss. des; congr.
+  - erewrite Memory.lower_o; eauto. condtac; ss. des; congr.
+Qed.
 
 Definition pi_step_lift_mem l t p k (e:ThreadEvent.t) M1 M2 : Prop :=
   match ThreadEvent.is_writing e with
@@ -383,8 +395,6 @@ Lemma write_step_pi_step_lift_mem
       pi_step_lift_mem l t lco.(Local.promises) kind' e mem0' mem1'>> /\
     <<EQLEREL: mem_eqlerel mem1 mem1'>>.
 Proof.
-  (* TODO *)
-  Require Import FulfillStep.
   exploit write_promise_fulfill; eauto. i. des.
   exploit Local.promise_step_future; eauto. i. des.
   exploit Local.promise_step_disjoint; eauto. i. des.

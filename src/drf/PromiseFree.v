@@ -399,9 +399,23 @@ Proof.
     inv MEMLE. r in MEMWR. rewrite EVTW in MEMWR. des. rewrite NEQ in PMREL.
     inv STEP; inv STEP0; inv EVTR.
     - move TIMELT at bottom. move LOCAL at bottom. move PMREL at bottom. move ORDR at bottom.
-      admit. (* jeeoon easy; PMREL, TIMELT, LOCAL, ORDR *)
+      inv LOCAL.
+      erewrite memory_op_get in GET; eauto. inv GET.
+      ss. apply TimeFacts.join_lt_des in TIMELT. des. revert BC.
+      rewrite ORDR. unfold Capability_lift. destruct relw. ss.
+      unfold TimeMap_lift. condtac; [|congr]. i.
+      apply TimeFacts.join_lt_des in BC. des.
+      eapply Time.lt_strorder. eauto.
     - move TIMELT at bottom. move LOCAL1 at bottom. move LOCAL2 at bottom. move PMREL at bottom. move ORDR at bottom.
-      admit. (* jeeoon easy; PMREL, TIMELT, LOCAL1, LOCAL2, ORDR *)
+      inv LOCAL1. inv LOCAL2.
+      erewrite memory_op_get in GET; eauto. inv GET.
+      ss. apply TimeFacts.join_lt_des in TIMELT. des.
+      apply TimeFacts.join_lt_des in AC. des.
+      apply TimeFacts.join_lt_des in AC0. des.
+      revert BC1. rewrite ORDR. unfold Capability_lift. destruct relw. ss.
+      unfold TimeMap_lift. condtac; [|congr]. i.
+      apply TimeFacts.join_lt_des in BC1. des.
+      eapply Time.lt_strorder. eauto.
   }
 
   exploit (@lift_step _ (Thread.mk _ st1 (Local.mk com3' prm3') cM3'.(Configuration.sc) cM3'.(Configuration.memory))); [apply STEP|..]; eauto.
