@@ -513,17 +513,6 @@ Proof.
   i. des. destruct ord0; inv ORD; inv ORDW.
 Qed.
 
-Lemma small_step_update_promise
-      withprm tid loc tsr tsw valr valw relr1 relw1 ordr ordw c1 c2 lst1 lst2 lc1 lc2 from1 msg1
-      (STEP: small_step withprm tid (ThreadEvent.update loc tsr tsw valr valw relr1 relw1 ordr ordw) c1 c2)
-      (FIND1: IdentMap.find tid c1.(Configuration.threads) = Some (lst1, lc1))
-      (FIND2: IdentMap.find tid c2.(Configuration.threads) = Some (lst2, lc2))
-      (GET: Memory.get loc tsr lc1.(Local.promises) = Some (from1, msg1)):
-  exists from2 msg2,
-  Memory.get loc tsr lc2.(Local.promises) = Some (from2, msg2).
-Proof.
-Admitted. (* remove this and prove the folloiwng lemma. *)
-
 Lemma pi_consistent_small_step_pi
       e tid cST1 cST2 cT3 withprm
       (WF: pi_wf cST1)
@@ -612,38 +601,17 @@ Proof.
             subst. intro PROMISED. inv PROMISED.
             ss. rewrite TID0 in TID. depdes TID.
 
+            r in FULFILL. hexploit FULFILL.
+            { s. rewrite IdentMap.gss. eauto. }
+            clear FULFILL. intro FULFILL.
 
-
-
-
-
-          (* SearchAbout promise_consistent_th. *)
-          (* rdes FULFILL. ss. rewrite IdentMap.gss in FULFILL. *)
-          (* exploit FULFILL; s; eauto. *)
-          (* intro LT. ss. *)
-          (* inv READABLE; eauto. *)
-          (* apply TimeFacts.join_lt_des in LT. des. *)
-          (* apply TimeFacts.join_lt_des in AC. des. *)
-          (* revert BC0. unfold TimeMap.singleton, LocFun.add. condtac; [|congr]. i. *)
-          (* eapply Time.lt_strorder. eauto. *)
-
-
-
-            exploit small_step_update_promise; eauto.
-            { s. by rewrite IdentMap.gss. }
-            s; intro PROM. des.
-
-            exploit FULFILL.
-            { s. by rewrite IdentMap.gss. }
-            { s. eauto. }
-            s; intro LT.
-            inv LOCAL2.
-            s in LT. move LT at bottom.
+            eapply write_step_promise_consistent in FULFILL; eauto.
+            exploit FULFILL; s; eauto.
+            intro LT. ss.
+            inv READABLE; eauto.
             apply TimeFacts.join_lt_des in LT. des.
             apply TimeFacts.join_lt_des in AC. des.
-            apply TimeFacts.join_lt_des in AC0. des.
-            apply TimeFacts.join_lt_des in AC. des.
-            revert BC2. unfold TimeMap.singleton, LocFun.add. condtac; [|congr]. i.
+            revert BC0. unfold TimeMap.singleton, LocFun.add. condtac; [|congr]. i.
             eapply Time.lt_strorder. eauto.
           }
           { eauto. }
