@@ -183,6 +183,10 @@ Lemma key_lemma
   exists msgs,
   <<EQMEM: mem_eqrel (Capability_lift_le loc ts msgs) cSTM3.(fst).(snd).(Configuration.memory) cSTM3.(snd)>> /\
   <<IN: Memory.get loc ts cSTM3.(fst).(snd).(Configuration.memory) <> None>> /\
+  <<MSGS: forall loc' to' (IN: List.In (loc', to') msgs),
+          (exists from msg, nonpromise cSTM3.(fst).(snd) loc' from to' msg) /\
+          loc' <> loc /\
+          to' <> Time.bot>> /\
   <<MAIN:
       forall cM4 pre
         (PI_STEPS : with_pre (small_step false tid) (conf_update_memory cSTM3.(fst).(snd) cSTM3.(snd)) pre cM4)
@@ -217,6 +221,7 @@ Proof.
     - s. inv WF2. inv WFT. inv WF0.
       destruct lst2. exploit THREADS; eauto.
       intro X. inv X. apply PROMISES in PROMISE2. rewrite PROMISE2. done.
+    - done.
     - s. i. split. 
       { destruct pre; eauto. destruct p; eauto. destruct (ThreadEvent.is_reading t0); repeat destruct p; eauto. }
       destruct cT2. unfold conf_update_memory in *. ss.
@@ -260,7 +265,7 @@ Proof.
   cut((match pre with
        | Some (_, pe) =>
          match ThreadEvent.is_reading pe with
-         | Some (l, t0, _, _, _) => ~ List.In (l, t0) (msg_add e msgs)
+         | Some (l, t0, _, _, _) => ~ List.In (l, t0) (msg_add loc e msgs)
          | None => True
          end
        | None => True
@@ -309,11 +314,9 @@ Proof.
     intro X. inv X. apply PROMISES in PROMISE2. rewrite PROMISE2. done. }
 
   exploit conf_update_memory_wf; try apply EQMEM; eauto.
-  { admit. (* condition on the msgs *) }
   intro WF3'.
 
   exploit conf_update_memory_wf; try apply EQMEM0; eauto.
-  { admit. (* condition on the msgs *) }
   intro WF4'.
 
   hexploit rtc_small_step_future; swap 1 2.
@@ -476,6 +479,8 @@ Proof.
     { destruct eS; inv EVT; inv EVTR; eauto. }
 
     destruct (ThreadEvent.is_writing e) as [[[[[[]]]]]|] eqn: EVTW; eauto.
+    destruct (loc_ord_dec t4 t9 loc) eqn: LOD; eauto.
+
     apply List.not_in_cons; split; eauto.
     intro X; inv X. eauto.
   }
@@ -560,7 +565,7 @@ Proof.
   }
 
   (* Write step *)
-  { hexploit (@local_simul_write (Capability_lift_le loc ts (msg_add e msgs))); try apply LOCAL.
+  { hexploit (@local_simul_write (Capability_lift_le loc ts (msg_add loc e msgs))); try apply LOCAL.
     { inv SEMI_WF4. ii. apply LR in IN1. des. esplits; eauto. }
     { inv SEMI_WF4.
       econs. i. destruct msg1. exploit LR; eauto. i. des.
@@ -604,7 +609,7 @@ Proof.
   (* Update step *)
   { assert (X:= LOCAL1). inv X. ss.
 
-    hexploit (@local_simul_write (Capability_lift_le loc ts (msg_add e msgs))); try apply LOCAL2. 
+    hexploit (@local_simul_write (Capability_lift_le loc ts (msg_add loc e msgs))); try apply LOCAL2. 
     { inv SEMI_WF4. ii. apply LR in IN1. des. esplits; eauto. }
     { inv SEMI_WF4.
       econs. i. destruct msg1. exploit LR; eauto. i. des.
@@ -717,7 +722,10 @@ Proof.
       - done.
     }
     eauto.
-Admitted. (* condition on msgs *)
+  }
+
+Grab Existential Variables. exact true.
+Qed.
 
 Theorem pi_consistent_pi_step_pi_consistent
       cST1 cST2 tid
