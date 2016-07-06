@@ -43,6 +43,16 @@ Module Commit <: JoinableType.
       (ACQ: Memory.closed_capability commit.(acq) mem)
   .
 
+  Lemma bot_wf: wf bot.
+  Proof.
+    econs; i; econs; refl.
+  Qed.
+
+  Lemma bot_closed: closed bot Memory.init.
+  Proof.
+    econs; i; eapply Memory.closed_capability_bot; apply Memory.init_closed.
+  Qed.
+  
   Lemma future_closed
         commit mem1 mem2
         (CLOSED: closed commit mem1)

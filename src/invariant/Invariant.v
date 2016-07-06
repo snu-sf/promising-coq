@@ -133,9 +133,22 @@ Section Invariant.
     exists (LocFun.add loc 0 assign). splits; cycle 1.
     - rewrite LocFun.add_add_eq. apply LocFun.ext. i.
       rewrite LocFun.add_spec. condtac; subst; ss.
-    - ii. specialize (SEM loc). des.
-      admit.
-  Admitted.
+    - ii. rewrite LocFun.add_spec. condtac.
+      { inv CLOSED. specialize (INHABITED loc). esplits; eauto. }
+      specialize (SEM loc0). des. revert SEM. 
+      inv STEP. inv WRITE0. inv PROMISE.
+      + erewrite Memory.add_o; eauto. condtac; ss.
+        * i. des. inv SEM. congr.
+        * i. esplits; eauto.
+      + erewrite Memory.split_o; eauto. condtac; ss.
+        { i. des. inv SEM. congr. }
+        condtac; ss.
+        { guardH o. des. subst. congr. }
+        i. esplits; eauto.
+      + erewrite Memory.lower_o; eauto. condtac; ss.
+        * i. des. inv SEM. congr.
+        * i. esplits; eauto.
+  Qed.
 
   Lemma sem_memory_write_step_neq
         lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind
@@ -146,7 +159,23 @@ Section Invariant.
         (LOC: LocFun.find loc assign <> val):
     memory_assign mem1 assign.
   Proof.
-  Admitted.
+    ii. specialize (SEM loc0). des. revert SEM.
+    inv STEP. inv WRITE0. inv PROMISE.
+    - erewrite Memory.add_o; eauto. condtac; ss.
+      + i. des. inv SEM. congr.
+      + i. esplits; eauto.
+    - erewrite Memory.split_o; eauto. condtac; ss.
+      { i. des. inv SEM. congr. }
+      condtac; ss. 
+      { guardH o. i. des. inv SEM.
+        exploit Memory.split_get0; eauto. i. des.
+        esplits; eauto.
+      }
+      i. esplits; eauto.
+    - erewrite Memory.lower_o; eauto. condtac; ss.
+      + i. des. inv SEM. congr.
+      + i. esplits; eauto.
+  Qed.
 
   Lemma thread_step_sem
         tid lang e
@@ -355,5 +384,57 @@ Section Invariant.
       exploit Thread.step_future; try exact STEP0; eauto. s. i. des.
       exploit rtc_step_evt_future; try exact STEPS0; eauto. s. i. des.
       eapply future_sem_memory; eauto.
+  Qed.
+
+  Inductive Configuration_step_evt (c1 c2:Configuration.t): Prop :=
+  | Configuration_step_evt_intro
+      e tid
+      (STEP: Configuration.step e tid c1 c2)
+  .
+
+  Lemma init_sem
+        program
+        (TH: forall tid lang syn
+               (FIND: IdentMap.find tid program = Some (existT _ lang syn)),
+            S tid lang (lang.(Language.init) syn))
+        (MEM: J (LocFun.init 0)):
+    sem (Configuration.init program).
+  Proof.
+    econs.
+    - ii. unfold Configuration.init in FIND. ss.
+      unfold Threads.init in FIND. rewrite IdentMap.Facts.map_o in FIND.
+      destruct ((UsualFMapPositive.UsualPositiveMap'.find tid program)) eqn:X; inv FIND.
+      apply inj_pair2 in H1. subst. destruct s. ss.
+      eapply TH; eauto.
+    - ii. cut (x0 = LocFun.init 0); [by i; subst|].
+      apply LocFun.ext. i. rewrite LocFun.init_spec.
+      specialize (PR i). des. ss.
+      unfold Memory.get, Memory.init in PR. unfold Cell.get, Cell.init in PR. ss.
+      apply DOMap.singleton_find_inv in PR. des. inv PR0. auto.
+  Qed.
+
+  Lemma sound
+        program c
+        (TH: forall tid lang syn
+               (FIND: IdentMap.find tid program = Some (existT _ lang syn)),
+            S tid lang (lang.(Language.init) syn))
+        (MEM: J (LocFun.init 0))
+        (STEPS: rtc Configuration_step_evt (Configuration.init program) c):
+    sem c.
+  Proof.
+    cut (forall c1 c2
+           (WF: Configuration.wf c1)
+           (CONS: Configuration.consistent c1)
+           (SEM: sem c1)
+           (STEPS: rtc Configuration_step_evt c1 c2),
+            sem c2).
+    { i. eapply H; eauto.
+      - apply Configuration.init_wf.
+      - apply Configuration.init_consistent.
+      - apply init_sem; auto.
+    }
+    i. revert WF SEM. induction STEPS0; ss. i.
+    inv H. exploit Configuration.step_future; eauto. i. des.
+    apply IHSTEPS0; ss. eapply configuration_step_sem; try exact STEP; eauto.
   Qed.
 End Invariant.
