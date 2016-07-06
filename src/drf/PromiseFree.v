@@ -168,6 +168,77 @@ Proof.
   eapply can_fulfill_lt; eauto.
 Qed.
 
+Lemma key_lemma_time_lt2:
+  forall (loc : Loc.t) (ts : Time.t) (cM4' : Configuration.t)
+    (com4' : Commit.t) (loc0 : Loc.t) (ts0 : Time.t)
+    (relw : Capability.t) (ordr ordw0 : Ordering.t) 
+    (tsw : Time.t) xx yy,
+    Ordering.le Ordering.acqrel ordr ->
+    Time.lt
+      (TimeMap.join
+         (TimeMap.join
+            (TimeMap.join
+               yy
+               (Capability.rw
+                  (if Ordering.le Ordering.acqrel ordr
+                   then Capability_lift loc ts relw
+                   else Capability.bot))) (TimeMap.singleton loc0 tsw))
+         xx loc) ts -> False.
+Proof.
+  intros.
+  apply TimeFacts.join_lt_des in H0. des.
+  apply TimeFacts.join_lt_des in AC. des.
+  apply TimeFacts.join_lt_des in AC0. des.
+  revert BC1. rewrite H. unfold Capability_lift. destruct relw. ss.
+  unfold TimeMap_lift. condtac; [|congr]. i.
+  apply TimeFacts.join_lt_des in BC1. des.
+  eapply Time.lt_strorder. eauto.
+Qed.
+
+Lemma write_step_commit_mon
+      lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind
+      (WF1: Commit.wf (Local.commit lc1))
+      (STEP: Local.write_step lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind):
+  Commit.le lc1.(Local.commit) lc2.(Local.commit).
+Proof.
+  inv STEP. ss. apply CommitFacts.write_commit_incr. auto.
+Qed.
+
+Lemma key_lemma_time_lt:
+  forall (loc : Loc.t) (ts : Time.t) (k : Memory.promise_kind)
+    (cM4' : Configuration.t) (lc4 : Local.t) 
+    (com4' : Commit.t) (prm3' : Memory.t) (sc2 : TimeMap.t)
+    (memory2 : Memory.t) (loc0 : Loc.t) (ts0 from : Time.t)
+    (valr valw : Const.t) (relr relw : Capability.t)
+    (ordr : Ordering.t) (m1' : Memory.t) (ordw0 : Ordering.t)
+    (releasedw : Capability.t) (lc2 : Local.t)
+    (LC2: Commit.wf (Local.commit lc2))
+    (tsw : Time.t) (valw0 : Const.t) (kind : Memory.promise_kind),
+    Time.lt (Capability.rw (Commit.cur (Local.commit lc4)) loc) ts ->
+    Local.read_step
+      {| Local.commit := com4'; Local.promises := prm3' |}
+      (Configuration.memory cM4') loc0 ts0 valr relr ordr lc2 ->
+    Local.write_step lc2 (Configuration.sc cM4')
+                     (Configuration.memory cM4') loc0 ts0 tsw valw0 relr releasedw
+                     ordw0 lc4 sc2 memory2 kind ->
+    Memory_op m1' loc0 from ts0 valw (Capability_lift loc ts relw)
+              (Configuration.memory cM4') k ->
+    Ordering.le Ordering.acqrel ordr -> False.
+Proof.
+  intros loc ts k cM4' lc4 com4' prm3' sc2 memory2 loc0 ts0 from valr valw relr relw ordr m1' ordw0 releasedw lc2 WF tsw valw0 kind TIMELT LOCAL1 LOCAL2 PMREL ORDR.
+  assert (COM: Commit.le lc2.(Local.commit) lc4.(Local.commit)).
+  { eapply write_step_commit_mon; eauto. }
+  assert (LT: Time.lt (Capability.rw (Commit.cur (Local.commit lc2)) loc) ts).
+  { eapply TimeFacts.le_lt_lt; eauto. apply COM. }
+  inv LOCAL1. ss.
+  erewrite memory_op_get in GET; eauto. inv GET.
+  apply TimeFacts.join_lt_des in LT. des.
+  revert BC. rewrite ORDR. unfold Capability_lift. destruct relw. ss.
+  unfold TimeMap_lift. condtac; [|congr]. i.
+  apply TimeFacts.join_lt_des in BC. des.
+  eapply Time.lt_strorder. eauto.
+Qed.
+
 Lemma key_lemma
       cS1 cT1 cS2 cT2 tid
       (PI_CONSISTENT : pi_consistent (cS1, cT1))
@@ -416,15 +487,9 @@ Proof.
       apply TimeFacts.join_lt_des in BC. des.
       eapply Time.lt_strorder. eauto.
     - move TIMELT at bottom. move LOCAL1 at bottom. move LOCAL2 at bottom. move PMREL at bottom. move ORDR at bottom.
-      inv LOCAL1. inv LOCAL2.
-      erewrite memory_op_get in GET; eauto. inv GET.
-      ss. apply TimeFacts.join_lt_des in TIMELT. des.
-      apply TimeFacts.join_lt_des in AC. des.
-      apply TimeFacts.join_lt_des in AC0. des.
-      revert BC1. rewrite ORDR. unfold Capability_lift. destruct relw. ss.
-      unfold TimeMap_lift. condtac; [|congr]. i.
-      apply TimeFacts.join_lt_des in BC1. des.
-      eapply Time.lt_strorder. eauto.
+      eapply key_lemma_time_lt; eauto.
+      inv SEMI_WF4. inv WFT. eapply Local.read_step_future; eauto.
+      eapply WF0. eauto.
   }
 
   exploit (@lift_step _ (Thread.mk _ st1 (Local.mk com3' prm3') cM3'.(Configuration.sc) cM3'.(Configuration.memory))); [apply STEP|..]; eauto.
