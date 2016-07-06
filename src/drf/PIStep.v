@@ -635,17 +635,29 @@ Proof.
   - omega.
 Admitted. (* jeehoon: very important lemma *)
 
+(* Lemma rtc_pi_step_remove_promises *)
+(*       tid cST1 cST2 *)
+(*       (WF: pi_wf loctmeq cST1) *)
+(*       (PSTEP: rtc (pi_step_except true tid) cST1 cST2): *)
+(*   exists cT2', *)
+(*   rtc (pi_step_except false tid) cST1 (cST2.(fst),cT2'). *)
+(* Proof. *)
+(*   apply rtc_rtcn in PSTEP. des. *)
+(*   eapply rtcn_pi_step_remove_promises in PSTEP; eauto. des. *)
+(*   eapply rtcn_rtc in STEPS. esplits; eauto. *)
+(* Qed. *)
+
 Lemma rtc_pi_step_remove_promises
-      tid cST1 cST2
+      tid tidex cST1 cST2 cST3
       (WF: pi_wf loctmeq cST1)
-      (PSTEP: rtc (pi_step_except true tid) cST1 cST2):
-  exists cT2',
-  rtc (pi_step_except false tid) cST1 (cST2.(fst),cT2').
+      (NEQ: tid <> tidex)
+      (CONSIS: promise_consistent_th tid cST2.(snd))
+      (PSTEPS1: rtc (pi_step_evt true tid) cST1 cST2)
+      (PSTEP: rtc (pi_step_except false tidex) cST2 cST3):
+  exists cT3',
+  rtc (pi_step_except false tidex) cST1 (cST3.(fst),cT3').
 Proof.
-  apply rtc_rtcn in PSTEP. des.
-  eapply rtcn_pi_step_remove_promises in PSTEP; eauto. des.
-  eapply rtcn_rtc in STEPS. esplits; eauto.
-Qed.
+Admitted.
 
 Lemma pi_consistent_small_step_pi_rw
       e tid cST1 cST2 cT3 withprm
@@ -653,7 +665,8 @@ Lemma pi_consistent_small_step_pi_rw
       (PI_CONSISTENT: pi_consistent cST1)
       (PI_RACEFREE: pf_racefree cST1.(fst))
       (PI_STEPS: rtc (pi_step_evt true tid) cST1 cST2)
-      (STEP: small_step withprm tid e cST2.(snd) cT3):
+      (STEP: small_step withprm tid e cST2.(snd) cT3)
+      (CONS: promise_consistent_th tid cST2.(snd)):
   forall loc from to val rel ord tid' ts
     (NEQ: tid <> tid')
     (RW: ThreadEvent.is_reading e = Some (loc, to, val, rel, ord) \/
@@ -663,9 +676,7 @@ Proof.
   ii. inv H.
   inv PI_CONSISTENT. ss.
   guardH RW. destruct cST2 as [cS2 cT2].
-  exploit (@rtc_pi_step_remove_promises tid'); [eauto|..].
-  { eapply rtc_implies, PI_STEPS. i. inv PR. eauto. }
-
+  exploit (@rtc_pi_step_remove_promises tid); eauto.
   intro PI_STEPS'. des. ss.
   exploit CONSIS.
   { eauto. }
@@ -708,14 +719,25 @@ Lemma pi_consistent_small_step_pi
   exists cS3, pi_step withprm tid e cST2 (cS3,cT3).
 Proof.
   destruct cST1 as [cS1 cT1], cST2 as [cS2 cT2].
-  assert (RW:= pi_consistent_small_step_pi_rw WF PI_CONSISTENT PI_RACEFREE PI_STEPS STEP).
+  exploit rtc_pi_step_future; [eauto|reflexivity|..].
+  { eapply rtc_implies, PI_STEPS. eauto. }
+  intros [WF2 _].
+
+  hexploit (promise_consistent_th_rtc_small_step).
+  { econs 2; [|reflexivity]. eauto. }
+  { inv WF2. eauto. }
+  { eauto. }
+  intro PCONSIS.
+
+  assert (RW:=pi_consistent_small_step_pi_rw WF PI_CONSISTENT PI_RACEFREE PI_STEPS STEP PCONSIS).
+
   exploit rtc_pi_step_future; [| |eapply rtc_implies; [eapply pi_step_evt_all_incl|]|]; eauto.
   i; des. destruct cS2. inv WF2. ss. assert (MSTEP:=STEP). inv STEP. inv STEP0.
   - eexists. econs; [by eauto|by inv STEP; s; eauto|..].
     + inv STEP. ss. rewrite IdentMap.gss.
       setoid_rewrite IdentMap.Properties.F.map_o.
       by rewrite TID.
-    + i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); eauto.
+    + i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
   - inv STEP.
     { eexists. econs.
       - eauto.
@@ -726,7 +748,7 @@ Proof.
         + eauto.
         + eauto.
       - s. by rewrite !IdentMap.gss.
-      - i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); eauto.
+      - i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
     }
     { inv LOCAL. eexists. econs.
       - econs; eauto. econs 2. econs 2; eauto. econs; eauto.
@@ -751,7 +773,7 @@ Proof.
         + eauto.
         + eauto.
       - s. by rewrite !IdentMap.gss.
-      - i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); eauto.
+      - i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
     }
     { destruct lc1, lc2. exploit local_simul_write; [| |by eapply LOCAL|..].
       { instantiate (1:= memory). ii. eapply LR in IN.
@@ -772,7 +794,7 @@ Proof.
       - s. econs; eauto.
         s. setoid_rewrite IdentMap.Properties.F.map_o. by rewrite TID.
       - s. by rewrite !IdentMap.gss.
-      - i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); eauto.
+      - i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
     }
     { destruct lc2, lc3. exploit local_simul_write; [| |by eapply LOCAL2|..].
       { instantiate (1:= memory). ii. eapply LR in IN.
@@ -821,7 +843,7 @@ Proof.
         + eauto.
         + eauto.
       - s. by rewrite !IdentMap.gss.
-      - i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); eauto.
+      - i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
     }
     { inv LOCAL. eexists. econs.
       - econs; eauto. econs 2. econs 5; eauto. econs; eauto.
@@ -833,7 +855,7 @@ Proof.
         + eauto.
         + eauto.
       - s. by rewrite !IdentMap.gss.
-      - i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); eauto.
+      - i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
     }
     { inv LOCAL. eexists. econs.
       - econs; eauto. econs 2. econs 6; eauto. econs; eauto.
@@ -845,7 +867,7 @@ Proof.
         + eauto.
         + eauto.
       - s. by rewrite !IdentMap.gss.
-      - i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); eauto.
+      - i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
     }
 Grab Existential Variables.
   { exact Time.bot. }

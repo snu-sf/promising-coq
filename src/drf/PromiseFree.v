@@ -731,11 +731,15 @@ Theorem pi_consistent_pi_step_pi_consistent
 Proof.
   destruct cST1 as [cS1 cT1], cST2 as [cS2 cT2].
   econs. i. 
+
+  exploit rtc_pi_step_future; [eauto|..].
+  { reflexivity. }
+  { eapply rtc_implies, STEP. i. inv PR. eauto. }
+  i; des. clear FUTURES FUTURET.
+
   destruct (Ident.eq_dec tid0 tid); cycle 1.
-  { exploit (@rtc_pi_step_remove_promises tid0); [eauto|..].
-    { etrans; cycle 1.
-      - eapply rtc_implies, STEPS. eauto using pi_step_except_withoutprm.
-      - eapply rtc_implies, STEP. eauto. }
+  { exploit (@rtc_pi_step_remove_promises tid); try apply STEP; try apply STEPS; eauto.
+    { eapply consistent_promise_consistent_th, CONSISTENT2. inv WF2. eauto. }
     intro STEPS'. des. ss.
 
     assert (TEQA:= rtc_pi_step_except_find STEPS). des. ss.
@@ -751,15 +755,9 @@ Proof.
 
   exploit (pi_step_lifting loc ts STEPS).
   { ss. rewrite THREAD. done. }
-  { eapply rtc_pi_step_future; eauto.
-    eapply rtc_implies, STEP. eauto. }
+  { eauto. }
   intro STEPS_LIFT; des.
   rename M2 into M3. ss.
-
-  exploit rtc_pi_step_future; [eauto|..].
-  { reflexivity. }
-  { eapply rtc_implies, STEP. i. inv PR. eauto. }
-  i; des. ss. clear FUTURES FUTURET.
 
   destruct (IdentMap.find tid (Configuration.threads cT2)) eqn: TH; cycle 1.
   { apply Operators_Properties.clos_rt_rt1n_iff in STEP.
