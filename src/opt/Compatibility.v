@@ -255,19 +255,6 @@ Inductive ctx (sim_thread:SIM_THREAD lang lang): SIM_THREAD lang lang :=
         (sim_terminal sim_regs)
         (State.mk rs_src []) lc_src sc0_src mem0_src
         (State.mk rs_tgt []) lc_tgt sc0_tgt mem0_tgt
-| ctx_instr
-    instr_src instr_tgt regs
-    rs_src sc0_src mem0_src
-    rs_tgt sc0_tgt mem0_tgt
-    lc_src lc_tgt
-    (INSTR: Instr.ord instr_src instr_tgt)
-    (REGS: RegSet.disjoint regs (Instr.regs_of instr_src))
-    (RS: RegFile.eq_except regs rs_src rs_tgt)
-    (LOCAL: sim_local lc_src lc_tgt):
-    ctx sim_thread
-        (sim_terminal (RegFile.eq_except regs))
-        (State.mk rs_src [Stmt.instr instr_src]) lc_src sc0_src mem0_src
-        (State.mk rs_tgt [Stmt.instr instr_tgt]) lc_tgt sc0_tgt mem0_tgt
 | ctx_seq
     sim_regs1 sim_regs2
     stmts1_src stmts2_src rs_src lc_src sc0_src mem0_src
@@ -318,7 +305,6 @@ Proof.
   - econs 3; eauto; eapply _sim_stmts_mon; eauto.
   - econs 4; eauto; eapply _sim_stmts_mon; eauto.
   - econs 5; eauto; eapply _sim_stmts_mon; eauto.
-  - econs 6; eauto; eapply _sim_stmts_mon; eauto.
 Qed.
 Hint Resolve ctx_mon.
 
@@ -356,82 +342,6 @@ Proof.
     + eauto.
     + eauto.
     + apply rclo9_step. apply ctx_nil; auto.
-  - (* instr *)
-    ii.
-    inversion LOCAL. apply SimPromises.sem_bot_inv in PROMISES; auto.
-    destruct lc_src, lc_tgt. ss. subst.
-    splits; s; ii.
-    { inv TERMINAL_TGT. }
-    { exploit sim_local_future; try apply LOCAL; eauto. i. des.
-      esplits; eauto.
-      - etrans.
-        + apply Memory.max_timemap_spec; eauto. committac.
-        + apply sim_memory_max_timemap; eauto.
-      - etrans.
-        + apply Memory.max_timemap_spec; eauto. committac.
-        + apply Memory.future_max_timemap; eauto.
-      - apply Memory.max_timemap_closed. committac.
-    }
-    { ss. subst. esplits; eauto. }
-    inv STEP_TGT; ss.
-    + (* promise *)
-      inv STEP; ss.
-      exploit sim_local_promise; eauto. i. des.
-      esplits; try apply SC; eauto.
-      { econs 2. econs 1. econs. eauto. }
-      { eauto. }
-      { apply rclo9_step. apply ctx_instr; auto. }
-    + inv STEP; ss.
-      * (* silent *)
-        inv STATE. exploit RegFile.instr_ord_eval_instr; eauto. i. des. inv ORD.
-        exploit RegFile.eq_except_instr; eauto. i. des.
-        esplits; try apply SC; eauto.
-        { econs 2. econs 2. econs; eauto. econs. eauto. }
-        { eauto. }
-        { apply rclo9_step. apply ctx_nil; auto. }
-      * (* read *)
-        inv STATE. exploit RegFile.instr_ord_eval_instr; eauto. i. des. inv ORD. inv ORD0.
-        exploit sim_local_read; eauto; try refl. i. des.
-        exploit RegFile.eq_except_instr; eauto. i. des.
-        esplits; try apply SC; eauto.
-        { econs 2. econs 2. econs 2; eauto. s. econs. eauto. }
-        { eauto. }
-        { apply rclo9_step. apply ctx_nil; auto. }
-      * (* write *)
-        inv STATE. exploit RegFile.instr_ord_eval_instr; eauto. i. des. inv ORD. inv ORD0.
-        hexploit sim_local_write; try apply LOCAL0; try apply SC; eauto; try refl; committac. i. des.
-        exploit RegFile.eq_except_instr; eauto. i. des.
-        esplits; eauto.
-        { econs 2. econs 2. econs 3; eauto. econs. eauto. }
-        { eauto. }
-        { apply rclo9_step. apply ctx_nil; auto. }
-      * (* update *)
-        inv STATE. exploit RegFile.instr_ord_eval_instr; eauto. i. des. inv ORD. inv ORD0.
-        exploit Local.read_step_future; eauto. i. des.
-        exploit sim_local_read; eauto; try refl. i. des.
-        exploit Local.read_step_future; eauto. i. des.
-        hexploit sim_local_write; try apply SC; eauto. i. des.
-        exploit RegFile.eq_except_instr; eauto. i. des.
-        esplits; eauto.
-        { econs 2. econs 2. econs 4; eauto. s. econs. eauto. }
-        { eauto. }
-        { apply rclo9_step. apply ctx_nil; auto. }
-      * (* fence *)
-        inv STATE. exploit RegFile.instr_ord_eval_instr; eauto. i. des. inv ORD. inv ORD0.
-        exploit sim_local_fence; try apply SC; eauto; try refl. i. des.
-        exploit RegFile.eq_except_instr; eauto. i. des.
-        esplits; eauto.
-        { econs 2. econs 2. econs 5; eauto. econs. eauto. }
-        { eauto. }
-        { apply rclo9_step. apply ctx_nil; auto. }
-      * (* syscall *)
-        inv STATE. exploit RegFile.instr_ord_eval_instr; eauto. i. des. inv ORD. inv ORD0.
-        exploit sim_local_fence; try apply SC; eauto; try refl. i. des.
-        exploit RegFile.eq_except_instr; eauto. i. des.
-        esplits; eauto.
-        { econs 2. econs 2. econs 6; eauto. econs. eauto. }
-        { eauto. }
-        { apply rclo9_step. apply ctx_nil; auto. }
   - (* seq *)
     ii. ss.
     exploit GF; try apply SIM1; try apply SC; eauto. i. des.
@@ -591,23 +501,6 @@ Proof.
   ii. pupto9_init. pupto9 ctx_weak_respectful.
 Qed.
 
-Lemma sim_stmts_instr
-      instr_src instr_tgt regs
-      (ORD: Instr.ord instr_src instr_tgt)
-      (REGS: RegSet.disjoint regs (Instr.regs_of instr_src)):
-  sim_stmts (RegFile.eq_except regs) [Stmt.instr instr_src] [Stmt.instr instr_tgt] (RegFile.eq_except regs).
-Proof.
-  ii. pupto9_init. pupto9 ctx_weak_respectful.
-Qed.
-
-Lemma sim_stmts_instr_refl
-      instr regs
-      (REGS: RegSet.disjoint regs (Instr.regs_of instr)):
-  sim_stmts (RegFile.eq_except regs) [Stmt.instr instr] [Stmt.instr instr] (RegFile.eq_except regs).
-Proof.
-  apply sim_stmts_instr; auto. refl.
-Qed.
-
 Lemma sim_stmts_seq
       sim_regs0 sim_regs1 sim_regs2
       stmts1_src stmts2_src
@@ -617,7 +510,7 @@ Lemma sim_stmts_seq
   sim_stmts sim_regs0 (stmts1_src ++ stmts2_src) (stmts1_tgt ++ stmts2_tgt) sim_regs2.
 Proof.
   ii. pupto9_init. pupto9 ctx_weak_respectful.
-  econs 4.
+  econs 3.
   - pupto9_final. apply SIM1; auto.
   - ii. pupto9_final. apply SIM2; auto.
 Qed.
@@ -632,7 +525,7 @@ Lemma sim_stmts_ite
   sim_stmts sim_regs0 [Stmt.ite cond_src stmts1_src stmts2_src] [Stmt.ite cond_tgt stmts1_tgt stmts2_tgt] sim_regs1.
 Proof.
   ii. pupto9_init. pupto9 ctx_weak_respectful.
-  econs 5; eauto.
+  econs 4; eauto.
   - ii. pupto9_final. apply SIM1; auto.
   - ii. pupto9_final. apply SIM2; auto.
 Qed.
@@ -646,5 +539,5 @@ Lemma sim_stmts_dowhile
   sim_stmts sim_regs [Stmt.dowhile stmts_src cond_src] [Stmt.dowhile stmts_tgt cond_tgt] sim_regs.
 Proof.
   ii. pupto9_init. pupto9 ctx_weak_respectful.
-  econs 6; eauto. ii. pupto9_final. apply SIM; auto.
+  econs 5; eauto. ii. pupto9_final. apply SIM; auto.
 Qed.

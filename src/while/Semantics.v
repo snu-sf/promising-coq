@@ -131,6 +131,15 @@ Module RegFile.
     contradict REG. apply RegSet.Facts.singleton_iff. auto.
   Qed.
 
+  Lemma eq_except_add
+        regs rs_src rs_tgt lhs val
+        (EQ: eq_except regs rs_src rs_tgt):
+    eq_except regs (RegFun.add lhs val rs_src) (RegFun.add lhs val rs_tgt).
+  Proof.
+    ii. unfold RegFun.add. condtac; ss.
+    apply EQ. ss.
+  Qed.
+
   Lemma eq_except_value
         rs_src rs_tgt regs v
         (REGS: RegSet.disjoint regs (Value.regs_of v))
