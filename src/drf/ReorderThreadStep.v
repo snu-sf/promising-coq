@@ -44,7 +44,7 @@ Lemma reorder_promise_small_step
       (E1: ThreadEvent_is_promising e1 = Some (loc, to))
       (E2: ThreadEvent_is_promising e2 = None)
       (E12: forall val released ord, ThreadEvent.is_reading e2 <> Some (loc, to, val, released, ord))
-      (PCONS: promise_consistent_th tid2 c2):
+      (PCONS: promise_consistent_th tid1 c2):
   exists c1',
     <<STEP1: small_step false tid2 e2 c0 c1'>> /\
     <<STEP2: __guard__

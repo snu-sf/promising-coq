@@ -255,12 +255,17 @@ Proof.
 Qed.
 
 Lemma promise_consistent_th_small_step
-      tid c1 c2 withprm
+      tid c1 c2 withprm tid'
       (STEP: small_step_evt withprm tid c1 c2)
       (WF: Configuration.wf c1)
-      (FULFILL: promise_consistent_th tid c2):
-  promise_consistent_th tid c1.
+      (FULFILL: promise_consistent_th tid' c2):
+  promise_consistent_th tid' c1.
 Proof.
+  destruct (Ident.eq_dec tid' tid); cycle 1.
+  { ii. eapply FULFILL; eauto.
+    inv STEP. inv USTEP. s. rewrite IdentMap.gso; eauto.
+  }
+  subst.
   ii. destruct (IdentMap.find tid (Configuration.threads c2)) as [[lang2 lc2]|] eqn: THREAD2; cycle 1.
   { inv STEP. inv USTEP. ss. by rewrite IdentMap.gss in THREAD2. }
   destruct (Memory.get loc ts (Local.promises lc2)) as [[from2 msg2]|] eqn: PROMISE2; cycle 1.
@@ -277,11 +282,11 @@ Proof.
 Qed.
 
 Lemma promise_consistent_th_rtc_small_step
-      tid c1 c2 withprm
+      tid c1 c2 withprm tid'
       (STEP: rtc (small_step_evt withprm tid) c1 c2)
       (WF: Configuration.wf c1)
-      (FULFILL: promise_consistent_th tid c2):
-  promise_consistent_th tid c1.
+      (FULFILL: promise_consistent_th tid' c2):
+  promise_consistent_th tid' c1.
 Proof.
   ginduction STEP; eauto. 
   i. eapply promise_consistent_th_small_step; eauto.
