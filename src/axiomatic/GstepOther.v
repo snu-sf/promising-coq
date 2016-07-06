@@ -88,34 +88,6 @@ Ltac relsimp :=
           | rewrite seqA ]; try done.
 
 
-Lemma gstep_rseq_nonwrite (N: ~ is_write a) :
-  rseq acts' sb' rmw' rf' <--> rseq acts sb rmw rf.
-Proof.
-  unfold rseq; rewrite <- (gstep_useq COH GSTEP), (gstep_in_acts GSTEP), (gstep_sb COH GSTEP).
-  unfold sb_ext; relsimp.
-  rewrite !seq_eq_max; eauto with rel rel_max; relsimp.
-Qed.
-
-Lemma gstep_rel_nonwrite (N: ~ is_write a) :
-  rel acts' sb' rmw' rf' <--> 
-  rel acts sb rmw rf.
-Proof.
-  unfold rel; rewrite gstep_rseq_nonwrite, (gstep_sb COH GSTEP);
-  unfold sb_ext; eauto; relsimp.
-  unfold rseq at 3; relsimp.
-  rewrite (seq2 (gstep_a_acts GSTEP)); relsimp.
-Qed.
-
-Lemma gstep_m_rel_nonwrite tm tm' (MON: inclusion tm tm') 
-      (GA: gstep_a a tm tm') (W: ~ is_write a) :
-  m_rel acts' sb' rmw' rf' tm' <--> 
-  m_rel acts sb rmw rf tm.
-Proof.
-  unfold m_rel.
-  rewrite (gstep_seq_max (a:=a) MON); eauto using max_elt_rel_nonwrite. 
-  rewrite gstep_rel_nonwrite; ins.
-Qed.
-
 (** 1. The [msg_rel] relation changes only for writes. *)
 
 Lemma gstep_msg_rel_urr_nonwrite (W: ~ is_write a) l x y :
