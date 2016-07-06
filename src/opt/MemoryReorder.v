@@ -143,6 +143,7 @@ Module MemoryReorder.
       exploit (@Memory.lower_exists mem0 loc2 from2 to2); eauto.
       { inv LOWER2. inv LOWER. auto. }
       { inv LOWER2. inv LOWER. eauto. }
+      { inv LOWER2. inv LOWER. auto. }
       i. des.
       exploit (@Memory.add_exists mem3 loc1 from1 to1).
       { i. revert GET2. erewrite Memory.lower_o; eauto. condtac; ss.
@@ -534,11 +535,13 @@ Module MemoryReorder.
       destruct r, r0. ss. subst.
       unfold LocFun.add. condtac; [|congr]. s.
       rewrite DOMap.add_add_eq. econs; auto.
+      etrans; eauto.
     - guardH o. i. right. splits.
       { ii. inv H. unguardH o. des; congr. }
       exploit (@Memory.lower_exists mem0 loc2 from2 to2); eauto.
       { inv LOWER2. inv LOWER. auto. }
       { inv LOWER2. inv LOWER. eauto. }
+      { inv LOWER2. inv LOWER. auto. }
       i. des.
       exploit (@Memory.lower_exists mem3 loc1 from1 to1);
         try by inv LOWER1; inv LOWER; eauto.

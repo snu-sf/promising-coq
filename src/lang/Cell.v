@@ -199,7 +199,8 @@ Module Cell.
     | update_intro
         (GET2: DOMap.find to cell1 = Some (from, Message.mk val released1))
         (TS: Time.lt from to)
-        (REL_WF: Capability.wf released2):
+        (REL_WF: Capability.wf released2)
+        (REL_LE: Capability.le released2 released1):
         lower cell1 from to val released1 released2
               (DOMap.add to (from, Message.mk val released2) cell1)
     .
@@ -462,7 +463,8 @@ Module Cell.
         cell1 from to val released1 released2
         (GET2: get to cell1 = Some (from, Message.mk val released1))
         (TS: Time.lt from to)
-        (REL_WF: Capability.wf released2):
+        (REL_WF: Capability.wf released2)
+        (REL_LE: Capability.le released2 released1):
     exists cell2, lower cell1 from to val released1 released2 cell2.
   Proof.
     destruct cell1. eexists (mk _). unfold lower. econs; eauto.
