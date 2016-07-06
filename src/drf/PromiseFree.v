@@ -309,9 +309,11 @@ Proof.
     intro X. inv X. apply PROMISES in PROMISE2. rewrite PROMISE2. done. }
 
   exploit conf_update_memory_wf; try apply EQMEM; eauto.
+  { admit. (* condition on the msgs *) }
   intro WF3'.
 
   exploit conf_update_memory_wf; try apply EQMEM0; eauto.
+  { admit. (* condition on the msgs *) }
   intro WF4'.
 
   hexploit rtc_small_step_future; swap 1 2.
@@ -395,7 +397,12 @@ Proof.
     }
     i; des. 
 
-    inv MEMLE. r in MEMWR. rewrite EVTW in MEMWR. des. rewrite NEQ in PMREL.
+    inv MEMLE. r in MEMWR. rewrite EVTW in MEMWR. des.
+    revert PMREL. unfold Capability_lift_if. condtac; i.
+    { des; subst.
+      - congr.
+      - destruct ordw; inv ORDW; inv o.
+    }
     inv STEP; inv STEP0; inv EVTR.
     - move TIMELT at bottom. move LOCAL at bottom. move PMREL at bottom. move ORDR at bottom.
       inv LOCAL.
@@ -555,7 +562,17 @@ Proof.
   (* Write step *)
   { hexploit (@local_simul_write (Capability_lift_le loc ts (msg_add e msgs))); try apply LOCAL.
     { inv SEMI_WF4. ii. apply LR in IN1. des. esplits; eauto. }
-    { admit. (* memory & promises are disjoint *) }
+    { inv SEMI_WF4.
+      econs. i. destruct msg1. exploit LR; eauto. i. des.
+      inv WFT. inv WF0. exploit THREADS; eauto. i. inv x0. ss.
+      exploit PROMISES; eauto. i.
+      destruct (Time.eq_dec to1 to2); cycle 1.
+      { destruct (Configuration.memory cM4' loc1).(Cell.WF). splits.
+        - eapply DISJOINT0; eauto.
+        - ii. inv H. congr.
+      }
+      subst. exfalso. eapply NOT. econs; eauto.
+    }
     intro WRITE4. des.
 
     assert (X:= SEMI_WF4). inv X. ss.
@@ -589,7 +606,17 @@ Proof.
 
     hexploit (@local_simul_write (Capability_lift_le loc ts (msg_add e msgs))); try apply LOCAL2. 
     { inv SEMI_WF4. ii. apply LR in IN1. des. esplits; eauto. }
-    { admit. (* memory & promises are disjoint *) }
+    { inv SEMI_WF4.
+      econs. i. destruct msg1. exploit LR; eauto. i. des.
+      inv WFT. inv WF0. exploit THREADS; eauto. i. inv x0. ss.
+      exploit PROMISES; eauto. i.
+      destruct (Time.eq_dec to1 to2); cycle 1.
+      { destruct (Configuration.memory cM4' loc1).(Cell.WF). splits.
+        - eapply DISJOINT0; eauto.
+        - ii. inv H. congr.
+      }
+      subst. exfalso. eapply NOT. econs; eauto.
+    }
     intro WRITE4. des.
     
     inv STEP2. inv SEMI_WF4. inv STEP; inv STEP1.
@@ -690,8 +717,7 @@ Proof.
       - done.
     }
     eauto.
-  }
-Admitted. (* jeehoon: very easy *)
+Admitted. (* condition on msgs *)
 
 Theorem pi_consistent_pi_step_pi_consistent
       cST1 cST2 tid

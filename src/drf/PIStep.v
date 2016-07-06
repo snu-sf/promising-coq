@@ -756,7 +756,16 @@ Proof.
     { destruct lc1, lc2. exploit local_simul_write; [| |by eapply LOCAL|..].
       { instantiate (1:= memory). ii. eapply LR in IN.
         des; eauto. }
-      { admit. (* memory & promises are disjoint *) }
+      { econs. i. destruct msg1. exploit LR; eauto. i. des.
+        inv WFT. inv WF0. exploit THREADS; eauto. i. inv x. ss.
+        exploit PROMISES; eauto. i.
+        destruct (Time.eq_dec to1 to2); cycle 1.
+        { destruct (Configuration.memory cT2 loc0).(Cell.WF). splits.
+          - eapply DISJOINT0; eauto.
+          - ii. inv H. congr.
+        }
+        subst. exfalso. eapply NOT. econs; eauto.
+      }
       intro WRITE; des.
       eexists; econs. 
       - eauto.
@@ -768,7 +777,17 @@ Proof.
     { destruct lc2, lc3. exploit local_simul_write; [| |by eapply LOCAL2|..].
       { instantiate (1:= memory). ii. eapply LR in IN.
         des; eauto. }
-      { admit. (* memory & promises are disjoint *) }
+      { inv LOCAL1. ss.
+        econs. i. destruct msg1. exploit LR; eauto. i. des.
+        inv WFT. inv WF0. exploit THREADS; eauto. i. inv x.
+        exploit PROMISES; eauto. i.
+        destruct (Time.eq_dec to1 to2); cycle 1.
+        { destruct (Configuration.memory cT2 loc0).(Cell.WF). splits.
+          - eapply DISJOINT0; eauto.
+          - ii. inv H. congr.
+        }
+        subst. exfalso. eapply NOT. econs; eauto.
+      }
       intro WRITE; des.
 
       inv LOCAL1. eexists. econs.
@@ -828,7 +847,9 @@ Proof.
       - s. by rewrite !IdentMap.gss.
       - i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); eauto.
     }
-Admitted. (* memory & promises disojint *)
+Grab Existential Variables.
+  { exact Time.bot. }
+Qed.
 
 Lemma pi_consistent_rtc_small_step_pi
       tid cST1 cST2 withprm
