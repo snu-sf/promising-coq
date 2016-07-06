@@ -280,7 +280,7 @@ Proof.
       + subst.
         exploit MemoryReorder.lower_lower; try exact MEM; try exact MEM0; eauto. i. des; [|congr].
         esplits.
-        * econs; eauto. econs 3; eauto. etrans; eauto.
+        * econs; eauto. econs 3; eauto.
         * left. auto.
         * congr.
       + exploit MemoryReorder.lower_lower; try exact MEM; try exact MEM0; eauto. i. des; [congr|].

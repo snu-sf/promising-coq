@@ -21,6 +21,7 @@ Set Implicit Arguments.
 Module MemorySplit.
   Lemma remove_lower_remove
         mem0 loc from to val released1 released2 mem2
+        (REL_LE: Capability.le released2 released1)
         (REL_WF1: Capability.wf released1)
         (REL_WF2: Capability.wf released2)
         (TS: Time.lt from to)
@@ -68,7 +69,7 @@ Module MemorySplit.
       <<PROMISE: Memory.promise promises0 mem0 loc from to val released2 promises1' mem1' (Memory.promise_kind_lower released1)>> /\
       <<REMOVE: Memory.remove promises1' loc from to val released2 promises2>>.
   Proof.
-    exploit remove_lower_remove; try exact REMOVE; eauto. i. des.
+    exploit remove_lower_remove; eauto. i. des.
     exploit Memory.lower_exists_le; eauto. i. des.
     esplits; eauto.
     - econs; eauto. etrans; eauto. apply REL_LE.

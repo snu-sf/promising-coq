@@ -403,7 +403,7 @@ Module SimPromises.
       + etrans; eauto. eapply split_sim_memory. eauto.
     - esplits; eauto.
       + refl.
-      + etrans; eauto. eapply lower_sim_memory; eauto.
+      + etrans; eauto. eapply lower_sim_memory. eauto.
   Qed.
 
   Lemma future
