@@ -86,7 +86,8 @@ Inductive pi_consistent: Configuration.t*Configuration.t -> Prop :=
     forall tid cS2 cT2 lst2 lc2 loc ts from msg
     (STEPS: rtc (pi_step_except false tid) (cS1,cT1) (cS2,cT2))
     (THREAD: IdentMap.find tid cT2.(Configuration.threads) = Some (lst2, lc2))
-    (PROMISE: Memory.get loc ts lc2.(Local.promises) = Some (from, msg)),
+    (PROMISE: Memory.get loc ts lc2.(Local.promises) = Some (from, msg))
+    (PRCONSIS: forall tid0, promise_consistent_th tid0 cT2),
   exists cS3 e ord,
     <<STEPS: rtc (small_step_evt false tid) cS2 cS3>> /\
     <<PROEVT: Configuration_program_event cS3 tid e>> /\
@@ -690,17 +691,105 @@ Proof.
     esplits; eauto.
 Qed.
 
+(* Lemma rtc_pi_step_remove_promises *)
+(*       tid tidex cST1 cST2 cST3 *)
+(*       (WF: pi_wf loctmeq cST1) *)
+(*       (NEQ: tid <> tidex) *)
+(*       (CONSIS: promise_consistent_th tid cST3.(snd)) *)
+(*       (PSTEPS1: rtc (pi_step_evt true tid) cST1 cST2) *)
+(*       (PSTEP: rtc (pi_step_except false tidex) cST2 cST3): *)
+(*   exists cT3', *)
+(*   rtc (pi_step_except false tidex) cST1 (cST3.(fst),cT3'). *)
+(* Proof. *)
+(*   exploit rtc_pi_step_remove_promises_aux; eauto. i. des. eauto. *)
+(* Qed. *)
+
 Lemma rtc_pi_step_remove_promises
       tid tidex cST1 cST2 cST3
       (WF: pi_wf loctmeq cST1)
       (NEQ: tid <> tidex)
-      (CONSIS: promise_consistent_th tid cST3.(snd))
+      (CONSIS: forall tid0, promise_consistent_th tid0 cST3.(snd))
       (PSTEPS1: rtc (pi_step_evt true tid) cST1 cST2)
       (PSTEP: rtc (pi_step_except false tidex) cST2 cST3):
   exists cT3',
-  rtc (pi_step_except false tidex) cST1 (cST3.(fst),cT3').
+  rtc (pi_step_except false tidex) cST1 (cST3.(fst),cT3') /\
+  forall tid0, promise_consistent_th tid0 cT3'.
 Proof.
-  exploit rtc_pi_step_remove_promises_aux; eauto. i. des. eauto.
+Admitted.
+
+Lemma promise_consistent_th_small_step_forward
+      withprm tid e c1 c2
+      (STEP: small_step withprm tid e c1 c2)
+      (PRCONS: forall tid0, promise_consistent_th tid0 c1)
+      (PRCONS2: promise_consistent_th tid c2)
+      (WF: Configuration.wf c1):
+  forall tid0, promise_consistent_th tid0 c2.
+Proof.
+  i. s. destruct (Ident.eq_dec tid0 tid) eqn: EQ.
+  - subst. eauto.
+  - ii. exploit small_step_find; eauto.
+    s; intro X. rewrite <-X in THREAD. 
+    eapply (PRCONS tid0); eauto.  
+Qed.
+
+Lemma rtc_promise_consistent_th_small_step_forward
+      withprm tid c1 c2
+      (STEP: rtc (small_step_evt withprm tid) c1 c2)
+      (PRCONS: forall tid0, promise_consistent_th tid0 c1)
+      (PRCONS2: promise_consistent_th tid c2)
+      (WF: Configuration.wf c1):
+  forall tid0, promise_consistent_th tid0 c2.
+Proof.
+  apply Operators_Properties.clos_rt_rt1n_iff,
+        Operators_Properties.clos_rt_rtn1_iff in STEP.
+  ginduction STEP; eauto.
+  apply Operators_Properties.clos_rt_rtn1_iff,
+        Operators_Properties.clos_rt_rt1n_iff in STEP.
+  i. inv H. hexploit promise_consistent_th_small_step_forward; eauto; cycle 1.
+  { eapply rtc_small_step_future; eauto.
+    eapply rtc_implies, STEP. eauto. }
+  i. hexploit IHSTEP; eauto.
+  eapply promise_consistent_th_small_step; eauto.
+  eapply rtc_small_step_future; eauto.
+  eapply rtc_implies, STEP. eauto.
+Qed.
+
+Lemma promise_consistent_th_small_step_backward
+      withprm tid e c1 c2
+      (STEP: small_step withprm tid e c1 c2)
+      (PRCONS: forall tid0, promise_consistent_th tid0 c2)
+      (WF: Configuration.wf c1):
+  forall tid0, promise_consistent_th tid0 c1.
+Proof.
+  i. s. destruct (Ident.eq_dec tid0 tid) eqn: EQ.
+  - subst. hexploit promise_consistent_th_small_step; eauto.
+  - ii. exploit small_step_find; eauto.
+    s; intro X. rewrite X in THREAD. 
+    eapply (PRCONS tid0); eauto.  
+Qed.
+
+Lemma rtc_promise_consistent_th_small_step_backward
+      withprm tid c1 c2
+      (STEP: rtc (small_step_evt withprm tid) c1 c2)
+      (PRCONS: forall tid0, promise_consistent_th tid0 c2)
+      (WF: Configuration.wf c1):
+  forall tid0, promise_consistent_th tid0 c1.
+Proof.
+  ginduction STEP; eauto.
+  i. inv H. 
+  i. hexploit promise_consistent_th_small_step_backward; eauto.
+  i. hexploit IHSTEP; eauto.
+  eapply small_step_future; eauto.
+Qed.
+
+Lemma pi_step_evt_to_true
+      withprm tid cST1 cST2
+      (STEP: pi_step_evt withprm tid cST1 cST2):
+  pi_step_evt true tid cST1 cST2.
+Proof.
+  destruct withprm; eauto.
+  inv STEP. inv USTEP. inv STEPT.
+  econs. econs; eauto.
 Qed.
 
 Lemma pi_consistent_small_step_pi_rw
@@ -710,7 +799,7 @@ Lemma pi_consistent_small_step_pi_rw
       (PI_RACEFREE: pf_racefree cST1.(fst))
       (PI_STEPS: rtc (pi_step_evt true tid) cST1 cST2)
       (STEP: small_step withprm tid e cST2.(snd) cT3)
-      (CONS: promise_consistent_th tid cST2.(snd)):
+      (PRCONS: forall tid0, promise_consistent_th tid0 cT3):
   forall loc from to val rel ord tid' ts
     (NEQ: tid <> tid')
     (RW: ThreadEvent.is_reading e = Some (loc, to, val, rel, ord) \/
@@ -720,7 +809,18 @@ Proof.
   ii. inv H.
   inv PI_CONSISTENT. ss.
   guardH RW. destruct cST2 as [cS2 cT2].
+
+  eapply rtc_implies in PI_STEPS; [|eapply pi_step_evt_to_true].
   exploit (@rtc_pi_step_remove_promises tid); eauto.
+  { eapply promise_consistent_th_small_step_backward; eauto.
+    exploit rtc_pi_step_future.
+    { eauto. }
+    { reflexivity. }
+    { eapply rtc_implies, PI_STEPS. eauto. }
+    intros [WF2 _].
+    inv WF2. eauto. 
+  }
+
   intro PI_STEPS'. des. ss.
   exploit CONSIS.
   { eauto. }
@@ -728,6 +828,7 @@ Proof.
     eapply rtc_small_step_find in PI_STEPS; eauto.
     assert (EQ:= rtc_pi_step_except_find PI_STEPS'); des; ss.
     rewrite <-EQ0, PI_STEPS. eauto. }
+  { eauto. }
   { eauto. }
 
   clear CONSIS. i. des.
@@ -759,7 +860,8 @@ Lemma pi_consistent_small_step_pi
       (PI_RACEFREE: pf_racefree cST1.(fst))
       (PI_STEPS: rtc (pi_step_evt true tid) cST1 cST2)
       (STEP: small_step withprm tid e cST2.(snd) cT3)
-      (FULFILL: promise_consistent_th tid cT3):
+      (FULFILL: promise_consistent_th tid cT3)
+      (PRCONSIS: forall tid0, promise_consistent_th tid0 cST1.(snd)):
   exists cS3, pi_step withprm tid e cST2 (cS3,cT3).
 Proof.
   destruct cST1 as [cS1 cT1], cST2 as [cS2 cT2].
@@ -773,7 +875,19 @@ Proof.
   { eauto. }
   intro PCONSIS.
 
-  assert (RW:=pi_consistent_small_step_pi_rw WF PI_CONSISTENT PI_RACEFREE PI_STEPS STEP PCONSIS).
+  assert (PRCONSIS3: forall tid0, promise_consistent_th tid0 cT3).
+  { i. ss. eapply promise_consistent_th_small_step_forward; eauto; cycle 1.
+    { inv WF2; eauto. }
+    i. hexploit rtc_promise_consistent_th_small_step_forward.
+    { eapply pi_steps_small_steps_snd in PI_STEPS. eauto. }
+    { eauto. }
+    { eapply promise_consistent_th_small_step; eauto.
+      inv WF2; eauto. }
+    { inv WF. eauto. }
+    eauto.
+  }
+
+  assert (RW:= pi_consistent_small_step_pi_rw WF PI_CONSISTENT PI_RACEFREE PI_STEPS STEP PRCONSIS3).
 
   exploit rtc_pi_step_future; [| |eapply rtc_implies; [eapply pi_step_evt_all_incl|]|]; eauto.
   i; des. destruct cS2. inv WF2. ss. assert (MSTEP:=STEP). inv STEP. inv STEP0.
@@ -919,6 +1033,16 @@ Grab Existential Variables.
   { exact true. }
 Qed.
 
+Lemma small_step_evt_to_true
+      withprm tid cST1 cST2
+      (STEP: small_step_evt withprm tid cST1 cST2):
+  small_step_evt true tid cST1 cST2.
+Proof.
+  destruct withprm; eauto.
+  inv STEP. inv USTEP. 
+  econs. econs; eauto.
+Qed.
+
 Lemma pi_consistent_rtc_small_step_pi
       tid cST1 cST2 withprm
       (WF: pi_wf loctmeq cST1)
@@ -927,28 +1051,43 @@ Lemma pi_consistent_rtc_small_step_pi
       (PI_STEPS: rtc (pi_step_evt true tid) cST1 cST2)
       cT3 pre
       (STEP: with_pre (small_step withprm tid) cST2.(snd) pre cT3)
-      (FULFILL: promise_consistent_th tid cT3):
+      (FULFILL: forall tid0, promise_consistent_th tid0 cT3):
   exists cS3 pre', with_pre (pi_step withprm tid) cST2 pre' (cS3,cT3) /\ 
                    pre = pi_pre_proj pre'.
 Proof.
   destruct cST2 as [cS2 cT2].
   revert_until STEP. induction STEP.
   { s; i. eauto. }
-  s; i. assert (FULFILL1 := FULFILL).
-  eapply promise_consistent_th_small_step in FULFILL1; eauto; cycle 1. 
-  { inv WF. eapply rtc_small_step_future; eauto.
-    ss. etrans.
-    - eapply pi_steps_small_steps_snd in PI_STEPS. eapply rtc_implies, PI_STEPS. eauto.
-    - eapply rtc_implies, with_pre_rtc_step_union, STEP. i. 
-      inv PR. destruct withprm; eauto.
-      inv USTEP. econs; eauto. }
+  s; i.
+
   exploit IHSTEP; s; eauto.
+  { eapply promise_consistent_th_small_step_backward; eauto.
+    exploit rtc_pi_step_future.
+    { eauto. }
+    { reflexivity. }
+    { eapply rtc_implies, PI_STEPS. eauto. }
+    intros [WF2 _]. inv WF2.
+
+    exploit with_pre_rtc_step_union; eauto.
+    i. exploit rtc_small_step_future.
+    { eauto. }
+    { eapply rtc_implies, x0. eauto. }
+    i; des; eauto.
+  }
+
   intro STEPS. des. ss.
   eapply (@pi_consistent_small_step_pi _ _ _ (_,_)) in PSTEP; eauto; cycle 1.
-  { etrans; eauto. subst. eapply with_pre_rtc_step_union; eauto. 
-    eapply with_pre_implies, STEPS.
-    i. inv STEP0. inv STEPT. eauto. }
-  des. esplits; eauto.
+  { etrans; eauto. subst. 
+    eapply rtc_implies; [eapply pi_step_evt_to_true|].
+    eapply with_pre_rtc_step_union; eauto. }
+  { eapply (@rtc_promise_consistent_th_small_step_backward true); try apply FULFILL. 
+    - etrans.
+      + eapply pi_steps_small_steps_snd. eauto.
+      + eapply rtc_implies; [eapply small_step_evt_to_true|].
+        eapply with_pre_rtc_step_union; eauto.
+    - inv WF. eauto.
+  }
+  des; esplits; eauto.
 Qed.
 
 Theorem pi_consistent_step_pi
@@ -964,6 +1103,6 @@ Proof.
   i. des.
   eapply rtc_step_union_with_pre in STEPS. des.
   exploit pi_consistent_rtc_small_step_pi; eauto.
-  { eapply consistent_promise_consistent_th; eauto. }
+  { i. eapply consistent_promise_consistent_th; eauto. }
   i; des. eexists. eapply with_pre_rtc_step_union. eauto.
 Qed.
