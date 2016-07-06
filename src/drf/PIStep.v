@@ -572,6 +572,23 @@ Proof.
   inv H. inv PI_STEP. inv USTEP. econs. eauto.
 Qed.
 
+Lemma small_step_is_promised
+      withprm tid e c1 c2 x l t loc to
+      (STEP: small_step withprm tid e c1 c2)
+      (PROMISED: Threads.is_promised x l t c1.(Configuration.threads))
+      (PROMISING: ThreadEvent_is_promising e = Some (loc, to)):
+  Threads.is_promised x l t c2.(Configuration.threads).
+Proof.
+  inv PROMISED. destruct msg.
+  inv STEP. ss.
+  destruct (Ident.eq_dec x tid); cycle 1.
+  { econs; eauto. rewrite IdentMap.gso; eauto. }
+  subst. rewrite TID in TID0. inv TID0. apply inj_pair2 in H1. subst.
+  inv STEP0; inv STEP; inv PROMISING.
+  inv LOCAL. hexploit Memory.promise_promises_get1; eauto. i. des.
+  econs; try rewrite IdentMap.gss; eauto.
+Qed.
+
 Lemma pi_step_remove_promises_aux
       n tid tidex cST1 cST2 cST3
       (WF: pi_wf loctmeq cST1)
@@ -621,7 +638,8 @@ Proof.
   i. des. unguardH STEP2. des.
   { destruct cST3. inv STEP2. esplits; cycle 1.
     - econs 2; eauto. econs; eauto. econs. econs; eauto.
-      admit. (* NOWR *)
+      ii. eapply NOWR0; eauto.
+      eapply small_step_is_promised; eauto.
     - ss.
     - omega.
   }
@@ -630,7 +648,8 @@ Proof.
     - etrans; eauto. inv STEP0. s. rewrite IdentMap.Facts.add_o. condtac; ss.
       subst. inv STEP; [|by inv STEP0; inv PROMISING]. inv STEP0. ss. inv PROMISING.
       rewrite TID0. eauto.
-    - admit. (* NOWR *)
+    - ii. eapply NOWR0; eauto.
+      eapply small_step_is_promised; eauto.
   }
   assert (STEP2': pi_step_evt true tid (cS0, c1') (cS0, cT3)).
   { econs. econs; eauto.
@@ -639,7 +658,7 @@ Proof.
       rewrite E0 in *.
       inv STEPS. s. rewrite IdentMap.gso; auto.
       inv STEPT0. s. rewrite IdentMap.gso; auto.
-    - admit. (* NOWR *)
+    - ii. destruct e1'; ss.
   }
   exploit IH; try exact STEP2'; eauto.
   { eapply pi_step_future; eauto. }
@@ -647,7 +666,7 @@ Proof.
   - econs; eauto.
   - ss.
   - omega.
-Admitted.
+Qed.
 
 Lemma rtc_pi_step_remove_promises_aux
       tid tidex cST1 cST2 cST3
@@ -804,7 +823,7 @@ Proof.
       { instantiate (1:= memory). ii. eapply LR in IN.
         des; eauto. }
       { econs. i. destruct msg1. exploit LR; eauto. i. des.
-        inv WFT. inv WF0. exploit THREADS; eauto. i. inv x. ss.
+        inv WFT. inv WF1. exploit THREADS; eauto. i. inv x. ss.
         exploit PROMISES; eauto. i.
         destruct (Time.eq_dec to1 to2); cycle 1.
         { destruct (Configuration.memory cT2 loc0).(Cell.WF). splits.
@@ -826,7 +845,7 @@ Proof.
         des; eauto. }
       { inv LOCAL1. ss.
         econs. i. destruct msg1. exploit LR; eauto. i. des.
-        inv WFT. inv WF0. exploit THREADS; eauto. i. inv x.
+        inv WFT. inv WF1. exploit THREADS; eauto. i. inv x.
         exploit PROMISES; eauto. i.
         destruct (Time.eq_dec to1 to2); cycle 1.
         { destruct (Configuration.memory cT2 loc0).(Cell.WF). splits.
@@ -896,6 +915,8 @@ Proof.
     }
 Grab Existential Variables.
   { exact Time.bot. }
+  { exact xH. }
+  { exact true. }
 Qed.
 
 Lemma pi_consistent_rtc_small_step_pi
