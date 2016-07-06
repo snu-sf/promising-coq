@@ -594,13 +594,13 @@ Lemma pi_step_remove_promises_aux
       n tid tidex cST1 cST2 cST3
       (WF: pi_wf loctmeq cST1)
       (NEQ: tid <> tidex)
-      (CONSIS: promise_consistent_th tid cST3.(snd))
+      (CONSIS: forall tid0, promise_consistent_th tid0 cST3.(snd))
       (PSTEPS1: pi_step_evt true tid cST1 cST2)
       (PSTEP: rtcn (pi_step_except false tidex) n cST2 cST3):
   exists n' cT3',
     <<N: n' <= S n>> /\
     <<STEPS: rtcn (pi_step_except false tidex) n' cST1 (cST3.(fst),cT3')>> /\
-    <<CONSIS: promise_consistent_th tid cT3'>>.
+    <<CONSIS: forall tid0, promise_consistent_th tid0 cT3'>>.
 Proof.
   revert_until n. induction n using strong_induction; i.
   exploit pi_step_future; eauto. i. des.
@@ -615,12 +615,15 @@ Proof.
   i. subst. inv PSTEP.
   { esplits; cycle 1.
     - econs.
-    - eapply promise_consistent_th_small_step; eauto. by inv WF.
+    - i. destruct (Ident.eq_dec tid0 tid).
+      + subst. eapply promise_consistent_th_small_step; eauto. by inv WF.
+      + inv STEPT. ss. specialize (CONSIS tid0).
+        ii. eapply CONSIS; eauto. s. rewrite IdentMap.gso; eauto.
     - omega.
   }
   inversion A12. inv PI_STEP. inv USTEP.
   assert (E0: ThreadEvent_is_promising e0 = None); [by inv STEPT0|].
-  destruct p.  
+  destruct p.
   exploit reorder_promise_small_step; try exact STEPT; eauto.
   { inv WF. auto. }
   { rewrite E0 in *. ii.
@@ -673,12 +676,12 @@ Lemma rtc_pi_step_remove_promises_aux
       tid tidex cST1 cST2 cST3
       (WF: pi_wf loctmeq cST1)
       (NEQ: tid <> tidex)
-      (CONSIS: promise_consistent_th tid cST3.(snd))
+      (CONSIS: forall tid0, promise_consistent_th tid0 cST3.(snd))
       (PSTEPS1: rtc (pi_step_evt true tid) cST1 cST2)
       (PSTEP: rtc (pi_step_except false tidex) cST2 cST3):
   exists cT3',
   rtc (pi_step_except false tidex) cST1 (cST3.(fst),cT3') /\
-  promise_consistent_th tid cT3'.
+  forall tid0, promise_consistent_th tid0 cT3'.
 Proof.
   revert WF CONSIS PSTEP. induction PSTEPS1; i.
   - destruct cST3. esplits; eauto.
@@ -691,19 +694,6 @@ Proof.
     esplits; eauto.
 Qed.
 
-(* Lemma rtc_pi_step_remove_promises *)
-(*       tid tidex cST1 cST2 cST3 *)
-(*       (WF: pi_wf loctmeq cST1) *)
-(*       (NEQ: tid <> tidex) *)
-(*       (CONSIS: promise_consistent_th tid cST3.(snd)) *)
-(*       (PSTEPS1: rtc (pi_step_evt true tid) cST1 cST2) *)
-(*       (PSTEP: rtc (pi_step_except false tidex) cST2 cST3): *)
-(*   exists cT3', *)
-(*   rtc (pi_step_except false tidex) cST1 (cST3.(fst),cT3'). *)
-(* Proof. *)
-(*   exploit rtc_pi_step_remove_promises_aux; eauto. i. des. eauto. *)
-(* Qed. *)
-
 Lemma rtc_pi_step_remove_promises
       tid tidex cST1 cST2 cST3
       (WF: pi_wf loctmeq cST1)
@@ -715,7 +705,8 @@ Lemma rtc_pi_step_remove_promises
   rtc (pi_step_except false tidex) cST1 (cST3.(fst),cT3') /\
   forall tid0, promise_consistent_th tid0 cT3'.
 Proof.
-Admitted.
+  exploit rtc_pi_step_remove_promises_aux; eauto.
+Qed.
 
 Lemma promise_consistent_th_small_step_forward
       withprm tid e c1 c2
