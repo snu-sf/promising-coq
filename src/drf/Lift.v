@@ -563,7 +563,7 @@ Proof.
   - apply CLOSED.
 Qed.
 
-Lemma Capability_lift_closed_timemap
+Lemma Capability_lift_closed_capability
       cap mem l t
       (CLOSED: Memory.closed_capability cap mem)
       (GET: Memory.get l t mem <> None):
@@ -598,7 +598,7 @@ Proof.
             unfold TimeMap_lift. condtac; ss. subst.
             admit. (* released.rw loc <= to *)
           - eapply mem_eqrel_closed_capability; eauto.
-            eapply Capability_lift_closed_timemap; eauto.
+            eapply Capability_lift_closed_capability; eauto.
         }
       * ii. specialize (INHABITED loc). apply EQMEM in INHABITED. des.
         inv CMP; auto.
@@ -610,6 +610,28 @@ Proof.
     exploit RL; eauto. i. des.
     esplits; eauto. inv CMP0. auto.
 Admitted.
+
+Lemma small_step_write_closed
+      tid c c1 e loc from ts val rel ord withprm
+      (WF: Configuration.wf c)
+      (STEP: small_step withprm tid e c c1)
+      (EVENT: ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord)):
+  <<CLOSED: Memory.closed_capability rel c1.(Configuration.memory)>> /\
+  <<TS: Time.le (rel.(Capability.rw) loc) ts>>.
+
+Proof.
+  inv STEP. inv STEP0; inv STEP; inv EVENT.
+  - inv WF.
+    exploit Local.write_step_future; eauto; try by committac.
+    { eapply WF0. eauto. }
+    i. des. splits; eauto.
+  - inv WF.
+    exploit Local.read_step_future; eauto.
+    { eapply WF0. eauto. }
+    i. des.
+    exploit Local.write_step_future; eauto.
+    i. des. splits; eauto.
+Qed.
 
 Lemma pi_step_lift_except_future
       l t msgs tid cS1 cT1 cS2 cT2 M1 M2 e
@@ -623,28 +645,41 @@ Lemma pi_step_lift_except_future
   <<MEMFUT: Memory.future M1 M2>> /\
   <<TIMELE: TimeMap.le cT1.(Configuration.sc) cT2.(Configuration.sc)>>.
 Proof.
-  inv PI_STEP. splits.
-  - unfold mem_eqrel. splits.
-    + admit. (* mem_eqrel *)
-    + admit. (* mem_eqrel *)
-  - destruct (Memory.get l t (Configuration.memory cT1)) as [[? []]|] eqn:X; [|congr].
-    inv PI_STEP0. exploit small_step_future; eauto.
+  assert (EQMEM2: mem_eqrel (Capability_lift_le l t (msg_add e msgs)) cT2.(Configuration.memory) M2).
+  { unfold mem_eqrel. splits.
+    - admit. (* mem_eqrel *)
+    - admit. (* mem_eqrel *)
+  }
+  assert (IN2: Memory.get l t cT2.(Configuration.memory) <> None).
+  { destruct (Memory.get l t (Configuration.memory cT1)) as [[? []]|] eqn:X; [|congr].
+    inv PI_STEP. inv PI_STEP0. exploit small_step_future; eauto.
     { inv WF. auto. }
     i. des. exploit Memory.future_get; eauto. i. des.
     rewrite GET. congr.
+  }
+  inv PI_STEP. splits; auto.
   - revert MEM. unfold pi_step_lift_mem.
     destruct (ThreadEvent.is_writing e) as [[[[[[]]]]]|] eqn:X; cycle 1.
     { i. subst. refl. }
-    i. des. econs 2; eauto. inv PMREL.
+    i. des. econs 2; eauto.
+    inv PI_STEP0. subst. exploit small_step_write_closed; eauto.
+    { inv WF. auto. }
+    i. des. inv PMREL.
     + econs 1; eauto.
-      * admit. (* closed capability *)
-      * admit. (* released.rw loc <= to *)
+      * eapply mem_eqrel_closed_capability; eauto. condtac; ss.
+        eapply Capability_lift_closed_capability; eauto.
+      * condtac; ss.
+        destruct t4. ss. unfold TimeMap_lift. condtac; ss.
     + econs 2; eauto.
-      * admit. (* closed capability *)
-      * admit. (* released.rw loc <= to *)
+      * eapply mem_eqrel_closed_capability; eauto. condtac; ss.
+        eapply Capability_lift_closed_capability; eauto.
+      * condtac; ss.
+        destruct t4. ss. unfold TimeMap_lift. condtac; ss.
     + econs 3; eauto.
-      * admit. (* closed capability *)
-      * admit. (* released.rw loc <= to *)
+      * eapply mem_eqrel_closed_capability; eauto. condtac; ss.
+        eapply Capability_lift_closed_capability; eauto.
+      * condtac; ss.
+        destruct t4. ss. unfold TimeMap_lift. condtac; ss.
       * admit. (* capability le (lowering) *)
   - inv PI_STEP0.
     eapply small_step_future; eauto.
