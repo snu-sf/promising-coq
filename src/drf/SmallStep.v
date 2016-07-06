@@ -59,12 +59,13 @@ Lemma small_step_future
       (WF1: Configuration.wf c1)
       (STEP: small_step withprm e tid c1 c2):
   <<WF2: Configuration.wf c2>> /\
-  <<FUTURE: Memory.future c1.(Configuration.memory) c2.(Configuration.memory)>>.
+  <<FUTURE: Memory.future c1.(Configuration.memory) c2.(Configuration.memory)>> /\
+  <<SC_FUTURE: TimeMap.le  c1.(Configuration.sc) c2.(Configuration.sc)>>.
 Proof.
   inv WF1. inv WF. inv STEP. ss. clear PFREE.
   exploit THREADS; ss; eauto. i.
   exploit Thread.step_future; eauto.
-  s; i; des. splits; [|by eauto]. econs; ss. econs.
+  s; i; des. splits; [|by eauto|by eauto]. econs; ss. econs.
   - i. Configuration.simplify.
     + congr.
     + exploit THREADS; try apply TH1; eauto. i. des.
@@ -85,14 +86,17 @@ Lemma rtc_small_step_future
       (WF1: Configuration.wf c1)
       (STEP: rtc (small_step_all withprm) c1 c2):
   <<WF2: Configuration.wf c2>> /\
-  <<FUTURE: Memory.future c1.(Configuration.memory) c2.(Configuration.memory)>>.
+  <<FUTURE: Memory.future c1.(Configuration.memory) c2.(Configuration.memory)>> /\
+  <<SC_FUTURE: TimeMap.le  c1.(Configuration.sc) c2.(Configuration.sc)>>.
 Proof.
   revert WF1. induction STEP; i.
   - splits; eauto; reflexivity.
   - destruct H. destruct USTEP. 
     exploit small_step_future; eauto. i; des.
     exploit IHSTEP; eauto. i; des.
-    splits; eauto. etrans; eauto.
+    splits; eauto.
+    + etrans; eauto.
+    + etrans; eauto.
 Qed.
 
 Lemma thread_step_small_step

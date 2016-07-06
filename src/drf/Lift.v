@@ -521,6 +521,59 @@ Proof.
   - rr. split; ii; esplits; eauto; reflexivity.
 Qed.
 
+Lemma mem_eqrel_closed_timemap
+      cmp tm m1 m2
+      (EQMEM: mem_eqrel cmp m1 m2)
+      (CLOSED: Memory.closed_timemap tm m1):
+  Memory.closed_timemap tm m2.
+Proof.
+  ii. specialize (CLOSED loc). des.
+  apply EQMEM in CLOSED. des.
+  esplits; eauto.
+Qed.
+
+Lemma mem_eqrel_closed_capability
+      cmp cap m1 m2
+      (EQMEM: mem_eqrel cmp m1 m2)
+      (CLOSED: Memory.closed_capability cap m1):
+  Memory.closed_capability cap m2.
+Proof.
+  inv CLOSED. econs; eapply mem_eqrel_closed_timemap; eauto.
+Qed.
+
+Lemma mem_eqrel_closed_commit
+      cmp commit m1 m2
+      (EQMEM: mem_eqrel cmp m1 m2)
+      (CLOSED: Commit.closed commit m1):
+  Commit.closed commit m2.
+Proof.
+  inv CLOSED. econs; i; eapply mem_eqrel_closed_capability; eauto.
+Qed.
+
+Lemma TimeMap_lift_closed_timemap
+      tm mem l t
+      (CLOSED: Memory.closed_timemap tm mem)
+      (GET: Memory.get l t mem <> None):
+  Memory.closed_timemap (TimeMap_lift l t tm) mem.
+Proof.
+  ii. unfold TimeMap_lift. condtac.
+  - subst. destruct (Time.join_cases (tm loc) t); rewrite H.
+    + apply CLOSED.
+    + destruct (Memory.get loc t mem) as [[? []]|] eqn:X; eauto. congr.
+  - apply CLOSED.
+Qed.
+
+Lemma Capability_lift_closed_timemap
+      cap mem l t
+      (CLOSED: Memory.closed_capability cap mem)
+      (GET: Memory.get l t mem <> None):
+  Memory.closed_capability (Capability_lift l t cap) mem.
+Proof.
+  destruct cap. ss. inv CLOSED. econs; ss.
+  - apply TimeMap_lift_closed_timemap; auto.
+  - apply TimeMap_lift_closed_timemap; auto.
+Qed.
+
 Lemma conf_update_memory_wf
       l t msgs cS1 cT1 M1
       (WF: pi_wf loctmeq (cS1,cT1))
@@ -528,6 +581,34 @@ Lemma conf_update_memory_wf
       (IN: Memory.get l t cT1.(Configuration.memory) <> None):
   pi_wf (Capability_lift_le l t msgs) (cS1,conf_update_memory cT1 M1).
 Proof.
+  econs; inv WF; try done.
+  - inv WFT. econs; s.
+    + inv WF. econs; ss. i. exploit THREADS; eauto. i.
+      inv x. econs; eauto.
+      * eapply mem_eqrel_closed_commit; eauto.
+      * admit. (* promise <= mem *)
+    + eapply mem_eqrel_closed_timemap; eauto.
+    + inv MEM. econs.
+      * i. inv EQMEM. des. exploit H0; eauto. i. des.
+        exploit CLOSED; eauto. i. des. inv CMP.
+        { splits; auto. eapply mem_eqrel_closed_capability; eauto. }
+        { des. subst. splits.
+          - apply Capability_lift_wf. auto.
+          - unfold Capability_lift. destruct rel2. ss.
+            unfold TimeMap_lift. condtac; ss. subst.
+            admit. (* released.rw loc <= to *)
+          - eapply mem_eqrel_closed_capability; eauto.
+            eapply Capability_lift_closed_timemap; eauto.
+        }
+      * ii. specialize (INHABITED loc). apply EQMEM in INHABITED. des.
+        inv CMP; auto.
+        admit. (* inhabited *)
+  - i. exploit LR; eauto. i. des.
+    apply EQMEM in IN1. des.
+    esplits; eauto. inv CMP. auto.
+  - i. apply EQMEM in IN0. des.
+    exploit RL; eauto. i. des.
+    esplits; eauto. inv CMP0. auto.
 Admitted.
 
 Lemma pi_step_lift_except_future
@@ -542,6 +623,32 @@ Lemma pi_step_lift_except_future
   <<MEMFUT: Memory.future M1 M2>> /\
   <<TIMELE: TimeMap.le cT1.(Configuration.sc) cT2.(Configuration.sc)>>.
 Proof.
+  inv PI_STEP. splits.
+  - unfold mem_eqrel. splits.
+    + admit. (* mem_eqrel *)
+    + admit. (* mem_eqrel *)
+  - destruct (Memory.get l t (Configuration.memory cT1)) as [[? []]|] eqn:X; [|congr].
+    inv PI_STEP0. exploit small_step_future; eauto.
+    { inv WF. auto. }
+    i. des. exploit Memory.future_get; eauto. i. des.
+    rewrite GET. congr.
+  - revert MEM. unfold pi_step_lift_mem.
+    destruct (ThreadEvent.is_writing e) as [[[[[[]]]]]|] eqn:X; cycle 1.
+    { i. subst. refl. }
+    i. des. econs 2; eauto. inv PMREL.
+    + econs 1; eauto.
+      * admit. (* closed capability *)
+      * admit. (* released.rw loc <= to *)
+    + econs 2; eauto.
+      * admit. (* closed capability *)
+      * admit. (* released.rw loc <= to *)
+    + econs 3; eauto.
+      * admit. (* closed capability *)
+      * admit. (* released.rw loc <= to *)
+      * admit. (* capability le (lowering) *)
+  - inv PI_STEP0.
+    eapply small_step_future; eauto.
+    inv WF. auto.
 Admitted.
 
 Lemma rtc_pi_step_lift_except_future
