@@ -823,7 +823,7 @@ Proof.
       { instantiate (1:= memory). ii. eapply LR in IN.
         des; eauto. }
       { econs. i. destruct msg1. exploit LR; eauto. i. des.
-        inv WFT. inv WF0. exploit THREADS; eauto. i. inv x. ss.
+        inv WFT. inv WF1. exploit THREADS; eauto. i. inv x. ss.
         exploit PROMISES; eauto. i.
         destruct (Time.eq_dec to1 to2); cycle 1.
         { destruct (Configuration.memory cT2 loc0).(Cell.WF). splits.
@@ -845,7 +845,7 @@ Proof.
         des; eauto. }
       { inv LOCAL1. ss.
         econs. i. destruct msg1. exploit LR; eauto. i. des.
-        inv WFT. inv WF0. exploit THREADS; eauto. i. inv x.
+        inv WFT. inv WF1. exploit THREADS; eauto. i. inv x.
         exploit PROMISES; eauto. i.
         destruct (Time.eq_dec to1 to2); cycle 1.
         { destruct (Configuration.memory cT2 loc0).(Cell.WF). splits.
@@ -915,6 +915,8 @@ Proof.
     }
 Grab Existential Variables.
   { exact Time.bot. }
+  { exact xH. }
+  { exact true. }
 Qed.
 
 Lemma pi_consistent_rtc_small_step_pi
