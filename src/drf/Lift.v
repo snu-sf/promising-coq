@@ -153,9 +153,10 @@ Definition pi_step_lift_mem l t p k (e:ThreadEvent.t) M1 M2 : Prop :=
     M1 = M2
   end.
 
-Definition msg_add e msgs := 
+Definition msg_add l e msgs := 
   match ThreadEvent.is_writing e with
-  | Some (loc, from, ts, val, rel, ord) => (loc,ts)::msgs
+  | Some (loc, from, ts, val, rel, ord) => 
+    if loc_ord_dec loc ord l then msgs else (loc,ts)::msgs
   | None => msgs
   end.
 
@@ -254,7 +255,6 @@ Next Obligation.
       (try apply Time.join_r).
     rewrite <- ? Time.join_l. refl.
 Qed.
-
 
 Lemma lower_mem_eqlerel
       m1 loc from to val r1 r2 m2
@@ -854,61 +854,66 @@ Lemma pi_step_lift_except_future
           loc <> l /\
           to <> Time.bot)
 :
-  <<EQMEM: mem_eqrel (Capability_lift_le l t (msg_add e msgs)) cT2.(Configuration.memory) M2>> /\
+  <<EQMEM: mem_eqrel (Capability_lift_le l t (msg_add l e msgs)) cT2.(Configuration.memory) M2>> /\
   <<IN: Memory.get l t cT2.(Configuration.memory) <> None>> /\
+  <<MSGS: forall loc to (IN: List.In (loc, to) (msg_add l e msgs)),
+          (exists from msg, nonpromise cT2 loc from to msg) /\
+          loc <> l /\
+          to <> Time.bot>> /\
   <<MEMFUT: Memory.future M1 M2>> /\
   <<TIMELE: TimeMap.le cT1.(Configuration.sc) cT2.(Configuration.sc)>>.
 Proof.
-  assert (EQMEM2: mem_eqrel (Capability_lift_le l t (msg_add e msgs)) cT2.(Configuration.memory) M2).
-  { inv PI_STEP. unfold pi_step_lift_mem in MEM. unfold msg_add.
-    destruct (ThreadEvent.is_writing e) as [[[[[[]]]]]|] eqn:X; cycle 1.
-    { subst. inv PI_STEP0. erewrite <- small_step_false_non_writing; eauto. }
-    des.
-    exploit small_step_false_writing;
-      (try by inv PI_STEP0; eauto); eauto. i. des.
-    exploit mem_eqrel_memory_op; [|exact x0|exact PMREL|..]; eauto. i.
-    eapply memory_op_mem_eqrel; eauto.
-  }
-  assert (IN2: Memory.get l t cT2.(Configuration.memory) <> None).
-  { destruct (Memory.get l t (Configuration.memory cT1)) as [[? []]|] eqn:X; [|congr].
-    inv PI_STEP. inv PI_STEP0. exploit small_step_future; eauto.
-    { inv WF. auto. }
-    i. des. exploit Memory.future_get; eauto. i. des.
-    rewrite GET. congr.
-  }
-  inv PI_STEP. splits; auto.
-  - revert MEM. unfold pi_step_lift_mem.
-    destruct (ThreadEvent.is_writing e) as [[[[[[]]]]]|] eqn:X; cycle 1.
-    { i. subst. refl. }
-    i. des. econs 2; eauto.
-    inv PI_STEP0. subst. exploit small_step_write_closed; eauto.
-    { inv WF. auto. }
-    i. des. inv PMREL.
-    + econs 1; eauto.
-      * eapply mem_eqrel_closed_capability; eauto.
-        unfold Capability_lift_if. condtac; ss.
-        eapply Capability_lift_closed_capability; eauto.
-      * unfold Capability_lift_if. condtac; ss.
-        destruct t4. ss. unfold TimeMap_lift. condtac; ss.
-        exfalso. apply n. auto.
-    + econs 2; eauto.
-      * eapply mem_eqrel_closed_capability; eauto.
-        unfold Capability_lift_if. condtac; ss.
-        eapply Capability_lift_closed_capability; eauto.
-      * unfold Capability_lift_if. condtac; ss.
-        destruct t4. ss. unfold TimeMap_lift. condtac; ss.
-        exfalso. apply n. auto.
-    + econs 3; eauto.
-      * eapply mem_eqrel_closed_capability; eauto.
-        unfold Capability_lift_if. condtac; ss.
-        eapply Capability_lift_closed_capability; eauto.
-      * unfold Capability_lift_if. condtac; ss.
-        destruct t4. ss. unfold TimeMap_lift. condtac; ss.
-        exfalso. apply n. auto.
-  - inv PI_STEP0.
-    eapply small_step_future; eauto.
-    inv WF. auto.
-Qed.
+  (* assert (EQMEM2: mem_eqrel (Capability_lift_le l t (msg_add l e msgs)) cT2.(Configuration.memory) M2). *)
+  (* { inv PI_STEP. unfold pi_step_lift_mem in MEM. unfold msg_add. *)
+  (*   destruct (ThreadEvent.is_writing e) as [[[[[[]]]]]|] eqn:X; cycle 1. *)
+  (*   { subst. inv PI_STEP0. erewrite <- small_step_false_non_writing; eauto. } *)
+  (*   des. *)
+  (*   exploit small_step_false_writing; *)
+  (*     (try by inv PI_STEP0; eauto); eauto. i. des. *)
+  (*   exploit mem_eqrel_memory_op; [|exact x0|exact PMREL|..]; eauto. i. *)
+  (*   eapply memory_op_mem_eqrel; eauto. *)
+  (* } *)
+  (* assert (IN2: Memory.get l t cT2.(Configuration.memory) <> None). *)
+  (* { destruct (Memory.get l t (Configuration.memory cT1)) as [[? []]|] eqn:X; [|congr]. *)
+  (*   inv PI_STEP. inv PI_STEP0. exploit small_step_future; eauto. *)
+  (*   { inv WF. auto. } *)
+  (*   i. des. exploit Memory.future_get; eauto. i. des. *)
+  (*   rewrite GET. congr. *)
+  (* } *)
+  (* inv PI_STEP. splits; auto. *)
+  (* - revert MEM. unfold pi_step_lift_mem. *)
+  (*   destruct (ThreadEvent.is_writing e) as [[[[[[]]]]]|] eqn:X; cycle 1. *)
+  (*   { i. subst. refl. } *)
+  (*   i. des. econs 2; eauto. *)
+  (*   inv PI_STEP0. subst. exploit small_step_write_closed; eauto. *)
+  (*   { inv WF. auto. } *)
+  (*   i. des. inv PMREL. *)
+  (*   + econs 1; eauto. *)
+  (*     * eapply mem_eqrel_closed_capability; eauto. *)
+  (*       unfold Capability_lift_if. condtac; ss. *)
+  (*       eapply Capability_lift_closed_capability; eauto. *)
+  (*     * unfold Capability_lift_if. condtac; ss. *)
+  (*       destruct t4. ss. unfold TimeMap_lift. condtac; ss. *)
+  (*       exfalso. apply n. auto. *)
+  (*   + econs 2; eauto. *)
+  (*     * eapply mem_eqrel_closed_capability; eauto. *)
+  (*       unfold Capability_lift_if. condtac; ss. *)
+  (*       eapply Capability_lift_closed_capability; eauto. *)
+  (*     * unfold Capability_lift_if. condtac; ss. *)
+  (*       destruct t4. ss. unfold TimeMap_lift. condtac; ss. *)
+  (*       exfalso. apply n. auto. *)
+  (*   + econs 3; eauto. *)
+  (*     * eapply mem_eqrel_closed_capability; eauto. *)
+  (*       unfold Capability_lift_if. condtac; ss. *)
+  (*       eapply Capability_lift_closed_capability; eauto. *)
+  (*     * unfold Capability_lift_if. condtac; ss. *)
+  (*       destruct t4. ss. unfold TimeMap_lift. condtac; ss. *)
+  (*       exfalso. apply n. auto. *)
+  (* - inv PI_STEP0. *)
+  (*   eapply small_step_future; eauto. *)
+  (*   inv WF. auto. *)
+(* Qed. *)
+Admitted.
 
 Lemma rtc_pi_step_lift_except_future
       l t tid cS1 cT1 cSTM2 lst1 lc1
@@ -923,7 +928,11 @@ Lemma rtc_pi_step_lift_except_future
   <<MEMCLOTM: Memory.closed_timemap (cSTM2.(fst).(snd).(Configuration.sc)) cSTM2.(snd)>> /\
   <<MEMCLO: Memory.closed cSTM2.(snd)>>.
 Proof.
-  apply (@proj2 (<<EQMEM: exists msgs, mem_eqrel (Capability_lift_le l t msgs) cSTM2.(fst).(snd).(Configuration.memory) cSTM2.(snd)>> /\
+  apply (@proj2 (<<EQMEM: exists msgs, mem_eqrel (Capability_lift_le l t msgs) cSTM2.(fst).(snd).(Configuration.memory) cSTM2.(snd) /\
+                 <<MSGS: forall loc to (IN: List.In (loc, to) msgs),
+                         (exists from msg, nonpromise cSTM2.(fst).(snd) loc from to msg) /\
+                         loc <> l /\
+                         to <> Time.bot>> >> /\
                  <<IN: Memory.get l t cSTM2.(fst).(snd).(Configuration.memory) <> None>>)).
   revert FIND.
   apply Operators_Properties.clos_rt_rt1n_iff, 
@@ -931,10 +940,11 @@ Proof.
   induction PI_STEPS.
   { set (X:=WF). inv X. inv WFT. inv WF0. destruct lst1.
     i; esplits; s; eauto; try reflexivity. 
-    split; ii; esplits; eauto. 
-    eapply conf_update_memory_wf; eauto.
-    - split; ii; esplits; eauto.
-    - instantiate (1 := []). i. inv IN0.
+    - split; ii; esplits; eauto. 
+    - instantiate (1:=[]). done.
+    - eapply conf_update_memory_wf; eauto.
+      + split; ii; esplits; eauto.
+      + instantiate (1:=[]). done.
   }
   apply Operators_Properties.clos_rt_rtn1_iff, 
         Operators_Properties.clos_rt_rt1n_iff in PI_STEPS.
@@ -953,17 +963,16 @@ Proof.
     - eapply rtc_implies, (@pi_steps_lift_except_pi_steps (_,_) (_,_)), PI_STEPS.
       i. inv PR. eauto.
     - s. econs 2; [|reflexivity]. inv USTEP. eauto. }
-  { admit. (* condition on msgs for conf_update_memory_wf *) }
+  { eauto. }
   intro X. inv X. inv WFT. inv WF1.
   s. esplits; eauto; try etrans; eauto.
   { eapply conf_update_memory_wf; eauto.
-    - eapply rtc_pi_step_future; eauto.
-      etrans. 
-      { eapply rtc_implies, (@pi_steps_lift_except_pi_steps (_,_) (_,_)), PI_STEPS.
-        i; inv PR; eauto. }
-      ss. inv USTEP.
-      econs 2; [|reflexivity]. eauto.
-    - admit. (* condition on msgs for conf_update_memory_wf *)
+    eapply rtc_pi_step_future; eauto.
+    etrans. 
+    { eapply rtc_implies, (@pi_steps_lift_except_pi_steps (_,_) (_,_)), PI_STEPS.
+      i; inv PR; eauto. }
+    ss. inv USTEP.
+    econs 2; [|reflexivity]. eauto.
   }
 
   eapply THREADS. s.
@@ -973,9 +982,7 @@ Proof.
     econs 2; [|reflexivity]. eauto. }
   s. intro EQ. des. rewrite <-EQ0.
   eauto.
-Admitted.
-(* Grab Existential Variables. exact []. *)
-(* Qed. *)
+Qed.
 
 Lemma mem_eqlerel_get
       m1 m2
