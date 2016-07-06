@@ -297,7 +297,7 @@ splits.
   all: simpl; eauto using gstep_msg_rel_urr_nonwrite, gstep_msg_rel_rwr_nonwrite, 
   gstep_msg_rel_scr_nonwrite.
 - ins; apply UPDATES; try done.
-  eapply gstep_rf_rmw with (rf:=rf) in RF_RMW; eauto.
+  eapply gstep_rf_rmw_nonwrite with (rf:=rf) in RF_RMW; eauto.
 Qed.
 
 (******************************************************************************)
@@ -542,7 +542,10 @@ Lemma memory_write0 mem mem' l from t v rel l0 t0
   from0 m (NEW: Memory.get l0 t0 mem = Some (from0, m)):
   Memory.get l0 t0 mem' = Some (from0, m).
 Proof.
-Admitted.
+  destruct ADD; inv PROMISE. 
+  rewrite (Memory.add_o _ _ MEM); desf; ins; desf. 
+  by rewrite (Memory.add_get0 MEM) in NEW.
+Qed.
 
 Lemma memory_write1 mem mem' l from t v rel 
   (ADD: Memory.write Memory.bot mem l from t v rel Memory.bot mem' Memory.promise_kind_add)
@@ -550,7 +553,9 @@ Lemma memory_write1 mem mem' l from t v rel
   (NEW: Memory.get l0 t0 mem' = Some (from0, m)) (NEQ: l <> l0 \/ t <> t0):
   Memory.get l0 t0 mem = Some (from0, m).
 Proof.
-Admitted.
+  destruct ADD; inv PROMISE. 
+  rewrite (Memory.add_o _ _ MEM) in NEW; desf; ins; desf; try congruence.
+Qed.
 
 
 Lemma memory_step_write_dom acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0
@@ -584,24 +589,26 @@ Qed.
 Lemma memory_step_write_rmw acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0
   (COH : Coherent acts sb rmw rf mo sc)
   f f' (F : forall b, In b acts -> f' b = f b) (MON: monotone mo0 f')
-  prev a l v o (LABa: lab a = Astore l v o)
-  (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 prev a)
+  a l v o (LABa: lab a = Astore l v o)
+  (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a a)
   mem mem' 
   from rel 
-  (ADD: Memory.write Memory.bot mem l from (f' a) v rel Memory.bot mem' Memory.promise_kind_add)
+  (ADD: Memory.write Memory.bot mem l from (f' a) v rel Memory.bot mem' 
+                     Memory.promise_kind_add)
   l0 b c (RF_RMW: (rf0;; rmw0) b c) (LOC: loc b = Some l0)
   (UPDATES: forall a b (RF_RMW: (rf ;; rmw) a b) (LOC: loc a = Some l0),
                 exists m, Memory.get l0 (f b) mem = Some ((f a), m)):
   exists m : Message.t, Memory.get l0 (f' c) mem' = Some (f' b, m).
 Proof.
-eapply gstep_rf_rmw with (rf:=rf) in RF_RMW; eauto.
-specialize (UPDATES b c RF_RMW LOC).
-desc.
-exists m.
-rewrite !F; eauto.
-eapply memory_write0 in UPDATES; eauto.
-unfold seq in RF_RMW; desc; eapply rf_acta; eauto.
-unfold seq in RF_RMW; desc; eapply rmw_actb; eauto.
+  eapply gstep_rf_rmw with (rf:=rf) in RF_RMW; eauto.
+  unfold union in RF_RMW; unfold seq at 2 in RF_RMW; desf; try congruence.
+  specialize (UPDATES b c RF_RMW LOC).
+  desc.
+  exists m.
+  rewrite !F; eauto.
+  eapply memory_write0 in UPDATES; eauto.
+  unfold seq in RF_RMW; desc; eapply rf_acta; eauto.
+  unfold seq in RF_RMW; desc; eapply rmw_actb; eauto.
 Qed.
 
 
@@ -609,8 +616,8 @@ Qed.
 Lemma memory_step_write_cell acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 
   (COH : Coherent acts sb rmw rf mo sc) 
   f f' (F : forall b, In b acts -> f' b = f b) (MON: monotone mo0 f')
-  prev a l v o (LABa: lab a = Astore l v o)
-  (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 prev a)
+  a l v o (LABa: lab a = Astore l v o)
+  (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a a)
   l0 to from0 v0 rel0 mem (CLOSED: Memory.closed mem)
   (SIMCELL : forall to from v rel, Memory.get l0 to mem = Some (from, Message.mk v rel) ->
           exists b, In b acts /\ is_write b /\ loc b = Some l0 /\ f b = to /\ 
@@ -710,7 +717,7 @@ all: try rewrite (gstep_msg_rel_rwr_write COH GSTEP W LOC_A).
 all: try rewrite (gstep_msg_rel_scr_write COH GSTEP W LOC_A).
 all: try split; intro; des; subst; eauto 4.
 all: try by (exfalso; eauto).
-all: eauto 8.
+all: eauto 9.
 all: eauto using inclusion_refl2 with rel_mon.
 all: try match goal with 
            | H: msg_rel urr _ _ _ _ _ _ _ _ |- _ =>
@@ -749,8 +756,8 @@ Qed.
 Lemma memory_step_write acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0
   (COH : Coherent acts sb rmw rf mo sc)
   f f' (F : forall b, In b acts -> f' b = f b) (MON: monotone mo0 f')
-  prev a l v o (LABa: lab a = Astore l v o)
-  (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 prev a)
+  a l v o (LABa: lab a = Astore l v o)
+  (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a a)
   mem (SIM_MEM : sim_mem f acts sb rmw rf sc mem) (CLOSED: Memory.closed mem)
   from (FROM: Time.lt from (f' a))  
   sc_map (SIM_SC_MAP : forall l, max_value f (S_tm acts sb rmw rf l) (LocFun.find l sc_map))
@@ -779,7 +786,7 @@ Lemma commit_step_scfence acts sb rmw rf mo sc sc_map acts0 sb0 rmw0 rf0 mo0 sc0
   (SIM_SC_MAP : forall l : Loc.t, max_value f (S_tm acts sb rmw rf l) (LocFun.find l sc_map))
   a o_r o_w (LABa : lab a = Afence o_r o_w)
   (SC: is_sc a)
-  (IS_ACQ: is_acq a)
+  (*IS_ACQ: is_acq a*)
   (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a a)
   commit (COMMIT: sim_commit f acts sb rmw rf sc commit (thread a))
   (WF: Commit.wf commit) :
@@ -793,7 +800,7 @@ Proof.
 
   assert (SCa: Ordering.le Ordering.seqcst o_w).
      by destruct a; ins; desf.
-  assert (RAa: Ordering.le Ordering.acqrel o_r).
+  assert (RAa: Ordering.le Ordering.acqrel o_r <-> is_acq a).
      by destruct a; ins; desf.
   assert (RAr: Ordering.le Ordering.acqrel o_w).
      by destruct a; ins; desf; destruct o_w.
@@ -801,18 +808,21 @@ Proof.
   destruct WF.
   destruct commit; simpls.
   unfold Commit.write_fence_commit, Commit.read_fence_commit,
-         Commit.write_fence_sc.
-  simpl; rewrite SCa, RAa, RAr.
-
+         Commit.write_fence_sc; simpl.
+  simpl; rewrite SCa, RAr; simpl.
+desf.
+{
   assert (K: forall l, 
           max_value f (S_tm acts0 sb0 rmw0 rf0 l)
            (LocFun.find l (TimeMap.join sc_map (Capability.sc acq)))).
     cdes COMMIT; cdes ACQ0; ins. 
     ins; rewrite !tm_find_join.
     ins; eapply max_value_join; [eapply SIM_SC_MAP| |]; eauto.
-    by eapply gstep_S_tm_scfence; eauto.
+    intro; rewrite gstep_S_tm_scfence; eauto; split; ins; desf; 
+    eauto using inclusion_refl2 with rel_mon.
 
   unfold sim_commit, sim_acq, sim_cur, sim_rel; splits; ins; desf.
+
 
 all: try rewrite TimeMap.le_join_r with (r := TimeMap.join _ _).
 all: try eapply max_value_same_set; try apply K; 
@@ -828,6 +838,42 @@ all: try eapply max_value_same_set; try apply K;
 all: try etransitivity; [|by apply TimeMap.join_r]; vauto.
 by destruct ACQ; etransitivity; eauto.
 by destruct ACQ; eauto.
+}
+{
+  assert (K: forall l, 
+          max_value f (S_tm acts0 sb0 rmw0 rf0 l)
+           (LocFun.find l (TimeMap.join sc_map (Capability.sc cur)))).
+    cdes COMMIT; cdes CUR0; ins. 
+    ins; rewrite !tm_find_join.
+    ins; eapply max_value_join; [eapply SIM_SC_MAP| |]; eauto.
+    intro; rewrite gstep_S_tm_scfence; eauto; split; ins; desf; 
+    eauto using inclusion_refl2 with rel_mon; exfalso; eauto.
+
+  red in COMMIT; ins; desf; red in ACQ0; desf.
+  unfold sim_commit, sim_acq, sim_cur, sim_rel; splits; ins; desf.
+all: try match goal with 
+       |- max_value _ (t_acq _ _ _ _ _ _ _ _) _ => 
+         rewrite tm_find_join; eapply max_value_join; eauto
+     end.
+all: try eapply max_value_same_set; try apply K;
+     eauto using gstep_t_cur_urr_scfence,
+     gstep_t_cur_rwr_scfence,
+     gstep_t_cur_scr_scfence,
+     gstep_t_acq_urr_scfence,
+     gstep_t_acq_rwr_scfence,
+     gstep_t_acq_scr_scfence,
+     gstep_t_rel_urr_scfence,
+     gstep_t_rel_rwr_scfence,
+     gstep_t_rel_scr_scfence.
+  all: intro.
+  all: try rewrite (gstep_t_acq_urr_nonread COH GSTEP NR), or_comm.
+  all: try rewrite (gstep_t_acq_rwr_nonread COH GSTEP NR), or_comm.
+  all: try rewrite (gstep_t_acq_scr_nonread COH GSTEP NR), or_comm.
+  all: apply or_more; ins;
+     eauto using gstep_t_cur_urr_scfence,
+     gstep_t_cur_rwr_scfence,
+     gstep_t_cur_scr_scfence.
+}
 Qed.
 
 
@@ -1058,6 +1104,9 @@ Lemma ax_op_sim_step_fence :
    (STATE : Language.step lang (Some (ProgramEvent.fence o_r o_w)) st st'),
   proof_obligation ax_st ax_st' op_st (thread a) lang st st'.
 Proof.
+  ins. 
+  assert (F: is_fence a) by (destruct a as [??[]]; done).
+
   red; ins; red in TIME; ins; desc.
   destruct ax_st, ax_st'; simpl; ins.
 
@@ -1069,11 +1118,36 @@ Proof.
 
   * destruct (classic (is_sc a)); 
       [ eapply commit_step_scfence|eapply commit_step_rafence]; eauto.
-admit. (* Assume all SC fences are ACQ *)
   * 
-admit.
-  * eapply memory_step_nonwrite; eauto with acts.
-Admitted.
+  assert (SCa: Ordering.le Ordering.seqcst o_w <-> is_sc a).
+    by destruct a; ins; desf; destruct o_w; ins; desf.
+  assert (RAa: Ordering.le Ordering.acqrel o_r <-> is_acq a).
+    by destruct a; ins; desf.
+  assert (RAr: Ordering.le Ordering.acqrel o_w <-> is_rel a).
+    by destruct a; ins; desf.
+
+  red in COMMIT; desc; clear REL; red in CUR; red in ACQ; desc.
+
+  intro; unfold Commit.write_fence_sc, Commit.read_fence_commit; simpl; desf; ins.
+  all: try rewrite !cap_join_bot.
+  all: ins.
+  all: try rewrite !tm_join_bot.
+  all: try rewrite !tm_find_join.
+  all: try rewrite !tm_find_singleton; desf.
+  all: try rewrite !time_join_bot.
+  all: do 2 (try match goal with
+                   | [|- max_value _ _ (Time.join _ _)] => eapply max_value_join  end).
+  all: try match goal with
+             | [|- max_value _ _ (LocFun.find _ _)] => 
+               eapply max_value_same_set; eauto with acts
+             | [|- max_value _ _ _ ] => eapply max_value_singleton; eauto end.
+  by intro; rewrite gstep_S_tm_scfence; eauto; split; ins; desf; 
+    eauto using inclusion_refl2 with rel_mon.
+  by intro; rewrite gstep_S_tm_scfence; eauto; split; ins; desf;
+    eauto using inclusion_refl2 with rel_mon; exfalso; eauto.
+  by intro; eapply gstep_S_tm_other; eauto. 
+  * by eapply memory_step_nonwrite; eauto with acts.
+Qed.
 
 
 Lemma ax_op_sim :

@@ -676,9 +676,21 @@ Proof.
 Qed.
 
 Lemma gstep_rmw :
+  rmw' <--> rmw +++ (fun x y => x = prev /\ y = a /\ prev <> a /\ is_write a).
+Proof.
+  cdes GSTEP; cdes RMW_STEP; desf; rewrite RMW_STEP0;
+  unfold union, singl_rel; split; red; ins; desf; eauto.
+  right; splits; eauto.
+  cdes WF'; eapply WF_RMW, RMW_STEP0; vauto.
+Qed.
+
+Lemma gstep_rmw_nonwrite (N: ~ is_write a) :
   rmw' <--> rmw.
 Proof.
-Admitted.
+  rewrite gstep_rmw; unfold union; split; red; ins; desf; eauto.
+Qed.
+
+
 
 Lemma gstep_rf :
   rf' <--> rf +++ <| fun x => In x acts |> ;; rf' ;; <| eq a |>.
@@ -694,16 +706,42 @@ Proof.
 Qed.
 
 Lemma gstep_rf_rmw :
-  rf' ;; rmw' <--> rf ;; rmw.
+  rf' ;; rmw' <--> 
+  rf ;; rmw +++
+  rf ;; (fun x y => x = prev /\ y = a /\ prev <> a /\ is_write a).
 Proof.
   rewrite (gstep_seq_max rf_mon); auto with rel rel_max.
-  rewrite gstep_rmw; relsimp.
+  rewrite gstep_rmw; relsimp; apply union_more, seq_more; ins.
 Qed.
 
 Lemma gstep_useq :
+  useq rmw' rf' <--> 
+  useq rmw rf +++ 
+  clos_refl (useq rmw rf) ;; rf ;; 
+  (fun x y => x = prev /\ y = a /\ prev <> a /\ is_write a /\ is_rlx_rw a).
+Proof.
+  unfold useq; rewrite (seq2 gstep_rf_rmw); relsimp.
+  rewrite (seq_eqv_r (fun x y : event => x = prev /\ y = a /\ prev <> a /\ is_write a)
+                     is_rlx_rw).
+  rewrite path_decomp_u_3, cr_of_t. 
+  split; repeat apply inclusion_union_l; eauto 6 with rel.
+    by unfold seq; right; ins; desf; eauto 10.
+    by unfold seq; right; ins; desf; eauto 10.
+  by red; unfold seq; ins; desf; cdes GSTEP; eapply rf_acta in H0; eauto.
+  by red; unfold seq; ins; desf; cdes GSTEP; eapply rf_acta in H0; eauto.
+Qed.
+
+Lemma gstep_rf_rmw_nonwrite (N: ~ is_write a) :
+  rf' ;; rmw' <--> rf ;; rmw.
+Proof.
+  rewrite (gstep_seq_max rf_mon); auto with rel rel_max.
+  rewrite gstep_rmw_nonwrite; relsimp.
+Qed.
+
+Lemma gstep_useq_nonwrite (N: ~ is_write a) :
   useq rmw' rf' <--> useq rmw rf.
 Proof.
-  by unfold useq; rewrite (seq2 gstep_rf_rmw), seqA.
+  by unfold useq; rewrite (seq2 (gstep_rf_rmw_nonwrite N)), seqA.
 Qed.
 
 Lemma gstep_rf_nonread (N: ~ is_read a) :
@@ -718,8 +756,10 @@ Qed.
 Lemma gstep_rseq :
   rseq acts' sb' rmw' rf' <--> 
   rseq acts sb rmw rf +++ 
+  rseq acts sb rmw rf ;; rf ;; 
+  (fun x y => x = prev /\ y = a /\ prev <> a /\ is_write a /\ is_rlx_rw a) +++
   <| is_write |> ;; restr_eq_rel loc sb_ext ;; <| is_write |> ;; <| is_rlx_rw |> +++
-  <| is_write |> ;; <| is_rlx_rw |> ;; <| eq a |> .
+  <| is_write |> ;; <| is_rlx_rw |> ;; <| eq a |>.
 Proof.
   unfold rseq; rewrite gstep_in_acts; relsimp.
   apply union_more; cycle 1.
@@ -729,12 +769,12 @@ Proof.
     rewrite (fun x => seq_eq_max_r x); auto with rel rel_max.
     by rewrite (seq2 (seq_eqvK _)).
   rewrite gstep_sb at 1; relsimp. 
-  apply union_more.
-    by rewrite gstep_useq.
   unfold sb_ext; relsimp.
   rewrite 3!(seq_eqvAC (eq a)).
   rewrite (seq_eq_max_r), (seq_eqvC (eq a)); eauto with rel rel_max.
-  by rewrite (seq_eqvAC is_write), (seq2 (seq_eqvK _)).
+  rewrite gstep_useq; relsimp.
+  rewrite (seq_eqvAC is_write (fun x => In x acts)), (seq2 (seq_eqvK _)).
+  repeat split; repeat apply inclusion_union_l; eauto 10 with rel.
 Qed.
 
 Lemma gstep_eq_acts' : 
@@ -746,6 +786,8 @@ Qed.
 Lemma gstep_rel :
   rel acts' sb' rmw' rf' <--> 
   rel acts sb rmw rf +++
+  rel acts sb rmw rf ;; rf ;; 
+  (fun x y => x = prev /\ y = a /\ prev <> a /\ is_write a /\ is_rlx_rw a) +++
   <| is_rel |> ;; <| is_write |> ;; <| eq a |> +++
   <| is_rel |> ;; <| is_write |> ;; restr_eq_rel loc sb_ext ;; 
   <| is_write |> ;; <| is_rlx_rw |> +++
@@ -779,7 +821,7 @@ Qed.
 Lemma gstep_rseq_nonwrite (N: ~ is_write a) :
   rseq acts' sb' rmw' rf' <--> rseq acts sb rmw rf.
 Proof.
-  unfold rseq; rewrite <- gstep_useq, gstep_in_acts, gstep_sb.
+  unfold rseq; rewrite <- gstep_useq_nonwrite, gstep_in_acts, gstep_sb; ins.
   unfold sb_ext; relsimp.
   rewrite !(seq_eq_contra2 _ _ N); relsimp.
 Qed.

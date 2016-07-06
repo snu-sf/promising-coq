@@ -62,6 +62,7 @@ Inductive mstep mc mc' e i : Prop :=
   | update a_r a_w l v_r v_w o_r o_w 
       (EVENT: e = Some (ProgramEvent.update l v_r v_w o_r o_w)) 
       (LABar: lab a_r = Aload l v_r o_r) (LABaw: lab a_w = Astore l v_w o_w) 
+      (SC_IMPL_ACQ: is_sc a_w -> is_acq a_r)
       (TIDar: thread a_r = i) (TIDaw: thread a_w = i) 
       mc_mid
       (GSTEPr: gstep (acts mc) (sb mc) (rmw mc) (rf mc) (mo mc) (sc mc)

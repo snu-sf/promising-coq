@@ -97,13 +97,7 @@ Lemma gstep_sw_write  :
   sw acts' sb' rmw' rf' <--> sw acts sb rmw rf.
 Proof.
   unfold sw. 
-  rewrite (gstep_rel COH GSTEP); relsimp.
-  rewrite (fun x => seq2 (seq_eq_max (b:=a) x)); eauto with rel rel_max; relsimp.
-  rewrite union_eq_helper2; cycle 1.
-    by rewrite !inclusion_seq_eqv_l, (seq_sb_ext_max GSTEP); eauto with rel rel_max. 
-  rewrite union_eq_helper2; cycle 1.
-    rewrite !inclusion_seq_eqv_l; unfold sb_ext; relsimp.
-    rewrite (fun x => seq2 (seq_eq_max x)); eauto with rel rel_max; relsimp.
+  rewrite (gstep_seq_max (a:=a) (rel_mon GSTEP)); eauto with rel rel_max.
   rewrite (gstep_rf_nonread COH GSTEP), (gstep_sb COH GSTEP); ins; relsimp; auto 2 with acts.
   apply union_eq_helper2; ins.
   rewrite seq_sb_ext_max; relsimp; eauto with rel.
@@ -185,6 +179,8 @@ Qed.
 Lemma gstep_rel_write :
   rel acts' sb' rmw' rf' <--> 
   rel acts sb rmw rf +++
+  rel acts sb rmw rf ;; rf ;; 
+  (fun x y => x = prev /\ y = a /\ prev <> a /\ is_write a /\ is_rlx_rw a) +++
   <| is_rel |> ;; <| eq a |> +++
   <| is_rel |> ;; <| is_write |>;; restr_eq_rel loc (sb_ext acts a) ;; <| is_rlx_rw |> +++
   <| is_rel |> ;; <| is_fence |> ;; sb_ext acts a  ;; <| is_rlx_rw |>.
@@ -205,6 +201,8 @@ Proof.
   rewrite seq_eqvC, (seq2 (seq_eqvC _ (eq a))), seqA, (seq2 (seq_eqvK _)).
   split; repeat apply inclusion_union_l; eauto with rel. 
   by cdes GSTEP; rewrite seq_eq_max; ins; red; ins; eapply rel_acta in REL; eauto.
+  by cdes GSTEP; rewrite seq_eq_max; ins; 
+     unfold seq; red; ins; desf; eapply rel_acta in REL; eauto.
   rewrite seq_eq_max; ins; red.
   by unfold sb_ext, seq, eqv_rel, restr_eq_rel; ins; desf; apply GSTEP.
   rewrite seq_eq_max; ins; red.
@@ -220,11 +218,13 @@ Proof.
     by unfold eqv_rel; red; ins; desf; eauto using eq_sym.
   rewrite gstep_rel_write; relsimp.
   split; repeat apply inclusion_union_l; eauto with rel. 
-    2: by rewrite inclusion_seq_eqv_r.
-    4: by rewrite !eqv_join; unfold eqv_rel, union; red; ins; desf;
+    3: by rewrite inclusion_seq_eqv_r.
+    5: by rewrite !eqv_join; unfold eqv_rel, union; red; ins; desf;
           eauto 10 using eq_sym.
   all: rewrite INC at 1.
   by cdes GSTEP; rewrite seq_eq_max; ins; red; ins; eapply rel_acta in REL; eauto.
+  by cdes GSTEP; rewrite seq_eq_max; ins; unfold seq; red; ins; desf;
+     eapply rel_acta in REL; eauto.
   rewrite seq_eq_max; ins; red.
   by unfold sb_ext, seq, eqv_rel, restr_eq_rel; ins; desf; apply GSTEP.
   rewrite seq_eq_max; ins; red.
@@ -250,6 +250,8 @@ Qed.
 Lemma gstep_urr_rel_write (F: is_write a) l :
   urr acts' sb' rmw' rf' sc' l ;; rel acts' sb' rmw' rf' <--> 
   urr acts sb rmw rf sc l ;; rel acts sb rmw rf +++
+  urr acts sb rmw rf sc l ;; rel acts sb rmw rf ;; rf ;; 
+  (fun x y => x = prev /\ y = a /\ prev <> a /\ is_write a /\ is_rlx_rw a) +++
   <| fun x => x = a /\ loc a = Some l /\ is_rel a |> +++
   urr acts sb rmw rf sc l ;; <| is_rel |> ;; <| is_write |> ;; 
   restr_eq_rel loc (sb_ext acts a) ;; <| is_rlx_rw |> +++
@@ -261,7 +263,7 @@ Proof.
   rewrite gstep_eqv_rel_write, gstep_sb_ext_rel_write; ins; desf.
 
   rewrite gstep_rel_write, !eqv_join; relsimp.
-  split; repeat apply inclusion_union_l; eauto 10 with rel. 
+  split; repeat apply inclusion_union_l; eauto 12 with rel. 
     red; ins; exfalso; unfold seq, eqv_rel in *; desf.
     by apply GSTEP; eapply urr_actb in H; eauto.
   by unfold union, eqv_rel; red; ins; desf; desf; eauto 8. 
@@ -271,6 +273,8 @@ Qed.
 Lemma gstep_rwr_rel_write l :
   rwr acts' sb' rmw' rf' sc' l ;; rel acts' sb' rmw' rf' <--> 
   rwr acts sb rmw rf sc l ;; rel acts sb rmw rf +++
+  rwr acts sb rmw rf sc l ;; rel acts sb rmw rf ;; rf ;; 
+  (fun x y => x = prev /\ y = a /\ prev <> a /\ is_write a /\ is_rlx_rw a) +++
   <| fun x => x = a /\ loc a = Some l /\ is_rel a |> +++
   rwr acts sb rmw rf sc l ;; <| is_rel |> ;; <| is_write |> ;; 
   restr_eq_rel loc (sb_ext acts a) ;; <| is_rlx_rw |> +++
@@ -282,7 +286,7 @@ Proof.
   rewrite gstep_eqv_rel_write, gstep_sb_ext_rel_write; ins; desf.
 
   rewrite gstep_rel_write, !eqv_join; relsimp.
-  split; repeat apply inclusion_union_l; eauto 10 with rel.
+  split; repeat apply inclusion_union_l; eauto 12 with rel.
     red; ins; exfalso; unfold seq, eqv_rel in *; desf.
     by apply GSTEP; eapply rwr_actb in H; eauto.
   by unfold union, eqv_rel; red; ins; desf; desf; eauto 8. 
@@ -292,6 +296,8 @@ Qed.
 Lemma gstep_scr_rel_write l :
   scr acts' sb' rmw' rf' sc' l ;; rel acts' sb' rmw' rf' <--> 
   scr acts sb rmw rf sc l ;; rel acts sb rmw rf +++
+  scr acts sb rmw rf sc l ;; rel acts sb rmw rf ;; rf ;; 
+  (fun x y => x = prev /\ y = a /\ prev <> a /\ is_write a /\ is_rlx_rw a) +++
   <| fun x => x = a /\ loc a = Some l /\ is_rel a |> +++
   scr acts sb rmw rf sc l ;; <| is_rel |> ;; <| is_write |> ;; 
   restr_eq_rel loc (sb_ext acts a) ;; <| is_rlx_rw |> +++
@@ -304,7 +310,7 @@ Proof.
   rewrite gstep_eqv_rel_write, gstep_sb_ext_rel_write; ins; desf.
   rewrite gstep_sc_ext_rel_write; ins; desf.
   rewrite gstep_rel_write, !eqv_join; relsimp.
-  split; repeat apply inclusion_union_l; eauto 11 with rel.
+  split; repeat apply inclusion_union_l; eauto 13 with rel.
     red; ins; exfalso; unfold seq, eqv_rel in *; desf.
     by apply GSTEP; eapply scr_actb in H; eauto.
   by unfold union, eqv_rel; red; ins; desf; desf; eauto 10. 
@@ -315,6 +321,8 @@ Lemma gstep_msg_rel_urr_write1 l (LOC: loc a = Some l) l' :
   msg_rel urr acts' sb' rmw' rf' sc' l' <--> 
   msg_rel urr acts sb rmw rf sc l' +++
   <| fun x => x = a /\ loc a = Some l' /\ is_rel a |> +++
+  msg_rel urr acts sb rmw rf sc l' ;; rf ;; 
+  (fun x y => x = prev /\ y = a /\ prev <> a /\ is_write a /\ is_rlx_rw a) +++
   c_rel (thread a) l (urr acts sb rmw rf sc l') ;; (fun _ y => y = a /\ is_rlx_rw a) +++
   c_cur (thread a) (urr acts sb rmw rf sc l') ;; (fun _ y => y = a /\ is_rel a). 
 Proof.
@@ -325,7 +333,7 @@ Proof.
            (seq_eqv_r _ (eq a)), (seq_eqv_l _ (fun x => In x acts)).
   rewrite !seq_eqv_r, !seq_eqv_l.
   unfold restr_eq_rel.
-  split; repeat apply inclusion_union_l; eauto 9 with rel.
+  split; repeat apply inclusion_union_l; eauto 10 with rel.
   by unfold seq; left; right; desf; rewrite LOC in *; eauto 10.
   by unfold seq; left; right; desf; eauto 10.
   by unfold seq; right; desf; eauto 10.
@@ -341,6 +349,8 @@ Qed.
 Lemma gstep_msg_rel_rwr_write1 l (LOC: loc a = Some l) l' :
   msg_rel rwr acts' sb' rmw' rf' sc' l' <--> 
   msg_rel rwr acts sb rmw rf sc l' +++
+  msg_rel rwr acts sb rmw rf sc l' ;; rf ;; 
+  (fun x y => x = prev /\ y = a /\ prev <> a /\ is_write a /\ is_rlx_rw a) +++
   <| fun x => x = a /\ loc a = Some l' /\ is_rel a |> +++
   c_rel (thread a) l (rwr acts sb rmw rf sc l') ;; (fun _ y => y = a /\ is_rlx_rw a) +++
   c_cur (thread a) (rwr acts sb rmw rf sc l') ;; (fun _ y => y = a /\ is_rel a). 
@@ -352,7 +362,7 @@ Proof.
            (seq_eqv_r _ (eq a)), (seq_eqv_l _ (fun x => In x acts)).
   rewrite !seq_eqv_r, !seq_eqv_l.
   unfold restr_eq_rel.
-  split; repeat apply inclusion_union_l; eauto 9 with rel.
+  split; repeat apply inclusion_union_l; eauto 10 with rel.
   by unfold seq; left; right; desf; rewrite LOC in *; eauto 10.
   by unfold seq; left; right; desf; eauto 10.
   by unfold seq; right; desf; eauto 10.
@@ -368,6 +378,8 @@ Qed.
 Lemma gstep_msg_rel_scr_write1 l (LOC: loc a = Some l) l' :
   msg_rel scr acts' sb' rmw' rf' sc' l' <--> 
   msg_rel scr acts sb rmw rf sc l' +++
+  msg_rel scr acts sb rmw rf sc l' ;; rf ;; 
+  (fun x y => x = prev /\ y = a /\ prev <> a /\ is_write a /\ is_rlx_rw a) +++
   <| fun x => x = a /\ loc a = Some l' /\ is_rel a |> +++
   c_rel (thread a) l (scr acts sb rmw rf sc l') ;; (fun _ y => y = a /\ is_rlx_rw a) +++
   c_cur (thread a) (scr acts sb rmw rf sc l') ;; (fun _ y => y = a /\ is_rel a) +++
@@ -380,7 +392,7 @@ Proof.
            (seq_eqv_r _ (eq a)), (seq_eqv_l _ (fun x => In x acts)).
   rewrite !seq_eqv_r, !seq_eqv_l.
   unfold restr_eq_rel, sc_ext.
-  split; repeat apply inclusion_union_l; eauto 9 with rel.
+  split; repeat apply inclusion_union_l; eauto 11 with rel.
   by unfold seq; left; left; right; desf; rewrite LOC in *; eauto 10.
   by unfold seq; left; left; right; desf; eauto 10.
   by unfold seq; left; right; desf; eauto 10.
@@ -400,35 +412,41 @@ Qed.
 Lemma gstep_msg_rel_urr_write l (LOC: loc a = Some l) l' x y :
   msg_rel urr acts' sb' rmw' rf' sc' l' x y <-> 
   msg_rel urr acts sb rmw rf sc l' x y \/
+  (exists z, msg_rel urr acts sb rmw rf sc l' x z /\ 
+             rf z prev /\ prev <> a /\ y = a /\ is_rlx_rw a) \/
   x = y /\ y = a /\ loc a = Some l' /\ is_rel a \/
   t_rel urr acts sb rmw rf sc (thread a) l l' x /\ y = a /\ is_rlx_rw a \/
   t_cur urr acts sb rmw rf sc (thread a) l' x /\ y = a /\ is_rel a. 
 Proof.
   rewrite (same_relation_exp (gstep_msg_rel_urr_write1 LOC l')).
-  unfold t_rel, t_cur, union, seq, eqv_rel, dom_rel; split; ins; desf; eauto 8. 
+  unfold t_rel, t_cur, union, seq, eqv_rel, dom_rel; split; ins; desf; eauto 14. 
 Qed.
 
 Lemma gstep_msg_rel_rwr_write l (LOC: loc a = Some l) l' x y :
   msg_rel rwr acts' sb' rmw' rf' sc' l' x y <-> 
   msg_rel rwr acts sb rmw rf sc l' x y \/
+  (exists z, msg_rel rwr acts sb rmw rf sc l' x z /\ 
+             rf z prev /\ prev <> a /\ y = a /\ is_rlx_rw a) \/
   x = y /\ y = a /\ loc a = Some l' /\ is_rel a \/
   t_rel rwr acts sb rmw rf sc (thread a) l l' x /\ y = a /\ is_rlx_rw a \/
   t_cur rwr acts sb rmw rf sc (thread a) l' x /\ y = a /\ is_rel a. 
 Proof.
   rewrite (same_relation_exp (gstep_msg_rel_rwr_write1 LOC l')).
-  unfold t_rel, t_cur, union, seq, eqv_rel, dom_rel; split; ins; desf; eauto 8. 
+  unfold t_rel, t_cur, union, seq, eqv_rel, dom_rel; split; ins; desf; eauto 14. 
 Qed.
 
 Lemma gstep_msg_rel_scr_write l (LOC: loc a = Some l) l' x y :
   msg_rel scr acts' sb' rmw' rf' sc' l' x y <-> 
   msg_rel scr acts sb rmw rf sc l' x y \/
   x = y /\ y = a /\ loc a = Some l' /\ is_rel a \/
+  (exists z, msg_rel scr acts sb rmw rf sc l' x z /\ 
+             rf z prev /\ prev <> a /\ y = a /\ is_rlx_rw a) \/
   t_rel scr acts sb rmw rf sc (thread a) l l' x /\ y = a /\ is_rlx_rw a \/
   t_cur scr acts sb rmw rf sc (thread a) l' x /\ y = a /\ is_rel a \/
   S_tm acts sb rmw rf l' x /\ y = a /\ is_sc a. 
 Proof.
   rewrite (same_relation_exp (gstep_msg_rel_scr_write1 LOC l')).
-  unfold t_rel, t_cur, S_tm, union, seq, eqv_rel, dom_rel; split; ins; desf; eauto 10. 
+  unfold t_rel, t_cur, S_tm, union, seq, eqv_rel, dom_rel; split; ins; desf; eauto 14. 
 Qed.
 
 
