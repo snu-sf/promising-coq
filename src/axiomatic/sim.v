@@ -1096,7 +1096,7 @@ Proof.
 
   generalize (new_f GSTEP MONOTONE); intro; desc.
 
-  generalize (new_from f' a); intro; desc.
+  generalize (new_from f' acts N_ZERO); intro; desc.
 
 assert (exists mem', Memory.write Memory.bot
   (Configuration.memory op_st) l from (f' a) v
@@ -1146,13 +1146,9 @@ destruct msg2; eapply SIMCELL in H1; desf.
   rewrite <- F; ins.
     red; ins; destruct LHS, RHS; simpls.
     des; apply MON in MO.
-    eapply H0 in MO.
     eapply Time.lt_strorder with (x:=x). 
-      transitivity from; eauto.
-      rewrite Time.le_lteq in TO0; desf; eauto.
-      transitivity (f' b); eauto.
+    by transitivity from; eauto using TimeFacts.le_lt_lt.
 admit.
-
 }
 desc.
   eexists _,_,_,mem',_,_,_; splits; eauto.
