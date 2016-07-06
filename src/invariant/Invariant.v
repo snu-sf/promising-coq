@@ -20,92 +20,11 @@ Require Import Configuration.
 
 Require Import PromiseConsistent.
 Require Import ReorderThreadStepSame.
+Require Import InvariantBase.
+Require Import Certification.
 
 Set Implicit Arguments.
 
-
-Inductive step_evt lang (e1 e2:Thread.t lang): Prop :=
-| step_evt_intro
-    e
-    (STEP: Thread.step e e1 e2)
-.
-
-Inductive program_step_evt lang (e1 e2:Thread.t lang): Prop :=
-| program_step_evt_intro
-    e
-    (STEP: Thread.program_step e e1 e2)
-.
-
-Lemma rtc_step_evt_promise_consistent
-      lang th1 th2
-      (STEP: rtc (@step_evt lang) th1 th2)
-      (CONS: promise_consistent th2.(Thread.local))
-      (WF1: Local.wf th1.(Thread.local) th1.(Thread.memory))
-      (SC1: Memory.closed_timemap th1.(Thread.sc) th1.(Thread.memory))
-      (MEM1: Memory.closed th1.(Thread.memory)):
-  promise_consistent th1.(Thread.local).
-Proof.
-  revert_until STEP. induction STEP; auto. i.
-  inv H. exploit Thread.step_future; eauto. i. des.
-  eapply step_promise_consistent; eauto.
-Qed.
-
-Lemma steps_pf_steps
-      lang
-      n e1 e2
-      (STEPS: rtcn (@step_evt lang) n e1 e2)
-      (PROMISES: e2.(Thread.local).(Local.promises) = Memory.bot)
-      (WF1: Local.wf e1.(Thread.local) e1.(Thread.memory))
-      (SC1: Memory.closed_timemap e1.(Thread.sc) e1.(Thread.memory))
-      (MEM1: Memory.closed e1.(Thread.memory)):
-  exists n',
-    <<N: n' <= n>> /\
-    <<STEPS: rtcn (@program_step_evt lang) n' e1 e2>>.
-Proof.
-  revert_until n. induction n using strong_induction; i.
-  inv STEPS.
-  { esplits; eauto. }
-  inv A12. inv STEP; cycle 1.
-  { exploit Thread.program_step_future; eauto. i. des.
-    exploit IH; eauto. i. des.
-    esplits; cycle 1.
-    + econs 2; eauto. econs; eauto.
-    + omega.
-  }
-  exploit Thread.promise_step_future; eauto. i. des.
-  exploit IH; try exact A23; try refl; eauto. i. des.
-  inv STEPS.
-  { inv STEP0. ss. inv LOCAL. ss. subst.
-    exploit Memory.promise_get2; eauto. rewrite Memory.bot_get. congr.
-  }
-  inversion A12. exploit Thread.program_step_future; eauto. i. des.
-  exploit reorder_promise_program; eauto.
-  { exploit rtcn_rtc; try exact A0; eauto. i.
-    eapply rtc_step_evt_promise_consistent.
-    - eapply rtc_implies; [|eauto]. i. inv PR. econs; eauto.
-    - ii. rewrite PROMISES, Memory.bot_get in *. congr.
-    - auto.
-    - auto.
-    - auto.
-  }
-  i. des.
-  exploit Thread.program_step_future; eauto. i. des.
-  unguardH STEP2. des.
-  - subst. esplits; cycle 1.
-    + econs 2; eauto. econs; eauto.
-    + omega.
-  - exploit Thread.promise_step_future; try exact STEP2; eauto. i. des.
-    assert (STEPS: rtcn (step_evt (lang:=lang)) (S n) th1' e2).
-    { econs 2.
-      - econs. econs 1. apply STEP2.
-      - eapply rtcn_imply; try exact A0. i. inv PR. econs; eauto.
-    }
-    exploit IH; try exact STEPS; eauto.
-    { omega. }
-    i. des. esplits; cycle 1.
-    + econs; [|eauto]. econs; eauto.
-    + omega.
-Qed.
 
 Definition ThreadsProp :=
   forall (tid:Ident.t)
@@ -114,11 +33,8 @@ Definition ThreadsProp :=
     Prop.
 
 Definition MemoryProp :=
-  forall (assign: Loc.t -> Const.t),
+  forall (assign: LocFun.t Const.t),
     Prop.
-
-Definition update loc val (assign:Loc.t -> Const.t): Loc.t -> Const.t :=
-  fun l => if Loc.eq_dec l loc then val else assign l.
 
 Section Invariant.
   Variable
@@ -136,7 +52,7 @@ Section Invariant.
          loc val ord
          assign
          (ST1: S tid lang st1)
-         (ASSIGN1: J assign /\ assign loc = val)
+         (ASSIGN1: J assign /\ LocFun.find loc assign = val)
          (STEP: lang.(Language.step) (Some (ProgramEvent.read loc val ord)) st1 st2),
          S tid lang st2)
     (WRITE:
@@ -145,9 +61,16 @@ Section Invariant.
          (ST1: S tid lang st1)
          (STEP: lang.(Language.step) (Some (ProgramEvent.write loc val ord)) st1 st2),
          <<ST2: S tid lang st2>> /\
-         <<ASSIGN2: forall assign, J assign -> J (update loc val assign)>>)
+         <<ASSIGN2: forall assign, J assign -> J (LocFun.add loc val assign)>>)
     (UPDATE:
-       True)
+       forall tid lang st1 st2
+         loc valr valw ordr ordw
+         assign
+         (ST1: S tid lang st1)
+         (ASSIGN1: J assign /\ LocFun.find loc assign = valr)
+         (STEP: lang.(Language.step) (Some (ProgramEvent.update loc valr valw ordr ordw)) st1 st2),
+         <<ST2: S tid lang st2>> /\
+         <<ASSIGN2: forall assign, J assign -> J (LocFun.add loc valw assign)>>)
     (FENCE:
        forall tid lang st1 st2
          ordr ordw
@@ -162,28 +85,68 @@ Section Invariant.
          S tid lang st2)
   .
 
-  Inductive sem_threads (ths:Threads.t): Prop :=
-  | sem_threads_intro
-      (TH: forall tid lang st lc
-             (FIND: IdentMap.find tid ths = Some (existT _ lang st, lc)),
-          S tid lang st)
-  .
+  Definition sem_threads (ths:Threads.t): Prop :=
+    forall tid lang st lc
+      (FIND: IdentMap.find tid ths = Some (existT _ lang st, lc)),
+      S tid lang st.
 
-  Inductive sem_memory (m:Memory.t): Prop :=
-  | sem_memory_intro
-      (MEM: forall assign
-              (VAL: forall loc,
-                  exists from to released,
-                    Memory.get loc to m =
-                    Some (from, Message.mk (assign loc) released)),
-          J assign)
-  .
+  Definition memory_assign (m:Memory.t) (assign:Loc.t -> Const.t) :=
+    forall loc,
+    exists from to released,
+      Memory.get loc to m =
+      Some (from, Message.mk (LocFun.find loc assign) released).
 
-  Inductive sem (c:Configuration.t): Prop :=
-  | sem_configuration_intro
-      (TH: sem_threads c.(Configuration.threads))
-      (MEM: sem_memory c.(Configuration.memory))
-  .
+  Definition sem_memory (m:Memory.t): Prop :=
+    memory_assign m <1= J.
+
+  Lemma sem_memory_read_step
+        lc1 mem1 loc to val released ord lc2
+        (CLOSED: Memory.closed mem1)
+        (STEP: Local.read_step lc1 mem1 loc to val released ord lc2)
+        (SEM: sem_memory mem1):
+    exists assign,
+      J assign /\ LocFun.find loc assign = val.
+  Proof.
+    exists (LocFun.add loc val (LocFun.init 0)).
+    splits.
+    - apply SEM. ii.
+      destruct (Loc.eq_dec loc loc0).
+      + subst. rewrite LocFun.add_spec_eq.
+        inv STEP. esplits; eauto.
+      + rewrite LocFun.add_spec_neq, LocFun.init_spec.
+        inv CLOSED. specialize (INHABITED loc0).
+        esplits; eauto. congr.
+    - apply LocFun.add_spec_eq.
+  Qed.
+
+  Lemma sem_memory_write_step_eq
+        lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind
+        assign
+        (CLOSED: Memory.closed mem1)
+        (STEP: Local.write_step lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind)
+        (SEM: memory_assign mem2 assign)
+        (LOC: LocFun.find loc assign = val):
+    exists assign0,
+      memory_assign mem1 assign0 /\
+      assign = LocFun.add loc val assign0.
+  Proof.
+    exists (LocFun.add loc 0 assign). splits; cycle 1.
+    - rewrite LocFun.add_add_eq. apply LocFun.ext. i.
+      rewrite LocFun.add_spec. condtac; subst; ss.
+    - ii. specialize (SEM loc). des.
+      admit.
+  Admitted.
+
+  Lemma sem_memory_write_step_neq
+        lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind
+        assign
+        (CLOSED: Memory.closed mem1)
+        (STEP: Local.write_step lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind)
+        (SEM: memory_assign mem2 assign)
+        (LOC: LocFun.find loc assign <> val):
+    memory_assign mem1 assign.
+  Proof.
+  Admitted.
 
   Lemma thread_step_sem
         tid lang e
@@ -200,16 +163,26 @@ Section Invariant.
   Proof.
     inv STEP.
     - esplits; eauto.
-    - exploit READ; eauto.
-      { admit. (* [loc -> val] *) }
+    - exploit sem_memory_read_step; eauto. i. des.
+      exploit READ; eauto.
     - exploit WRITE; eauto. i. des.
-      esplits; eauto.
-      econs. i.
-      admit.
-    - admit.
+      esplits; eauto. ii.
+      destruct (Const.eq_dec (LocFun.find loc x0) val).
+      { subst. hexploit sem_memory_write_step_eq; eauto. i. des.
+        rewrite H0. eauto.
+      }
+      { hexploit sem_memory_write_step_neq; eauto. }
+    - exploit sem_memory_read_step; eauto. i. des.
+      exploit UPDATE; eauto. i. des.
+      esplits; eauto. ii.
+      destruct (Const.eq_dec (LocFun.find loc x2) valw).
+      { subst. hexploit sem_memory_write_step_eq; eauto. i. des.
+        rewrite H0. eauto.
+      }
+      { hexploit sem_memory_write_step_neq; eauto. }
     - exploit FENCE; eauto.
     - exploit SYSCALL; eauto.
-  Admitted.
+  Qed.
 
   Lemma rtc_thread_step_sem
         tid lang
@@ -230,4 +203,93 @@ Section Invariant.
     exploit thread_step_sem; eauto. i. des.
     eapply IHSTEP; eauto.
   Qed.
+
+  Inductive sem (c:Configuration.t): Prop :=
+  | sem_configuration_intro
+      (TH: sem_threads c.(Configuration.threads))
+      (MEM: sem_memory c.(Configuration.memory))
+  .
+
+  Lemma rtc_n1
+        A R (a b c:A)
+        (AB: rtc R a b)
+        (BC: R b c):
+    rtc R a c.
+  Proof.
+    etrans; eauto. econs 2; eauto.
+  Qed.
+
+  Lemma future_sem_memory
+        m1 m2
+        (FUTURE: Memory.future m1 m2)
+        (SEM: sem_memory m2):
+    sem_memory m1.
+  Proof.
+    revert SEM. induction FUTURE; ss. i.
+    hexploit IHFUTURE; eauto. i.
+    ii. apply H0. ii. specialize (PR loc). des.
+    inv H.
+    - admit.
+    - admit.
+    - admit.
+  Admitted.
+
+  Lemma rtc_promise_step_evt_bot
+        lang e1 e2
+        (STEPS: rtc (@promise_step_evt lang) e1 e2)
+        (PROMISE: e2.(Thread.local).(Local.promises) = Memory.bot):
+    e1 = e2.
+  Proof.
+  Admitted.
+
+  Lemma configuration_step_sem
+        e tid c1 c2
+        (WF: Configuration.wf c1)
+        (SEM: sem c1)
+        (STEP: Configuration.step e tid c1 c2):
+    sem c2.
+  Proof.
+    inv SEM. econs.
+    - inv STEP. ss. ii. revert FIND.
+      rewrite IdentMap.gsspec. condtac; ss; [|by apply TH]. subst.
+      i. inv FIND. apply inj_pair2 in H1. subst.
+      eapply rtc_implies in STEPS; [|by apply tau_step_step_evt].
+      exploit rtc_n1; eauto; i.
+      { econs. eauto. }
+      exploit steps_pf_steps; eauto; ss; try by inv WF.
+      { admit. }
+      { inv WF. eapply WF0. eauto. }
+      i. des.
+      exploit rtc_implies; (try by apply program_step_evt_step_evt); eauto. i.
+      exploit rtc_step_evt_future; eauto; ss; try by inv WF.
+      { inv WF. eapply WF0. eauto. }
+      i. des.
+      exploit rtc_promise_step_evt_future; eauto. s. i. des.
+      subst. eapply rtc_thread_step_sem; try exact STEPS1; eauto; ss; try by inv WF.
+      { inv WF. eapply WF1. eauto. }
+    - inv STEP. ss.
+      eapply rtc_implies in STEPS; [|by apply tau_step_step_evt].
+      exploit rtc_n1; eauto; i.
+      { econs. eauto. }
+      exploit rtc_step_evt_future; eauto; ss; try by inv WF.
+      { inv WF. eapply WF0. eauto. }
+      i. des.
+      exploit CONSISTENT; eauto; ss; try refl. i. des.
+      eapply rtc_implies in STEPS0; [|by apply tau_step_step_evt].
+      rewrite STEPS0 in x0.
+      exploit steps_pf_steps; try exact x0; eauto; ss; try by inv WF.
+      { ii. rewrite PROMISES, Memory.bot_get in *. congr. }
+      { inv WF. eapply WF0. eauto. }
+      i. des.
+      exploit rtc_promise_step_evt_bot; eauto. i. subst.
+      exploit rtc_thread_step_sem; try exact STEPS1; eauto; ss; try by inv WF.
+      { inv WF. eapply WF0. eauto. }
+      i. des.
+      exploit rtc_step_evt_future; try exact STEPS0.
+      { admit. }
+      { admit. }
+      { admit. }
+      s. i. des.
+      eapply future_sem_memory; eauto.
+  Admitted.
 End Invariant.
