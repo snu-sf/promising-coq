@@ -42,10 +42,25 @@ Lemma new_f acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
              << N_ZERO: Time.lt Time.bot (f' a) >>.
 Admitted.
 
-Lemma new_from (f: event -> Time.t) a: 
-  exists from, Time.lt from (f a) /\ forall b, Time.lt (f b) (f a) -> Time.lt (f b) from.
-(* add finiteness assumption ?*)
-Admitted. 
+Lemma new_from (f: event -> Time.t) acts to (NZ: Time.lt Time.bot to) :
+  exists from, 
+    Time.lt from to /\ 
+    forall b, In b acts -> Time.lt (f b) to -> Time.lt (f b) from.
+Proof.
+  induction acts; ins; desf.
+    by eexists; split; ins; eauto.
+  destruct (Time.le_lt_dec from (f a)). 
+  2: by exists from; split; ins; desf; eauto.
+  destruct (Time.le_lt_dec (f a) to) as [L|L]. 
+    rewrite Time.le_lteq in L; desf.
+    2: by exists from; split; ins; desf; eauto; 
+        exfalso; eapply Time.lt_strorder; eauto.
+    apply Time.middle_spec in L; desc. 
+    exists (Time.middle (f a) to); split; ins; desf; eauto.
+    by transitivity from; eauto using TimeFacts.le_lt_lt.
+  exists from; split; ins; desf; eauto.
+  by exfalso; eapply Time.lt_strorder; etransitivity; eauto.
+Qed. 
 
 Lemma monotone_converse a b l f acts mo
   (INa: In a acts) (INb: In b acts) (WRITEa: is_write a) (WRITEb: is_write b)
@@ -96,16 +111,15 @@ Section Simulation.
 Variable f : event -> Time.t.
 
 Variable acts : list event.  
-Variable sb : event -> event -> Prop. 
-Variable rmw : event -> event -> Prop. 
-Variable rf : event -> event -> Prop. 
-Variable mo : event -> event -> Prop. 
-Variable sc : event -> event -> Prop. 
+Variables sb rmw rf mo sc : relation event.
 
 Definition sim_msg b  rel :=
-  << UR: forall l, max_value f (fun a => msg_rel urr acts sb rmw rf sc l a b) (LocFun.find l rel.(Capability.ur)) >> /\
-  << RW: forall l, max_value f (fun a => msg_rel rwr acts sb rmw rf sc l a b) (LocFun.find l rel.(Capability.rw)) >> /\
-  << SC: forall l, max_value f (fun a => msg_rel scr acts sb rmw rf sc l a b) (LocFun.find l rel.(Capability.sc)) >>.
+  << UR: forall l, max_value f (fun a => msg_rel urr acts sb rmw rf sc l a b) 
+                             (LocFun.find l rel.(Capability.ur)) >> /\
+  << RW: forall l, max_value f (fun a => msg_rel rwr acts sb rmw rf sc l a b) 
+                             (LocFun.find l rel.(Capability.rw)) >> /\
+  << SC: forall l, max_value f (fun a => msg_rel scr acts sb rmw rf sc l a b) 
+                             (LocFun.find l rel.(Capability.sc)) >>.
 
 Definition sim_mem_helper b from v rel :=
   << VAL: Some v = (val b) >> /\
@@ -203,7 +217,11 @@ Proof.  apply Loc.eq_dec_eq; done. Qed.
 
 Lemma time_join_bot a : Time.join a Time.bot =  a.
 Proof.
-Admitted.
+  unfold Time.join; desf.
+  rewrite Time.le_lteq in *; desf.
+  exfalso; eapply Time.lt_strorder.
+  eauto using TimeFacts.lt_le_lt, Time.bot_spec.
+Qed.
 
 Lemma tm_find_bot l : LocFun.find l TimeMap.bot = Time.bot.
 Proof. done. Qed.
