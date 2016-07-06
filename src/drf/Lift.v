@@ -656,12 +656,203 @@ Proof.
     i. des. splits; eauto.
 Qed.
 
+Lemma small_step_false_non_writing
+      tid e c1 c2
+      (STEP: small_step false tid e c1 c2)
+      (NONWRITING: ThreadEvent.is_writing e = None):
+  c1.(Configuration.memory) = c2.(Configuration.memory).
+Proof.
+  inv STEP. inv STEP0; inv STEP; inv PFREE; ss.
+Qed.
+
+Lemma small_step_false_writing
+      tid e c1 c2 loc from to val released ord
+      (STEP: small_step false tid e c1 c2)
+      (WRITING: ThreadEvent.is_writing e = Some (loc, from, to, val, released, ord)):
+  exists kind, Memory_op c1.(Configuration.memory) loc from to val released c2.(Configuration.memory) kind.
+Proof.
+  inv STEP. inv STEP0; inv STEP; inv PFREE; ss.
+  - inv WRITING. inv LOCAL. inv WRITE. inv PROMISE.
+    + esplits. econs 1; eauto.
+    + esplits. econs 2; eauto.
+    + esplits. econs 3; eauto.
+  - inv WRITING. inv LOCAL1. inv LOCAL2. inv WRITE. inv PROMISE.
+    + esplits. econs 1; eauto.
+    + esplits. econs 2; eauto.
+    + esplits. econs 3; eauto.
+Qed.
+
+Lemma Capability_lift_le_imm
+      l t loc to msgs released ord:
+  Capability_lift_le l t ((loc, to) :: msgs) loc to
+                     released
+                     (Capability_lift_if loc ord l t released).
+Proof.
+  unfold Capability_lift_if. condtac.
+  - left. ss.
+  - right. splits; eauto. left. ss.
+Qed.
+
+Lemma Capability_lift_le_incr
+      l t msgs loc to rel1 rel2 l' t'
+  (LE: Capability_lift_le l t msgs loc to rel1 rel2):
+  Capability_lift_le l t ((l', t') :: msgs) loc to rel1 rel2.
+Proof.
+  unfold Capability_lift_le in *. des; auto.
+  right. splits; ss. auto.
+Qed.
+
+Inductive match_kind: forall (k1 k2:Memory.promise_kind), Prop :=
+| match_kind_add:
+    match_kind
+      Memory.promise_kind_add
+      Memory.promise_kind_add
+| match_kind_split
+    to v1 v2 r1 r2:
+    match_kind
+      (Memory.promise_kind_split to v1 r1)
+      (Memory.promise_kind_split to v2 r2)
+| match_kind_lower
+    r1 r2:
+    match_kind
+      (Memory.promise_kind_lower r1)
+      (Memory.promise_kind_lower r2)
+.
+
+Lemma Memory_get_same_from_aux
+      l f t1 t2 m msg1 msg2
+      (GET1: Memory.get l t1 m = Some (f, msg1))
+      (GET2: Memory.get l t2 m = Some (f, msg2))
+      (LE: Time.le t1 t2)
+      (T1: t1 <> Time.bot):
+  t1 = t2 /\ msg1 = msg2.
+Proof.
+  inv LE; cycle 1.
+  { inv H. rewrite GET1 in GET2. inv GET2. ss. }
+  destruct (m l).(Cell.WF). exfalso.
+  assert (t1 <> t2).
+  { ii. subst. eapply Time.lt_strorder. eauto. }
+  eapply DISJOINT; try exact H0; eauto.
+  - apply Interval.mem_ub. exploit VOLUME; try exact GET1; eauto. i. des; ss.
+    inv x. congr.
+  - econs; ss.
+    + exploit VOLUME; try exact GET1; eauto. i. des; ss. inv x. congr.
+    + left. ss.
+Qed.
+
+Lemma Memory_get_same_from
+      l f t1 t2 m msg1 msg2
+      (GET1: Memory.get l t1 m = Some (f, msg1))
+      (GET2: Memory.get l t2 m = Some (f, msg2))
+      (T1: t1 <> Time.bot)
+      (T2: t2 <> Time.bot):
+  t1 = t2 /\ msg1 = msg2.
+Proof.
+  destruct (Time.le_lt_dec t1 t2).
+  - eapply Memory_get_same_from_aux; eauto.
+  - exploit Memory_get_same_from_aux; (try by left; eauto); eauto. i. des. ss.
+Qed.
+
+Lemma mem_eqrel_memory_op
+      m1 m2 m1' m2' released1 released2 kind1 kind2
+      cmp
+      loc from to val
+      (EQMEM: mem_eqrel cmp m1 m2)
+      (OP1: Memory_op m1 loc from to val released1 m1' kind1)
+      (OP2: Memory_op m2 loc from to val released2 m2' kind2):
+  match_kind kind1 kind2.
+Proof.
+  inv OP1; inv OP2; try by econs.
+  - exploit Memory.split_get0; eauto. i. des.
+    apply EQMEM in GET3. des.
+    inv ADD. inv ADD0. exfalso. eapply DISJOINT; eauto.
+    + apply Interval.mem_ub. auto.
+    + inv SPLIT. inv SPLIT0. econs; auto. left. auto.
+  - exploit Memory.lower_get0; eauto. i.
+    apply EQMEM in x0. des.
+    erewrite Memory.add_get0 in IN; eauto. congr.
+  - exploit Memory.split_get0; eauto. i. des.
+    apply EQMEM in GET3. des.
+    inv ADD. inv ADD0. exfalso. eapply DISJOINT; eauto.
+    + apply Interval.mem_ub. auto.
+    + inv SPLIT. inv SPLIT0. econs; auto. left. auto.
+  - exploit Memory.split_get0; try exact SPLIT; eauto. i. des.
+    apply EQMEM in GET3. des.
+    exploit Memory.split_get0; eauto. i. des.
+    exploit Memory_get_same_from; [exact IN|exact GET3|..].
+    { ii. subst. inv SPLIT. inv SPLIT1. inv TS23. }
+    { ii. subst. inv SPLIT0. inv SPLIT1. inv TS23. }
+    i. des. inv x1. econs; ss.
+  - exploit Memory.lower_get0; eauto. i.
+    apply EQMEM in x0. des.
+    exploit Memory.split_get0; eauto. i. des. congr.
+  - exploit Memory.lower_get0; eauto. i.
+    apply EQMEM in x0. des.
+    erewrite Memory.add_get0 in IN; eauto. congr.
+  - exploit Memory.lower_get0; eauto. i.
+    apply EQMEM in x0. des.
+    exploit Memory.split_get0; eauto. i. des. congr.
+Qed.
+
+Lemma memory_op_mem_eqrel
+      m1 m2 m1' m2' kind1 kind2
+      l t msgs
+      loc from to val released ord
+      (EQMEM: mem_eqrel (Capability_lift_le l t msgs) m1 m2)
+      (OP1: Memory_op m1 loc from to val released m1' kind1)
+      (OP2: Memory_op m2 loc from to val (Capability_lift_if loc ord l t released) m2' kind2)
+      (KIND: match_kind kind1 kind2):
+  mem_eqrel (Capability_lift_le l t ((loc, to) :: msgs)) m1' m2'.
+Proof.
+  inv KIND; inv OP1; inv OP2;
+    econs; esplits; ii; revert IN;
+      (repeat
+         match goal with
+         | [X: Memory.add _ _ _ _ _ _ ?m |- context[Memory.get _ _ ?m]] =>
+           erewrite (@Memory.add_o m); [|eexact X]
+         | [X: Memory.split _ _ _ _ _ _ _ _ _ ?m |- context[Memory.get _ _ ?m]] =>
+           erewrite (@Memory.split_o m); [|eexact X]
+         | [X: Memory.lower _ _ _ _ _ _ _ ?m |- context[Memory.get _ _ ?m]] =>
+           erewrite (@Memory.lower_o m); [|eexact X]
+         end);
+      repeat
+        (condtac;
+         try match goal with
+             | [X: _ \/ _ |- _] => guardH X
+             end);
+      ss; i; des;
+        repeat (match goal with
+                | [H: Some _ = Some _ |- _] => inv H
+                end);
+        (try by esplits; eauto; apply Capability_lift_le_imm).
+  - apply EQMEM in IN. des. esplits; eauto. apply Capability_lift_le_incr; ss.
+  - apply EQMEM in IN. des. esplits; eauto. apply Capability_lift_le_incr; ss.
+  - exploit Memory.split_get0; try exact SPLIT; eauto. i. des.
+    apply EQMEM in GET3. des.
+    exploit Memory.split_get0; try exact SPLIT0; eauto. i. des.
+    rewrite IN in GET3. inv GET3. esplits; eauto.
+    apply Capability_lift_le_incr; ss.
+  - apply EQMEM in IN. des. esplits; eauto. apply Capability_lift_le_incr; ss.
+  - exploit Memory.split_get0; try exact SPLIT; eauto. i. des.
+    apply EQMEM in GET3. des.
+    exploit Memory.split_get0; try exact SPLIT0; eauto. i. des.
+    rewrite IN in GET3. inv GET3. esplits; eauto.
+    apply Capability_lift_le_incr; ss.
+  - apply EQMEM in IN. des. esplits; eauto. apply Capability_lift_le_incr; ss.
+  - apply EQMEM in IN. des. esplits; eauto. apply Capability_lift_le_incr; ss.
+  - apply EQMEM in IN. des. esplits; eauto. apply Capability_lift_le_incr; ss.
+Qed.
+
 Lemma pi_step_lift_except_future
       l t msgs tid cS1 cT1 cS2 cT2 M1 M2 e
       (WF: pi_wf loctmeq (cS1,cT1))
       (EQMEM: mem_eqrel (Capability_lift_le l t msgs) cT1.(Configuration.memory) M1)
       (IN: Memory.get l t cT1.(Configuration.memory) <> None)
       (PI_STEP: pi_step_lift_except_aux l t tid e (cS1,cT1,M1) (cS2,cT2,M2))
+      (MSGS: forall loc to (IN: List.In (loc, to) msgs),
+          (exists from msg, nonpromise cT1 loc from to msg) /\
+          loc <> l /\
+          to <> Time.bot)
 :
   <<EQMEM: mem_eqrel (Capability_lift_le l t (msg_add e msgs)) cT2.(Configuration.memory) M2>> /\
   <<IN: Memory.get l t cT2.(Configuration.memory) <> None>> /\
@@ -669,9 +860,14 @@ Lemma pi_step_lift_except_future
   <<TIMELE: TimeMap.le cT1.(Configuration.sc) cT2.(Configuration.sc)>>.
 Proof.
   assert (EQMEM2: mem_eqrel (Capability_lift_le l t (msg_add e msgs)) cT2.(Configuration.memory) M2).
-  { inv PI_STEP. unfold mem_eqrel. splits.
-    - ii. admit. (* mem_eqrel *)
-    - ii. admit. (* mem_eqrel *)
+  { inv PI_STEP. unfold pi_step_lift_mem in MEM. unfold msg_add.
+    destruct (ThreadEvent.is_writing e) as [[[[[[]]]]]|] eqn:X; cycle 1.
+    { subst. inv PI_STEP0. erewrite <- small_step_false_non_writing; eauto. }
+    des.
+    exploit small_step_false_writing;
+      (try by inv PI_STEP0; eauto); eauto. i. des.
+    exploit mem_eqrel_memory_op; [|exact x0|exact PMREL|..]; eauto. i.
+    eapply memory_op_mem_eqrel; eauto.
   }
   assert (IN2: Memory.get l t cT2.(Configuration.memory) <> None).
   { destruct (Memory.get l t (Configuration.memory cT1)) as [[? []]|] eqn:X; [|congr].
@@ -712,7 +908,7 @@ Proof.
   - inv PI_STEP0.
     eapply small_step_future; eauto.
     inv WF. auto.
-Admitted.
+Qed.
 
 Lemma rtc_pi_step_lift_except_future
       l t tid cS1 cT1 cSTM2 lst1 lc1
