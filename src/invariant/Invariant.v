@@ -99,6 +99,12 @@ Section Invariant.
   Definition sem_memory (m:Memory.t): Prop :=
     memory_assign m <1= J.
 
+  Inductive sem (c:Configuration.t): Prop :=
+  | sem_configuration_intro
+      (TH: sem_threads c.(Configuration.threads))
+      (MEM: sem_memory c.(Configuration.memory))
+  .
+
   Lemma sem_memory_read_step
         lc1 mem1 loc to val released ord lc2
         (CLOSED: Memory.closed mem1)
@@ -232,12 +238,6 @@ Section Invariant.
     exploit thread_step_sem; eauto. i. des.
     eapply IHSTEP; eauto.
   Qed.
-
-  Inductive sem (c:Configuration.t): Prop :=
-  | sem_configuration_intro
-      (TH: sem_threads c.(Configuration.threads))
-      (MEM: sem_memory c.(Configuration.memory))
-  .
 
   Lemma rtc_n1
         A R (a b c:A)
