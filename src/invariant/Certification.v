@@ -41,7 +41,7 @@ Definition pf_consistent lang (e:Thread.t lang): Prop :=
     <<STEPS: rtc (@tau_program_step lang) (Thread.mk lang e.(Thread.state) e.(Thread.local) sc1 mem1) e2>> /\
     <<PROMISES: e2.(Thread.local).(Local.promises) = Memory.bot>>.
 
-Lemma steps_pf_steps
+Lemma tau_steps_pf_tau_steps
       lang
       n e1 e2
       (STEPS: rtcn (@Thread.tau_step lang) n e1 e2)
@@ -49,10 +49,9 @@ Lemma steps_pf_steps
       (WF1: Local.wf e1.(Thread.local) e1.(Thread.memory))
       (SC1: Memory.closed_timemap e1.(Thread.sc) e1.(Thread.memory))
       (MEM1: Memory.closed e1.(Thread.memory)):
-  exists n' e2',
+  exists n',
     <<N: n' <= n>> /\
-    <<STEPS: rtcn (@tau_program_step lang) n' e1 e2'>> /\
-    <<PROMISES: e2'.(Thread.local).(Local.promises) = Memory.bot>>.
+    <<STEPS: rtcn (@tau_program_step lang) n' e1 e2>>.
 Proof.
   revert_until n. induction n using strong_induction; i.
   inv STEPS.
@@ -62,7 +61,6 @@ Proof.
     exploit IH; eauto. i. des.
     esplits; cycle 1.
     + econs 2; eauto. econs; eauto.
-    + auto.
     + omega.
   }
   exploit Thread.promise_step_future; eauto. i. des.
@@ -76,7 +74,7 @@ Proof.
   { exploit rtcn_rtc; try exact A0; eauto. i.
     eapply rtc_tau_step_promise_consistent.
     - eapply rtc_implies; [|eauto]. i. inv PR. econs; eauto.
-    - ii. rewrite PROMISES0, Memory.bot_get in *. congr.
+    - ii. rewrite PROMISES, Memory.bot_get in *. congr.
     - auto.
     - auto.
     - auto.
@@ -86,10 +84,9 @@ Proof.
   unguardH STEP2. des.
   - subst. esplits; cycle 1.
     + econs 2; eauto. econs; eauto.
-    + auto.
     + omega.
   - exploit Thread.promise_step_future; try exact STEP2; eauto. i. des.
-    assert (STEPS: rtcn (Thread.tau_step (lang:=lang)) (S n) th1' e2').
+    assert (STEPS: rtcn (Thread.tau_step (lang:=lang)) (S n) th1' e2).
     { econs 2.
       - econs.
         + econs 1. apply STEP2.
@@ -100,7 +97,6 @@ Proof.
     { omega. }
     i. des. esplits; cycle 1.
     + econs; [|eauto]. econs; eauto.
-    + auto.
     + omega.
 Qed.
 
@@ -109,6 +105,6 @@ Lemma consistent_pf_consistent:
 Proof.
   s. ii. exploit PR; eauto. i. des.
   exploit rtc_rtcn; eauto. i. des.
-  exploit steps_pf_steps; eauto. i. des.
+  exploit tau_steps_pf_tau_steps; eauto. i. des.
   exploit rtcn_rtc; eauto.
 Qed.

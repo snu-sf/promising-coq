@@ -66,6 +66,28 @@ Module Threads.
            Local.disjoint lc1 lc2)
   .
 
+  Lemma init_wf syn: wf (init syn) Memory.init.
+  Proof.
+    econs.
+    - i. unfold init in *. rewrite IdentMap.Facts.map_o in *.
+      destruct (UsualFMapPositive.UsualPositiveMap'.find tid1 syn); inv TH1.
+      destruct (UsualFMapPositive.UsualPositiveMap'.find tid2 syn); inv TH2.
+      econs. ss. econs. i. rewrite Memory.bot_get in *. congr.
+    - i. unfold init in *. rewrite IdentMap.Facts.map_o in *.
+      destruct (UsualFMapPositive.UsualPositiveMap'.find tid syn); inv TH.
+      econs; ss.
+      + apply Commit.bot_wf.
+      + apply Commit.bot_closed.
+      + ii. rewrite Memory.bot_get in LHS. congr.
+  Qed.
+
+  Lemma init_consistent syn: consistent (init syn) TimeMap.bot Memory.init.
+  Proof.
+    ii. ss. esplits; eauto. s.
+    unfold init in *. rewrite IdentMap.Facts.map_o in *.
+    destruct (UsualFMapPositive.UsualPositiveMap'.find tid syn); inv TH. ss.
+  Qed.
+
   Global Program Instance disjoint_Symmetric: Symmetric disjoint.
   Next Obligation.
     inv H. econs; i.
@@ -115,6 +137,19 @@ Module Configuration.
 
   Definition consistent (conf:t): Prop :=
     Threads.consistent conf.(threads) conf.(sc) conf.(memory).
+
+  Lemma init_wf syn: wf (init syn).
+  Proof.
+    econs.
+    - apply Threads.init_wf.
+    - committac.
+    - apply Memory.init_closed.
+  Qed.
+
+  Lemma init_consistent syn: consistent (init syn).
+  Proof.
+    apply Threads.init_consistent.
+  Qed.
 
   Inductive step: forall (e:option Event.t) (tid:Ident.t) (c1 c2:t), Prop :=
   | step_intro
