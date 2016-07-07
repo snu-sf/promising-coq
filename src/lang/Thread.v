@@ -361,14 +361,7 @@ Module Thread.
         promise_step (ThreadEvent.promise loc from to val released) (mk st lc1 sc1 mem1) (mk st lc2 sc1 mem2)
     .
 
-    (* NOTE: Syscalls act like a write SC fence.  We did not let
-     * syscalls act like a read SC fence, since it is enough to
-     * disallow the weak behavior w/ SC & syscalls.
-     *
-     * If it is hard to explain, it is fine to let syscalls act like
-     * both read & write SC fences.
-     *
-     * https://github.com/jeehoonkang/memory-model-explorer/issues/65
+    (* NOTE: Syscalls act like an SC fence.
      *)
     Inductive program_step: forall (e:ThreadEvent.t) (e1 e2:t), Prop :=
     | step_silent
