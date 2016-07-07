@@ -1,14 +1,46 @@
-# Formalization of C/C++ Concurrency
-
-## Requirement
-
-- Coq 8.5. We recommend you to install Coq via `opam`.
-- Make.
+# A Promising Semantics for Relaxed-Memory Concurrency
 
 ## Build
 
-```
-git submodule init
-git submodule update
-make
-```
+- You need Coq 8.5, and Make.
+- You can build by the `make` command in the root directory.
+
+## References
+
+### Model
+
+- `lib` and `src/lib` contains libraries not neccessarily related to the relaxed-memory concurrency.
+
+- `src/lang`: Model (Section 2-4)
+    + `Language.v`: abstract interface of the programming languages
+    + `Memory.v`: memory model (`MEMORY: *` rules in Figure 3)
+    + `Commit.v`: the rule for thread views (`*-HELPER` rules in Figure 3)
+    + `Thread.v`: thread and its execution (`READ`, `WRITE`, `UPDATE`, `FENCE`, `SYSTEM CALL`, `SILENT`, `PROMISE` rules in Figure 3)
+    + `Configuration.v`: configuration (machine state) and its execution (`MACHINE STEP` rule in Figure 3)
+    + `Behavior.v`: the behaviors of a configuration
+
+- `src/while` Toy "while" language
+  This language provides the basis for the optimization & compilation results.
+
+- `src/opt`: Compiler Transformations (Section 5.1)
+    + Trace-Preserving Transformations: Lemma `sim_trace_sim_stmts` (`SimTrace.v`)
+    + Strengthening: Lemma `sim_stmts_instr` (`SimTrace.v`)
+    + Reorderings: `Reorder.v` (Lemma `reorder_sim_stmts`) and `ReorderReleaseFenceF.v` (Lemma `reorder_release_fenceF_sim_stmts`)
+    + Merges: `Merge.v` (all the Lemmas in this file)
+    + Unused Plain Read Elimination: Lemma `unused_load_sim_stmts` (`UnusedLoad.v`)
+    + Proof Technique:
+        * Simulation Relation: `Simulation.v` (Definition `sim` for the configuration simulation, and `sim_thread` for the thread simulation)
+        * Adequacy: `Adequacy.v` (from the configuration simulation to the behaviors)
+        * Composition: `Composition.v` ("horizontally" compositing configuration simulations for disjoint configurations)
+        * Compatibility: `Compatibility.v` (Lemmas `sim_stmts_frame`, `sim_stmts_nil`, `sim_stmts_seq`, `sim_stmts_ite`, `sim_stmts_dowhile`)
+
+- `src/hahn`, `src/axiomatic`: Compilation to TSO and Power (Section 5.2)
+
+- `src/drf`: DRF Theorems (Section 5.3)
+    + Promise-Free DRF (Theorem 1): Theorem `pi_consistent_step_pi` (`PIStep.v`) and Theorem `pi_consistent_pi_step_pi_consistent` (`PromiseFree.v`) collectively proves the promise-free DRF.
+    + We did not formalize DRF-RA (Theorem 2) and DRF-SRC (Theorem 3).
+
+- `src/invariant`: An Invariant-Based Program Logic (Section 5.4)
+    + Promise-free certification: Lemma `consistent_pf_consistent` (`Certification.v`)
+      In certification, promise is useless.
+    + Soundness: Lemma `sound` (`Invariant.v`)
