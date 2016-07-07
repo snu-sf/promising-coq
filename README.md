@@ -9,7 +9,7 @@
 
 ### Model
 
-- `lib`, `src/lib` and `src/hahn` contains libraries not neccessarily related to the relaxed-memory concurrency.
+- `lib`, `src/lib` and `src/hahn` contains libraries not necessarily related to the relaxed-memory concurrency.
     + Hahn is a library with many lemmas about relations, transitive closures, etc.
 
 - `src/lang`: Model (Section 2-4)
@@ -32,7 +32,7 @@
     + Proof Technique:
         * Simulation Relation: `Simulation.v` (Definition `sim` for the configuration simulation, and `sim_thread` for the thread simulation)
         * Adequacy: `Adequacy.v` (from the configuration simulation to the behaviors)
-        * Composition: `Composition.v` ("horizontally" compositing configuration simulations for disjoint configurations)
+        * Composition: `Composition.v` ("horizontally" composing configuration simulations for disjoint configurations)
         * Compatibility: `Compatibility.v` (Lemmas `sim_stmts_frame`, `sim_stmts_nil`, `sim_stmts_seq`, `sim_stmts_ite`, `sim_stmts_dowhile`)
 
 - `src/axiomatic`: Compilation to TSO and Power (Section 5.2)
@@ -43,7 +43,7 @@
 
 - `src/drf`: DRF Theorems (Section 5.3)
     + Promise-Free DRF (Theorem 1): Theorem `pi_consistent_step_pi` (`PIStep.v`) and Theorem `pi_consistent_pi_step_pi_consistent` (`PromiseFree.v`) collectively proves the promise-free DRF.
-    + We did not formalize DRF-RA (Theorem 2) and DRF-SRC (Theorem 3).
+    + We did not formalize DRF-RA (Theorem 2) and DRF-SC (Theorem 3).
 
 - `src/invariant`: An Invariant-Based Program Logic (Section 5.4)
     + Promise-free certification: Lemma `consistent_pf_consistent` (`Certification.v`)
