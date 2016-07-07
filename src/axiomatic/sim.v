@@ -1192,9 +1192,20 @@ Proof.
       intros K K'; cdes GSTEP; desf; ins; desf.
         by cdes WF'; exfalso; eapply WF_MO; eauto.
       destruct (classic (exists x : event, (rf;; rmw) x y)) as [C|]; desc; eauto.
-      eapply rf_rmw_mo in C; eauto.
-      eapply MONOTONE in C.
-admit.
+      assert (INx: In x acts).
+        by eapply seq_doma in C; [|eapply rf_acta]; eauto. 
+      assert (NEQ: x <> a) by congruence.
+      eapply seq_mori in C; eauto using rf_mon, rmw_mon.
+      assert (IMM': immediate mo0 x y).
+        split; [by eapply rf_rmw_mo in C; eauto|].
+        red in C; desc; intros; cdes COH'; eapply Cat;
+        try exact C; try exact C0; eauto.
+      clear C; destruct IMM' as [C IMM'].
+      cdes WF'; cdes WF_MO. 
+        exploit (MO_LOC a y); eauto; intro; desc.
+        exploit (MO_LOC x y); eauto; intro; desf.
+      eapply WF_MO in NEQ; splits; eauto 3 with acts.
+      exfalso; des; eauto.
     }
     by ins; desc; eapply sim_mem_lt; eauto.
     by ins; desc; eapply sim_mem_disj; eauto.
@@ -1275,7 +1286,7 @@ admit.
       rewrite F_FROM; ins.
       apply BSPACE; eauto; intro; desc; apply NRMW; eexists.
       eapply seq_mori; eauto using rf_mon, rmw_mon.
-Admitted.
+Qed.
 
 Lemma ax_op_sim_step_update :
   forall op_st ax_st ax_st'
@@ -1298,7 +1309,7 @@ Lemma ax_op_sim_step_update :
    (STATE : Language.step lang (Some (ProgramEvent.update l v_r v_w o_r o_w)) st st'),
   proof_obligation ax_st ax_st' op_st (thread a_r) lang st st'.
 Proof.
-Admitted.
+Admitted. (* updates *)
 
 Lemma ax_op_sim_step_fence :
   forall op_st ax_st ax_st'
