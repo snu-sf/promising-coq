@@ -9,7 +9,8 @@
 
 ### Model
 
-- `lib` and `src/lib` contains libraries not neccessarily related to the relaxed-memory concurrency.
+- `lib`, `src/lib` and `src/hahn` contains libraries not neccessarily related to the relaxed-memory concurrency.
+    + Hahn is a library with many lemmas about relations, transitive closures, etc.
 
 - `src/lang`: Model (Section 2-4)
     + `Language.v`: abstract interface of the programming languages
@@ -34,7 +35,8 @@
         * Composition: `Composition.v` ("horizontally" compositing configuration simulations for disjoint configurations)
         * Compatibility: `Compatibility.v` (Lemmas `sim_stmts_frame`, `sim_stmts_nil`, `sim_stmts_seq`, `sim_stmts_ite`, `sim_stmts_dowhile`)
 
-- `src/hahn`, `src/axiomatic`: Compilation to TSO and Power (Section 5.2)
+- `src/axiomatic`: Compilation to TSO and Power (Section 5.2)
+    The axiomatic folder defines our axiomatic semantics (files `model.v` and `Machine.v`), the simulation relation (`SimRel.v`), and proves one direction of the equivalence, namely that every execution of the axiomatic machine is simulated by an execution of the operational machine, which is the direction needed for the correctness of compilation. This proof is complete except for the case of update steps, which is admitted in file `sim.v`.
 
 - `src/drf`: DRF Theorems (Section 5.3)
     + Promise-Free DRF (Theorem 1): Theorem `pi_consistent_step_pi` (`PIStep.v`) and Theorem `pi_consistent_pi_step_pi_consistent` (`PromiseFree.v`) collectively proves the promise-free DRF.
