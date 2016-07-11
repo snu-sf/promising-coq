@@ -17,7 +17,7 @@ Require Import View.
 Require Import Cell.
 Require Import Memory.
 Require Import Thread.
-Require Import ThreadView.
+Require Import TView.
 
 Require Import Gevents.
 Require Import model.
@@ -382,19 +382,19 @@ Definition sim_acq acq i :=
   << ACQ_SC: forall l, max_value f_to (t_acq scr acts sb rmw rf sc i l) 
     (LocFun.find l acq.(View.sc)) >>.
 
-Definition sim_commit commit i :=
-  << CUR: sim_cur commit.(Commit.cur) i >> /\
-  << ACQ: sim_acq commit.(Commit.acq) i >> /\
-  << REL: sim_rel commit.(Commit.rel) i >>.
+Definition sim_tview tview i :=
+  << CUR: sim_cur tview.(TView.cur) i >> /\
+  << ACQ: sim_acq tview.(TView.acq) i >> /\
+  << REL: sim_rel tview.(TView.rel) i >>.
 
 End Simulation.
 
 Definition sim_time  (op_st: Configuration.t) (ax_st: Machine.configuration) f_from f_to :=
   << MONOTONE: monotone (mo ax_st) f_to >> /\  
-  << SIM_COMMIT: forall i foo local
+  << SIM_TVIEW: forall i foo local
         (TID: IdentMap.find i (Configuration.threads op_st) = Some (foo, local)),
-        sim_commit f_to (acts ax_st) (sb ax_st) (rmw ax_st) (rf ax_st) (sc ax_st) 
-                   local.(Local.commit) (Some i) >> /\
+        sim_tview f_to (acts ax_st) (sb ax_st) (rmw ax_st) (rf ax_st) (sc ax_st) 
+                   local.(Local.tview) (Some i) >> /\
   << SIM_SC_MAP: forall l, max_value f_to (S_tm (acts ax_st) (sb ax_st) (rmw ax_st) 
                                              (rf ax_st) l) 
                                      (LocFun.find l (Configuration.sc op_st))  >> /\

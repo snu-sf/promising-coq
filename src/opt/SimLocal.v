@@ -15,7 +15,7 @@ Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import ThreadView.
+Require Import TView.
 Require Import Thread.
 Require Import Configuration.
 
@@ -31,7 +31,7 @@ Set Implicit Arguments.
 
 Inductive sim_local (lc_src lc_tgt:Local.t): Prop :=
 | sim_local_intro
-    (COMMIT: Commit.le lc_src.(Local.commit) lc_tgt.(Local.commit))
+    (TVIEW: TView.le lc_src.(Local.tview) lc_tgt.(Local.tview))
     (PROMISES: SimPromises.sem SimPromises.bot lc_src.(Local.promises) lc_tgt.(Local.promises))
 .
 
@@ -90,7 +90,7 @@ Proof.
   esplits; eauto.
   econs; eauto.
   - apply WF1_TGT.
-  - eapply Commit.future_closed; eauto. apply WF1_TGT.
+  - eapply TView.future_closed; eauto. apply WF1_TGT.
   - eapply Memory.future_closed; eauto.
 Qed.
 
@@ -146,8 +146,8 @@ Proof.
   inv LOCAL1. inv STEP_TGT.
   exploit sim_memory_get; try apply MEM1; eauto. i. des.
   esplits; eauto.
-  - econs; eauto. eapply CommitFacts.readable_mon; eauto.
-  - econs; eauto. s. apply CommitFacts.read_commit_mon; auto.
+  - econs; eauto. eapply TViewFacts.readable_mon; eauto.
+  - econs; eauto. s. apply TViewFacts.read_tview_mon; auto.
     + apply WF1_TGT.
     + eapply MEM1_TGT. eauto.
 Qed.
@@ -182,14 +182,14 @@ Proof.
    View.le
      (if Ordering.le Ordering.relaxed ord_src
       then View.join releasedm_src
-        (Commit.rel
-           (Commit.write_commit (Local.commit lc1_src) sc1_src loc to
+        (TView.rel
+           (TView.write_tview (Local.tview lc1_src) sc1_src loc to
               ord_src) loc)
       else View.bot)
      (if Ordering.le Ordering.relaxed ord_tgt
       then View.join releasedm_tgt
-        (Commit.rel
-           (Commit.write_commit (Local.commit lc1_tgt) sc1_tgt loc to
+        (TView.rel
+           (TView.write_tview (Local.tview lc1_tgt) sc1_tgt loc to
               ord_tgt) loc)
       else View.bot)).
   { repeat (try condtac; aggrtac).
@@ -217,8 +217,8 @@ Proof.
   assert (RELT_WF:
    View.wf
      (View.join releasedm_src
-        (Commit.rel
-           (Commit.write_commit (Local.commit lc1_src) sc1_src loc to
+        (TView.rel
+           (TView.write_tview (Local.tview lc1_src) sc1_src loc to
               ord_src) loc))).
   { repeat (try condtac; viewtac; try apply WF1_SRC). }
   exploit SimPromises.remove; try exact REMOVE;
@@ -228,11 +228,11 @@ Proof.
   i. des. esplits.
   - econs; eauto.
     + etrans; eauto.
-    + eapply CommitFacts.writable_mon; eauto. apply LOCAL1.
-  - econs; eauto. s. apply CommitFacts.write_commit_mon; auto.
+    + eapply TViewFacts.writable_mon; eauto. apply LOCAL1.
+  - econs; eauto. s. apply TViewFacts.write_tview_mon; auto.
     + apply LOCAL1.
     + apply WF1_TGT.
-  - apply CommitFacts.write_sc_mon; auto.
+  - apply TViewFacts.write_sc_mon; auto.
 Qed.
 
 Lemma sim_local_write
@@ -337,13 +337,13 @@ Proof.
   inv STEP_TGT. esplits; eauto.
   - econs; eauto.
   - econs; try apply LOCAL1. s.
-    apply CommitFacts.write_fence_commit_mon; auto; try refl.
-    apply CommitFacts.read_fence_commit_mon; auto; try refl.
+    apply TViewFacts.write_fence_tview_mon; auto; try refl.
+    apply TViewFacts.read_fence_tview_mon; auto; try refl.
     + apply LOCAL1.
     + apply WF1_TGT.
-    + eapply CommitFacts.read_fence_future; apply WF1_SRC.
-  - apply CommitFacts.write_fence_sc_mon; auto; try refl.
-    apply CommitFacts.read_fence_commit_mon; auto; try refl.
+    + eapply TViewFacts.read_fence_future; apply WF1_SRC.
+  - apply TViewFacts.write_fence_sc_mon; auto; try refl.
+    apply TViewFacts.read_fence_tview_mon; auto; try refl.
     + apply LOCAL1.
     + apply WF1_TGT.
 Qed.

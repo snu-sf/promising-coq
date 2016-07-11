@@ -12,7 +12,7 @@ Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import ThreadView.
+Require Import TView.
 Require Import Thread.
 Require Import Configuration.
 Require Import Progress.
@@ -262,24 +262,24 @@ Proof.
   eauto using small_step_find.
 Qed.
 
-Lemma thread_step_commit_le
+Lemma thread_step_tview_le
      lang e (t1 t2: @Thread.t lang)
      (STEP: Thread.step e t1 t2)
      (LOCALWF: Local.wf t1.(Thread.local) t1.(Thread.memory))
      (SCWF: Memory.closed_timemap t1.(Thread.sc) t1.(Thread.memory))
      (MEMWF: Memory.closed t1.(Thread.memory)):
-  Commit.le t1.(Thread.local).(Local.commit) t2.(Thread.local).(Local.commit).
+  TView.le t1.(Thread.local).(Local.tview) t2.(Thread.local).(Local.tview).
 Proof.
   eapply Thread.step_future; eauto.
 Qed.
 
-Lemma rtc_small_step_commit_le
+Lemma rtc_small_step_tview_le
      c1 c2 tid lst1 lst2 lc1 lc2 withprm
      (STEPS: rtc (small_step_evt withprm tid) c1 c2)
      (THREAD1: IdentMap.find tid c1.(Configuration.threads) = Some (lst1, lc1))
      (THREAD2: IdentMap.find tid c2.(Configuration.threads) = Some (lst2, lc2))
      (WF: Configuration.wf c1):
-  Commit.le lc1.(Local.commit) lc2.(Local.commit).
+  TView.le lc1.(Local.tview) lc2.(Local.tview).
 Proof.
   ginduction STEPS; i.
   - rewrite THREAD1 in THREAD2. depdes THREAD2. reflexivity.
@@ -287,7 +287,7 @@ Proof.
     intros [WF2 _].
     inv WF.
     destruct USTEP. rewrite THREAD1 in TID. depdes TID.
-    etrans; [apply (thread_step_commit_le STEP)|]; eauto.
+    etrans; [apply (thread_step_tview_le STEP)|]; eauto.
     eapply WF0; eauto.
     eapply IHSTEPS; eauto.
     s. subst. rewrite IdentMap.gss. eauto.
@@ -298,7 +298,7 @@ Lemma small_step_write_lt
       (STEP: small_step withprm tid e c c1)
       (EVENT: ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord))
       (THREAD: IdentMap.find tid (Configuration.threads c) = Some (lst, lc)):
-  Time.lt (lc.(Local.commit).(Commit.cur).(View.rlx) loc) ts.
+  Time.lt (lc.(Local.tview).(TView.cur).(View.rlx) loc) ts.
 Proof.
   inv STEP. rewrite THREAD in TID. inv TID.
   inv STEP0; inv STEP; inv EVENT.

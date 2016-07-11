@@ -15,7 +15,7 @@ Require Import View.
 Require Import Cell.
 Require Import Memory.
 Require Import MemoryFacts.
-Require Import ThreadView.
+Require Import TView.
 Require Import Thread.
 Require Import Configuration.
 Require Import Progress.
@@ -27,7 +27,7 @@ Require Import SimLocal.
 Require Import Compatibility.
 Require Import Simulation.
 
-Require ReorderCommit.
+Require ReorderTView.
 Require Import MemoryReorder.
 Require Import MemoryMerge.
 
@@ -85,10 +85,10 @@ Lemma future_read_step
 Proof.
   inv STEP. exploit Memory.future_get; eauto. i. des.
   esplits.
-  - econs; eauto. eapply CommitFacts.readable_mon; eauto; refl.
+  - econs; eauto. eapply TViewFacts.readable_mon; eauto; refl.
   - auto.
   - econs; s.
-    + apply CommitFacts.read_commit_mon; auto.
+    + apply TViewFacts.read_tview_mon; auto.
       * refl.
       * apply WF.
       * eapply MEM. eauto.
@@ -103,15 +103,15 @@ Lemma future_fulfill_step
       (STEP: fulfill_step lc1 sc1 loc from to val releasedm released ord lc2 sc2):
   fulfill_step lc1 sc1' loc from to val releasedm' released ord lc2 sc1'.
 Proof.
-  assert (COMMIT: Commit.write_commit (Local.commit lc1) sc1 loc to ord = Commit.write_commit (Local.commit lc1) sc1' loc to ord).
-  { unfold Commit.write_commit. repeat (condtac; viewtac). }
-  assert (SC_EQ: sc1' = Commit.write_sc sc1' loc to ord).
-  { i. unfold Commit.write_sc. apply TimeMap.antisym; repeat (condtac; aggrtac). }
+  assert (TVIEW: TView.write_tview (Local.tview lc1) sc1 loc to ord = TView.write_tview (Local.tview lc1) sc1' loc to ord).
+  { unfold TView.write_tview. repeat (condtac; viewtac). }
+  assert (SC_EQ: sc1' = TView.write_sc sc1' loc to ord).
+  { i. unfold TView.write_sc. apply TimeMap.antisym; repeat (condtac; aggrtac). }
   inversion STEP. subst lc2 sc2. esplits.
-  - rewrite COMMIT. rewrite SC_EQ at 3. econs; eauto.
+  - rewrite TVIEW. rewrite SC_EQ at 3. econs; eauto.
     + etrans; eauto. condtac; viewtac. apply View.join_spec.
       * rewrite <- View.join_l. auto.
-      * rewrite <- View.join_r. rewrite COMMIT. refl.
+      * rewrite <- View.join_r. rewrite TVIEW. refl.
     + econs; try apply WRITABLE.
       i. destruct ord; inversion H; inversion ORD.
 Qed.
@@ -136,15 +136,15 @@ Proof.
   inv STEP1. inv STEP2. ss.
   esplits.
   - econs; eauto.
-    eapply CommitFacts.readable_mon; try apply READABLE0; eauto; try refl.
-    apply CommitFacts.read_commit_incr.
+    eapply TViewFacts.readable_mon; try apply READABLE0; eauto; try refl.
+    apply TViewFacts.read_tview_incr.
   - refine (Local.step_read _ _ _ _ _); eauto.
-    + s. unfold Commit.read_commit.
+    + s. unfold TView.read_tview.
       econs; repeat (try condtac; try splits; aggrtac; eauto; try apply READABLE;
                      unfold TimeMap.singleton, LocFun.add in *).
       *  specialize (LOC eq_refl). viewtac.
       * specialize (LOC eq_refl). viewtac.
-    + apply Commit.antisym; apply ReorderCommit.read_read_commit;
+    + apply TView.antisym; apply ReorderTView.read_read_tview;
         (try by apply WF0);
         (try by eapply MEM0; eauto).
 Qed.
@@ -171,9 +171,9 @@ Proof.
   esplits; eauto.
   - econs; eauto.
   - econs; eauto.
-    s. eapply CommitFacts.readable_mon; eauto; try refl.
+    s. eapply TViewFacts.readable_mon; eauto; try refl.
   - s. econs; ss.
-    + apply CommitFacts.read_commit_mon; try refl; try apply WF0; eauto.
+    + apply TViewFacts.read_tview_mon; try refl; try apply WF0; eauto.
       eapply MEM0. eauto.
     + apply SimPromises.sem_bot.
 Qed.
@@ -226,13 +226,13 @@ Proof.
   esplits; eauto.
   - econs; eauto.
     + etrans; eauto. repeat (try condtac; aggrtac; try apply WF0).
-    + eapply CommitFacts.writable_mon; eauto; try refl.
+    + eapply TViewFacts.writable_mon; eauto; try refl.
   - econs; eauto.
     s. inv READABLE.
     econs; repeat (try condtac; aggrtac; try apply WF0; eauto; unfold TimeMap.singleton).
       by destruct ord1, ord2; inv H; inv COND; inv ORD.
   - s. econs; s.
-    + apply ReorderCommit.read_write_commit; try apply WF0; auto.
+    + apply ReorderTView.read_write_tview; try apply WF0; auto.
     + apply SimPromises.sem_bot.
 Qed.
 
@@ -339,18 +339,18 @@ Proof.
   esplits.
   - econs; eauto.
   - econs; eauto. s.
-    unfold Commit.write_fence_commit, Commit.read_fence_commit, Commit.write_fence_sc.
+    unfold TView.write_fence_tview, TView.read_fence_tview, TView.write_fence_sc.
     econs; repeat (try condtac; try splits; aggrtac; try apply READABLE).
   - s. econs; s.
     + etrans.
-      * apply ReorderCommit.read_write_fence_commit; auto.
-        eapply CommitFacts.read_fence_future; apply WF0.
-      * apply CommitFacts.write_fence_commit_mon; try refl.
-        apply ReorderCommit.read_read_fence_commit; try apply WF0; auto.
-        exploit CommitFacts.read_fence_future; try apply WF0; eauto. i. des.
-        eapply CommitFacts.read_future; eauto.
+      * apply ReorderTView.read_write_fence_tview; auto.
+        eapply TViewFacts.read_fence_future; apply WF0.
+      * apply TViewFacts.write_fence_tview_mon; try refl.
+        apply ReorderTView.read_read_fence_tview; try apply WF0; auto.
+        exploit TViewFacts.read_fence_future; try apply WF0; eauto. i. des.
+        eapply TViewFacts.read_future; eauto.
     + apply SimPromises.sem_bot.
-  - unfold Commit.write_fence_sc, Commit.read_fence_commit.
+  - unfold TView.write_fence_sc, TView.read_fence_tview.
     repeat condtac; aggrtac.
 Qed.
 
@@ -375,15 +375,15 @@ Proof.
   hexploit Memory.remove_future; try apply REMOVE; try apply WF0; eauto. i. des.
   esplits.
   - econs; eauto.
-    eapply CommitFacts.readable_mon; try apply READABLE; eauto; try refl.
-    apply CommitFacts.write_commit_incr. apply WF0.
-  - unfold Local.commit at 2.
+    eapply TViewFacts.readable_mon; try apply READABLE; eauto; try refl.
+    apply TViewFacts.write_tview_incr. apply WF0.
+  - unfold Local.tview at 2.
     unfold Local.promises at 2.
-    rewrite ReorderCommit.read_write_commit_eq; eauto; try apply WF0; cycle 1.
+    rewrite ReorderTView.read_write_tview_eq; eauto; try apply WF0; cycle 1.
     { eapply MEM0. eauto. }
     econs; try exact REMOVE; eauto.
     + etrans; eauto. repeat (try condtac; aggrtac).
-    + s. unfold Commit.read_commit.
+    + s. unfold TView.read_tview.
       econs; repeat (try condtac; try splits; aggrtac; eauto; try apply WRITABLE;
                      unfold TimeMap.singleton, LocFun.add in *);
         (try by inv WRITABLE; eapply TimeFacts.le_lt_lt; eauto; aggrtac).
@@ -441,10 +441,10 @@ Proof.
   - econs; eauto.
     + etrans; eauto. repeat (try condtac; aggrtac; try apply WF0).
       econs; try by viewtac. s.
-      rewrite <- ? TimeMap.join_r. apply CommitFacts.write_sc_incr.
-    + eapply CommitFacts.writable_mon; eauto; try refl.
-      * apply CommitFacts.write_commit_incr. apply WF0.
-      * apply CommitFacts.write_sc_incr.
+      rewrite <- ? TimeMap.join_r. apply TViewFacts.write_sc_incr.
+    + eapply TViewFacts.writable_mon; eauto; try refl.
+      * apply TViewFacts.write_tview_incr. apply WF0.
+      * apply TViewFacts.write_sc_incr.
   - econs; eauto.
     + etrans; eauto. repeat (try condtac; aggrtac; try apply WF0).
     + inv WRITABLE. econs; i.
@@ -453,9 +453,9 @@ Proof.
       * eapply TimeFacts.le_lt_lt; [|apply SC1; auto]. viewtac.
       * eapply TimeFacts.le_lt_lt; [|apply SC2; auto]. viewtac.
   - s. econs; ss.
-    + apply ReorderCommit.write_write_commit; auto. apply WF0.
+    + apply ReorderTView.write_write_tview; auto. apply WF0.
     + apply SimPromises.sem_bot.
-  - apply ReorderCommit.write_write_sc; auto.
+  - apply ReorderTView.write_write_sc; auto.
 Qed.
 
 Lemma reorder_fulfill_write
@@ -557,30 +557,30 @@ Proof.
   guardH ORD1.
   exploit Local.write_step_future; eauto. i. des.
   inv STEP1. inv STEP2.
-  unfold Local.commit at 1 3. unfold Local.promises.
+  unfold Local.tview at 1 3. unfold Local.promises.
   assert (REL_EQ:
             (if Ordering.le Ordering.relaxed ord1
              then
               View.join releasedm1
-                (Commit.rel
-                   (Commit.write_commit (Local.commit lc0) sc0 loc1
+                (TView.rel
+                   (TView.write_tview (Local.tview lc0) sc0 loc1
                       to1 ord1) loc1)
              else View.bot) =
      (if Ordering.le Ordering.relaxed ord1
       then
        View.join releasedm1
-         (Commit.rel
-            (Commit.write_commit
-               (Commit.write_fence_commit
-                  (Commit.read_fence_commit (Local.commit lc0)
+         (TView.rel
+            (TView.write_tview
+               (TView.write_fence_tview
+                  (TView.read_fence_tview (Local.tview lc0)
                      Ordering.relaxed) sc0 Ordering.acqrel)
-               (Commit.write_fence_sc
-                  (Commit.read_fence_commit (Local.commit lc0)
+               (TView.write_fence_sc
+                  (TView.read_fence_tview (Local.tview lc0)
                      Ordering.relaxed) sc0 Ordering.acqrel) loc1 to1
                ord1) loc1)
       else View.bot)).
   { condtac; [|auto]. f_equal.
-    unfold Commit.write_fence_commit, Commit.write_fence_sc.
+    unfold TView.write_fence_tview, TView.write_fence_sc.
     apply View.antisym; repeat (try condtac; aggrtac; try apply WF0).
     unguardH ORD1. des; [|congr]. destruct ord1; inv ORD1; inv COND.
   }
@@ -588,7 +588,7 @@ Proof.
   - econs; eauto.
   - econs; eauto. ss. inv WRITABLE. econs; eauto.
   - s. econs; ss.
-    + unfold Commit.write_fence_sc, Commit.write_fence_commit.
+    + unfold TView.write_fence_sc, TView.write_fence_tview.
       econs; repeat (try condtac; aggrtac; try apply WF0).
     + apply SimPromises.sem_bot.
 Qed.
@@ -844,31 +844,31 @@ Proof.
   guardH ORD2. inv STEP1. inv STEP2.
   esplits.
   - econs; eauto.
-    eapply CommitFacts.readable_mon; eauto; try refl.
+    eapply TViewFacts.readable_mon; eauto; try refl.
     etrans.
-    + apply CommitFacts.write_fence_commit_incr. apply WF0.
-    + apply CommitFacts.write_fence_commit_mon; try refl; try apply WF0.
-      apply CommitFacts.read_fence_commit_incr. apply WF0.
+    + apply TViewFacts.write_fence_tview_incr. apply WF0.
+    + apply TViewFacts.write_fence_tview_mon; try refl; try apply WF0.
+      apply TViewFacts.read_fence_tview_incr. apply WF0.
   - econs; eauto.
   - s. econs; s.
     + inversion MEM0. exploit CLOSED; eauto. i. des.
-      exploit CommitFacts.read_future; try exact GET; try apply WF0; eauto. i. des.
-      exploit CommitFacts.read_fence_future; try apply WF0; eauto. i. des.
+      exploit TViewFacts.read_future; try exact GET; try apply WF0; eauto. i. des.
+      exploit TViewFacts.read_fence_future; try apply WF0; eauto. i. des.
       etrans; [|etrans].
-      * apply CommitFacts.write_fence_commit_mon; [|refl|refl|].
-        { apply ReorderCommit.read_fence_read_commit; auto. apply WF0. }
+      * apply TViewFacts.write_fence_tview_mon; [|refl|refl|].
+        { apply ReorderTView.read_fence_read_tview; auto. apply WF0. }
         { inversion MEM0. exploit CLOSED; eauto. i. des.
-          eapply CommitFacts.read_fence_future; eauto.
+          eapply TViewFacts.read_fence_future; eauto.
         }
-      * apply ReorderCommit.write_fence_read_commit; eauto.
-      * apply CommitFacts.read_commit_mon; auto; try refl.
-        eapply CommitFacts.write_fence_future; eauto.
+      * apply ReorderTView.write_fence_read_tview; eauto.
+      * apply TViewFacts.read_tview_mon; auto; try refl.
+        eapply TViewFacts.write_fence_future; eauto.
     + apply SimPromises.sem_bot.
   - s. etrans.
-    + apply CommitFacts.write_fence_sc_mon; [|refl|refl].
-      apply ReorderCommit.read_fence_read_commit; auto. apply WF0.
-    + eapply ReorderCommit.write_fence_read_sc; auto.
-      eapply CommitFacts.read_fence_future; eauto; apply WF0.
+    + apply TViewFacts.write_fence_sc_mon; [|refl|refl].
+      apply ReorderTView.read_fence_read_tview; auto. apply WF0.
+    + eapply ReorderTView.write_fence_read_sc; auto.
+      eapply TViewFacts.read_fence_future; eauto; apply WF0.
 Qed.
 
 Lemma reorder_fence_promise
@@ -914,45 +914,45 @@ Lemma reorder_fence_fulfill
     <<SC: TimeMap.le sc2' sc2>>.
 Proof.
   inv STEP1. inv STEP2.
-  exploit CommitFacts.read_fence_future; try apply WF0; eauto. i. des.
-  hexploit CommitFacts.write_fence_future; eauto. i. des.
+  exploit TViewFacts.read_fence_future; try apply WF0; eauto. i. des.
+  hexploit TViewFacts.write_fence_future; eauto. i. des.
   esplits.
   - econs; eauto.
     + etrans; eauto. condtac; [|by viewtac]. apply View.join_spec.
       * rewrite <- View.join_l. refl.
       * rewrite <- View.join_r.
-        apply CommitFacts.write_commit_mon; eauto; try refl.
+        apply TViewFacts.write_tview_mon; eauto; try refl.
         { etrans.
-          - apply CommitFacts.write_fence_commit_incr. apply WF0.
-          - apply CommitFacts.write_fence_commit_mon; try refl; try apply WF0.
-            apply CommitFacts.read_fence_commit_incr. apply WF0.
+          - apply TViewFacts.write_fence_tview_incr. apply WF0.
+          - apply TViewFacts.write_fence_tview_mon; try refl; try apply WF0.
+            apply TViewFacts.read_fence_tview_incr. apply WF0.
         }
-        { apply CommitFacts.write_fence_sc_incr. }
-    + eapply CommitFacts.writable_mon; eauto; try refl.
+        { apply TViewFacts.write_fence_sc_incr. }
+    + eapply TViewFacts.writable_mon; eauto; try refl.
       * etrans.
-        { apply CommitFacts.read_fence_commit_incr. apply WF0. }
-        { apply CommitFacts.write_fence_commit_incr.
-          eapply CommitFacts.read_fence_future; apply WF0.
+        { apply TViewFacts.read_fence_tview_incr. apply WF0. }
+        { apply TViewFacts.write_fence_tview_incr.
+          eapply TViewFacts.read_fence_future; apply WF0.
         }
-      * apply CommitFacts.write_fence_sc_incr.
+      * apply TViewFacts.write_fence_sc_incr.
   - econs; eauto.
   - s. econs; s.
     + etrans; [|etrans].
-      * apply CommitFacts.write_fence_commit_mon; [|refl|refl|].
-        { apply ReorderCommit.read_fence_write_commit; auto. apply WF0. }
+      * apply TViewFacts.write_fence_tview_mon; [|refl|refl|].
+        { apply ReorderTView.read_fence_write_tview; auto. apply WF0. }
         { exploit Memory.remove_get0; eauto. s. i.
           inv WF0. exploit PROMISES; eauto. i.
-          exploit CommitFacts.write_future; try exact x; try exact SC0; eauto. i. des.
-          eapply CommitFacts.read_fence_future; eauto.
+          exploit TViewFacts.write_future; try exact x; try exact SC0; eauto. i. des.
+          eapply TViewFacts.read_fence_future; eauto.
         }
-      * apply ReorderCommit.write_fence_write_commit; auto.
-      * apply CommitFacts.write_commit_mon; auto; try refl.
-        apply CommitFacts.write_fence_sc_incr.
+      * apply ReorderTView.write_fence_write_tview; auto.
+      * apply TViewFacts.write_tview_mon; auto; try refl.
+        apply TViewFacts.write_fence_sc_incr.
     + apply SimPromises.sem_bot.
   - etrans.
-    + apply CommitFacts.write_fence_sc_mon; [|refl|refl].
-      apply ReorderCommit.read_fence_write_commit; auto. apply WF0.
-    + eapply ReorderCommit.write_fence_write_sc; auto.
+    + apply TViewFacts.write_fence_sc_mon; [|refl|refl].
+      apply ReorderTView.read_fence_write_tview; auto. apply WF0.
+    + eapply ReorderTView.write_fence_write_sc; auto.
 Qed.
 
 Lemma reorder_fence_write
@@ -1017,9 +1017,9 @@ Proof.
   - econs; eauto.
   - econs; eauto.
   - ss. econs; ss.
-    + unfold Commit.write_fence_commit, Commit.write_fence_sc.
+    + unfold TView.write_fence_tview, TView.write_fence_sc.
       econs; repeat (try condtac; aggrtac; try apply WF0).
     + apply SimPromises.sem_bot.
-  - unfold Commit.write_fence_sc.
+  - unfold TView.write_fence_sc.
     repeat (try condtac; aggrtac; try apply WF0).
 Qed.

@@ -14,7 +14,7 @@ Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import ThreadView.
+Require Import TView.
 Require Import Thread.
 Require Import Configuration.
 
@@ -50,7 +50,7 @@ Lemma step_evt_future lang (e1 e2:Thread.t lang)
   <<WF2: Local.wf e2.(Thread.local) e2.(Thread.memory)>> /\
   <<SC2: Memory.closed_timemap e2.(Thread.sc) e2.(Thread.memory)>> /\
   <<CLOSED2: Memory.closed e2.(Thread.memory)>> /\
-  <<COMMIT_FUTURE: Commit.le e1.(Thread.local).(Local.commit) e2.(Thread.local).(Local.commit)>> /\
+  <<TVIEW_FUTURE: TView.le e1.(Thread.local).(Local.tview) e2.(Thread.local).(Local.tview)>> /\
   <<SC_FUTURE: TimeMap.le e1.(Thread.sc) e2.(Thread.sc)>> /\
   <<MEM_FUTURE: Memory.future e1.(Thread.memory) e2.(Thread.memory)>>.
 Proof.
@@ -65,7 +65,7 @@ Lemma rtc_step_evt_future lang (e1 e2:Thread.t lang)
   <<WF2: Local.wf e2.(Thread.local) e2.(Thread.memory)>> /\
   <<SC2: Memory.closed_timemap e2.(Thread.sc) e2.(Thread.memory)>> /\
   <<CLOSED2: Memory.closed e2.(Thread.memory)>> /\
-  <<COMMIT_FUTURE: Commit.le e1.(Thread.local).(Local.commit) e2.(Thread.local).(Local.commit)>> /\
+  <<TVIEW_FUTURE: TView.le e1.(Thread.local).(Local.tview) e2.(Thread.local).(Local.tview)>> /\
   <<SC_FUTURE: TimeMap.le e1.(Thread.sc) e2.(Thread.sc)>> /\
   <<MEM_FUTURE: Memory.future e1.(Thread.memory) e2.(Thread.memory)>>.
 Proof.
@@ -84,7 +84,7 @@ Lemma promise_step_evt_future lang (e1 e2:Thread.t lang)
   <<WF2: Local.wf e2.(Thread.local) e2.(Thread.memory)>> /\
   <<SC2: Memory.closed_timemap e2.(Thread.sc) e2.(Thread.memory)>> /\
   <<CLOSED2: Memory.closed e2.(Thread.memory)>> /\
-  <<COMMIT_FUTURE: Commit.le e1.(Thread.local).(Local.commit) e2.(Thread.local).(Local.commit)>> /\
+  <<TVIEW_FUTURE: TView.le e1.(Thread.local).(Local.tview) e2.(Thread.local).(Local.tview)>> /\
   <<SC_FUTURE: TimeMap.le e1.(Thread.sc) e2.(Thread.sc)>> /\
   <<MEM_FUTURE: Memory.future e1.(Thread.memory) e2.(Thread.memory)>> /\
   <<STATE: e1.(Thread.state) = e2.(Thread.state)>>.
@@ -101,7 +101,7 @@ Lemma rtc_promise_step_evt_future lang (e1 e2:Thread.t lang)
   <<WF2: Local.wf e2.(Thread.local) e2.(Thread.memory)>> /\
   <<SC2: Memory.closed_timemap e2.(Thread.sc) e2.(Thread.memory)>> /\
   <<CLOSED2: Memory.closed e2.(Thread.memory)>> /\
-  <<COMMIT_FUTURE: Commit.le e1.(Thread.local).(Local.commit) e2.(Thread.local).(Local.commit)>> /\
+  <<TVIEW_FUTURE: TView.le e1.(Thread.local).(Local.tview) e2.(Thread.local).(Local.tview)>> /\
   <<SC_FUTURE: TimeMap.le e1.(Thread.sc) e2.(Thread.sc)>> /\
   <<MEM_FUTURE: Memory.future e1.(Thread.memory) e2.(Thread.memory)>> /\
   <<STATE: e1.(Thread.state) = e2.(Thread.state)>>.

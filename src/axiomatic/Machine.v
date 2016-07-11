@@ -17,7 +17,7 @@ Require Import View.
 Require Import Cell.
 Require Import Memory.
 Require Import Thread.
-Require Import ThreadView.
+Require Import TView.
 
 Require Import Gevents.
 Require Import model.

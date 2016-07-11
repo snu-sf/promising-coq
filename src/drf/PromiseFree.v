@@ -12,7 +12,7 @@ Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import ThreadView.
+Require Import TView.
 Require Import Thread.
 Require Import Configuration.
 Require Import Progress.
@@ -85,11 +85,11 @@ Lemma can_fulfill_lt
       (FIND: IdentMap.find tid c1.(Configuration.threads) = Some (lst1, lc1))
       (PROMISE: Memory.get loc ts lc1.(Local.promises) = Some (from, msg))
       (WF: Configuration.wf c1):
-  Time.lt (lc1.(Local.commit).(Commit.cur).(View.rlx) loc) ts.
+  Time.lt (lc1.(Local.tview).(TView.cur).(View.rlx) loc) ts.
 Proof.
   destruct FULFILL.
   inv STEP.
-  eapply rtc_implies, rtc_small_step_commit_le in STEPS; eauto; cycle 1.
+  eapply rtc_implies, rtc_small_step_tview_le in STEPS; eauto; cycle 1.
   inv STEP0; inv STEP; inv EVENT.
   + inv LOCAL. inv WRITABLE.
     move STEPS at bottom. move TS at bottom.
@@ -168,28 +168,28 @@ Proof.
   eapply can_fulfill_lt; eauto.
 Qed.
 
-Lemma write_step_commit_mon
+Lemma write_step_tview_mon
       lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind
-      (WF1: Commit.wf (Local.commit lc1))
+      (WF1: TView.wf (Local.tview lc1))
       (STEP: Local.write_step lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind):
-  Commit.le lc1.(Local.commit) lc2.(Local.commit).
+  TView.le lc1.(Local.tview) lc2.(Local.tview).
 Proof.
-  inv STEP. ss. apply CommitFacts.write_commit_incr. auto.
+  inv STEP. ss. apply TViewFacts.write_tview_incr. auto.
 Qed.
 
 Lemma key_lemma_time_lt:
   forall (loc : Loc.t) (ts : Time.t) (k : Memory.promise_kind)
     (cM4' : Configuration.t) (lc4 : Local.t) 
-    (com4' : Commit.t) (prm3' : Memory.t) (sc2 : TimeMap.t)
+    (com4' : TView.t) (prm3' : Memory.t) (sc2 : TimeMap.t)
     (memory2 : Memory.t) (loc0 : Loc.t) (ts0 from : Time.t)
     (valr valw : Const.t) (relr relw : View.t)
     (ordr : Ordering.t) (m1' : Memory.t) (ordw0 : Ordering.t)
     (releasedw : View.t) (lc2 : Local.t)
-    (LC2: Commit.wf (Local.commit lc2))
+    (LC2: TView.wf (Local.tview lc2))
     (tsw : Time.t) (valw0 : Const.t) (kind : Memory.promise_kind),
-    Time.lt ((Commit.cur (Local.commit lc4)).(View.rlx) loc) ts ->
+    Time.lt ((TView.cur (Local.tview lc4)).(View.rlx) loc) ts ->
     Local.read_step
-      {| Local.commit := com4'; Local.promises := prm3' |}
+      {| Local.tview := com4'; Local.promises := prm3' |}
       (Configuration.memory cM4') loc0 ts0 valr relr ordr lc2 ->
     Local.write_step lc2 (Configuration.sc cM4')
                      (Configuration.memory cM4') loc0 ts0 tsw valw0 relr releasedw
@@ -199,9 +199,9 @@ Lemma key_lemma_time_lt:
     Ordering.le Ordering.acqrel ordr -> False.
 Proof.
   intros loc ts k cM4' lc4 com4' prm3' sc2 memory2 loc0 ts0 from valr valw relr relw ordr m1' ordw0 releasedw lc2 WF tsw valw0 kind TIMELT LOCAL1 LOCAL2 PMREL ORDR.
-  assert (COM: Commit.le lc2.(Local.commit) lc4.(Local.commit)).
-  { eapply write_step_commit_mon; eauto. }
-  assert (LT: Time.lt ((Commit.cur (Local.commit lc2)).(View.rlx) loc) ts).
+  assert (COM: TView.le lc2.(Local.tview) lc4.(Local.tview)).
+  { eapply write_step_tview_mon; eauto. }
+  assert (LT: Time.lt ((TView.cur (Local.tview lc2)).(View.rlx) loc) ts).
   { eapply TimeFacts.le_lt_lt; eauto. apply COM. }
   inv LOCAL1. ss.
   erewrite memory_op_get in GET; eauto. inv GET.
@@ -214,7 +214,7 @@ Qed.
 
 Lemma key_lemma_time_lt2:
   forall (loc : Loc.t) (ts : Time.t) (cM4' : Configuration.t)
-    (com4' : Commit.t) (loc0 : Loc.t) (ts0 : Time.t)
+    (com4' : TView.t) (loc0 : Loc.t) (ts0 : Time.t)
     (relw : View.t) (ordr ordw0 : Ordering.t) 
     (tsw : Time.t) xx yy,
     Ordering.le Ordering.acqrel ordr ->
@@ -264,7 +264,7 @@ Lemma key_lemma_rw_race
 
   lst5 lc5
   (THS5: IdentMap.find tid (Configuration.threads cM5') = Some (lst5, lc5))
-  (TIMELT: Time.lt (View.rlx (Commit.cur (Local.commit lc5)) loc) ts)
+  (TIMELT: Time.lt (View.rlx (TView.cur (Local.tview lc5)) loc) ts)
 :
   forall (loc0 : Loc.t) (ts0 from : Time.t) (valr valw : Const.t)
     (relr relw : View.t) (ordr ordw : Ordering.t)
@@ -630,7 +630,7 @@ Lemma key_lemma
       (PRCONSIS: forall tid0, promise_consistent_th tid0 cM4)
       lst4 lc4
       (THREAD4 : IdentMap.find tid (Configuration.threads cM4) = Some (lst4, lc4))
-      (TIMELT: Time.lt (lc4.(Local.commit).(Commit.cur).(View.rlx) loc) ts),
+      (TIMELT: Time.lt (lc4.(Local.tview).(TView.cur).(View.rlx) loc) ts),
     <<NOMSG: pre_in_msgs pre msgs>> /\
     exists cS4 pre',
     <<STEPS: with_pre (pi_step false tid) (cSTM3.(fst).(fst), conf_update_memory cSTM3.(fst).(snd) cSTM3.(snd)) pre' (cS4, cM4)>>
@@ -707,7 +707,7 @@ Proof.
        <<SCLE: TimeMap.le cM3'.(Configuration.sc) cM4'.(Configuration.sc)>> /\
        <<THS3: IdentMap.find tid cM3'.(Configuration.threads) = Some (lst3', Local.mk com3' prm3') >> /\
        <<THS4: IdentMap.find tid cM4'.(Configuration.threads) = Some (lst3', Local.mk com4' prm3') >> /\
-       <<COMLE: Commit.le com3' com4' >>) /\
+       <<COMLE: TView.le com3' com4' >>) /\
        (exists cS4' pre',
        <<STEPS4: with_pre (pi_step false tid) (cS4, conf_update_memory cT4 M4) pre' (cS4',cM4')>>/\
        <<EQPRE: pre = pi_pre_proj pre'>>)).
@@ -759,7 +759,7 @@ Proof.
   
   exploit IHPI_STEPS; eauto using promise_consistent_th_small_step.
   { eapply TimeFacts.le_lt_lt; eauto.
-    inv WF4''. exploit thread_step_commit_le; eauto. 
+    inv WF4''. exploit thread_step_tview_le; eauto. 
     { eapply WF0. eauto. }
     s. i. apply x0.
   }

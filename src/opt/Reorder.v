@@ -14,7 +14,7 @@ Require Import View.
 Require Import Cell.
 Require Import Memory.
 Require Import MemoryFacts.
-Require Import ThreadView.
+Require Import TView.
 Require Import Thread.
 Require Import Configuration.
 Require Import Progress.
@@ -134,7 +134,7 @@ Proof.
     + eauto.
     + econs 1.
     + auto.
-    + etrans; [|eauto]. inv STEP_SRC. apply CommitFacts.write_fence_sc_incr.
+    + etrans; [|eauto]. inv STEP_SRC. apply TViewFacts.write_fence_sc_incr.
     + auto.
     + left. eapply paco9_mon; [apply sim_fence_sim_thread|]; ss.
       econs; eauto.

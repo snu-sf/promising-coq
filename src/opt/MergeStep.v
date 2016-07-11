@@ -14,7 +14,7 @@ Require Import View.
 Require Import Cell.
 Require Import Memory.
 Require Import MemoryFacts.
-Require Import ThreadView.
+Require Import TView.
 Require Import Thread.
 Require Import Configuration.
 Require Import Progress.
@@ -26,8 +26,8 @@ Require Import SimLocal.
 Require Import Compatibility.
 Require Import Simulation.
 
-Require MergeCommit.
-Require ReorderCommit.
+Require MergeTView.
+Require ReorderTView.
 Require Import MemoryReorder.
 Require Import MemorySplit.
 Require Import MemoryMerge.
@@ -51,10 +51,10 @@ Proof.
     + inv MEM0. exploit CLOSED; eauto. i. des.
       etrans; eauto. apply WF.
     + inv MEM0. exploit CLOSED; eauto. i. des. auto.
-  - apply Commit.antisym.
-    + apply MergeCommit.read_read_commit; try refl; try apply WF0.
+  - apply TView.antisym.
+    + apply MergeTView.read_read_tview; try refl; try apply WF0.
       eapply MEM0. eauto.
-    + apply CommitFacts.read_commit_incr.
+    + apply TViewFacts.read_tview_incr.
 Qed.
 
 Lemma merge_write_read1
@@ -77,8 +77,8 @@ Proof.
   - inv WRITABLE. econs; repeat (try condtac; aggrtac); (try by left; eauto).
     + etrans; [|left; eauto]. apply WF0.
     + etrans; [|left; apply SC1; auto]. apply WF0.
-  - unfold Commit.read_commit, Commit.write_commit. s.
-    apply Commit.antisym; econs;
+  - unfold TView.read_tview, TView.write_tview. s.
+    apply TView.antisym; econs;
       repeat (try condtac; aggrtac; rewrite <- ? View.join_l; try apply WF0).
     + etrans; apply WF0.
 Qed.
@@ -93,8 +93,8 @@ Lemma merge_write_read2
       (MEM0: Memory.closed mem0)
       (WF_RELEASED: View.wf releasedm)
       (WF_CLOSED: Memory.closed_view releasedm mem0)
-      (RLX: Ordering.le Ordering.relaxed ord2 -> View.le releasedm lc0.(Local.commit).(Commit.acq))
-      (ACQ: Ordering.le Ordering.acqrel ord2 -> View.le releasedm lc0.(Local.commit).(Commit.cur))
+      (RLX: Ordering.le Ordering.relaxed ord2 -> View.le releasedm lc0.(Local.tview).(TView.acq))
+      (ACQ: Ordering.le Ordering.acqrel ord2 -> View.le releasedm lc0.(Local.tview).(TView.cur))
       (STEP: Local.write_step lc0 sc0 mem0 loc from to val releasedm released ord1 lc1 sc1 mem1 kind):
   Local.read_step lc1 mem1 loc to val released ord2 lc1.
 Proof.
@@ -108,8 +108,8 @@ Proof.
     + etrans; [|left; eauto]. apply WF0.
     + etrans; [|left; apply SC1; auto]. apply ACQ. etrans; eauto. auto.
     + etrans; [|left; apply SC1; auto]. apply WF0.
-  - unfold Commit.read_commit, Commit.write_commit. s.
-    apply Commit.antisym; econs;
+  - unfold TView.read_tview, TView.write_tview. s.
+    apply TView.antisym; econs;
       repeat (try condtac; aggrtac; rewrite <- ? View.join_l; try apply WF0; eauto).
     etrans; apply WF0.
 Qed.
@@ -156,12 +156,12 @@ Lemma fulfill_step_lc_from
       (WF: Local.wf lc0 mem0)
       (MEM: Memory.closed mem0)
       (STEP: fulfill_step lc0 sc0 loc from to val releasedm released ord lc1 sc1):
-  Time.le (lc0.(Local.commit).(Commit.cur).(View.rlx) loc) from.
+  Time.le (lc0.(Local.tview).(TView.cur).(View.rlx) loc) from.
 Proof.
   inv WF. inv STEP.
   exploit Memory.remove_get0; eauto. i.
   exploit PROMISES; eauto. i.
-  inv COMMIT_CLOSED. inv CUR. exploit RW; eauto. instantiate (1 := loc). i. des.
+  inv TVIEW_CLOSED. inv CUR. exploit RW; eauto. instantiate (1 := loc). i. des.
   eapply to_lt_from_le; eauto.
   inv WRITABLE. auto.
 Qed.
@@ -173,7 +173,7 @@ Lemma merge_split
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
-      (LC0_TS: Time.le (lc0.(Local.commit).(Commit.cur).(View.rlx) loc) ts1)
+      (LC0_TS: Time.le (lc0.(Local.tview).(TView.cur).(View.rlx) loc) ts1)
       (REL0_TS: Time.le (released0.(View.rlx) loc) ts1)
       (REL0_WF: View.wf released0)
       (REL0_CLOSED: Memory.closed_view released0 mem0)
@@ -191,14 +191,14 @@ Lemma merge_split
              if Ordering.le Ordering.relaxed ord
              then View.join
                     released0
-                    (Commit.rel (Commit.write_commit (Local.commit lc0) sc0 loc ts2 ord) loc)
+                    (TView.rel (TView.write_tview (Local.tview lc0) sc0 loc ts2 ord) loc)
              else View.bot>>.
 Proof.
   set (released1' :=
          if Ordering.le Ordering.relaxed ord
          then View.join
                 released0
-                (Commit.rel (Commit.write_commit (Local.commit lc0) sc0 loc ts2 ord) loc)
+                (TView.rel (TView.write_tview (Local.tview lc0) sc0 loc ts2 ord) loc)
          else View.bot).
   assert (REL1'_WF: View.wf released1').
   { unfold released1'. repeat (try condtac; aggrtac; try by apply WF0). }
@@ -227,30 +227,30 @@ Proof.
   esplits.
   - econs; eauto.
   - econs; try exact STEP2; auto.
-    + unfold Local.commit at 1 2. refl.
+    + unfold Local.tview at 1 2. refl.
     + s. inv WF0. inv WRITABLE.
       exploit Memory.remove_get0; try exact REMOVE; eauto. i.
       exploit PROMISES; eauto. i.
-      inv COMMIT_CLOSED. inv CUR.
+      inv TVIEW_CLOSED. inv CUR.
       exploit RW; eauto. i. des. eauto.
       exploit SC; eauto. i. des. eauto.
       exploit SC0; eauto. i. des.
       econs; i;
         eapply TimeFacts.le_lt_lt; try eexact TS12;
         eapply to_lt_from_le; eauto.
-  - unfold Local.commit at 1.
+  - unfold Local.tview at 1.
     econs; try exact STEP3; auto.
     + etrans; eauto. unfold released1'.
       repeat (try condtac; aggrtac; try by apply WF0).
-      unfold Commit.write_sc. econs; repeat (try condtac; aggrtac).
+      unfold TView.write_sc. econs; repeat (try condtac; aggrtac).
     + s. inv WRITABLE. econs; repeat (try condtac; aggrtac; eauto).
       * eapply TimeFacts.le_lt_lt; eauto. apply Time.bot_spec.
       * eapply TimeFacts.le_lt_lt; eauto. apply Time.bot_spec.
-      * unfold Commit.write_sc. repeat (try condtac; aggrtac; eauto).
+      * unfold TView.write_sc. repeat (try condtac; aggrtac; eauto).
   - s. econs; ss.
-    + eapply MergeCommit.write_write_commit; eauto. apply WF0.
+    + eapply MergeTView.write_write_tview; eauto. apply WF0.
     + apply SimPromises.sem_bot.
-  - eapply MergeCommit.write_write_sc; eauto.
+  - eapply MergeTView.write_write_sc; eauto.
   - inv STEP1. eapply split_sim_memory. eauto.
   - refl.
 Qed.
@@ -535,9 +535,9 @@ Proof.
   - econs; eauto.
   - econs; eauto.
   - s. econs; ss.
-    + unfold Commit.read_fence_commit, Commit.write_fence_commit, Commit.write_fence_sc.
+    + unfold TView.read_fence_tview, TView.write_fence_tview, TView.write_fence_sc.
       econs; repeat (try condtac; aggrtac; try apply WF0).
     + apply SimPromises.sem_bot.
-  - unfold Commit.read_fence_commit, Commit.write_fence_commit, Commit.write_fence_sc.
+  - unfold TView.read_fence_tview, TView.write_fence_tview, TView.write_fence_sc.
     repeat (try condtac; aggrtac; try apply WF0).
 Qed.

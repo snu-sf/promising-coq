@@ -13,7 +13,7 @@ Require Import Time.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import ThreadView.
+Require Import TView.
 Require Import Thread.
 Require Import Configuration.
 Require Import Progress.
@@ -120,7 +120,7 @@ Proof.
     try exact WF0; try by viewtac.
   { econs.
     - apply WF2.
-    - eapply Commit.future_closed; eauto. apply WF2.
+    - eapply TView.future_closed; eauto. apply WF2.
     - inv READ. apply WF_SRC.
   }
   i. des.
@@ -164,14 +164,14 @@ Proof.
   exploit fulfill_step_future; try apply x0; try exact WF1; eauto; try by viewtac.
   { econs.
     - apply WF2.
-    - eapply Commit.future_closed; eauto. apply WF2.
+    - eapply TView.future_closed; eauto. apply WF2.
     - inv READ. apply WF_SRC.
   }
   i. des.
   exploit sim_local_fulfill; try exact x0; try exact LOCAL0; try refl; eauto.
   { econs.
     - apply WF2.
-    - eapply Commit.future_closed; eauto. apply WF2.
+    - eapply TView.future_closed; eauto. apply WF2.
     - inv READ. apply WF_SRC.
   }
   i. des.

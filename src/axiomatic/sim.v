@@ -17,7 +17,7 @@ Require Import View.
 Require Import Cell.
 Require Import Memory.
 Require Import Thread.
-Require Import ThreadView.
+Require Import TView.
 
 Require Import Gevents.
 Require Import model.
@@ -64,26 +64,26 @@ eapply monotone_injective in H; eauto with acts.
 unfold loc; destruct (lab b); ins; desf.
 Qed.
 
-Lemma sim_commit_other_threads_silent acts sb rmw rf mo sc
-  (COH: Coherent acts sb rmw rf mo sc) f f' i commit
-  (LOCAL: sim_commit f acts sb rmw rf sc commit i)
+Lemma sim_tview_other_threads_silent acts sb rmw rf mo sc
+  (COH: Coherent acts sb rmw rf mo sc) f f' i tview
+  (LOCAL: sim_tview f acts sb rmw rf sc tview i)
   (F: forall a, (In a acts) -> f' a = f a) :
-    sim_commit f' acts sb rmw rf sc commit i.
+    sim_tview f' acts sb rmw rf sc tview i.
 Proof.
-unfold sim_commit, sim_cur, sim_acq, sim_rel in *; desf; splits; ins.
+unfold sim_tview, sim_cur, sim_acq, sim_rel in *; desf; splits; ins.
 all: eapply max_value_new_f; eauto.
 all: ins; apply F; eauto with acts.
 Qed.
 
-Lemma sim_commit_other_threads acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
+Lemma sim_tview_other_threads acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
   prev a (GSTEP: gstep acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc' prev a)
   (COH: Coherent acts sb rmw rf mo sc) 
-  f f' i (NEQ: i <> thread a) commit 
-  (LOCAL: sim_commit f acts sb rmw rf sc commit i)
+  f f' i (NEQ: i <> thread a) tview 
+  (LOCAL: sim_tview f acts sb rmw rf sc tview i)
   (F: forall a, (In a acts) -> f' a = f a) :
-    sim_commit f' acts' sb' rmw' rf' sc' commit i.
+    sim_tview f' acts' sb' rmw' rf' sc' tview i.
 Proof.
-unfold sim_commit, sim_cur, sim_acq, sim_rel in *; desf; splits; ins.
+unfold sim_tview, sim_cur, sim_acq, sim_rel in *; desf; splits; ins.
 all: eapply max_value_same_set.
 all: try match goal with
        | [|- max_value _ _ _] => eapply max_value_new_f with (f:=f); eauto with acts
@@ -187,11 +187,11 @@ Lemma Readable_full acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
   (COH: Coherent acts sb rmw rf mo sc) 
   (COH': Coherent acts' sb' rmw' rf' mo' sc') 
   f (MON: monotone mo f) l v o b (LABa: lab a = Aload l v o)
-  commit rel
+  tview rel
   (MSG: max_value f (fun a => msg_rel scr acts sb rmw rf sc l a b) (View.sc rel l))
-  (CUR: sim_cur f acts sb rmw rf sc (Commit.cur commit) (thread a))
+  (CUR: sim_cur f acts sb rmw rf sc (TView.cur tview) (thread a))
   (RFb: rf' b a): 
-    Commit.readable commit l (f b) rel o.
+    TView.readable tview l (f b) rel o.
 Proof.
 red in CUR; desc.
 constructor; try intro.
@@ -207,7 +207,7 @@ constructor; try intro.
 - eapply Readable_msg_sc; eauto with acts.
 Qed.
 
-Lemma commit_step_read acts sb rmw rf mo sc sc_map acts0 sb0 rmw0 rf0 mo0 sc0
+Lemma tview_step_read acts sb rmw rf mo sc sc_map acts0 sb0 rmw0 rf0 mo0 sc0
   (COH : Coherent acts sb rmw rf mo sc)
   f (MONOTONE : monotone mo f)
   (SIM_SC_MAP : forall l : Loc.t, max_value f (S_tm acts sb rmw rf l) (LocFun.find l sc_map))
@@ -215,8 +215,8 @@ Lemma commit_step_read acts sb rmw rf mo sc sc_map acts0 sb0 rmw0 rf0 mo0 sc0
   (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a a)
   b o_b (INb : In b acts) (RFb : rf0 b a) (LABb : lab b = Astore l v o_b)
   rel (SIM_MSG: sim_msg f acts sb rmw rf sc b rel)
-  commit (COMMIT: sim_commit f acts sb rmw rf sc commit (thread a)):
-  sim_commit f acts0 sb0 rmw0 rf0 sc0 (Commit.read_commit commit l (f b) rel o) (thread a).
+  tview (TVIEW: sim_tview f acts sb rmw rf sc tview (thread a)):
+  sim_tview f acts0 sb0 rmw0 rf0 sc0 (TView.read_tview tview l (f b) rel o) (thread a).
 Proof.
 assert (WRITE_B: is_write b). 
   unfold is_write; destruct (lab b); ins.
@@ -233,10 +233,10 @@ assert (SCa: is_sc a <-> Ordering.le Ordering.seqcst o).
 assert (~ is_fence a /\ ~ is_write a /\ is_read a).
   by destruct a; ins; desf.
 
-destruct commit; simpl.
-red in COMMIT; desc; red in CUR; red in ACQ; red in REL; desc.
+destruct tview; simpl.
+red in TVIEW; desc; red in CUR; red in ACQ; red in REL; desc.
 red in SIM_MSG; desc.
-unfold sim_commit, sim_acq, sim_cur, sim_rel; splits; ins.
+unfold sim_tview, sim_acq, sim_cur, sim_rel; splits; ins.
 
 all: try rewrite LocFun.add_spec; desf.
 all: ins.
@@ -405,10 +405,10 @@ Lemma Writable_full acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
   f f' (F : forall b, In b acts -> f' b = f b)
   (MON: monotone mo' f') (N_ZERO: Time.lt Time.bot (f' a))
   l v o (LABa: lab a = Astore l v o)
-  commit sc_map
+  tview sc_map
   (SC : forall l : Loc.t, max_value f (S_tm acts sb rmw rf l) (sc_map l))
-  (CUR: sim_cur f acts sb rmw rf sc (Commit.cur commit) (thread a)):
-  Commit.writable commit sc_map l (f' a) o.
+  (CUR: sim_cur f acts sb rmw rf sc (TView.cur tview) (thread a)):
+  TView.writable tview sc_map l (f' a) o.
 Proof.
 red in CUR; desc.
 constructor; try intro.
@@ -417,16 +417,16 @@ eapply Writable_cur_scr; eauto with acts.
 eapply Writable_sc_map; eauto with acts.
 Qed.
 
-Lemma commit_step_write acts sb rmw rf mo sc sc_map acts0 sb0 rmw0 rf0 mo0 sc0
+Lemma tview_step_write acts sb rmw rf mo sc sc_map acts0 sb0 rmw0 rf0 mo0 sc0
   (COH : Coherent acts sb rmw rf mo sc)
   f (MONOTONE : monotone mo f)
   (SIM_SC_MAP : forall l : Loc.t, max_value f (S_tm acts sb rmw rf l) (LocFun.find l sc_map))
   prev a l v o (LABa : lab a = Astore l v o)
   (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 prev a)
-  commit (COMMIT: sim_commit f acts sb rmw rf sc commit (thread a))
+  tview (TVIEW: sim_tview f acts sb rmw rf sc tview (thread a))
   f' (F : forall b, In b acts -> f' b = f b)
   (MON : monotone mo0 f'):
-  sim_commit f' acts0 sb0 rmw0 rf0 sc0 (Commit.write_commit commit sc_map l (f' a) o) (thread a).
+  sim_tview f' acts0 sb0 rmw0 rf0 sc0 (TView.write_tview tview sc_map l (f' a) o) (thread a).
 Proof.
 
 assert (WRITE: is_write a).
@@ -442,9 +442,9 @@ assert (RAa: Ordering.le Ordering.acqrel o <-> is_rel a).
 assert (LOC_A: Gevents.loc a = Some l). 
   by unfold Gevents.loc; destruct (lab a); ins; desf.
 
-destruct commit; simpl.
-red in COMMIT; desc; red in CUR; red in ACQ; red in REL; desc.
-unfold sim_commit, sim_acq, sim_cur, sim_rel; splits; ins.
+destruct tview; simpl.
+red in TVIEW; desc; red in CUR; red in ACQ; red in REL; desc.
+unfold sim_tview, sim_acq, sim_cur, sim_rel; splits; ins.
 
 all: try rewrite LocFun.add_spec; desf.
 all: ins.
@@ -493,14 +493,14 @@ Lemma sc_map_step_write acts sb rmw rf mo sc sc_map acts0 sb0 rmw0 rf0 mo0 sc0
   f' (F : forall b, In b acts -> f' b = f b)
   (MON : monotone mo0 f'):
   forall l0, max_value f' (S_tm acts0 sb0 rmw0 rf0 l0)
-     (LocFun.find l0 (Commit.write_sc sc_map l (f' a) o)).
+     (LocFun.find l0 (TView.write_sc sc_map l (f' a) o)).
 Proof.
 assert (WRITE: is_write a).
   eauto with acts.
 assert (SCa: Ordering.le Ordering.seqcst o <-> is_sc a).
   by destruct a; ins; desf.
     ins.
-    unfold Commit.write_sc; desf; ins.
+    unfold TView.write_sc; desf; ins.
     all: try rewrite !tm_find_join.
     all: try rewrite !tm_find_singleton; desf; ins.
     all: try rewrite time_join_bot.
@@ -533,7 +533,7 @@ Qed.
 Lemma memory_exists 
   mem (CLOSED: Memory.closed mem)
   from to (FROM: Time.lt from to)
-  commit (CWF: Commit.wf commit)
+  tview (CWF: TView.wf tview)
   released (RWF: View.wf released)
   l (LE: Time.le (released.(View.rlx) l) to) 
   (DISJ: forall (to2 from2 : Time.t) (msg2 : Message.t),
@@ -552,8 +552,8 @@ Qed.
 Lemma memory_exists_write 
   mem (CLOSED: Memory.closed mem)
   from to (FROM: Time.lt from to)
-  commit (CWF: Commit.wf commit)
-  l (CUR_LE: Time.le (View.rlx (Commit.cur commit) l) to)
+  tview (CWF: TView.wf tview)
+  l (CUR_LE: Time.le (View.rlx (TView.cur tview) l) to)
   (DISJ: forall (to2 from2 : Time.t) (msg2 : Message.t),
            Memory.get l to2 mem = Some (from2, msg2) ->
            Interval.disjoint (from, to) (from2, to2)) 
@@ -562,7 +562,7 @@ Lemma memory_exists_write
     Memory.write Memory.bot mem l from to v 
                  (if Ordering.le Ordering.relaxed o
                    then View.join View.bot
-                          (Commit.rel (Commit.write_commit commit sc_map l to o) l)
+                          (TView.rel (TView.write_tview tview sc_map l to o) l)
                    else View.bot)  
                  Memory.bot mem' Memory.promise_kind_add .
 Proof.
@@ -576,7 +576,7 @@ Proof.
          eauto using View.bot_wf, View.singleton_ur_wf.
     split; ins; eauto using TimeMap.bot_spec.
   }
-  assert (YY: Time.le (View.rlx (Commit.rel commit l) l) to).
+  assert (YY: Time.le (View.rlx (TView.rel tview l) l) to).
     by etransitivity; [|exact CUR_LE]; apply CWF.
   ins; desf; ins; unfold TimeMap.join, TimeMap.bot; ins; desf;
   unfold LocFun.add; desf; try congruence; ins;
@@ -672,11 +672,11 @@ Lemma memory_step_write_cell acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0
           exists b, In b acts /\ is_write b /\ loc b = Some l0 /\ ffrom b = from 
                     /\ f b = to /\ sim_mem_helper f acts sb rmw rf sc b from v rel)
   sc_map (SIM_SC_MAP : forall l, max_value f (S_tm acts sb rmw rf l) (LocFun.find l sc_map))
-  commit (SIM_COMMIT : sim_commit f acts sb rmw rf sc commit (thread a))
+  tview (SIM_TVIEW : sim_tview f acts sb rmw rf sc tview (thread a))
   (FROM: Time.lt (ffrom' a) (f' a))
   mem' (ADD: Memory.write Memory.bot mem l (ffrom' a) (f' a) v 
           (if Ordering.le Ordering.relaxed o then 
-          (Commit.rel (Commit.write_commit commit sc_map l (f' a) o) l) else View.bot)
+          (TView.rel (TView.write_tview tview sc_map l (f' a) o) l) else View.bot)
      Memory.bot mem' Memory.promise_kind_add)
   (GET: Memory.get l0 to mem' = Some (from0, Message.mk v0 rel0)):
   exists b, In b acts0 /\ is_write b /\ loc b = Some l0 /\
@@ -694,7 +694,7 @@ destruct (classic (l=l0 /\ f' a = to /\ ffrom' a = from0)).
 ins.
 
 assert(LocFun.add l0 (if Ordering.le Ordering.acqrel o
-then View.join (View.join (Commit.cur commit)
+then View.join (View.join (TView.cur tview)
  (View.singleton_ur l0 (f' a)))
 (if Ordering.le Ordering.seqcst o
 then
@@ -703,13 +703,13 @@ View.pln := TimeMap.bot;
 View.rlx := TimeMap.bot;
 View.sc := sc_map |}
 else View.bot)
-else Commit.rel commit l0) 
-(Commit.rel commit) l0=
+else TView.rel tview l0) 
+(TView.rel tview) l0=
 LocFun.find l0 (LocFun.add l0
 (if Ordering.le Ordering.acqrel o
 then
 View.join
-(View.join (Commit.cur commit)
+(View.join (TView.cur tview)
  (View.singleton_ur l0 (f' a)))
 (if Ordering.le Ordering.seqcst o
 then
@@ -718,15 +718,15 @@ View.pln := TimeMap.bot;
 View.rlx := TimeMap.bot;
 View.sc := sc_map |}
 else View.bot)
-else Commit.rel commit l0) 
-(Commit.rel commit))).  done.
+else TView.rel tview l0) 
+(TView.rel tview))).  done.
 rewrite H in ADD. clear H.
 
-unfold Commit.write_commit in ADD; ins.
+unfold TView.write_tview in ADD; ins.
 
-destruct commit; simpl.
-red in SIM_COMMIT; desc; red in CUR; red in ACQ; red in REL; desc.
-unfold sim_commit, sim_acq, sim_cur, sim_rel; splits; ins.
+destruct tview; simpl.
+red in SIM_TVIEW; desc; red in CUR; red in ACQ; red in REL; desc.
+unfold sim_tview, sim_acq, sim_cur, sim_rel; splits; ins.
 
 assert (SCa: Ordering.le Ordering.seqcst o <-> is_sc a).
   by destruct a; ins; desf.
@@ -812,10 +812,10 @@ Lemma memory_step_write acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a
   (CLOSED: Memory.closed mem)
   (FROM: Time.lt (ffrom' a) (fto' a))  
   sc_map (SIM_SC_MAP : forall l, max_value fto (S_tm acts sb rmw rf l) (LocFun.find l sc_map))
-  commit (SIM_COMMIT : sim_commit fto acts sb rmw rf sc commit (thread a))
+  tview (SIM_TVIEW : sim_tview fto acts sb rmw rf sc tview (thread a))
   mem' (ADD: Memory.write Memory.bot mem l (ffrom' a) (fto' a) v 
   (if Ordering.le Ordering.relaxed o then 
-      (Commit.rel (Commit.write_commit commit sc_map l (fto' a) o) l) else View.bot)
+      (TView.rel (TView.write_tview tview sc_map l (fto' a) o) l) else View.bot)
  Memory.bot mem' Memory.promise_kind_add):
   sim_mem ffrom' fto' acts0 sb0 rmw0 rf0 sc0 mem'.
 Proof.
@@ -830,7 +830,7 @@ Qed.
 (** * Lemmas for the fence step   *)
 (******************************************************************************)
 
-Lemma commit_step_scfence acts sb rmw rf mo sc sc_map acts0 sb0 rmw0 rf0 mo0 sc0
+Lemma tview_step_scfence acts sb rmw rf mo sc sc_map acts0 sb0 rmw0 rf0 mo0 sc0
   (COH : Coherent acts sb rmw rf mo sc)
   f (MONOTONE : monotone mo f)
   (SIM_SC_MAP : forall l : Loc.t, max_value f (S_tm acts sb rmw rf l) (LocFun.find l sc_map))
@@ -838,10 +838,10 @@ Lemma commit_step_scfence acts sb rmw rf mo sc sc_map acts0 sb0 rmw0 rf0 mo0 sc0
   (SC: is_sc a)
   (*IS_ACQ: is_acq a*)
   (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a a)
-  commit (COMMIT: sim_commit f acts sb rmw rf sc commit (thread a))
-  (WF: Commit.wf commit) :
-  sim_commit f acts0 sb0 rmw0 rf0 sc0 (Commit.write_fence_commit
-     (Commit.read_fence_commit commit o_r) sc_map o_w) (thread a).
+  tview (TVIEW: sim_tview f acts sb rmw rf sc tview (thread a))
+  (WF: TView.wf tview) :
+  sim_tview f acts0 sb0 rmw0 rf0 sc0 (TView.write_fence_tview
+     (TView.read_fence_tview tview o_r) sc_map o_w) (thread a).
 Proof.
   assert (FENCE: is_fence a).
     by destruct a; ins; desf.
@@ -856,22 +856,22 @@ Proof.
      by destruct a; ins; desf; destruct o_w.
 
   destruct WF.
-  destruct commit; simpls.
-  unfold Commit.write_fence_commit, Commit.read_fence_commit,
-         Commit.write_fence_sc; simpl.
+  destruct tview; simpls.
+  unfold TView.write_fence_tview, TView.read_fence_tview,
+         TView.write_fence_sc; simpl.
   simpl; rewrite SCa, RAr; simpl.
 desf.
 {
   assert (K: forall l, 
           max_value f (S_tm acts0 sb0 rmw0 rf0 l)
            (LocFun.find l (TimeMap.join sc_map (View.sc acq)))).
-    cdes COMMIT; cdes ACQ0; ins. 
+    cdes TVIEW; cdes ACQ0; ins. 
     ins; rewrite !tm_find_join.
     ins; eapply max_value_join; [eapply SIM_SC_MAP| |]; eauto.
     intro; rewrite gstep_S_tm_scfence; eauto; split; ins; desf; 
     eauto using inclusion_refl2 with rel_mon.
 
-  unfold sim_commit, sim_acq, sim_cur, sim_rel; splits; ins; desf.
+  unfold sim_tview, sim_acq, sim_cur, sim_rel; splits; ins; desf.
 
 
 all: try rewrite TimeMap.le_join_r with (r := TimeMap.join _ _).
@@ -893,14 +893,14 @@ by destruct ACQ; eauto.
   assert (K: forall l, 
           max_value f (S_tm acts0 sb0 rmw0 rf0 l)
            (LocFun.find l (TimeMap.join sc_map (View.sc cur)))).
-    cdes COMMIT; cdes CUR0; ins. 
+    cdes TVIEW; cdes CUR0; ins. 
     ins; rewrite !tm_find_join.
     ins; eapply max_value_join; [eapply SIM_SC_MAP| |]; eauto.
     intro; rewrite gstep_S_tm_scfence; eauto; split; ins; desf; 
     eauto using inclusion_refl2 with rel_mon; exfalso; eauto.
 
-  red in COMMIT; ins; desf; red in ACQ0; desf.
-  unfold sim_commit, sim_acq, sim_cur, sim_rel; splits; ins; desf.
+  red in TVIEW; ins; desf; red in ACQ0; desf.
+  unfold sim_tview, sim_acq, sim_cur, sim_rel; splits; ins; desf.
 all: try match goal with 
        |- max_value _ (t_acq _ _ _ _ _ _ _ _) _ => 
          rewrite tm_find_join; eapply max_value_join; eauto
@@ -927,15 +927,15 @@ all: try eapply max_value_same_set; try apply K;
 Qed.
 
 
-Lemma commit_step_rafence acts sb rmw rf mo sc sc_map acts0 sb0 rmw0 rf0 mo0 sc0
+Lemma tview_step_rafence acts sb rmw rf mo sc sc_map acts0 sb0 rmw0 rf0 mo0 sc0
   (COH : Coherent acts sb rmw rf mo sc)
   f (MONOTONE : monotone mo f)
   (SIM_SC_MAP : forall l : Loc.t, max_value f (S_tm acts sb rmw rf l) (LocFun.find l sc_map))
   a o_r o_w (LABa : lab a = Afence o_r o_w) (NSC: ~ is_sc a)
   (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a a)
-  commit (COMMIT: sim_commit f acts sb rmw rf sc commit (thread a)):
-  sim_commit f acts0 sb0 rmw0 rf0 sc0 (Commit.write_fence_commit
-     (Commit.read_fence_commit commit o_r) sc_map o_w) (thread a).
+  tview (TVIEW: sim_tview f acts sb rmw rf sc tview (thread a)):
+  sim_tview f acts0 sb0 rmw0 rf0 sc0 (TView.write_fence_tview
+     (TView.read_fence_tview tview o_r) sc_map o_w) (thread a).
 Proof.
 
   assert (FENCE: is_fence a).
@@ -950,12 +950,12 @@ Proof.
   assert (RAr: Ordering.le Ordering.acqrel o_w <-> is_rel a).
     by destruct a; ins; desf.
 
-  destruct commit; simpl.
-  unfold Commit.write_fence_commit, Commit.read_fence_commit,
-         Commit.write_fence_sc.
+  destruct tview; simpl.
+  unfold TView.write_fence_tview, TView.read_fence_tview,
+         TView.write_fence_sc.
 
-  red in COMMIT; desc; red in CUR; red in ACQ; red in REL; desc.
-  unfold sim_commit, sim_acq, sim_cur, sim_rel; splits; ins; desf.
+  red in TVIEW; desc; red in CUR; red in ACQ; red in REL; desc.
+  unfold sim_tview, sim_acq, sim_cur, sim_rel; splits; ins; desf.
 
   all: try rewrite !cap_join_bot.
   all: ins.
@@ -998,31 +998,31 @@ Definition proof_obligation ax_st ax_st' op_st i lang st st' :=
    (WF_OP_ST : Configuration.wf op_st)
    (CONS_OP_ST : Configuration.consistent op_st)
    (STATES : ts ax_st = IdentMap.map fst (Configuration.threads op_st))
-   ffrom fto (TIME : sim_time op_st ax_st ffrom fto) commit
+   ffrom fto (TIME : sim_time op_st ax_st ffrom fto) tview
    j (THREAD: i = Some j)
-   (COMMIT : sim_commit fto (acts ax_st) (sb ax_st) (rmw ax_st) 
-          (rf ax_st) (sc ax_st) commit i)
-   (LWF : Commit.wf commit)
+   (TVIEW : sim_tview fto (acts ax_st) (sb ax_st) (rmw ax_st) 
+          (rf ax_st) (sc ax_st) tview i)
+   (LWF : TView.wf tview)
    (SPACE : forall x y (MO: mo ax_st x y) (NRMW: ~ (rf ax_st ;; rmw ax_st) x y),
                  fto x <> ffrom y)
    (BSPACE : forall y (INy: In y (acts ax_st)) (W: is_write y)
                        (NRMW: ~ exists x, (rf ax_st ;; rmw ax_st) x y),
                  Time.bot <> ffrom y),
-  exists te commit' sc' mem' op_st' threads' local', 
+  exists te tview' sc' mem' op_st' threads' local', 
     << OP_ST': op_st' = Configuration.mk threads' sc' mem' >> /\ 
     << THREAD': threads' = IdentMap.add j (existT Language.state lang st', local') 
                                           (Configuration.threads op_st) >> /\ 
-    << LOCAL': local' = Local.mk commit' Memory.bot >> /\ 
+    << LOCAL': local' = Local.mk tview' Memory.bot >> /\ 
     << STEP: Thread.program_step te 
-                    (Thread.mk lang st (Local.mk commit Memory.bot) 
+                    (Thread.mk lang st (Local.mk tview Memory.bot) 
                                (Configuration.sc op_st) (Configuration.memory op_st))
                     (Thread.mk lang st' local' sc' mem') >> /\
     exists ffrom' fto', 
       << F_FROM: forall b, In b (acts ax_st) -> ffrom' b = ffrom b >> /\
       << F_TO: forall b, In b (acts ax_st) -> fto' b = fto b >> /\
       << MONOTONE: monotone (mo ax_st') fto' >> /\  
-      << SIM_COMMIT: sim_commit fto' (acts ax_st') (sb ax_st') (rmw ax_st') 
-                                (rf ax_st') (sc ax_st') commit' i >> /\
+      << SIM_TVIEW: sim_tview fto' (acts ax_st') (sb ax_st') (rmw ax_st') 
+                                (rf ax_st') (sc ax_st') tview' i >> /\
       << SIM_SC_MAP: forall l, max_value fto' (S_tm (acts ax_st') (sb ax_st') (rmw ax_st') 
                                                   (rf ax_st') l) 
                                          (LocFun.find l sc')  >> /\
@@ -1071,11 +1071,11 @@ eexists _,_,_,_,_,_,_.
 splits; eauto.
 - eapply Thread.step_read; eauto.
   econstructor; eauto.
-  red in COMMIT; red in SIMMSG; desc.
+  red in TVIEW; red in SIMMSG; desc.
   eapply Readable_full;eauto. 
 - exists ffrom, fto; splits; eauto.
   * rewrite <- gstep_non_write_mo; eauto with acts.
-  * eapply commit_step_read with (acts := acts) (acts0 := acts0); eauto.
+  * eapply tview_step_read with (acts := acts) (acts0 := acts0); eauto.
   * ins. eapply max_value_same_set; try edone.
     ins; rewrite gstep_S_tm_other; eauto with acts.
   * eapply memory_step_nonwrite with (acts := acts) (acts0 := acts0); eauto with acts.
@@ -1219,9 +1219,9 @@ Proof.
                         (if Ordering.le Ordering.relaxed o
                          then
                            View.join View.bot
-                             (Commit.rel
-                                (Commit.write_commit
-                                   (Local.commit {| Local.commit := commit; 
+                             (TView.rel
+                                (TView.write_tview
+                                   (Local.tview {| Local.tview := tview; 
                                                     Local.promises := Memory.bot |})
                                    (Configuration.sc op_st) l (f_to' a) o) l)
                          else View.bot)
@@ -1229,7 +1229,7 @@ Proof.
   {
     eapply memory_exists_write; try edone; ins.
     by destruct WF_OP_ST; done.
-    red in COMMIT; desc.
+    red in TVIEW; desc.
     red in CUR; desc.
     specialize (CUR_RW l). 
     red in CUR_RW; unfold LocFun.find in CUR_RW; desf.
@@ -1262,10 +1262,10 @@ Proof.
   desc; eexists _,_,_,mem',_,_,_; splits; eauto.
   - eapply Thread.step_write; eauto.
     econstructor; eauto.
-    cdes GSTEP; desf; red in COMMIT; desc; eapply Writable_full; 
+    cdes GSTEP; desf; red in TVIEW; desc; eapply Writable_full; 
     eauto using TimeFacts.le_lt_lt, Time.bot_spec, in_eq.
   - exists f_from', f_to'; splits; try done.
-    * eapply commit_step_write; eauto.
+    * eapply tview_step_write; eauto.
     * eapply sc_map_step_write; eauto.
     * eapply memory_step_write; eauto.
       destruct WF_OP_ST; done.
@@ -1337,7 +1337,7 @@ Proof.
   * rewrite <- gstep_non_write_mo; eauto with acts.
 
   * destruct (classic (is_sc a)); 
-      [ eapply commit_step_scfence|eapply commit_step_rafence]; eauto.
+      [ eapply tview_step_scfence|eapply tview_step_rafence]; eauto.
   * 
   assert (SCa: Ordering.le Ordering.seqcst o_w <-> is_sc a).
     by destruct a; ins; desf; destruct o_w; ins; desf.
@@ -1346,9 +1346,9 @@ Proof.
   assert (RAr: Ordering.le Ordering.acqrel o_w <-> is_rel a).
     by destruct a; ins; desf.
 
-  red in COMMIT; desc; clear REL; red in CUR; red in ACQ; desc.
+  red in TVIEW; desc; clear REL; red in CUR; red in ACQ; desc.
 
-  intro; unfold Commit.write_fence_sc, Commit.read_fence_commit; simpl; desf; ins.
+  intro; unfold TView.write_fence_sc, TView.read_fence_tview; simpl; desf; ins.
   all: try rewrite !cap_join_bot.
   all: ins.
   all: try rewrite !tm_join_bot.
@@ -1388,7 +1388,7 @@ Proof.
 
   rewrite STATES in TID.
   apply find_mapD in TID; desc; destruct z as [? local]; ins; desf.
-  destruct local as [commit promises].
+  destruct local as [tview promises].
   assert (TID' := TID).
   apply NO_PROMISES in TID'; ins; subst.
 
@@ -1413,9 +1413,9 @@ Proof.
       rewrite IdentMap.gsspec in TID0; desf; ins; simpl.
       destruct MSTEP; subst.
         rewrite <- SAME_ACTS, <- SAME_SB, <- SAME_RMW, <- SAME_RF, <- SAME_SC.
-        eapply sim_commit_other_threads_silent; eauto.
-      all: eapply sim_commit_other_threads; eauto 2.
-      all: try eapply sim_commit_other_threads; eauto 2.
+        eapply sim_tview_other_threads_silent; eauto.
+      all: eapply sim_tview_other_threads; eauto 2.
+      all: try eapply sim_tview_other_threads; eauto 2.
       all: try intro; subst; eauto.
       all: congruence.
    }

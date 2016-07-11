@@ -12,7 +12,7 @@ Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import ThreadView.
+Require Import TView.
 Require Import Thread.
 Require Import Configuration.
 Require Import Progress.
@@ -60,7 +60,7 @@ Inductive pi_step_except withprm (tid_except:Ident.t) cST1 cST2: Prop :=
 Hint Constructors pi_step_except.
 
 Definition remove_promise (th: {lang : Language.t & Language.state lang} * Local.t) :=
-  (th.(fst), Local.mk th.(snd).(Local.commit) Memory.bot).
+  (th.(fst), Local.mk th.(snd).(Local.tview) Memory.bot).
 
 Inductive pi_wf cmp: Configuration.t*Configuration.t -> Prop :=
 | pi_wf_intro cS cT

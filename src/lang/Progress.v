@@ -15,7 +15,7 @@ Require Import View.
 Require Import Cell.
 Require Import Memory.
 Require Import MemoryFacts.
-Require Import ThreadView.
+Require Import TView.
 Require Import Thread.
 
 Set Implicit Arguments.
@@ -80,14 +80,14 @@ Lemma progress_promise_step
                        (if Ordering.le Ordering.relaxed ord
                         then View.join
                                releasedm
-                               (Commit.rel (Commit.write_commit (Local.commit lc1) sc1 loc to ord) loc)
+                               (TView.rel (TView.write_tview (Local.tview lc1) sc1 loc to ord) loc)
                         else View.bot)
-                       (Local.mk lc1.(Local.commit) promises2) mem2 Memory.promise_kind_add.
+                       (Local.mk lc1.(Local.tview) promises2) mem2 Memory.promise_kind_add.
 Proof.
   exploit (@Memory.add_exists_max_ts
              mem1 loc to val
              (if Ordering.le Ordering.relaxed ord
-              then View.join releasedm (Commit.rel (Commit.write_commit (Local.commit lc1) sc1 loc to ord) loc)
+              then View.join releasedm (TView.rel (TView.write_tview (Local.tview lc1) sc1 loc to ord) loc)
               else View.bot)); eauto.
   { viewtac; try apply WF1. repeat condtac; viewtac; try apply WF1. }
   i. des.
@@ -145,7 +145,7 @@ Proof.
             promises2 = Memory.singleton
                           loc val
                           (if Ordering.le Ordering.relaxed ord
-                           then View.join releasedm (Commit.rel (Commit.write_commit (Local.commit lc1) sc1 loc to ord) loc)
+                           then View.join releasedm (TView.rel (TView.write_tview (Local.tview lc1) sc1 loc to ord) loc)
                            else View.bot)
                           LT).
   { apply Memory.ext. i.

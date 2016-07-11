@@ -13,7 +13,7 @@ Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import ThreadView.
+Require Import TView.
 Require Import Thread.
 Require Import Configuration.
 Require Import Progress.
@@ -556,11 +556,11 @@ Proof.
   inv CLOSED. econs; eapply mem_eqrel_closed_timemap; eauto.
 Qed.
 
-Lemma mem_eqrel_closed_commit
-      cmp commit m1 m2
+Lemma mem_eqrel_closed_tview
+      cmp tview m1 m2
       (EQMEM: mem_eqrel cmp m1 m2)
-      (CLOSED: Commit.closed commit m1):
-  Commit.closed commit m2.
+      (CLOSED: TView.closed tview m1):
+  TView.closed tview m2.
 Proof.
   inv CLOSED. econs; i; eapply mem_eqrel_closed_view; eauto.
 Qed.
@@ -604,7 +604,7 @@ Proof.
   - inv WFT. econs; s.
     + inv WF. econs; ss. i. exploit THREADS; eauto. i.
       inv x. econs; eauto.
-      * eapply mem_eqrel_closed_commit; eauto.
+      * eapply mem_eqrel_closed_tview; eauto.
       * ii. destruct msg. exploit PROMISES; eauto. i.
         eapply EQMEM in x. des. rewrite IN0.
         unfold View_lift_le in CMP. des; subst; ss.
@@ -1152,24 +1152,24 @@ Qed.
 Lemma lift_read
       com1 com2 com2' m1 m2 prm l t k e loc to val rel2 ordr
       (LOCAL: Local.read_step (Local.mk com2 prm) m2 loc to val rel2 ordr (Local.mk com2' prm))
-      (COM2: Commit.wf com2)
+      (COM2: TView.wf com2)
       (REL2: View.wf rel2)
-      (CoMLE: Commit.le com1 com2)
+      (CoMLE: TView.le com1 com2)
       (MEMLE: mem_eqlerel_lift l t prm k e m1 m2):
   (exists from relw ordw,
    <<EVENT: ThreadEvent.is_writing e = Some (loc, from, to, val, relw, ordw)>>)
   \/
   (exists com1' rel1,
    <<LOCAL: Local.read_step (Local.mk com1 prm) m1 loc to val rel1 ordr (Local.mk com1' prm)>> /\
-   <<CoMLE: Commit.le com1' com2'>> /\
+   <<CoMLE: TView.le com1' com2'>> /\
    <<RELLE: View.le rel1 rel2>>).
 Proof.
   inversion LOCAL. ss. subst.
   exploit mem_eqlerel_lift_get; eauto. i. des.
   - left. esplits; eauto.
   - right. esplits; ss.
-    + econs; eauto. ss. eapply CommitFacts.readable_mon; eauto. refl.
-    + apply CommitFacts.read_commit_mon; eauto; try refl.
+    + econs; eauto. ss. eapply TViewFacts.readable_mon; eauto. refl.
+    + apply TViewFacts.read_tview_mon; eauto; try refl.
     + auto.
 Qed.
 
@@ -1448,15 +1448,15 @@ Lemma lift_write
       (M1: Memory.closed m1)
       (RELR1: View.wf relr1)
       (RELR2: View.wf relr2)
-      (COM1: Commit.wf com1)
-      (COM2: Commit.wf com2)
-      (CoMLE: Commit.le com1 com2)
+      (COM1: TView.wf com1)
+      (COM2: TView.wf com2)
+      (CoMLE: TView.le com1 com2)
       (SC: TimeMap.le sc1 sc2)
       (REL: View.le relr1 relr2)
       (MEMLE: mem_eqlerel_lift l t prm k e m1 m2):
   exists com1' sc1' m1' kind' relw1,
   <<LOCAL: Local.write_step (Local.mk com1 prm) sc1 m1 loc from to val relr1 relw1 ord (Local.mk com1' prm') sc1' m1' kind'>> /\
-  <<CoMLE: Commit.le com1' com2'>> /\
+  <<CoMLE: TView.le com1' com2'>> /\
   <<RELLE: View.le relw1 relw2>> /\
   <<SC: TimeMap.le sc1' sc2'>> /\
   <<MEMLE: mem_eqlerel_lift l t prm' k e m1' m2'>>.
@@ -1465,7 +1465,7 @@ Proof.
              (if Ordering.le Ordering.relaxed ord
               then
                View.join relr1
-                 (Commit.rel (Commit.write_commit com1 sc1 loc to ord) loc)
+                 (TView.rel (TView.write_tview com1 sc1 loc to ord) loc)
               else View.bot)).
   assert (RELWWF: View.wf relw1).
   { unfold relw1. repeat (try condtac; aggrtac).
@@ -1496,10 +1496,10 @@ Proof.
   hexploit MemoryMerge.promise_promise_promise; try exact PROMISE1; eauto. i.
   esplits; eauto.
   - econs; eauto.
-    + eapply CommitFacts.writable_mon; eauto. refl.
+    + eapply TViewFacts.writable_mon; eauto. refl.
     + econs; eauto.
-  - apply CommitFacts.write_commit_mon; auto. refl.
-  - apply CommitFacts.write_sc_mon; auto. refl.
+  - apply TViewFacts.write_tview_mon; auto. refl.
+  - apply TViewFacts.write_sc_mon; auto. refl.
   - inv MEMLE'. econs; eauto.
     + etrans; eauto.
       eapply lower_mem_eqlerel. inv PROMISE0. eauto.
@@ -1509,24 +1509,24 @@ Qed.
 Lemma lift_fence
       sc1 sc2 sc2' com1 com2 com2' prm prm' ordr ordw
       (LOCAL: Local.fence_step (Local.mk com2 prm) sc2 ordr ordw (Local.mk com2' prm') sc2')
-      (COM1: Commit.wf com1)
-      (COM2: Commit.wf com2)
-      (CoMLE: Commit.le com1 com2)
+      (COM1: TView.wf com1)
+      (COM2: TView.wf com2)
+      (CoMLE: TView.le com1 com2)
       (SC: TimeMap.le sc1 sc2):
   exists com1' sc1',
   <<LOCAL: Local.fence_step (Local.mk com1 prm) sc1 ordr ordw (Local.mk com1' prm') sc1'>> /\
-  <<CoMLE: Commit.le com1' com2'>> /\
+  <<CoMLE: TView.le com1' com2'>> /\
   <<SC: TimeMap.le sc1' sc2'>>.
 Proof.
   inversion LOCAL. ss. subst.
   esplits; eauto.
   - econs; eauto.
-  - apply CommitFacts.write_fence_commit_mon; eauto; try refl.
-    + apply CommitFacts.read_fence_commit_mon; eauto; try refl.
-    + unfold Commit.read_fence_commit. ss.
+  - apply TViewFacts.write_fence_tview_mon; eauto; try refl.
+    + apply TViewFacts.read_fence_tview_mon; eauto; try refl.
+    + unfold TView.read_fence_tview. ss.
       econs; repeat (try condtac; aggrtac; try apply COM1).
-  - apply CommitFacts.write_fence_sc_mon; eauto; try refl.
-    apply CommitFacts.read_fence_commit_mon; eauto; try refl.
+  - apply TViewFacts.write_fence_sc_mon; eauto; try refl.
+    apply TViewFacts.read_fence_tview_mon; eauto; try refl.
 Qed.
 
 Lemma lift_step
@@ -1540,7 +1540,7 @@ Lemma lift_step
       (SCT1: Memory.closed_timemap thT1.(Thread.sc) thT1.(Thread.memory))
       (MEMS1: Memory.closed thS1.(Thread.memory))
       (MEMT1: Memory.closed thT1.(Thread.memory))
-      (COM: Commit.le thS1.(Thread.local).(Local.commit) thT1.(Thread.local).(Local.commit))
+      (COM: TView.le thS1.(Thread.local).(Local.tview) thT1.(Thread.local).(Local.tview))
       (PRM: thS1.(Thread.local).(Local.promises) = thT1.(Thread.local).(Local.promises))
       (SC: TimeMap.le thS1.(Thread.sc) thT1.(Thread.sc))
       (MEM: mem_eqlerel_lift l t thT1.(Thread.local).(Local.promises) k e thS1.(Thread.memory) thT1.(Thread.memory))
@@ -1553,7 +1553,7 @@ Lemma lift_step
    <<EVT: thread_event_eqlerel eS eT>> /\
    <<STEP: Thread.step eS thS1 thS2>> /\
    <<ST: thS2.(Thread.state) = thT2.(Thread.state)>> /\
-   <<COM: Commit.le thS2.(Thread.local).(Local.commit) thT2.(Thread.local).(Local.commit)>> /\
+   <<COM: TView.le thS2.(Thread.local).(Local.tview) thT2.(Thread.local).(Local.tview)>> /\
    <<PRM: thS2.(Thread.local).(Local.promises) = thT2.(Thread.local).(Local.promises)>> /\
    <<SC: TimeMap.le thS2.(Thread.sc) thT2.(Thread.sc)>> /\
    <<MEM: mem_eqlerel_lift l t thT2.(Thread.local).(Local.promises) k e thS2.(Thread.memory) thT2.(Thread.memory)>>).

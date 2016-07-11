@@ -14,7 +14,7 @@ Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import ThreadView.
+Require Import TView.
 Require Import Thread.
 
 Require Import SimMemory.
@@ -31,7 +31,7 @@ Set Implicit Arguments.
 Definition promise_consistent (lc:Local.t): Prop :=
   forall loc ts from msg
     (PROMISE: Memory.get loc ts lc.(Local.promises) = Some (from, msg)),
-    Time.lt (lc.(Local.commit).(Commit.cur).(View.rlx) loc) ts.
+    Time.lt (lc.(Local.tview).(TView.cur).(View.rlx) loc) ts.
 
 Definition promise_consistent_th (tid: Ident.t) (c: Configuration.t) : Prop :=
   forall lst lc
@@ -101,7 +101,7 @@ Lemma fence_step_promise_consistent
 Proof.
   exploit Local.fence_step_future; eauto. i. des.
   inversion STEP. subst. ii. exploit CONS; eauto. i.
-  eapply TimeFacts.le_lt_lt; eauto. apply COMMIT_FUTURE. 
+  eapply TimeFacts.le_lt_lt; eauto. apply TVIEW_FUTURE. 
 Qed.
 
 Lemma ordering_relaxed_dec
@@ -196,7 +196,7 @@ Lemma thread_step_unset_promises
   exists ord from val rel,
   <<EVENT: ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord)>> /\
   <<ORD: Ordering.le ord Ordering.relaxed>> /\
-  <<TIME: Time.lt (th1.(Thread.local).(Local.commit).(Commit.cur).(View.rlx) loc) ts>>.
+  <<TIME: Time.lt (th1.(Thread.local).(Local.tview).(TView.cur).(View.rlx) loc) ts>>.
 Proof.
   inv STEP.
   { inv STEP0. inv LOCAL. destruct msg. ss. 
@@ -233,7 +233,7 @@ Lemma rtc_small_step_unset_promises
       (GET1: Memory.get loc ts lc1.(Local.promises) = Some (from, msg))
       (FIND2: IdentMap.find tid c2.(Configuration.threads) = Some (lst2, lc2))
       (GET2: Memory.get loc ts lc2.(Local.promises) = None):
-  Time.lt (lc1.(Local.commit).(Commit.cur).(View.rlx) loc) ts.
+  Time.lt (lc1.(Local.tview).(TView.cur).(View.rlx) loc) ts.
 Proof.
   ginduction STEPS; i; subst.
   { ss. rewrite FIND1 in FIND2. depdes FIND2.
@@ -247,7 +247,7 @@ Proof.
     exploit IHSTEPS; eauto.
     intro LT. move STEP at bottom.
     eapply TimeFacts.le_lt_lt; eauto.
-    inv WF. exploit thread_step_commit_le; try exact STEP; eauto. 
+    inv WF. exploit thread_step_tview_le; try exact STEP; eauto. 
     { eapply WF0. rewrite FIND1. eauto. }
     s. i. apply x1.
   - eapply thread_step_unset_promises in STEP; eauto. des.
@@ -276,7 +276,7 @@ Proof.
     inv STEP. inv USTEP. ss.
     rewrite THREAD in TID. inv TID.
     rewrite IdentMap.gss in THREAD2. inv THREAD2.
-    inv WF. exploit thread_step_commit_le; try exact STEP; eauto. 
+    inv WF. exploit thread_step_tview_le; try exact STEP; eauto. 
     { eapply WF0. rewrite THREAD. eauto. }
     s. i. apply x0.
 Qed.

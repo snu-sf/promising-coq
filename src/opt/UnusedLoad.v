@@ -13,7 +13,7 @@ Require Import Time.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import ThreadView.
+Require Import TView.
 Require Import Thread.
 Require Import Configuration.
 Require Import Progress.
@@ -58,17 +58,17 @@ Lemma unused_read
     Local.read_step lc0 mem0 loc ts val released ord lc0.
 Proof.
   destruct lc0.
-  assert (exists from val released, Memory.get loc ((Commit.cur commit).(View.pln) loc) mem0 = Some (from, Message.mk val released)).
-  { inv WF. ss. inv COMMIT_CLOSED. inv CUR.
+  assert (exists from val released, Memory.get loc ((TView.cur tview).(View.pln) loc) mem0 = Some (from, Message.mk val released)).
+  { inv WF. ss. inv TVIEW_CLOSED. inv CUR.
     exploit UR; eauto.
   }
   des. inv MEM. exploit CLOSED; eauto. i. des.
   esplits. econs; s; eauto.
   - econs; viewtac.
-  - apply Commit.antisym.
-    + unfold Commit.read_commit. econs; repeat (condtac; aggrtac; try apply WF).
+  - apply TView.antisym.
+    + unfold TView.read_tview. econs; repeat (condtac; aggrtac; try apply WF).
       etrans; apply WF.
-    + apply CommitFacts.read_commit_incr.
+    + apply TViewFacts.read_tview_incr.
 Qed.
 
 Lemma unused_load_sim_stmts

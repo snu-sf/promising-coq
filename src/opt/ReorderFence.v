@@ -13,7 +13,7 @@ Require Import Time.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import ThreadView.
+Require Import TView.
 Require Import Thread.
 Require Import Configuration.
 
@@ -74,8 +74,8 @@ Lemma future_fence_step lc1 sc1 sc1' mem1 mem1' ordr ordw lc2 sc2
   Local.fence_step lc1 sc1' ordr ordw lc2 sc1'.
 Proof.
   inv STEP.
-  erewrite CommitFacts.write_fence_commit_acqrel; auto.
-  erewrite <- CommitFacts.write_fence_sc_acqrel at 2; eauto.
+  erewrite TViewFacts.write_fence_tview_acqrel; auto.
+  erewrite <- TViewFacts.write_fence_sc_acqrel at 2; eauto.
   econs; auto.
 Qed.
 

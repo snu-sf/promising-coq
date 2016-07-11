@@ -15,7 +15,7 @@ Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import ThreadView.
+Require Import TView.
 
 Set Implicit Arguments.
 
@@ -55,11 +55,11 @@ End ThreadEvent.
 
 Module Local.
   Structure t := mk {
-    commit: Commit.t;
+    tview: TView.t;
     promises: Memory.t;
   }.
 
-  Definition init := mk Commit.bot Memory.bot.
+  Definition init := mk TView.bot Memory.bot.
 
   Inductive is_terminal (lc:t): Prop :=
   | is_terminal_intro
@@ -68,8 +68,8 @@ Module Local.
 
   Inductive wf (lc:t) (mem:Memory.t): Prop :=
   | wf_intro
-      (COMMIT_WF: Commit.wf lc.(commit))
-      (COMMIT_CLOSED: Commit.closed lc.(commit) mem)
+      (TVIEW_WF: TView.wf lc.(tview))
+      (TVIEW_CLOSED: TView.closed lc.(tview) mem)
       (PROMISES: Memory.le lc.(promises) mem)
   .
 
@@ -88,41 +88,41 @@ Module Local.
       promises2 mem2 kind
       (PROMISE: Memory.promise lc1.(promises) mem1 loc from to val released promises2 mem2 kind)
       (CLOSED: Memory.closed_view released mem2):
-      promise_step lc1 mem1 loc from to val released (mk lc1.(commit) promises2) mem2 kind
+      promise_step lc1 mem1 loc from to val released (mk lc1.(tview) promises2) mem2 kind
   .
 
   Inductive read_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (to:Time.t) (val:Const.t) (released:View.t) (ord:Ordering.t): forall (lc2:t), Prop :=
   | step_read
       from
-      commit2
+      tview2
       (GET: Memory.get loc to mem1 = Some (from, Message.mk val released))
-      (READABLE: Commit.readable lc1.(commit) loc to released ord)
-      (COMMIT: Commit.read_commit lc1.(commit) loc to released ord = commit2):
-      read_step lc1 mem1 loc to val released ord (mk commit2 lc1.(promises))
+      (READABLE: TView.readable lc1.(tview) loc to released ord)
+      (TVIEW: TView.read_tview lc1.(tview) loc to released ord = tview2):
+      read_step lc1 mem1 loc to val released ord (mk tview2 lc1.(promises))
   .
 
   Inductive write_step (lc1:t) (sc1:TimeMap.t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (releasedm released:View.t) (ord:Ordering.t): forall (lc2:t) (sc2:TimeMap.t) (mem2:Memory.t) (kind:Memory.promise_kind), Prop :=
   | step_write
       promises2 mem2 kind
       (RELEASED: released = if Ordering.le Ordering.relaxed ord
-                            then View.join releasedm ((Commit.write_commit lc1.(commit) sc1 loc to ord).(Commit.rel) loc)
+                            then View.join releasedm ((TView.write_tview lc1.(tview) sc1 loc to ord).(TView.rel) loc)
                             else View.bot)
-      (WRITABLE: Commit.writable lc1.(commit) sc1 loc to ord)
+      (WRITABLE: TView.writable lc1.(tview) sc1 loc to ord)
       (WRITE: Memory.write lc1.(promises) mem1 loc from to val released promises2 mem2 kind)
       (RELEASE: Ordering.le Ordering.acqrel ord ->
                 lc1.(promises) loc = Cell.bot /\
                 kind = Memory.promise_kind_add):
       write_step lc1 sc1 mem1 loc from to val releasedm released ord
-                 (mk (Commit.write_commit lc1.(commit) sc1 loc to ord) promises2)
-                 (Commit.write_sc sc1 loc to ord)
+                 (mk (TView.write_tview lc1.(tview) sc1 loc to ord) promises2)
+                 (TView.write_sc sc1 loc to ord)
                  mem2 kind
   .
 
   Inductive fence_step (lc1:t) (sc1:TimeMap.t) (ordr ordw:Ordering.t): forall (lc2:t) (sc2:TimeMap.t), Prop :=
   | step_fence
-      commit2
-      (READ: Commit.read_fence_commit lc1.(commit) ordr = commit2):
-      fence_step lc1 sc1 ordr ordw (mk (Commit.write_fence_commit commit2 sc1 ordw) lc1.(promises)) (Commit.write_fence_sc commit2 sc1 ordw)
+      tview2
+      (READ: TView.read_fence_tview lc1.(tview) ordr = tview2):
+      fence_step lc1 sc1 ordr ordw (mk (TView.write_fence_tview tview2 sc1 ordw) lc1.(promises)) (TView.write_fence_sc tview2 sc1 ordw)
   .
 
   Lemma promise_step_future lc1 sc1 mem1 loc from to val released lc2 mem2 kind
@@ -134,7 +134,7 @@ Module Local.
     <<SC2: Memory.closed_timemap sc1 mem2>> /\
     <<CLOSED2: Memory.closed mem2>> /\
     <<FUTURE: Memory.future mem1 mem2>> /\
-    <<COMMIT_FUTURE: Commit.le lc1.(commit) lc2.(commit)>> /\
+    <<TVIEW_FUTURE: TView.le lc1.(tview) lc2.(tview)>> /\
     <<REL_WF: View.wf released>> /\
     <<REL_TS: Time.le (released.(View.rlx) loc) to>> /\
     <<REL_CLOSED: Memory.closed_view released mem2>>.
@@ -142,7 +142,7 @@ Module Local.
     inv WF1. inv STEP.
     exploit Memory.promise_future; eauto. i. des.
     splits; ss.
-    - econs; ss. eapply Commit.future_closed; eauto.
+    - econs; ss. eapply TView.future_closed; eauto.
     - eapply Memory.future_closed_timemap; eauto.
     - refl.
     - inv PROMISE.
@@ -157,32 +157,32 @@ Module Local.
         (WF1: wf lc1 mem1)
         (CLOSED1: Memory.closed mem1):
     <<WF2: wf lc2 mem1>> /\
-    <<COMMIT_FUTURE: Commit.le lc1.(commit) lc2.(commit)>> /\
+    <<TVIEW_FUTURE: TView.le lc1.(tview) lc2.(tview)>> /\
     <<REL_WF: View.wf released>> /\
     <<REL_CLOSED: Memory.closed_view released mem1>>.
   Proof.
     inv WF1. inv STEP.
-    exploit CommitFacts.read_future; eauto.
+    exploit TViewFacts.read_future; eauto.
     { eapply CLOSED1. eauto. }
     inv CLOSED1. exploit CLOSED; eauto. i. des.
     splits; auto.
     - econs; eauto.
-    - apply CommitFacts.read_commit_incr.
+    - apply TViewFacts.read_tview_incr.
   Qed.
 
   Lemma promise_closed_view
-        promises1 mem1 commit1 sc1 loc from to val releasedm released ord promises2 mem2 kind
+        promises1 mem1 tview1 sc1 loc from to val releasedm released ord promises2 mem2 kind
         (PROMISES: Memory.le promises1 mem1)
         (CLOSED0: Memory.closed_timemap sc1 mem1)
         (CLOSED1: Memory.closed mem1)
-        (CLOSED2: Commit.closed commit1 mem1)
+        (CLOSED2: TView.closed tview1 mem1)
         (CLOSED3: Memory.closed_view releasedm mem1)
         (PROMISE: Memory.promise promises1 mem1 loc from to val released promises2 mem2 kind):
     Memory.closed_view
       (if Ordering.le Ordering.relaxed ord
        then View.join
               releasedm
-              (Commit.rel (Commit.write_commit commit1 sc1 loc to ord) loc)
+              (TView.rel (TView.write_tview tview1 sc1 loc to ord) loc)
        else View.bot)
       mem2.
   Proof.
@@ -197,18 +197,18 @@ Module Local.
   Qed.
 
   Lemma write_closed_view
-        promises1 mem1 commit1 sc1 loc from to val releasedm released ord promises2 mem2 kind
+        promises1 mem1 tview1 sc1 loc from to val releasedm released ord promises2 mem2 kind
         (PROMISES: Memory.le promises1 mem1)
         (CLOSED0: Memory.closed_timemap sc1 mem1)
         (CLOSED1: Memory.closed mem1)
-        (CLOSED2: Commit.closed commit1 mem1)
+        (CLOSED2: TView.closed tview1 mem1)
         (CLOSED3: Memory.closed_view releasedm mem1)
         (WRITE: Memory.write promises1 mem1 loc from to val released promises2 mem2 kind):
     Memory.closed_view
       (if Ordering.le Ordering.relaxed ord
        then View.join
               releasedm
-              (Commit.rel (Commit.write_commit commit1 sc1 loc to ord) loc)
+              (TView.rel (TView.write_tview tview1 sc1 loc to ord) loc)
        else View.bot)
       mem2.
   Proof.
@@ -225,7 +225,7 @@ Module Local.
     <<WF2: wf lc2 mem2>> /\
     <<SC2: Memory.closed_timemap sc2 mem2>> /\
     <<CLOSED2: Memory.closed mem2>> /\
-    <<COMMIT_FUTURE: Commit.le lc1.(commit) lc2.(commit)>> /\
+    <<TVIEW_FUTURE: TView.le lc1.(tview) lc2.(tview)>> /\
     <<SC_FUTURE: TimeMap.le sc1 sc2>> /\
     <<MEM_FUTURE: Memory.future mem1 mem2>> /\
     <<REL_WF: View.wf released>> /\
@@ -241,13 +241,13 @@ Module Local.
     inv WF1. inv STEP.
     exploit Memory.write_future; try apply WRITE; eauto. i. des.
     exploit Memory.write_get2; try apply WRITE; eauto; try by viewtac. i.
-    exploit CommitFacts.write_future; eauto.
-    { eapply Commit.future_closed; eauto. }
+    exploit TViewFacts.write_future; eauto.
+    { eapply TView.future_closed; eauto. }
     { eapply Memory.future_closed_timemap; eauto. }
     i. des. splits; eauto.
     - econs; ss.
-    - apply CommitFacts.write_commit_incr. auto.
-    - apply CommitFacts.write_sc_incr.
+    - apply TViewFacts.write_tview_incr. auto.
+    - apply TViewFacts.write_sc_incr.
   Qed.
 
   Lemma fence_step_future lc1 sc1 mem1 ordr ordw lc2 sc2
@@ -257,19 +257,19 @@ Module Local.
         (CLOSED1: Memory.closed mem1):
     <<WF2: wf lc2 mem1>> /\
     <<SC2: Memory.closed_timemap sc2 mem1>> /\
-    <<COMMIT_FUTURE: Commit.le lc1.(commit) lc2.(commit)>> /\
+    <<TVIEW_FUTURE: TView.le lc1.(tview) lc2.(tview)>> /\
     <<SC_FUTURE: TimeMap.le sc1 sc2>>.
   Proof.
     inv WF1. inv STEP.
-    exploit CommitFacts.read_fence_future; eauto. i. des.
-    exploit CommitFacts.write_fence_future; eauto. i. des.
+    exploit TViewFacts.read_fence_future; eauto. i. des.
+    exploit TViewFacts.write_fence_future; eauto. i. des.
     splits; eauto.
     - econs; eauto.
     - etrans.
-      + apply CommitFacts.write_fence_commit_incr. auto.
-      + apply CommitFacts.write_fence_commit_mon; eauto; try refl.
-        apply CommitFacts.read_fence_commit_incr. auto.
-    - apply CommitFacts.write_fence_sc_incr.
+      + apply TViewFacts.write_fence_tview_incr. auto.
+      + apply TViewFacts.write_fence_tview_mon; eauto; try refl.
+        apply TViewFacts.read_fence_tview_incr. auto.
+    - apply TViewFacts.write_fence_sc_incr.
   Qed.
 
   Lemma promise_step_disjoint
@@ -287,7 +287,7 @@ Module Local.
     exploit Memory.promise_future; try apply PROMISE; eauto. i. des.
     exploit Memory.promise_disjoint; try apply PROMISE; eauto. i. des.
     splits; ss. econs; eauto.
-    eapply Commit.future_closed; eauto.
+    eapply TView.future_closed; eauto.
   Qed.
 
   Lemma read_step_disjoint
@@ -316,7 +316,7 @@ Module Local.
     exploit Memory.write_future0; try apply WRITE; eauto; try by viewtac. i. des.
     exploit Memory.write_disjoint; try apply WRITE; eauto. i. des.
     splits; ss. econs; eauto.
-    inv WRITE. eapply Commit.promise_closed; eauto.
+    inv WRITE. eapply TView.promise_closed; eauto.
   Qed.
 
   Lemma fence_step_disjoint
@@ -448,7 +448,7 @@ Module Thread.
       <<WF2: Local.wf e2.(local) e2.(memory)>> /\
       <<SC2: Memory.closed_timemap e2.(sc) e2.(memory)>> /\
       <<CLOSED2: Memory.closed e2.(memory)>> /\
-      <<COMMIT_FUTURE: Commit.le e1.(Thread.local).(Local.commit) e2.(Thread.local).(Local.commit)>> /\
+      <<TVIEW_FUTURE: TView.le e1.(Thread.local).(Local.tview) e2.(Thread.local).(Local.tview)>> /\
       <<FUTURE: Memory.future e1.(memory) e2.(memory)>>.
     Proof.
       inv STEP. ss.
@@ -464,7 +464,7 @@ Module Thread.
       <<WF2: Local.wf e2.(local) e2.(memory)>> /\
       <<SC2: Memory.closed_timemap e2.(sc) e2.(memory)>> /\
       <<CLOSED2: Memory.closed e2.(memory)>> /\
-      <<COMMIT_FUTURE: Commit.le e1.(Thread.local).(Local.commit) e2.(Thread.local).(Local.commit)>> /\
+      <<TVIEW_FUTURE: TView.le e1.(Thread.local).(Local.tview) e2.(Thread.local).(Local.tview)>> /\
       <<SC_FUTURE: TimeMap.le e1.(sc) e2.(sc)>> /\
       <<MEM_FUTURE: Memory.future e1.(memory) e2.(memory)>>.
     Proof.
@@ -487,7 +487,7 @@ Module Thread.
       <<WF2: Local.wf e2.(local) e2.(memory)>> /\
       <<SC2: Memory.closed_timemap e2.(sc) e2.(memory)>> /\
       <<CLOSED2: Memory.closed e2.(memory)>> /\
-      <<COMMIT_FUTURE: Commit.le e1.(Thread.local).(Local.commit) e2.(Thread.local).(Local.commit)>> /\
+      <<TVIEW_FUTURE: TView.le e1.(Thread.local).(Local.tview) e2.(Thread.local).(Local.tview)>> /\
       <<SC_FUTURE: TimeMap.le e1.(sc) e2.(sc)>> /\
       <<MEM_FUTURE: Memory.future e1.(memory) e2.(memory)>>.
     Proof.
@@ -505,7 +505,7 @@ Module Thread.
       <<WF2: Local.wf e2.(local) e2.(memory)>> /\
       <<SC2: Memory.closed_timemap e2.(sc) e2.(memory)>> /\
       <<CLOSED2: Memory.closed e2.(memory)>> /\
-      <<COMMIT_FUTURE: Commit.le e1.(Thread.local).(Local.commit) e2.(Thread.local).(Local.commit)>> /\
+      <<TVIEW_FUTURE: TView.le e1.(Thread.local).(Local.tview) e2.(Thread.local).(Local.tview)>> /\
       <<SC_FUTURE: TimeMap.le e1.(sc) e2.(sc)>> /\
       <<MEM_FUTURE: Memory.future e1.(memory) e2.(memory)>>.
     Proof.
@@ -522,7 +522,7 @@ Module Thread.
       <<WF2: Local.wf e2.(local) e2.(memory)>> /\
       <<SC2: Memory.closed_timemap e2.(sc) e2.(memory)>> /\
       <<CLOSED2: Memory.closed e2.(memory)>> /\
-      <<COMMIT_FUTURE: Commit.le e1.(Thread.local).(Local.commit) e2.(Thread.local).(Local.commit)>> /\
+      <<TVIEW_FUTURE: TView.le e1.(Thread.local).(Local.tview) e2.(Thread.local).(Local.tview)>> /\
       <<SC_FUTURE: TimeMap.le e1.(sc) e2.(sc)>> /\
       <<MEM_FUTURE: Memory.future e1.(memory) e2.(memory)>>.
     Proof.

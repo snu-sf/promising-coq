@@ -14,7 +14,7 @@ Require Import Time.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import ThreadView.
+Require Import TView.
 Require Import Thread.
 Require Import Configuration.
 Require Import Progress.
@@ -71,8 +71,8 @@ Lemma future_fence_step lc1 sc1 sc1' mem1 mem1' ordr ordw lc2 sc2
   Local.fence_step lc1 sc1' ordr ordw lc2 sc1'.
 Proof.
   inv STEP.
-  erewrite CommitFacts.write_fence_commit_acqrel; auto.
-  erewrite <- CommitFacts.write_fence_sc_acqrel at 2; eauto.
+  erewrite TViewFacts.write_fence_tview_acqrel; auto.
+  erewrite <- TViewFacts.write_fence_sc_acqrel at 2; eauto.
   econs; auto.
 Qed.
 
@@ -165,7 +165,7 @@ Proof.
     + auto.
     + econs.
       { eapply WF_TGT. }
-      { eapply Commit.future_closed; eauto. apply WF_TGT. }
+      { eapply TView.future_closed; eauto. apply WF_TGT. }
       { inv FENCE. apply WF2_TGT. }
     + apply Memory.max_timemap_closed. viewtac.
     + auto.
@@ -220,7 +220,7 @@ Proof.
     + econs 2. econs 2. econs 2; eauto. econs. econs.
     + auto.
     + etrans; eauto. etrans; eauto.
-      inv x0. unfold Commit.write_fence_sc. condtac; ss. refl.
+      inv x0. unfold TView.write_fence_sc. condtac; ss. refl.
     + auto.
     + left. eapply paco9_mon; [apply sim_release_fenceF_sim_thread|]; ss.
       econs 1; eauto. etrans; eauto.
@@ -240,7 +240,7 @@ Proof.
     + econs 2. econs 2. econs 3; eauto. econs. econs.
     + auto.
     + etrans; eauto.
-      inv x0. unfold Commit.write_fence_sc. condtac; ss. refl.
+      inv x0. unfold TView.write_fence_sc. condtac; ss. refl.
     + auto.
     + left. eapply paco9_mon; [apply sim_release_fenceF_sim_thread|]; ss.
       econs 1; eauto. etrans; eauto.
@@ -267,7 +267,7 @@ Proof.
     + econs 2. econs 2. econs 4; eauto. econs. econs. eauto.
     + auto.
     + etrans; eauto.
-      inv x0. unfold Commit.write_fence_sc. condtac; ss. refl.
+      inv x0. unfold TView.write_fence_sc. condtac; ss. refl.
     + auto.
     + left. eapply paco9_mon; [apply sim_release_fenceF_sim_thread|]; ss.
       econs 1; eauto. etrans; eauto.
@@ -285,7 +285,7 @@ Proof.
     + econs 2. econs 2. econs 5; eauto. econs. econs.
     + auto.
     + etrans; eauto. etrans; eauto.
-      inv x0. unfold Commit.write_fence_sc. condtac; ss. refl.
+      inv x0. unfold TView.write_fence_sc. condtac; ss. refl.
     + auto.
     + left. eapply paco9_mon; [apply sim_release_fenceF_sim_thread|]; ss.
       econs 1; eauto. etrans; eauto.

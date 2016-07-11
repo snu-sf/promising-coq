@@ -15,7 +15,7 @@ Require Import View.
 Require Import Cell.
 Require Import Memory.
 Require Import MemoryFacts.
-Require Import ThreadView.
+Require Import TView.
 Require Import Thread.
 
 Require Import SimMemory.
@@ -31,14 +31,14 @@ Set Implicit Arguments.
 Inductive fulfill_step (lc1:Local.t) (sc1:TimeMap.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (releasedm released:View.t) (ord:Ordering.t): forall (lc2:Local.t) (sc2:TimeMap.t), Prop :=
 | step_fulfill
     promises2
-    (REL_LE: View.le (if Ordering.le Ordering.relaxed ord then View.join releasedm ((Commit.write_commit lc1.(Local.commit) sc1 loc to ord).(Commit.rel) loc) else View.bot) released)
+    (REL_LE: View.le (if Ordering.le Ordering.relaxed ord then View.join releasedm ((TView.write_tview lc1.(Local.tview) sc1 loc to ord).(TView.rel) loc) else View.bot) released)
     (REL_WF: View.wf released)
-    (WRITABLE: Commit.writable lc1.(Local.commit) sc1 loc to ord)
+    (WRITABLE: TView.writable lc1.(Local.tview) sc1 loc to ord)
     (REMOVE: Memory.remove lc1.(Local.promises) loc from to val released promises2)
     (TIME: Time.lt from to):
     fulfill_step lc1 sc1 loc from to val releasedm released ord
-                 (Local.mk (Commit.write_commit lc1.(Local.commit) sc1 loc to ord) promises2)
-                 (Commit.write_sc sc1 loc to ord)
+                 (Local.mk (TView.write_tview lc1.(Local.tview) sc1 loc to ord) promises2)
+                 (TView.write_sc sc1 loc to ord)
 .
 
 Lemma fulfill_step_future lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2
@@ -55,10 +55,10 @@ Proof.
   hexploit Memory.remove_future; try apply REMOVE; try apply WF1; eauto. i. des.
   exploit Memory.remove_get0; eauto. i.
   inversion WF1. exploit PROMISES; eauto. i.
-  exploit CommitFacts.write_future; try apply x; try apply SC1; try apply WF1; eauto. i. des.
+  exploit TViewFacts.write_future; try apply x; try apply SC1; try apply WF1; eauto. i. des.
   esplits; eauto.
   - econs; eauto.
-  - apply CommitFacts.write_sc_incr.
+  - apply TViewFacts.write_sc_incr.
 Qed.
 
 Lemma write_promise_fulfill
@@ -76,7 +76,7 @@ Lemma write_promise_fulfill
            if Ordering.le Ordering.relaxed ord
            then View.join
                   releasedm
-                  (Commit.rel (Commit.write_commit (Local.commit lc0) sc0 loc to ord) loc)
+                  (TView.rel (TView.write_tview (Local.tview lc0) sc0 loc to ord) loc)
            else View.bot>> /\
     <<ORD: Ordering.le Ordering.acqrel ord ->
            Local.promises lc0 loc = Cell.bot /\
@@ -136,7 +136,7 @@ Lemma promise_fulfill_write
            if Ordering.le Ordering.relaxed ord
            then View.join
                   releasedm
-                  (Commit.rel (Commit.write_commit (Local.commit lc0) sc0 loc to ord) loc)
+                  (TView.rel (TView.write_tview (Local.tview lc0) sc0 loc to ord) loc)
            else View.bot>>.
 Proof.
   exploit Local.promise_step_future; eauto. i. des.
@@ -167,7 +167,7 @@ Lemma promise_fulfill_write_exact
             if Ordering.le Ordering.relaxed ord
             then View.join
                    releasedm
-                   (Commit.rel (Commit.write_commit (Local.commit lc0) sc0 loc to ord) loc)
+                   (TView.rel (TView.write_tview (Local.tview lc0) sc0 loc to ord) loc)
             else View.bot):
   Local.write_step lc0 sc0 mem0 loc from to val releasedm released ord lc2 sc2 mem2 kind.
 Proof.

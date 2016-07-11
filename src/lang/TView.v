@@ -17,7 +17,7 @@ Require Import Memory.
 Set Implicit Arguments.
 
 
-Module Commit <: JoinableType.
+Module TView <: JoinableType.
   Structure t_ := mk {
     rel: LocFun.t View.t;
     cur: View.t;
@@ -27,20 +27,20 @@ Module Commit <: JoinableType.
 
   Definition bot: t := mk (LocFun.init View.bot) View.bot View.bot.
 
-  Inductive wf (commit:t): Prop :=
+  Inductive wf (tview:t): Prop :=
   | wf_intro
-      (REL: forall loc, View.wf (commit.(rel) loc))
-      (CUR: View.wf commit.(cur))
-      (ACQ: View.wf commit.(acq))
-      (REL_CUR: forall loc, View.le (commit.(rel) loc) commit.(cur))
-      (CUR_ACQ: View.le commit.(cur) commit.(acq))
+      (REL: forall loc, View.wf (tview.(rel) loc))
+      (CUR: View.wf tview.(cur))
+      (ACQ: View.wf tview.(acq))
+      (REL_CUR: forall loc, View.le (tview.(rel) loc) tview.(cur))
+      (CUR_ACQ: View.le tview.(cur) tview.(acq))
   .
 
-  Inductive closed (commit:t) (mem:Memory.t): Prop :=
+  Inductive closed (tview:t) (mem:Memory.t): Prop :=
   | closed_intro
-      (REL: forall loc, Memory.closed_view (commit.(rel) loc) mem)
-      (CUR: Memory.closed_view commit.(cur) mem)
-      (ACQ: Memory.closed_view commit.(acq) mem)
+      (REL: forall loc, Memory.closed_view (tview.(rel) loc) mem)
+      (CUR: Memory.closed_view tview.(cur) mem)
+      (ACQ: Memory.closed_view tview.(acq) mem)
   .
 
   Lemma bot_wf: wf bot.
@@ -54,20 +54,20 @@ Module Commit <: JoinableType.
   Qed.
   
   Lemma future_closed
-        commit mem1 mem2
-        (CLOSED: closed commit mem1)
+        tview mem1 mem2
+        (CLOSED: closed tview mem1)
         (FUTURE: Memory.future mem1 mem2):
-    closed commit mem2.
+    closed tview mem2.
   Proof.
     inv CLOSED. econs; i; eapply Memory.future_closed_view; eauto.
   Qed.
 
   Lemma promise_closed
-        commit1
+        tview1
         promises1 mem1 loc from to val released promises2 mem2 kind
-        (CLOSED: closed commit1 mem1)
+        (CLOSED: closed tview1 mem1)
         (PROMISE: Memory.promise promises1 mem1 loc from to val released promises2 mem2 kind):
-    closed commit1 mem2.
+    closed tview1 mem2.
   Proof.
     inv CLOSED. econs; i; eapply Memory.promise_closed_view; eauto.
   Qed.
@@ -139,56 +139,56 @@ Module Commit <: JoinableType.
   Qed.
 
   Inductive readable
-            (commit1:t) (loc:Loc.t) (ts:Time.t) (released:View.t) (ord:Ordering.t): Prop :=
+            (tview1:t) (loc:Loc.t) (ts:Time.t) (released:View.t) (ord:Ordering.t): Prop :=
   | readable_intro
-      (UR: Time.le (commit1.(cur).(View.pln) loc) ts)
+      (UR: Time.le (tview1.(cur).(View.pln) loc) ts)
       (RW: Ordering.le Ordering.relaxed ord ->
-           Time.le (commit1.(cur).(View.rlx) loc) ts)
-      (SC1: Ordering.le Ordering.seqcst ord -> Time.le (commit1.(cur).(View.sc) loc) ts)
+           Time.le (tview1.(cur).(View.rlx) loc) ts)
+      (SC1: Ordering.le Ordering.seqcst ord -> Time.le (tview1.(cur).(View.sc) loc) ts)
       (SC2: Ordering.le Ordering.seqcst ord -> Time.le (released.(View.sc) loc) ts)
   .
 
-  Definition read_commit
-             (commit1:t) (loc:Loc.t) (ts:Time.t) (released:View.t) (ord:Ordering.t): t :=
-    mk commit1.(rel)
+  Definition read_tview
+             (tview1:t) (loc:Loc.t) (ts:Time.t) (released:View.t) (ord:Ordering.t): t :=
+    mk tview1.(rel)
        (View.join
           (View.join
-             commit1.(cur)
+             tview1.(cur)
              (View.singleton_rw loc ts))
           (if Ordering.le Ordering.acqrel ord then released else View.bot))
        (View.join
           (View.join
-             commit1.(acq)
+             tview1.(acq)
              (View.singleton_rw loc ts))
           (if Ordering.le Ordering.relaxed ord then released else View.bot)).
 
   Inductive writable
-            (commit1:t) (sc1:TimeMap.t) (loc:Loc.t) (ts:Time.t) (ord:Ordering.t): Prop :=
+            (tview1:t) (sc1:TimeMap.t) (loc:Loc.t) (ts:Time.t) (ord:Ordering.t): Prop :=
   | writable_intro
-      (TS: Time.lt (commit1.(cur).(View.rlx) loc) ts)
-      (SC1: Ordering.le Ordering.seqcst ord -> Time.lt (commit1.(cur).(View.sc) loc) ts)
+      (TS: Time.lt (tview1.(cur).(View.rlx) loc) ts)
+      (SC1: Ordering.le Ordering.seqcst ord -> Time.lt (tview1.(cur).(View.sc) loc) ts)
       (SC2: Ordering.le Ordering.seqcst ord -> Time.lt (sc1 loc) ts)
   .
 
-  Definition write_commit
-             (commit1:t) (sc1:TimeMap.t) (loc:Loc.t) (ts:Time.t) (ord:Ordering.t): t :=
+  Definition write_tview
+             (tview1:t) (sc1:TimeMap.t) (loc:Loc.t) (ts:Time.t) (ord:Ordering.t): t :=
     let cur2 := View.join
                   (View.join
-                     commit1.(Commit.cur)
+                     tview1.(TView.cur)
                      (View.singleton_ur loc ts))
                   (if Ordering.le Ordering.seqcst ord then View.mk TimeMap.bot TimeMap.bot sc1 else View.bot)
     in
     let acq2 := View.join
                   (View.join
-                     commit1.(Commit.acq)
+                     tview1.(TView.acq)
                      (View.singleton_ur loc ts))
                   (if Ordering.le Ordering.seqcst ord then View.mk TimeMap.bot TimeMap.bot sc1 else View.bot)
     in
     let rel2 := LocFun.add loc
-                     (if Ordering.le Ordering.acqrel ord then cur2 else (commit1.(Commit.rel) loc))
-                  commit1.(Commit.rel)
+                     (if Ordering.le Ordering.acqrel ord then cur2 else (tview1.(TView.rel) loc))
+                  tview1.(TView.rel)
     in
-    Commit.mk rel2 cur2 acq2.
+    TView.mk rel2 cur2 acq2.
 
   Definition write_sc
              (sc1:TimeMap.t) (loc:Loc.t) (ts:Time.t) (ord:Ordering.t): TimeMap.t :=
@@ -196,32 +196,32 @@ Module Commit <: JoinableType.
       sc1
       (if Ordering.le Ordering.seqcst ord then TimeMap.singleton loc ts else TimeMap.bot).
 
-  Definition read_fence_commit
-             (commit1:t) (ord:Ordering.t): t :=
-    Commit.mk commit1.(Commit.rel)
+  Definition read_fence_tview
+             (tview1:t) (ord:Ordering.t): t :=
+    TView.mk tview1.(TView.rel)
               (if Ordering.le Ordering.acqrel ord
-               then commit1.(Commit.acq)
-               else commit1.(Commit.cur))
-              commit1.(Commit.acq).
+               then tview1.(TView.acq)
+               else tview1.(TView.cur))
+              tview1.(TView.acq).
 
   Definition write_fence_sc
-             (commit1:t) (sc1:TimeMap.t) (ord:Ordering.t): TimeMap.t :=
+             (tview1:t) (sc1:TimeMap.t) (ord:Ordering.t): TimeMap.t :=
     if Ordering.le Ordering.seqcst ord
-    then TimeMap.join sc1 commit1.(Commit.cur).(View.sc)
+    then TimeMap.join sc1 tview1.(TView.cur).(View.sc)
     else sc1.
 
-  Definition write_fence_commit
-             (commit1:t) (sc1:TimeMap.t) (ord:Ordering.t): t :=
-    let sc2 := write_fence_sc commit1 sc1 ord in
-	  let cur2 := if Ordering.le Ordering.seqcst ord then View.mk sc2 sc2 sc2 else commit1.(Commit.cur)
+  Definition write_fence_tview
+             (tview1:t) (sc1:TimeMap.t) (ord:Ordering.t): t :=
+    let sc2 := write_fence_sc tview1 sc1 ord in
+	  let cur2 := if Ordering.le Ordering.seqcst ord then View.mk sc2 sc2 sc2 else tview1.(TView.cur)
 	  in
 	  let acq2 := View.join
-                  commit1.(Commit.acq)
+                  tview1.(TView.acq)
 				          (if Ordering.le Ordering.seqcst ord then View.mk sc2 sc2 sc2 else View.bot)
 	  in
-	  let rel2 := fun l => if Ordering.le Ordering.acqrel ord then cur2 else (commit1.(Commit.rel) l)
+	  let rel2 := fun l => if Ordering.le Ordering.acqrel ord then cur2 else (tview1.(TView.rel) l)
     in
-    Commit.mk rel2 cur2 acq2.
+    TView.mk rel2 cur2 acq2.
 
   Lemma antisym l r
         (LR: le l r)
@@ -233,9 +233,9 @@ Module Commit <: JoinableType.
     - apply View.antisym; auto.
     - apply View.antisym; auto.
   Qed.
-End Commit.
+End TView.
 
-Module CommitFacts.
+Module TViewFacts.
   Lemma sc_le_view_le
         c tm
         (WF: View.wf c)
@@ -277,11 +277,11 @@ Module CommitFacts.
              apply Memory.closed_view_bot
            | [|- Memory.closed_timemap TimeMap.bot ?m] =>
              apply Memory.closed_timemap_bot
-           | [WF: Commit.wf ?c |- View.le (?c.(Commit.rel) ?l) ?c.(Commit.cur)] =>
+           | [WF: TView.wf ?c |- View.le (?c.(TView.rel) ?l) ?c.(TView.cur)] =>
              apply WF
-           | [WF: Commit.wf ?c |- View.le (?c.(Commit.rel) ?l) ?c.(Commit.acq)] =>
+           | [WF: TView.wf ?c |- View.le (?c.(TView.rel) ?l) ?c.(TView.acq)] =>
              etrans; apply WF
-           | [WF: Commit.wf ?c |- View.le ?c.(Commit.cur) ?c.(Commit.acq)] =>
+           | [WF: TView.wf ?c |- View.le ?c.(TView.cur) ?c.(TView.acq)] =>
              apply WF
            | [WF: View.wf ?c |- TimeMap.le ?c.(View.pln) ?c.(View.rlx)] =>
              apply WF
@@ -420,115 +420,115 @@ Module CommitFacts.
              apply sc_le_view_le
            end).
 
-  Lemma read_commit_incr
-        commit1 loc ts released ord:
-    Commit.le commit1 (Commit.read_commit commit1 loc ts released ord).
+  Lemma read_tview_incr
+        tview1 loc ts released ord:
+    TView.le tview1 (TView.read_tview tview1 loc ts released ord).
   Proof.
     econs; tac.
     - rewrite <- ? View.join_l. refl.
     - rewrite <- ? View.join_l. refl.
   Qed.
 
-  Lemma write_commit_incr
-        commit1 sc1 loc ts ord
-        (WF1: Commit.wf commit1):
-    Commit.le commit1 (Commit.write_commit commit1 sc1 loc ts ord).
+  Lemma write_tview_incr
+        tview1 sc1 loc ts ord
+        (WF1: TView.wf tview1):
+    TView.le tview1 (TView.write_tview tview1 sc1 loc ts ord).
   Proof.
     econs; repeat (try condtac; aggrtac).
   Qed.
 
   Lemma write_sc_incr
         sc1 loc ts ord:
-    TimeMap.le sc1 (Commit.write_sc sc1 loc ts ord).
+    TimeMap.le sc1 (TView.write_sc sc1 loc ts ord).
   Proof.
-    unfold Commit.write_sc. tac.
+    unfold TView.write_sc. tac.
   Qed.
 
-  Lemma read_fence_commit_incr
-        commit1 ord
-        (WF1: Commit.wf commit1):
-    Commit.le commit1 (Commit.read_fence_commit commit1 ord).
+  Lemma read_fence_tview_incr
+        tview1 ord
+        (WF1: TView.wf tview1):
+    TView.le tview1 (TView.read_fence_tview tview1 ord).
   Proof.
     econs; tac. condtac; tac.
   Qed.
 
-  Lemma write_fence_commit_incr
-        commit1 sc1 ord
-        (WF1: Commit.wf commit1):
-    Commit.le commit1 (Commit.write_fence_commit commit1 sc1 ord).
+  Lemma write_fence_tview_incr
+        tview1 sc1 ord
+        (WF1: TView.wf tview1):
+    TView.le tview1 (TView.write_fence_tview tview1 sc1 ord).
   Proof.
-    unfold Commit.write_fence_commit, Commit.write_fence_sc.
+    unfold TView.write_fence_tview, TView.write_fence_sc.
     econs; repeat (try condtac; aggrtac; try apply WF1).
     rewrite <- TimeMap.join_r. apply WF1.
   Qed.
 
   Lemma write_fence_sc_incr
-        commit1 sc1 ord:
-    TimeMap.le sc1 (Commit.write_fence_sc commit1 sc1 ord).
+        tview1 sc1 ord:
+    TimeMap.le sc1 (TView.write_fence_sc tview1 sc1 ord).
   Proof.
-    unfold Commit.write_fence_sc. condtac; tac.
+    unfold TView.write_fence_sc. condtac; tac.
   Qed.
 
   Lemma readable_mon
-        commit1 commit2 loc ts released1 released2 ord1 ord2
-        (COMMIT: Commit.le commit1 commit2)
+        tview1 tview2 loc ts released1 released2 ord1 ord2
+        (TVIEW: TView.le tview1 tview2)
         (REL: View.le released1 released2)
         (ORD: Ordering.le ord1 ord2)
-        (READABLE: Commit.readable commit2 loc ts released2 ord2):
-    Commit.readable commit1 loc ts released1 ord1.
+        (READABLE: TView.readable tview2 loc ts released2 ord2):
+    TView.readable tview1 loc ts released1 ord1.
   Proof.
     inv READABLE. econs; eauto.
-    - etrans; try apply COMMIT; auto.
-    - etrans; [apply COMMIT|]. apply RW. etrans; eauto.
-    - etrans; [apply COMMIT|]. apply SC1. etrans; eauto.
+    - etrans; try apply TVIEW; auto.
+    - etrans; [apply TVIEW|]. apply RW. etrans; eauto.
+    - etrans; [apply TVIEW|]. apply SC1. etrans; eauto.
     - etrans; [apply REL|]. apply SC2. etrans; eauto.
   Qed.
 
   Lemma writable_mon
-        commit1 commit2 sc1 sc2 loc ts ord1 ord2
-        (COMMIT: Commit.le commit1 commit2)
+        tview1 tview2 sc1 sc2 loc ts ord1 ord2
+        (TVIEW: TView.le tview1 tview2)
         (SC: TimeMap.le sc1 sc2)
         (ORD: Ordering.le ord1 ord2)
-        (WRITABLE: Commit.writable commit2 sc2 loc ts ord2):
-    Commit.writable commit1 sc1 loc ts ord1.
+        (WRITABLE: TView.writable tview2 sc2 loc ts ord2):
+    TView.writable tview1 sc1 loc ts ord1.
   Proof.
     inv WRITABLE. econs; eauto.
-    - eapply TimeFacts.le_lt_lt; try apply COMMIT; auto.
-    - i. eapply TimeFacts.le_lt_lt; [apply COMMIT|]. apply SC1. etrans; eauto.
+    - eapply TimeFacts.le_lt_lt; try apply TVIEW; auto.
+    - i. eapply TimeFacts.le_lt_lt; [apply TVIEW|]. apply SC1. etrans; eauto.
     - i. eapply TimeFacts.le_lt_lt; eauto. apply SC2. etrans; eauto.
   Qed.
 
-  Lemma read_commit_mon
-        commit1 commit2 loc ts released1 released2 ord1 ord2
-        (COMMIT: Commit.le commit1 commit2)
+  Lemma read_tview_mon
+        tview1 tview2 loc ts released1 released2 ord1 ord2
+        (TVIEW: TView.le tview1 tview2)
         (REL: View.le released1 released2)
-        (WF2: Commit.wf commit2)
+        (WF2: TView.wf tview2)
         (WF_REL2: View.wf released2)
         (ORD: Ordering.le ord1 ord2):
-    Commit.le
-      (Commit.read_commit commit1 loc ts released1 ord1)
-      (Commit.read_commit commit2 loc ts released2 ord2).
+    TView.le
+      (TView.read_tview tview1 loc ts released1 ord1)
+      (TView.read_tview tview2 loc ts released2 ord2).
   Proof.
-    unfold Commit.read_commit.
+    unfold TView.read_tview.
     econs; repeat (condtac; aggrtac);
-      (try by etrans; [apply COMMIT|aggrtac]);
+      (try by etrans; [apply TVIEW|aggrtac]);
       (try by rewrite <- ? View.join_r; econs; aggrtac);
       (try apply WF2).
   Qed.
 
-  Lemma write_commit_mon
-        commit1 commit2 sc1 sc2 loc ts ord1 ord2
-        (COMMIT: Commit.le commit1 commit2)
+  Lemma write_tview_mon
+        tview1 tview2 sc1 sc2 loc ts ord1 ord2
+        (TVIEW: TView.le tview1 tview2)
         (SC: TimeMap.le sc1 sc2)
-        (WF2: Commit.wf commit2)
+        (WF2: TView.wf tview2)
         (ORD: Ordering.le ord1 ord2):
-    Commit.le
-      (Commit.write_commit commit1 sc1 loc ts ord1)
-      (Commit.write_commit commit2 sc2 loc ts ord2).
+    TView.le
+      (TView.write_tview tview1 sc1 loc ts ord1)
+      (TView.write_tview tview2 sc2 loc ts ord2).
   Proof.
-    unfold Commit.write_commit.
+    unfold TView.write_tview.
     econs; repeat (condtac; aggrtac);
-      (try by etrans; [apply COMMIT|aggrtac]);
+      (try by etrans; [apply TVIEW|aggrtac]);
       (try by rewrite <- ? View.join_r; econs; aggrtac);
       (try apply WF2).
   Qed.
@@ -538,202 +538,202 @@ Module CommitFacts.
         (SC: TimeMap.le sc1 sc2)
         (ORD: Ordering.le ord1 ord2):
     TimeMap.le
-      (Commit.write_sc sc1 loc ts ord1)
-      (Commit.write_sc sc2 loc ts ord2).
+      (TView.write_sc sc1 loc ts ord1)
+      (TView.write_sc sc2 loc ts ord2).
   Proof.
-    unfold Commit.write_sc. repeat condtac; aggrtac.
+    unfold TView.write_sc. repeat condtac; aggrtac.
   Qed.
 
-  Lemma read_fence_commit_mon
-        commit1 commit2 ord1 ord2
-        (COMMIT: Commit.le commit1 commit2)
-        (WF2: Commit.wf commit2)
+  Lemma read_fence_tview_mon
+        tview1 tview2 ord1 ord2
+        (TVIEW: TView.le tview1 tview2)
+        (WF2: TView.wf tview2)
         (ORD: Ordering.le ord1 ord2):
-    Commit.le
-      (Commit.read_fence_commit commit1 ord1)
-      (Commit.read_fence_commit commit2 ord2).
+    TView.le
+      (TView.read_fence_tview tview1 ord1)
+      (TView.read_fence_tview tview2 ord2).
   Proof.
-    unfold Commit.read_fence_commit.
+    unfold TView.read_fence_tview.
     econs; repeat (condtac; aggrtac);
-      (try by etrans; [apply COMMIT|aggrtac]);
+      (try by etrans; [apply TVIEW|aggrtac]);
       (try by rewrite <- ? View.join_r; aggrtac;
-       rewrite <- ? TimeMap.join_r; apply COMMIT).
+       rewrite <- ? TimeMap.join_r; apply TVIEW).
   Qed.
 
-  Lemma write_fence_commit_mon
-        commit1 commit2 sc1 sc2 ord1 ord2
-        (COMMIT: Commit.le commit1 commit2)
+  Lemma write_fence_tview_mon
+        tview1 tview2 sc1 sc2 ord1 ord2
+        (TVIEW: TView.le tview1 tview2)
         (SC: TimeMap.le sc1 sc2)
         (ORD: Ordering.le ord1 ord2)
-        (WF1: Commit.wf commit1):
-    Commit.le
-      (Commit.write_fence_commit commit1 sc1 ord1)
-      (Commit.write_fence_commit commit2 sc2 ord2).
+        (WF1: TView.wf tview1):
+    TView.le
+      (TView.write_fence_tview tview1 sc1 ord1)
+      (TView.write_fence_tview tview2 sc2 ord2).
   Proof.
-    unfold Commit.write_fence_commit, Commit.write_fence_sc.
+    unfold TView.write_fence_tview, TView.write_fence_sc.
     econs; repeat (condtac; aggrtac);
-      (try by etrans; [apply COMMIT|aggrtac]);
+      (try by etrans; [apply TVIEW|aggrtac]);
       (try by rewrite <- ? View.join_r; aggrtac;
-       rewrite <- ? TimeMap.join_r; apply COMMIT);
+       rewrite <- ? TimeMap.join_r; apply TVIEW);
       (try by apply WF1).
-    - rewrite <- TimeMap.join_r. etrans; [apply WF1|]. apply COMMIT.
-    - etrans; [apply WF1|]. apply COMMIT.
+    - rewrite <- TimeMap.join_r. etrans; [apply WF1|]. apply TVIEW.
+    - etrans; [apply WF1|]. apply TVIEW.
   Qed.
 
   Lemma write_fence_sc_mon
-        commit1 commit2 sc1 sc2 ord1 ord2
-        (COMMIT: Commit.le commit1 commit2)
+        tview1 tview2 sc1 sc2 ord1 ord2
+        (TVIEW: TView.le tview1 tview2)
         (SC: TimeMap.le sc1 sc2)
         (ORD: Ordering.le ord1 ord2):
     TimeMap.le
-      (Commit.write_fence_sc commit1 sc1 ord1)
-      (Commit.write_fence_sc commit2 sc2 ord2).
+      (TView.write_fence_sc tview1 sc1 ord1)
+      (TView.write_fence_sc tview2 sc2 ord2).
   Proof.
-    unfold Commit.write_fence_sc.
+    unfold TView.write_fence_sc.
     repeat (condtac; aggrtac);
-      (try by etrans; [apply COMMIT|aggrtac]);
+      (try by etrans; [apply TVIEW|aggrtac]);
       (try rewrite <- ? View.join_r; aggrtac;
-       rewrite <- ? TimeMap.join_r; apply COMMIT).
+       rewrite <- ? TimeMap.join_r; apply TVIEW).
   Qed.
 
   Lemma write_sc_acqrel
         sc loc ts ordw
         (ORDW: Ordering.le ordw Ordering.acqrel):
-    Commit.write_sc sc loc ts ordw = sc.
+    TView.write_sc sc loc ts ordw = sc.
   Proof.
-    unfold Commit.write_sc. condtac; tac.
+    unfold TView.write_sc. condtac; tac.
     apply TimeMap.antisym; tac.
   Qed.
 
-  Lemma write_commit_acqrel
-        commit sc1 sc2 loc ts ordw
+  Lemma write_tview_acqrel
+        tview sc1 sc2 loc ts ordw
         (ORDW: Ordering.le ordw Ordering.acqrel):
-    Commit.write_commit commit sc1 loc ts ordw = Commit.write_commit commit sc2 loc ts ordw.
+    TView.write_tview tview sc1 loc ts ordw = TView.write_tview tview sc2 loc ts ordw.
   Proof.
-    unfold Commit.write_commit.
-    apply Commit.antisym; repeat (condtac; tac; try refl).
+    unfold TView.write_tview.
+    apply TView.antisym; repeat (condtac; tac; try refl).
   Qed.
 
   Lemma write_fence_sc_acqrel
-        commit sc ordw
+        tview sc ordw
         (ORDW: Ordering.le ordw Ordering.acqrel):
-    Commit.write_fence_sc commit sc ordw = sc.
+    TView.write_fence_sc tview sc ordw = sc.
   Proof.
-    unfold Commit.write_fence_sc. condtac; tac.
+    unfold TView.write_fence_sc. condtac; tac.
   Qed.
 
-  Lemma write_fence_commit_acqrel
-        commit sc1 sc2 ordw
+  Lemma write_fence_tview_acqrel
+        tview sc1 sc2 ordw
         (ORDW: Ordering.le ordw Ordering.acqrel):
-    Commit.write_fence_commit commit sc1 ordw = Commit.write_fence_commit commit sc2 ordw.
+    TView.write_fence_tview tview sc1 ordw = TView.write_fence_tview tview sc2 ordw.
   Proof.
-    unfold Commit.write_fence_commit.
-    apply Commit.antisym; repeat (condtac; tac; try refl).
+    unfold TView.write_fence_tview.
+    apply TView.antisym; repeat (condtac; tac; try refl).
   Qed.
 
   Lemma read_future
-        loc from to val released ord commit mem
+        loc from to val released ord tview mem
         (MEM: Memory.closed mem)
-        (WF_COMMIT: Commit.wf commit)
-        (CLOSED_COMMIT: Commit.closed commit mem)
+        (WF_TVIEW: TView.wf tview)
+        (CLOSED_TVIEW: TView.closed tview mem)
         (RELEASED: View.wf released)
         (GET: Memory.get loc to mem = Some (from, Message.mk val released)):
-    <<WF_COMMIT: Commit.wf (Commit.read_commit commit loc to released ord)>> /\
-    <<CLOSED_COMMIT: Commit.closed (Commit.read_commit commit loc to released ord) mem>>.
+    <<WF_TVIEW: TView.wf (TView.read_tview tview loc to released ord)>> /\
+    <<CLOSED_TVIEW: TView.closed (TView.read_tview tview loc to released ord) mem>>.
   Proof.
     splits; tac.
     - econs; repeat (try condtac; tac);
-      try by rewrite <- ? View.join_l; apply WF_COMMIT.
+      try by rewrite <- ? View.join_l; apply WF_TVIEW.
       + apply TimeMap.singleton_inv.
         rewrite <- TimeMap.join_l. tac.
       + apply TimeMap.singleton_inv.
         rewrite <- TimeMap.join_l. tac.
       + destruct ord; inv COND; inv COND0.
     - inv MEM. exploit CLOSED; eauto. i. des.
-      econs; tac; try apply CLOSED_COMMIT.
+      econs; tac; try apply CLOSED_TVIEW.
       + condtac; tac.
       + condtac; tac.
   Qed.
 
   Lemma write_future
-        loc from to val releasedm ord commit sc mem
+        loc from to val releasedm ord tview sc mem
         (MEM: Memory.closed mem)
-        (WF_COMMIT: Commit.wf commit)
-        (CLOSED_COMMIT: Commit.closed commit mem)
+        (WF_TVIEW: TView.wf tview)
+        (CLOSED_TVIEW: TView.closed tview mem)
         (CLOSED_SC: Memory.closed_timemap sc mem)
         (GET: Memory.get loc to mem = Some (from, Message.mk val releasedm)):
-    <<WF_COMMIT: Commit.wf (Commit.write_commit commit sc loc to ord)>> /\
-    <<CLOSED_COMMIT: Commit.closed (Commit.write_commit commit sc loc to ord) mem>> /\
-    <<CLOSED_SC: Memory.closed_timemap (Commit.write_sc sc loc to ord) mem>>.
+    <<WF_TVIEW: TView.wf (TView.write_tview tview sc loc to ord)>> /\
+    <<CLOSED_TVIEW: TView.closed (TView.write_tview tview sc loc to ord) mem>> /\
+    <<CLOSED_SC: Memory.closed_timemap (TView.write_sc sc loc to ord) mem>>.
   Proof.
     splits; tac.
-    - econs; tac; try apply WF_COMMIT.
-      + unfold LocFun.add, LocFun.find. repeat condtac; tac; try apply WF_COMMIT.
-      + condtac; tac; try apply WF_COMMIT.
+    - econs; tac; try apply WF_TVIEW.
+      + unfold LocFun.add, LocFun.find. repeat condtac; tac; try apply WF_TVIEW.
+      + condtac; tac; try apply WF_TVIEW.
       + condtac; tac.
       + unfold LocFun.add, LocFun.find.
-        repeat condtac; tac; rewrite <- ? View.join_l; apply WF_COMMIT.
-      + repeat condtac; tac; rewrite <- ? View.join_l; apply WF_COMMIT.
+        repeat condtac; tac; rewrite <- ? View.join_l; apply WF_TVIEW.
+      + repeat condtac; tac; rewrite <- ? View.join_l; apply WF_TVIEW.
       + condtac; tac.
       + apply TimeMap.singleton_inv. rewrite <- TimeMap.join_l. tac.
-    - econs; tac; (try by apply CLOSED_COMMIT).
-      + unfold LocFun.add. repeat condtac; tac; (try by apply CLOSED_COMMIT).
+    - econs; tac; (try by apply CLOSED_TVIEW).
+      + unfold LocFun.add. repeat condtac; tac; (try by apply CLOSED_TVIEW).
         econs; tac; apply MEM.
       + condtac; tac. econs; tac.
       + condtac; tac. econs; tac.
-    - unfold Commit.write_sc. condtac; tac.
+    - unfold TView.write_sc. condtac; tac.
   Qed.
 
   Lemma read_fence_future
-        ord commit mem
-        (WF_COMMIT: Commit.wf commit)
-        (CLOSED_COMMIT: Commit.closed commit mem):
-    <<WF_COMMIT: Commit.wf (Commit.read_fence_commit commit ord)>> /\
-    <<CLOSED_COMMIT: Commit.closed (Commit.read_fence_commit commit ord) mem>>.
+        ord tview mem
+        (WF_TVIEW: TView.wf tview)
+        (CLOSED_TVIEW: TView.closed tview mem):
+    <<WF_TVIEW: TView.wf (TView.read_fence_tview tview ord)>> /\
+    <<CLOSED_TVIEW: TView.closed (TView.read_fence_tview tview ord) mem>>.
   Proof.
     splits.
-    - econs; tac; try apply WF_COMMIT.
-      + condtac; try apply WF_COMMIT.
-      + condtac; try apply WF_COMMIT.
-        etrans; apply WF_COMMIT.
-      + condtac; try apply WF_COMMIT. refl.
-    - econs; tac; try apply CLOSED_COMMIT.
-      condtac; try apply CLOSED_COMMIT.
+    - econs; tac; try apply WF_TVIEW.
+      + condtac; try apply WF_TVIEW.
+      + condtac; try apply WF_TVIEW.
+        etrans; apply WF_TVIEW.
+      + condtac; try apply WF_TVIEW. refl.
+    - econs; tac; try apply CLOSED_TVIEW.
+      condtac; try apply CLOSED_TVIEW.
   Qed.
 
   Lemma write_fence_future
-        ord commit sc mem
+        ord tview sc mem
         (MEM: Memory.closed mem)
-        (WF_COMMIT: Commit.wf commit)
-        (CLOSED_COMMIT: Commit.closed commit mem)
+        (WF_TVIEW: TView.wf tview)
+        (CLOSED_TVIEW: TView.closed tview mem)
         (CLOSED_SC: Memory.closed_timemap sc mem):
-    <<WF_COMMIT: Commit.wf (Commit.write_fence_commit commit sc ord)>> /\
-    <<CLOSED_COMMIT: Commit.closed (Commit.write_fence_commit commit sc ord) mem>> /\
-    <<CLOSED_SC: Memory.closed_timemap (Commit.write_fence_sc commit sc ord) mem>>.
+    <<WF_TVIEW: TView.wf (TView.write_fence_tview tview sc ord)>> /\
+    <<CLOSED_TVIEW: TView.closed (TView.write_fence_tview tview sc ord) mem>> /\
+    <<CLOSED_SC: Memory.closed_timemap (TView.write_fence_sc tview sc ord) mem>>.
   Proof.
     splits; tac.
-    - econs; tac; try apply WF_COMMIT.
-      + repeat condtac; tac; try apply WF_COMMIT.
-      + repeat condtac; tac; try apply WF_COMMIT.
+    - econs; tac; try apply WF_TVIEW.
+      + repeat condtac; tac; try apply WF_TVIEW.
+      + repeat condtac; tac; try apply WF_TVIEW.
       + repeat condtac; tac.
-      + repeat (try condtac; aggrtac; try apply WF_COMMIT).
-        unfold Commit.write_fence_sc. condtac; tac.
-        rewrite <- TimeMap.join_r. apply WF_COMMIT.
-      + repeat condtac; tac; rewrite <- View.join_l; apply WF_COMMIT.
-    - econs; tac; try apply CLOSED_COMMIT.
-      + unfold Commit.write_fence_sc.
-        repeat condtac; tac; try apply CLOSED_COMMIT.
-        econs; tac; try apply CLOSED_COMMIT.
-      + unfold Commit.write_fence_sc.
-        repeat condtac; tac; try apply CLOSED_COMMIT.
-        econs; tac; try apply CLOSED_COMMIT.
-      + unfold Commit.write_fence_sc.
-        repeat condtac; tac; try apply CLOSED_COMMIT.
-        econs; tac; try apply CLOSED_COMMIT.
-    - unfold Commit.write_fence_sc.
-      condtac; tac; try apply CLOSED_COMMIT.
+      + repeat (try condtac; aggrtac; try apply WF_TVIEW).
+        unfold TView.write_fence_sc. condtac; tac.
+        rewrite <- TimeMap.join_r. apply WF_TVIEW.
+      + repeat condtac; tac; rewrite <- View.join_l; apply WF_TVIEW.
+    - econs; tac; try apply CLOSED_TVIEW.
+      + unfold TView.write_fence_sc.
+        repeat condtac; tac; try apply CLOSED_TVIEW.
+        econs; tac; try apply CLOSED_TVIEW.
+      + unfold TView.write_fence_sc.
+        repeat condtac; tac; try apply CLOSED_TVIEW.
+        econs; tac; try apply CLOSED_TVIEW.
+      + unfold TView.write_fence_sc.
+        repeat condtac; tac; try apply CLOSED_TVIEW.
+        econs; tac; try apply CLOSED_TVIEW.
+    - unfold TView.write_fence_sc.
+      condtac; tac; try apply CLOSED_TVIEW.
   Qed.
-End CommitFacts.
+End TViewFacts.
 
-Ltac viewtac := CommitFacts.tac.
-Ltac aggrtac := CommitFacts.aggrtac.
+Ltac viewtac := TViewFacts.tac.
+Ltac aggrtac := TViewFacts.aggrtac.

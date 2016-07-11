@@ -12,7 +12,7 @@ Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import ThreadView.
+Require Import TView.
 Require Import Thread.
 
 Set Implicit Arguments.
@@ -76,8 +76,8 @@ Module Threads.
     - i. unfold init in *. rewrite IdentMap.Facts.map_o in *.
       destruct (UsualFMapPositive.UsualPositiveMap'.find tid syn); inv TH.
       econs; ss.
-      + apply Commit.bot_wf.
-      + apply Commit.bot_closed.
+      + apply TView.bot_wf.
+      + apply TView.bot_closed.
       + ii. rewrite Memory.bot_get in LHS. congr.
   Qed.
 
