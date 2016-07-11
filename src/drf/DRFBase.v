@@ -12,7 +12,7 @@ Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import Commit.
+Require Import ThreadView.
 Require Import Thread.
 Require Import Configuration.
 Require Import Progress.
@@ -114,14 +114,14 @@ Qed.
 
 
 
-Definition mem_sub (cmp: Loc.t -> Time.t -> Capability.t -> Capability.t -> Prop) (m1 m2: Memory.t) : Prop :=
+Definition mem_sub (cmp: Loc.t -> Time.t -> View.t -> View.t -> Prop) (m1 m2: Memory.t) : Prop :=
   forall loc ts from val rel1
     (IN: Memory.get loc ts m1 = Some (from, Message.mk val rel1)),
   exists rel2,
   <<IN: Memory.get loc ts m2 = Some (from, Message.mk val rel2)>> /\
   <<CMP: cmp loc ts rel1 rel2>>.
 
-Definition loctmeq (l: Loc.t) (t: Time.t) (r1 r2: Capability.t) : Prop := r1 = r2.
+Definition loctmeq (l: Loc.t) (t: Time.t) (r1 r2: View.t) : Prop := r1 = r2.
 Hint Unfold loctmeq.
 
 Lemma local_simul_fence
@@ -143,7 +143,7 @@ Lemma local_simul_write
   Local.write_step (Local.mk com Memory.bot) sc mS loc from to val relr relw ord (Local.mk com' Memory.bot) sc' mS' Memory.promise_kind_add.
 Proof.
   set (relw' := relw).
-  assert (RELW_WF: Capability.wf relw').
+  assert (RELW_WF: View.wf relw').
   { inv WRITE. inv WRITE0. inv PROMISE.
     - inv MEM. inv ADD. auto.
     - inv MEM. inv SPLIT. auto.

@@ -8,7 +8,7 @@ Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import Commit.
+Require Import ThreadView.
 Require Import Thread.
 Require Import Configuration.
 Require Import Behavior.

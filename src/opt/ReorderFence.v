@@ -13,7 +13,7 @@ Require Import Time.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import Commit.
+Require Import ThreadView.
 Require Import Thread.
 Require Import Configuration.
 
@@ -117,10 +117,10 @@ Proof.
     + right. econs; eauto.
   - (* load *)
     guardH ORD2.
-    exploit sim_local_read; try exact LOCAL0; try apply SC; eauto; try refl; committac.
+    exploit sim_local_read; try exact LOCAL0; try apply SC; eauto; try refl; viewtac.
     { eapply Local.fence_step_future; eauto. }
     i. des.
-    exploit reorder_fence_read; try apply x0; try apply STEP_SRC; eauto; try by committac. i. des.
+    exploit reorder_fence_read; try apply x0; try apply STEP_SRC; eauto; try by viewtac. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 2; eauto. econs. econs.
@@ -132,10 +132,10 @@ Proof.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
       etrans; eauto.
   - (* store *)
-    hexploit sim_local_write; try exact LOCAL0; try apply SC; eauto; try refl; committac.
+    hexploit sim_local_write; try exact LOCAL0; try apply SC; eauto; try refl; viewtac.
     { eapply Local.fence_step_future; eauto. }
     i. des.
-    exploit reorder_fence_write; try apply x0; try apply STEP_SRC; eauto; try by committac. i. des.
+    exploit reorder_fence_write; try apply x0; try apply STEP_SRC; eauto; try by viewtac. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 3; eauto. econs. econs.
@@ -149,16 +149,16 @@ Proof.
   - (* update *)
     guardH ORDR2.
     exploit Local.read_step_future; eauto. i. des.
-    exploit sim_local_read; try exact LOCAL1; try apply SC; eauto; try refl; committac.
+    exploit sim_local_read; try exact LOCAL1; try apply SC; eauto; try refl; viewtac.
     { eapply Local.fence_step_future; eauto. }
     i. des.
-    exploit reorder_fence_read; try apply x0; try apply STEP_SRC; eauto; try by committac. i. des.
+    exploit reorder_fence_read; try apply x0; try apply STEP_SRC; eauto; try by viewtac. i. des.
     exploit Local.read_step_future; eauto. i. des.
     exploit Local.fence_step_future; eauto. i. des.
     generalize LOCAL3. i. rewrite LOCAL0 in LOCAL3.
     generalize SC0. i. rewrite SC in SC1.
-    hexploit sim_local_write; try exact LOCAL2; try apply SC1; eauto; try refl; committac. i. des.
-    exploit reorder_fence_write; try apply STEP2; try apply STEP_SRC0; eauto; try by committac. i. des.
+    hexploit sim_local_write; try exact LOCAL2; try apply SC1; eauto; try refl; viewtac. i. des.
+    exploit reorder_fence_write; try apply STEP2; try apply STEP_SRC0; eauto; try by viewtac. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 4; eauto. econs. econs. eauto.
@@ -188,12 +188,12 @@ Proof.
     }
     i. des. esplits; eauto.
     + etrans.
-      * apply Memory.max_timemap_spec; eauto. committac.
+      * apply Memory.max_timemap_spec; eauto. viewtac.
       * apply sim_memory_max_timemap; eauto.
     + etrans.
-      * apply Memory.max_timemap_spec; eauto. committac.
+      * apply Memory.max_timemap_spec; eauto. viewtac.
       * apply Memory.future_max_timemap; eauto.
-    + apply Memory.max_timemap_closed. committac.
+    + apply Memory.max_timemap_closed. viewtac.
   - i. esplits; eauto.
     inv PR. inversion FENCE. subst lc2_src. inversion LOCAL. ss.
     apply SimPromises.sem_bot_inv in PROMISES; auto. rewrite PROMISES. auto.

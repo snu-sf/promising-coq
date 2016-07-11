@@ -15,7 +15,7 @@ Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import Commit.
+Require Import ThreadView.
 Require Import Thread.
 Require Import Configuration.
 
@@ -116,7 +116,7 @@ Proof.
   { apply WF1_SRC. }
   { apply WF1_TGT. }
   i. des.
-  exploit sim_memory_closed_capability; eauto. i.
+  exploit sim_memory_closed_view; eauto. i.
   exploit Memory.promise_future; try apply PROMISE_SRC; eauto.
   { apply WF1_SRC. }
   i. des.
@@ -139,7 +139,7 @@ Lemma sim_local_read
       (MEM1_TGT: Memory.closed mem1_tgt)
       (ORD: Ordering.le ord_src ord_tgt):
   exists released_src lc2_src,
-    <<REL: Capability.le released_src released_tgt>> /\
+    <<REL: View.le released_src released_tgt>> /\
     <<STEP_SRC: Local.read_step lc1_src mem1_src loc ts val released_src ord_src lc2_src>> /\
     <<LOCAL2: sim_local lc2_src lc2_tgt>>.
 Proof.
@@ -157,10 +157,10 @@ Lemma sim_local_fulfill
       lc1_tgt sc1_tgt mem1_tgt
       lc2_tgt sc2_tgt
       loc from to val releasedm_src releasedm_tgt released ord_src ord_tgt
-      (RELM_LE: Capability.le releasedm_src releasedm_tgt)
-      (RELM_WF: Capability.wf releasedm_src)
-      (RELM_CLOSED: Memory.closed_capability releasedm_src mem1_src)
-      (WF_RELM_TGT: Capability.wf releasedm_tgt)
+      (RELM_LE: View.le releasedm_src releasedm_tgt)
+      (RELM_WF: View.wf releasedm_src)
+      (RELM_CLOSED: Memory.closed_view releasedm_src mem1_src)
+      (WF_RELM_TGT: View.wf releasedm_tgt)
       (ORD: Ordering.le ord_src ord_tgt)
       (STEP_TGT: fulfill_step lc1_tgt sc1_tgt loc from to val releasedm_tgt released ord_tgt lc2_tgt sc2_tgt)
       (LOCAL1: sim_local lc1_src lc1_tgt)
@@ -179,48 +179,48 @@ Lemma sim_local_fulfill
 Proof.
   inv STEP_TGT.
   assert (RELT_LE:
-   Capability.le
+   View.le
      (if Ordering.le Ordering.relaxed ord_src
-      then Capability.join releasedm_src
+      then View.join releasedm_src
         (Commit.rel
            (Commit.write_commit (Local.commit lc1_src) sc1_src loc to
               ord_src) loc)
-      else Capability.bot)
+      else View.bot)
      (if Ordering.le Ordering.relaxed ord_tgt
-      then Capability.join releasedm_tgt
+      then View.join releasedm_tgt
         (Commit.rel
            (Commit.write_commit (Local.commit lc1_tgt) sc1_tgt loc to
               ord_tgt) loc)
-      else Capability.bot)).
+      else View.bot)).
   { repeat (try condtac; aggrtac).
-    - rewrite <- Capability.join_r.
-      rewrite <- ? Capability.join_l.
+    - rewrite <- View.join_r.
+      rewrite <- ? View.join_l.
       apply LOCAL1.
-    - rewrite <- Capability.join_r.
-      rewrite <- ? Capability.join_l.
+    - rewrite <- View.join_r.
+      rewrite <- ? View.join_l.
       apply LOCAL1.
     - apply WF1_TGT.
     - econs; aggrtac.
-    - rewrite <- Capability.join_r.
-      rewrite <- Capability.join_l.
-      rewrite <- Capability.join_l.
+    - rewrite <- View.join_r.
+      rewrite <- View.join_l.
+      rewrite <- View.join_l.
       etrans; [|apply LOCAL1].
       apply WF1_SRC.
-    - rewrite <- Capability.join_r.
-      rewrite <- Capability.join_l.
-      rewrite <- Capability.join_l.
+    - rewrite <- View.join_r.
+      rewrite <- View.join_l.
+      rewrite <- View.join_l.
       etrans; [|apply LOCAL1].
       apply WF1_SRC.
-    - rewrite <- Capability.join_r.
+    - rewrite <- View.join_r.
       apply LOCAL1.
   }
   assert (RELT_WF:
-   Capability.wf
-     (Capability.join releasedm_src
+   View.wf
+     (View.join releasedm_src
         (Commit.rel
            (Commit.write_commit (Local.commit lc1_src) sc1_src loc to
               ord_src) loc))).
-  { repeat (try condtac; committac; try apply WF1_SRC). }
+  { repeat (try condtac; viewtac; try apply WF1_SRC). }
   exploit SimPromises.remove; try exact REMOVE;
     try exact MEM1; try apply LOCAL1; eauto.
   { apply WF1_SRC. }
@@ -240,11 +240,11 @@ Lemma sim_local_write
       lc1_tgt sc1_tgt mem1_tgt
       lc2_tgt sc2_tgt mem2_tgt
       loc from to val releasedm_src releasedm_tgt released_tgt ord_src ord_tgt kind
-      (RELM_LE: Capability.le releasedm_src releasedm_tgt)
-      (RELM_SRC_WF: Capability.wf releasedm_src)
-      (RELM_SRC_CLOSED: Memory.closed_capability releasedm_src mem1_src)
-      (RELM_TGT_WF: Capability.wf releasedm_tgt)
-      (RELM_TGT_CLOSED: Memory.closed_capability releasedm_tgt mem1_tgt)
+      (RELM_LE: View.le releasedm_src releasedm_tgt)
+      (RELM_SRC_WF: View.wf releasedm_src)
+      (RELM_SRC_CLOSED: Memory.closed_view releasedm_src mem1_src)
+      (RELM_TGT_WF: View.wf releasedm_tgt)
+      (RELM_TGT_CLOSED: Memory.closed_view releasedm_tgt mem1_tgt)
       (ORD: Ordering.le ord_src ord_tgt)
       (STEP_TGT: Local.write_step lc1_tgt sc1_tgt mem1_tgt loc from to val releasedm_tgt released_tgt ord_tgt lc2_tgt sc2_tgt mem2_tgt kind)
       (LOCAL1: sim_local lc1_src lc1_tgt)
@@ -258,7 +258,7 @@ Lemma sim_local_write
       (MEM1_TGT: Memory.closed mem1_tgt):
   exists released_src lc2_src sc2_src mem2_src,
     <<STEP_SRC: Local.write_step lc1_src sc1_src mem1_src loc from to val releasedm_src released_src ord_src lc2_src sc2_src mem2_src kind>> /\
-    <<REL2: Capability.le released_src released_tgt>> /\
+    <<REL2: View.le released_src released_tgt>> /\
     <<LOCAL2: sim_local lc2_src lc2_tgt>> /\
     <<SC2: TimeMap.le sc2_src sc2_tgt>> /\
     <<MEM2: sim_memory mem2_src mem2_tgt>>.
@@ -269,7 +269,7 @@ Proof.
   exploit Local.promise_step_future; eauto. i. des.
   exploit sim_local_fulfill; try apply STEP2;
     try apply LOCAL2; try apply MEM2; eauto.
-  { eapply Memory.future_closed_capability; eauto. }
+  { eapply Memory.future_closed_view; eauto. }
   i. des.
   exploit promise_fulfill_write; try exact STEP_SRC; try exact STEP_SRC0; eauto.
   { i. exploit ORD0; eauto.
@@ -300,8 +300,8 @@ Lemma sim_local_update
       (ORD1: Ordering.le ord1_src ord1_tgt)
       (ORD2: Ordering.le ord2_src ord2_tgt):
   exists released1_src released2_src lc2_src lc3_src sc3_src mem3_src,
-    <<REL1: Capability.le released1_src released1_tgt>> /\
-    <<REL2: Capability.le released2_src released2_tgt>> /\
+    <<REL1: View.le released1_src released1_tgt>> /\
+    <<REL2: View.le released2_src released2_tgt>> /\
     <<STEP1_SRC: Local.read_step lc1_src mem1_src loc ts1 val1 released1_src ord1_src lc2_src>> /\
     <<STEP2_SRC: Local.write_step lc2_src sc1_src mem1_src loc from2 to2 val2 released1_src released2_src ord2_src lc3_src sc3_src mem3_src kind>> /\
     <<LOCAL3: sim_local lc3_src lc3_tgt>> /\
@@ -375,12 +375,12 @@ Proof.
   - esplits; (try by econs 1; eauto); eauto.
   - exploit sim_local_read; eauto; try refl. i. des.
     esplits; (try by econs 2; eauto); eauto.
-  - hexploit sim_local_write; eauto; try refl; try by committac. i. des.
+  - hexploit sim_local_write; eauto; try refl; try by viewtac. i. des.
     esplits; (try by econs 3; eauto); eauto.
   - exploit Local.read_step_future; eauto. i. des.
     exploit sim_local_read; eauto; try refl. i. des.
     exploit Local.read_step_future; eauto. i. des.
-    hexploit sim_local_write; eauto; try refl; try by committac. i. des.
+    hexploit sim_local_write; eauto; try refl; try by viewtac. i. des.
     esplits; (try by econs 4; eauto); eauto.
   - exploit sim_local_fence; eauto; try refl. i. des.
     esplits; (try by econs 5; eauto); eauto.

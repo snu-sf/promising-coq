@@ -17,7 +17,7 @@ Require Import View.
 Require Import Cell.
 Require Import Memory.
 Require Import Thread.
-Require Import Commit.
+Require Import ThreadView.
 
 Require Import Gevents.
 Require Import model.
@@ -334,11 +334,11 @@ Variables sb rmw rf mo sc : relation event.
 
 Definition sim_msg b  rel :=
   << UR: forall l, max_value f_to (fun a => msg_rel urr acts sb rmw rf sc l a b) 
-                             (LocFun.find l rel.(Capability.ur)) >> /\
+                             (LocFun.find l rel.(View.pln)) >> /\
   << RW: forall l, max_value f_to (fun a => msg_rel rwr acts sb rmw rf sc l a b) 
-                             (LocFun.find l rel.(Capability.rw)) >> /\
+                             (LocFun.find l rel.(View.rlx)) >> /\
   << SC: forall l, max_value f_to (fun a => msg_rel scr acts sb rmw rf sc l a b) 
-                             (LocFun.find l rel.(Capability.sc)) >>.
+                             (LocFun.find l rel.(View.sc)) >>.
 
 Definition sim_mem_helper b from v rel :=
   << VAL: Some v = (val b) >> /\
@@ -360,27 +360,27 @@ Definition sim_mem mem :=
 
 Definition sim_rel rel i :=
   << REL_UR: forall l' l, max_value f_to (t_rel urr acts sb rmw rf sc i l' l) 
-    (LocFun.find l (LocFun.find l' rel).(Capability.ur)) >> /\
+    (LocFun.find l (LocFun.find l' rel).(View.pln)) >> /\
   << REL_UR: forall l' l, max_value f_to (t_rel rwr acts sb rmw rf sc i l' l) 
-    (LocFun.find l (LocFun.find l' rel).(Capability.rw)) >> /\
+    (LocFun.find l (LocFun.find l' rel).(View.rlx)) >> /\
   << REL_UR: forall l' l, max_value f_to (t_rel scr acts sb rmw rf sc i l' l) 
-    (LocFun.find l (LocFun.find l' rel).(Capability.sc)) >>.
+    (LocFun.find l (LocFun.find l' rel).(View.sc)) >>.
 
 Definition sim_cur cur i :=
   << CUR_UR: forall l, max_value f_to (t_cur urr acts sb rmw rf sc i l) 
-    (LocFun.find l cur.(Capability.ur)) >> /\
+    (LocFun.find l cur.(View.pln)) >> /\
   << CUR_RW: forall l, max_value f_to (t_cur rwr acts sb rmw rf sc i l) 
-    (LocFun.find l cur.(Capability.rw)) >> /\
+    (LocFun.find l cur.(View.rlx)) >> /\
   << CUR_SC: forall l, max_value f_to (t_cur scr acts sb rmw rf sc i l) 
-    (LocFun.find l cur.(Capability.sc)) >>.
+    (LocFun.find l cur.(View.sc)) >>.
 
 Definition sim_acq acq i :=
   << ACQ_UR: forall l, max_value f_to (t_acq urr acts sb rmw rf sc i l) 
-    (LocFun.find l acq.(Capability.ur)) >> /\
+    (LocFun.find l acq.(View.pln)) >> /\
   << ACQ_RW: forall l, max_value f_to (t_acq rwr acts sb rmw rf sc i l) 
-    (LocFun.find l acq.(Capability.rw)) >> /\
+    (LocFun.find l acq.(View.rlx)) >> /\
   << ACQ_SC: forall l, max_value f_to (t_acq scr acts sb rmw rf sc i l) 
-    (LocFun.find l acq.(Capability.sc)) >>.
+    (LocFun.find l acq.(View.sc)) >>.
 
 Definition sim_commit commit i :=
   << CUR: sim_cur commit.(Commit.cur) i >> /\
@@ -463,13 +463,13 @@ apply TimeMap.join_l.
 Qed.
 
 Lemma cap_join_bot a  :
-  Capability.join a Capability.bot =  a.
+  View.join a View.bot =  a.
 Proof.
-eapply Capability.antisym.
-apply Capability.join_spec.
-apply Capability.le_PreOrder.
-apply Capability.bot_spec.
-apply Capability.join_l.
+eapply View.antisym.
+apply View.join_spec.
+apply View.le_PreOrder.
+apply View.bot_spec.
+apply View.join_l.
 Qed.
 
 Lemma max_value_singleton f b t (T: t = f b):

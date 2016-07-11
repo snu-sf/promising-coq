@@ -14,7 +14,7 @@ Require Import View.
 Require Import Cell.
 Require Import Memory.
 Require Import MemoryFacts.
-Require Import Commit.
+Require Import ThreadView.
 Require Import Thread.
 Require Import Configuration.
 Require Import Progress.
@@ -65,13 +65,13 @@ Lemma merge_write_read1
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
-      (STEP: Local.write_step lc0 sc0 mem0 loc from to val Capability.bot released ord1 lc1 sc1 mem1 kind):
+      (STEP: Local.write_step lc0 sc0 mem0 loc from to val View.bot released ord1 lc1 sc1 mem1 kind):
   Local.read_step lc1 mem1 loc to val released ord2 lc1.
 Proof.
   inv STEP. econs; eauto.
   - inv WRITE.
-    hexploit Memory.promise_future; try apply PROMISE; try apply WF0; eauto; try by committac.
-    { eapply Local.promise_closed_capability; eauto; try apply WF0. committac. }
+    hexploit Memory.promise_future; try apply PROMISE; try apply WF0; eauto; try by viewtac.
+    { eapply Local.promise_closed_view; eauto; try apply WF0. viewtac. }
     i. des.
     hexploit Memory.promise_get2; eauto.
   - inv WRITABLE. econs; repeat (try condtac; aggrtac); (try by left; eauto).
@@ -79,7 +79,7 @@ Proof.
     + etrans; [|left; apply SC1; auto]. apply WF0.
   - unfold Commit.read_commit, Commit.write_commit. s.
     apply Commit.antisym; econs;
-      repeat (try condtac; aggrtac; rewrite <- ? Capability.join_l; try apply WF0).
+      repeat (try condtac; aggrtac; rewrite <- ? View.join_l; try apply WF0).
     + etrans; apply WF0.
 Qed.
 
@@ -91,17 +91,17 @@ Lemma merge_write_read2
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
-      (WF_RELEASED: Capability.wf releasedm)
-      (WF_CLOSED: Memory.closed_capability releasedm mem0)
-      (RLX: Ordering.le Ordering.relaxed ord2 -> Capability.le releasedm lc0.(Local.commit).(Commit.acq))
-      (ACQ: Ordering.le Ordering.acqrel ord2 -> Capability.le releasedm lc0.(Local.commit).(Commit.cur))
+      (WF_RELEASED: View.wf releasedm)
+      (WF_CLOSED: Memory.closed_view releasedm mem0)
+      (RLX: Ordering.le Ordering.relaxed ord2 -> View.le releasedm lc0.(Local.commit).(Commit.acq))
+      (ACQ: Ordering.le Ordering.acqrel ord2 -> View.le releasedm lc0.(Local.commit).(Commit.cur))
       (STEP: Local.write_step lc0 sc0 mem0 loc from to val releasedm released ord1 lc1 sc1 mem1 kind):
   Local.read_step lc1 mem1 loc to val released ord2 lc1.
 Proof.
   inv STEP. econs; eauto.
   - inv WRITE.
-    hexploit Memory.promise_future; try apply PROMISE; try apply WF0; eauto; try by committac.
-    { eapply Local.promise_closed_capability; eauto; try apply WF0. }
+    hexploit Memory.promise_future; try apply PROMISE; try apply WF0; eauto; try by viewtac.
+    { eapply Local.promise_closed_view; eauto; try apply WF0. }
     i. des.
     hexploit Memory.promise_get2; eauto.
   - inv WRITABLE. econs; repeat (try condtac; aggrtac); (try by left; eauto).
@@ -110,7 +110,7 @@ Proof.
     + etrans; [|left; apply SC1; auto]. apply WF0.
   - unfold Commit.read_commit, Commit.write_commit. s.
     apply Commit.antisym; econs;
-      repeat (try condtac; aggrtac; rewrite <- ? Capability.join_l; try apply WF0; eauto).
+      repeat (try condtac; aggrtac; rewrite <- ? View.join_l; try apply WF0; eauto).
     etrans; apply WF0.
 Qed.
 
@@ -156,7 +156,7 @@ Lemma fulfill_step_lc_from
       (WF: Local.wf lc0 mem0)
       (MEM: Memory.closed mem0)
       (STEP: fulfill_step lc0 sc0 loc from to val releasedm released ord lc1 sc1):
-  Time.le (lc0.(Local.commit).(Commit.cur).(Capability.rw) loc) from.
+  Time.le (lc0.(Local.commit).(Commit.cur).(View.rlx) loc) from.
 Proof.
   inv WF. inv STEP.
   exploit Memory.remove_get0; eauto. i.
@@ -173,10 +173,10 @@ Lemma merge_split
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
-      (LC0_TS: Time.le (lc0.(Local.commit).(Commit.cur).(Capability.rw) loc) ts1)
-      (REL0_TS: Time.le (Capability.rw released0 loc) ts1)
-      (REL0_WF: Capability.wf released0)
-      (REL0_CLOSED: Memory.closed_capability released0 mem0)
+      (LC0_TS: Time.le (lc0.(Local.commit).(Commit.cur).(View.rlx) loc) ts1)
+      (REL0_TS: Time.le (released0.(View.rlx) loc) ts1)
+      (REL0_WF: View.wf released0)
+      (REL0_CLOSED: Memory.closed_view released0 mem0)
       (TS12: Time.lt ts1 ts2)
       (TS23: Time.lt ts2 ts3)
       (STEP: fulfill_step lc0 sc0 loc ts1 ts3 val3 released0 released3 ord lc3 sc3):
@@ -189,18 +189,18 @@ Lemma merge_split
     <<MEM3: sim_memory mem1' mem0>> /\
     <<REL1': released1' =
              if Ordering.le Ordering.relaxed ord
-             then Capability.join
+             then View.join
                     released0
                     (Commit.rel (Commit.write_commit (Local.commit lc0) sc0 loc ts2 ord) loc)
-             else Capability.bot>>.
+             else View.bot>>.
 Proof.
   set (released1' :=
          if Ordering.le Ordering.relaxed ord
-         then Capability.join
+         then View.join
                 released0
                 (Commit.rel (Commit.write_commit (Local.commit lc0) sc0 loc ts2 ord) loc)
-         else Capability.bot).
-  assert (REL1'_WF: Capability.wf released1').
+         else View.bot).
+  assert (REL1'_WF: View.wf released1').
   { unfold released1'. repeat (try condtac; aggrtac; try by apply WF0). }
   exploit fulfill_step_future; eauto. i. des.
   inv STEP.
@@ -214,15 +214,15 @@ Proof.
   }
   { apply WF0. }
   i. des.
-  exploit Memory.promise_future; try eexact STEP1; (try by apply WF0); (try by committac); eauto.
-  { eapply Local.promise_closed_capability; try apply WF0; eauto. }
+  exploit Memory.promise_future; try eexact STEP1; (try by apply WF0); (try by viewtac); eauto.
+  { eapply Local.promise_closed_view; try apply WF0; eauto. }
   i. des.
-  assert (REL1'_CLOSED: Memory.closed_capability released1' mem1).
+  assert (REL1'_CLOSED: Memory.closed_view released1' mem1).
   { unfold released1'. repeat (try condtac; aggrtac; try by apply WF0).
-    - eapply Memory.future_closed_capability; eauto. apply WF0.
+    - eapply Memory.future_closed_view; eauto. apply WF0.
     - apply LE_PROMISES2. eapply Memory.promise_get2. eauto.
-    - econs; committac.
-    - eapply Memory.future_closed_capability; eauto. apply WF0.
+    - econs; viewtac.
+    - eapply Memory.future_closed_view; eauto. apply WF0.
   }
   esplits.
   - econs; eauto.
@@ -262,9 +262,9 @@ Lemma merge_write_write_relaxed
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
-      (REL0_WF: Capability.wf released0)
-      (REL0_TS: Time.le (Capability.rw released0 loc) ts1)
-      (REL0_CLOSED: Memory.closed_capability released0 mem0)
+      (REL0_WF: View.wf released0)
+      (REL0_TS: Time.le (released0.(View.rlx) loc) ts1)
+      (REL0_CLOSED: Memory.closed_view released0 mem0)
       (ORD: Ordering.le ord Ordering.relaxed)
       (TS12: Time.lt ts1 ts2)
       (TS23: Time.lt ts2 ts3)
@@ -273,7 +273,7 @@ Lemma merge_write_write_relaxed
     <<STEP1: Local.promise_step lc0 mem0 loc ts1 ts3 val3 released3 lc1' mem1' kind>> /\
     <<STEP2: Local.write_step lc1' sc0 mem1' loc ts1 ts2 val2 released0 released2' ord lc2' sc2' mem2' (Memory.promise_kind_split ts3 val3 released3)>> /\
     <<STEP3: Local.write_step lc2' sc2' mem2' loc ts2 ts3 val3 released2' released3' ord lc3' sc3' mem3' (Memory.promise_kind_lower released3)>> /\
-    <<REL3: Capability.le released3' released3>> /\
+    <<REL3: View.le released3' released3>> /\
     <<LOCAL3: sim_local lc3' lc3>> /\
     <<SC3: TimeMap.le sc3' sc3>> /\
     <<MEM3: sim_memory mem3' mem3>>.
@@ -281,14 +281,14 @@ Proof.
   exploit Local.write_step_future; eauto. i. des.
   exploit write_promise_fulfill; eauto. i. des.
   exploit Local.promise_step_future; eauto. i. des.
-  exploit merge_split; try exact STEP2; eauto; try by committac.
+  exploit merge_split; try exact STEP2; eauto; try by viewtac.
   { eapply fulfill_step_lc_from; eauto. }
   i. des.
   exploit Local.promise_step_future; try exact STEP0; eauto. i. des.
-  exploit promise_fulfill_write; try eexact STEP3; eauto; try by committac.
+  exploit promise_fulfill_write; try eexact STEP3; eauto; try by viewtac.
   { i. destruct ord; inv ORD; inv H. }
   i. des.
-  exploit Local.write_step_future; eauto; try by committac. i. des.
+  exploit Local.write_step_future; eauto; try by viewtac. i. des.
   exploit sim_local_fulfill; try eexact STEP4; try exact REL_LE; try refl; eauto. i. des.
   exploit (@fulfill_write lc2' sc2' mem2'); try eexact STEP_SRC; eauto. i. des.
   esplits; eauto.
@@ -306,7 +306,7 @@ Lemma promise_add_promise_split_promise_add_promise_add
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
       (REL_CLOSED: forall promises1' mem1' (PROMISE1: Memory.promise (Local.promises lc0) mem0 loc ts1 ts2 val2 released2 promises1' mem1' Memory.promise_kind_add),
-          Memory.closed_capability released2 mem1')
+          Memory.closed_view released2 mem1')
       (STEP1: Local.promise_step lc0 mem0 loc ts1 ts3 val3 released3 lc1 mem1 Memory.promise_kind_add)
       (STEP2: Local.promise_step lc1 mem1 loc ts1 ts2 val2 released2 lc2 mem2 (Memory.promise_kind_split ts3 val3 released3)):
   exists lc1' mem1',
@@ -320,7 +320,7 @@ Proof.
   esplits.
   - econs; eauto.
   - refine (Local.step_promise _ _ _); eauto.
-    eapply Memory.promise_closed_capability; eauto.
+    eapply Memory.promise_closed_view; eauto.
 Qed.
 
 Lemma reorder_promise_add_promise_add
@@ -334,7 +334,7 @@ Lemma reorder_promise_add_promise_add
       (MEM0: Memory.closed mem0)
       (DIFF: (loc1, to1) <> (loc2, to2))
       (REL_CLOSED: forall promises1' mem1' (PROMISE1: Memory.promise (Local.promises lc0) mem0 loc2 from2 to2 val2 released2 promises1' mem1' Memory.promise_kind_add),
-          Memory.closed_capability released2 mem1')
+          Memory.closed_view released2 mem1')
       (STEP1: Local.promise_step lc0 mem0 loc1 from1 to1 val1 released1 lc1 mem1 Memory.promise_kind_add)
       (STEP2: Local.promise_step lc1 mem1 loc2 from2 to2 val2 released2 lc2 mem2 Memory.promise_kind_add):
   exists lc1' mem1',
@@ -348,7 +348,7 @@ Proof.
   esplits.
   - econs; eauto.
   - refine (Local.step_promise _ _ _); eauto.
-    committac.
+    viewtac.
 Qed.
 
 Lemma reorder_promise_add_fulfill
@@ -360,7 +360,7 @@ Lemma reorder_promise_add_fulfill
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
-      (RELM_WF: Memory.closed_capability releasedm2 mem0)
+      (RELM_WF: Memory.closed_view releasedm2 mem0)
       (DIFF: (loc1, to1) <> (loc2, to2))
       (STEP1: Local.promise_step lc0 mem0 loc1 from1 to1 val1 released1 lc1 mem1 Memory.promise_kind_add)
       (STEP2: fulfill_step lc1 sc0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc2 sc2):
@@ -369,7 +369,7 @@ Lemma reorder_promise_add_fulfill
     <<STEP2: Local.promise_step lc1' mem0 loc1 from1 to1 val1 released1 lc2 mem1 Memory.promise_kind_add>>.
 Proof.
   exploit Local.promise_step_future; try exact STEP1; eauto. i. des.
-  exploit fulfill_step_future; try exact STEP2; try exact WF2; eauto; try by committac. i. des.
+  exploit fulfill_step_future; try exact STEP2; try exact WF2; eauto; try by viewtac. i. des.
   inv STEP1. inv STEP2.
   exploit MemoryReorder.promise_add_remove; try exact PROMISE; eauto. i. des.
   esplits.
@@ -405,16 +405,16 @@ Lemma merge_write_write_add
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
-      (REL0_WF: Capability.wf released0)
-      (REL0_TS: Time.le (Capability.rw released0 loc) ts1)
-      (REL0_CLOSED: Memory.closed_capability released0 mem0)
+      (REL0_WF: View.wf released0)
+      (REL0_TS: Time.le (released0.(View.rlx) loc) ts1)
+      (REL0_CLOSED: Memory.closed_view released0 mem0)
       (TS12: Time.lt ts1 ts2)
       (TS23: Time.lt ts2 ts3)
       (STEP: Local.write_step lc0 sc0 mem0 loc ts1 ts3 val2 released0 released2 ord lc2 sc2 mem2 Memory.promise_kind_add):
   exists lc1' lc2' sc1' sc2' mem1' mem2' released1' released2',
     <<STEP1: Local.write_step lc0 sc0 mem0 loc ts1 ts2 val1 released0 released1' ord lc1' sc1' mem1' Memory.promise_kind_add>> /\
     <<STEP2: Local.write_step lc1' sc1' mem1' loc ts2 ts3 val2 released1' released2' ord lc2' sc2' mem2' Memory.promise_kind_add>> /\
-    <<REL2: Capability.le released2' released2>> /\
+    <<REL2: View.le released2' released2>> /\
     <<LOCAL2: sim_local lc2' lc2>> /\
     <<SC2: TimeMap.le sc2' sc2>> /\
     <<MEM2: sim_memory mem2' mem2>>.
@@ -422,20 +422,20 @@ Proof.
   exploit Local.write_step_future; eauto. i. des.
   exploit write_promise_fulfill; eauto. i. des.
   exploit Local.promise_step_future; eauto. i. des.
-  exploit merge_split; try exact STEP2; eauto; try by committac.
+  exploit merge_split; try exact STEP2; eauto; try by viewtac.
   { eapply fulfill_step_lc_from; eauto. }
   i. des.
   exploit promise_add_promise_split_promise_add_promise_add; try exact STEP1; eauto.
   { i. rewrite REL1'.
-    eapply Local.promise_closed_capability; try eexact PROMISE1; eauto; try apply WF0.
+    eapply Local.promise_closed_view; try eexact PROMISE1; eauto; try apply WF0.
     inv STEP1. apply WF0.
   }
   i. des.
   exploit Local.promise_step_future; try eexact STEP5; eauto. i. des.
-  exploit reorder_promise_add_fulfill; try exact STEP6; try eexact STEP3; eauto; try by committac.
+  exploit reorder_promise_add_fulfill; try exact STEP6; try eexact STEP3; eauto; try by viewtac.
   { ii. inv H. exfalso. eapply Time.lt_strorder. eauto. }
   i. des.
-  exploit fulfill_step_future; try eexact STEP7; try exact WF3; eauto; try by committac. i. des.
+  exploit fulfill_step_future; try eexact STEP7; try exact WF3; eauto; try by viewtac. i. des.
   exploit promise_fulfill_write; try eexact STEP5; eauto. i. des.
   exploit Local.write_step_future; eauto. i. des.
   exploit promise_fulfill_write; try eexact STEP8; eauto.
@@ -458,9 +458,9 @@ Lemma merge_write_write
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
-      (REL0_WF: Capability.wf released0)
-      (REL0_TS: Time.le (Capability.rw released0 loc) ts1)
-      (REL0_CLOSED: Memory.closed_capability released0 mem0)
+      (REL0_WF: View.wf released0)
+      (REL0_TS: Time.le (released0.(View.rlx) loc) ts1)
+      (REL0_CLOSED: Memory.closed_view released0 mem0)
       (TS12: Time.lt ts1 ts2)
       (TS23: Time.lt ts2 ts3)
       (STEP: Local.write_step lc0 sc0 mem0 loc ts1 ts3 val2 released0 released2 ord lc3 sc3 mem3 kind):
@@ -468,7 +468,7 @@ Lemma merge_write_write
     <<STEP1: Local.promise_step lc0 mem0 loc ts1 ts3 val2 released2 lc1' mem1' kind \/ (lc0, mem0) = (lc1', mem1')>> /\
     <<STEP2: Local.write_step lc1' sc0 mem1' loc ts1 ts2 val1 released0 released1' ord lc2' sc2' mem2' kind2>> /\
     <<STEP3: Local.write_step lc2' sc2' mem2' loc ts2 ts3 val2 released1' released2' ord lc3' sc3' mem3' kind3>> /\
-    <<REL3: Capability.le released2' released2>> /\
+    <<REL3: View.le released2' released2>> /\
     <<LOCAL3: sim_local lc3' lc3>> /\
     <<SC3: TimeMap.le sc3' sc3>> /\
     <<MEM3: sim_memory mem3' mem3>>.
@@ -489,32 +489,32 @@ Lemma merge_write_write_bot
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
-      (REL0_WF: Capability.wf released0)
-      (REL0_TS: Time.le (Capability.rw released0 loc) ts1)
-      (REL0_CLOSED: Memory.closed_capability released0 mem0)
+      (REL0_WF: View.wf released0)
+      (REL0_TS: Time.le (released0.(View.rlx) loc) ts1)
+      (REL0_CLOSED: Memory.closed_view released0 mem0)
       (TS12: Time.lt ts1 ts2)
       (TS23: Time.lt ts2 ts3)
       (STEP: Local.write_step lc0 sc0 mem0 loc ts1 ts3 val2 released0 released2 ord lc3 sc3 mem3 kind):
   exists lc1' lc2' lc3' sc2' sc3' mem1' mem2' mem3' released1' released2' kind2 kind3,
     <<STEP1: Local.promise_step lc0 mem0 loc ts1 ts3 val2 released2 lc1' mem1' kind \/ (lc0, mem0) = (lc1', mem1')>> /\
     <<STEP2: Local.write_step lc1' sc0 mem1' loc ts1 ts2 val1 released0 released1' ord lc2' sc2' mem2' kind2>> /\
-    <<STEP3: Local.write_step lc2' sc2' mem2' loc ts2 ts3 val2 Capability.bot released2' ord lc3' sc3' mem3' kind3>> /\
-    <<REL3: Capability.le released2' released2>> /\
+    <<STEP3: Local.write_step lc2' sc2' mem2' loc ts2 ts3 val2 View.bot released2' ord lc3' sc3' mem3' kind3>> /\
+    <<REL3: View.le released2' released2>> /\
     <<LOCAL3: sim_local lc3' lc3>> /\
     <<SC3: TimeMap.le sc3' sc3>> /\
     <<MEM3: sim_memory mem3' mem3>>.
 Proof.
   exploit merge_write_write; try apply TS12; eauto. i. des.
   - exploit Local.promise_step_future; eauto. i. des.
-    exploit Memory.future_closed_capability; try exact REL0_CLOSED; eauto. i.
+    exploit Memory.future_closed_view; try exact REL0_CLOSED; eauto. i.
     exploit Local.write_step_future; try apply STEP2; eauto. i. des.
     hexploit sim_local_write; try apply STEP3;
-      try apply Capability.bot_spec; try refl; eauto; committac. i. des.
+      try apply View.bot_spec; try refl; eauto; viewtac. i. des.
     esplits; cycle 1; eauto; try (etrans; eauto).
   - inv STEP1.
     exploit Local.write_step_future; try apply STEP2; eauto. i. des.
     hexploit sim_local_write; try apply STEP3;
-      try apply Capability.bot_spec; try refl; eauto; committac. i. des.
+      try apply View.bot_spec; try refl; eauto; viewtac. i. des.
     esplits; cycle 1; eauto; try (etrans; eauto).
 Qed.
 

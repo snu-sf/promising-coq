@@ -14,7 +14,7 @@ Require Import Time.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import Commit.
+Require Import ThreadView.
 Require Import Thread.
 Require Import Configuration.
 Require Import Progress.
@@ -118,7 +118,7 @@ Proof.
     { apply WF_SRC. }
     { apply WF_TGT. }
     i. des.
-    exploit sim_memory_closed_capability; eauto. i.
+    exploit sim_memory_closed_view; eauto. i.
     exploit Memory.promise_future; try apply PROMISE_SRC; eauto.
     { apply WF_SRC. }
     i. des.
@@ -156,18 +156,18 @@ Proof.
     exploit sim_local_future; try apply LOCAL; eauto. i. des.
     esplits.
     + etrans.
-      { apply Memory.max_timemap_spec; eauto. committac. }
+      { apply Memory.max_timemap_spec; eauto. viewtac. }
       { apply sim_memory_max_timemap; eauto. }
     + eauto.
     + etrans.
-      { apply Memory.max_timemap_spec; eauto. committac. }
+      { apply Memory.max_timemap_spec; eauto. viewtac. }
       { apply Memory.future_max_timemap; eauto. }
     + auto.
     + econs.
       { eapply WF_TGT. }
       { eapply Commit.future_closed; eauto. apply WF_TGT. }
       { inv FENCE. apply WF2_TGT. }
-    + apply Memory.max_timemap_closed. committac.
+    + apply Memory.max_timemap_closed. viewtac.
     + auto.
   - i. inv PR.
     esplits; eauto. inv FENCE.
@@ -190,12 +190,12 @@ Proof.
   { exploit sim_local_future; try apply LOCAL; eauto. i. des.
     esplits; eauto.
     - etrans.
-      + apply Memory.max_timemap_spec; eauto. committac.
+      + apply Memory.max_timemap_spec; eauto. viewtac.
       + apply sim_memory_max_timemap; eauto.
     - etrans.
-      + apply Memory.max_timemap_spec; eauto. committac.
+      + apply Memory.max_timemap_spec; eauto. viewtac.
       + apply Memory.future_max_timemap; eauto.
-    - apply Memory.max_timemap_closed. committac.
+    - apply Memory.max_timemap_closed. viewtac.
   }
   { esplits; eauto.
     inv LOCAL. apply SimPromises.sem_bot_inv in PROMISES; auto. rewrite PROMISES. auto.
@@ -226,13 +226,13 @@ Proof.
       econs 1; eauto. etrans; eauto.
   - (* store *)
     guardH ORD2.
-    exploit Local.write_step_future; eauto; try by committac. i. des.
+    exploit Local.write_step_future; eauto; try by viewtac. i. des.
     exploit progress_fence_step; eauto. i. des.
     hexploit sim_local_write; try exact LOCAL0; try exact LOCAL; try exact SC; try exact MEMORY;
-      try refl; eauto; try by committac. i. des.
-    exploit Local.write_step_future; eauto; try by committac. i. des.
+      try refl; eauto; try by viewtac. i. des.
+    exploit Local.write_step_future; eauto; try by viewtac. i. des.
     exploit sim_local_fence; try exact SC0; eauto; try refl. i. des.
-    exploit reorder_write_fence; try exact STEP_SRC; eauto; try by committac. i. des.
+    exploit reorder_write_fence; try exact STEP_SRC; eauto; try by viewtac. i. des.
     esplits.
     + econs 2; eauto. econs.
       * econs 2. econs 5; eauto. econs. econs.

@@ -13,7 +13,7 @@ Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import Commit.
+Require Import ThreadView.
 Require Import Thread.
 Require Import Configuration.
 
@@ -106,12 +106,12 @@ Proof.
   - i. exploit sim_local_future; (try by apply LOCAL); eauto. i. des.
     esplits; eauto.
     + etrans.
-      * apply Memory.max_timemap_spec; eauto. committac.
+      * apply Memory.max_timemap_spec; eauto. viewtac.
       * apply sim_memory_max_timemap; eauto.
     + etrans.
-      * apply Memory.max_timemap_spec; eauto. committac.
+      * apply Memory.max_timemap_spec; eauto. viewtac.
       * apply Memory.future_max_timemap; eauto.
-    + apply Memory.max_timemap_closed. committac.
+    + apply Memory.max_timemap_closed. viewtac.
   - i. exploit sim_local_memory_bot; eauto. i.
     esplits; eauto.
   - ii. inv STEP_TGT; inv STEP0.
@@ -147,7 +147,7 @@ Proof.
       hexploit sim_local_write;
         (try exact LOCAL);
         (try exact SC);
-        eauto; try refl; try by committac. i. des.
+        eauto; try refl; try by viewtac. i. des.
       esplits;
         (try by apply rtc_lang_tau_step_rtc_thread_tau_step; eauto);
         (try exact SC).
@@ -164,7 +164,7 @@ Proof.
       hexploit sim_local_write;
         (try exact LOCAL0);
         (try exact SC);
-        eauto; try refl; try by committac. i. des.
+        eauto; try refl; try by viewtac. i. des.
       esplits;
         (try by apply rtc_lang_tau_step_rtc_thread_tau_step; eauto);
         (try exact SC).

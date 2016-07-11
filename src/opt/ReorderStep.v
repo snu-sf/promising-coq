@@ -15,7 +15,7 @@ Require Import View.
 Require Import Cell.
 Require Import Memory.
 Require Import MemoryFacts.
-Require Import Commit.
+Require Import ThreadView.
 Require Import Thread.
 Require Import Configuration.
 Require Import Progress.
@@ -53,8 +53,8 @@ Proof.
       esplits. econs 2; eauto. econs. econs.
     + hexploit progress_write_step; eauto.
       { apply Time.incr_spec. }
-      { apply Capability.bot_wf. }
-      { apply Memory.closed_capability_bot. apply MEM1. }
+      { apply View.bot_wf. }
+      { apply Memory.closed_view_bot. apply MEM1. }
       i. des. esplits. econs 3; eauto. econs. econs.
     + hexploit progress_read_step; eauto. i. des.
       exploit Local.read_step_future; eauto. i. des.
@@ -80,7 +80,7 @@ Lemma future_read_step
       (STEP: Local.read_step lc1 mem1 loc ts val released ord lc2):
   exists released' lc2',
     <<STEP: Local.read_step lc1 mem1' loc ts val released' ord lc2'>> /\
-    <<REL: Capability.le released' released>> /\
+    <<REL: View.le released' released>> /\
     <<LOCAL: sim_local lc2' lc2>>.
 Proof.
   inv STEP. exploit Memory.future_get; eauto. i. des.
@@ -99,19 +99,19 @@ Qed.
 Lemma future_fulfill_step
       lc1 sc1 sc1' loc from to val releasedm releasedm' released ord lc2 sc2
       (ORD: Ordering.le ord Ordering.relaxed)
-      (REL_LE: Capability.le releasedm' releasedm)
+      (REL_LE: View.le releasedm' releasedm)
       (STEP: fulfill_step lc1 sc1 loc from to val releasedm released ord lc2 sc2):
   fulfill_step lc1 sc1' loc from to val releasedm' released ord lc2 sc1'.
 Proof.
   assert (COMMIT: Commit.write_commit (Local.commit lc1) sc1 loc to ord = Commit.write_commit (Local.commit lc1) sc1' loc to ord).
-  { unfold Commit.write_commit. repeat (condtac; committac). }
+  { unfold Commit.write_commit. repeat (condtac; viewtac). }
   assert (SC_EQ: sc1' = Commit.write_sc sc1' loc to ord).
   { i. unfold Commit.write_sc. apply TimeMap.antisym; repeat (condtac; aggrtac). }
   inversion STEP. subst lc2 sc2. esplits.
   - rewrite COMMIT. rewrite SC_EQ at 3. econs; eauto.
-    + etrans; eauto. condtac; committac. apply Capability.join_spec.
-      * rewrite <- Capability.join_l. auto.
-      * rewrite <- Capability.join_r. rewrite COMMIT. refl.
+    + etrans; eauto. condtac; viewtac. apply View.join_spec.
+      * rewrite <- View.join_l. auto.
+      * rewrite <- View.join_r. rewrite COMMIT. refl.
     + econs; try apply WRITABLE.
       i. destruct ord; inversion H; inversion ORD.
 Qed.
@@ -142,8 +142,8 @@ Proof.
     + s. unfold Commit.read_commit.
       econs; repeat (try condtac; try splits; aggrtac; eauto; try apply READABLE;
                      unfold TimeMap.singleton, LocFun.add in *).
-      *  specialize (LOC eq_refl). committac.
-      * specialize (LOC eq_refl). committac.
+      *  specialize (LOC eq_refl). viewtac.
+      * specialize (LOC eq_refl). viewtac.
     + apply Commit.antisym; apply ReorderCommit.read_read_commit;
         (try by apply WF0);
         (try by eapply MEM0; eauto).
@@ -162,7 +162,7 @@ Lemma reorder_read_promise
   exists lc1' lc2' released1',
     <<STEP1: Local.promise_step lc0 mem0 loc2 from2 to2 val2 released2 lc1' mem2 kind2>> /\
     <<STEP2: Local.read_step lc1' mem2 loc1 ts1 val1 released1' ord1 lc2'>> /\
-    <<REL1: Capability.le released1' released1>> /\
+    <<REL1: View.le released1' released1>> /\
     <<LOCAL: sim_local lc2' lc2>>.
 Proof.
   inv STEP1. inv STEP2. ss.
@@ -208,8 +208,8 @@ Lemma reorder_read_fulfill
       lc2 sc2
       (LOC: loc1 <> loc2)
       (ORD: Ordering.le ord1 Ordering.acqrel \/ Ordering.le ord2 Ordering.acqrel)
-      (RELM_WF: Capability.wf releasedm2)
-      (RELM_CLOSED: Memory.closed_capability releasedm2 mem0)
+      (RELM_WF: View.wf releasedm2)
+      (RELM_CLOSED: Memory.closed_view releasedm2 mem0)
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
@@ -245,8 +245,8 @@ Lemma reorder_read_write
       kind
       (LOC: loc1 <> loc2)
       (ORD: Ordering.le ord1 Ordering.acqrel \/ Ordering.le ord2 Ordering.acqrel)
-      (RELM_WF: Capability.wf releasedm2)
-      (RELM_CLOSED: Memory.closed_capability releasedm2 mem0)
+      (RELM_WF: View.wf releasedm2)
+      (RELM_CLOSED: Memory.closed_view releasedm2 mem0)
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
@@ -256,7 +256,7 @@ Lemma reorder_read_write
     <<STEP1: Local.write_step lc0 sc0 mem0 loc2 from2 to2 val2 releasedm2 released2' ord2 lc1' sc2 mem2' kind>> /\
     <<STEP2: Local.read_step lc1' mem2' loc1 ts1 val1 released1 ord1 lc2'>> /\
     <<LOCAL: sim_local lc2' lc2>> /\
-    <<RELEASED: Capability.le released2' released2>> /\
+    <<RELEASED: View.le released2' released2>> /\
     <<MEM: sim_memory mem2' mem2>>.
 Proof.
   guardH ORD.
@@ -267,8 +267,8 @@ Proof.
   { ii. inv H. congr. }
   i. des.
   exploit Local.promise_step_future; eauto. i. des.
-  exploit reorder_read_fulfill; try exact STEP5; try exact STEP3; eauto; try by committac. i. des.
-  exploit promise_fulfill_write; try exact x4; try exact STEP6; eauto; try by committac.
+  exploit reorder_read_fulfill; try exact STEP5; try exact STEP3; eauto; try by viewtac. i. des.
+  exploit promise_fulfill_write; try exact x4; try exact STEP6; eauto; try by viewtac.
   { i. exploit ORD0; eauto. i. des.
     splits; auto. inv STEP1. auto.
   }
@@ -304,7 +304,7 @@ Lemma reorder_read_update
     <<STEP2: Local.write_step lc1' sc0 mem0 loc2 from3 to3 val3 released2 released3' ord3 lc2' sc3 mem3' kind>> /\
     <<STEP3: Local.read_step lc2' mem3' loc1 ts1 val1 released1 ord1 lc3'>> /\
     <<LOCAL: sim_local lc3' lc3>> /\
-    <<RELEASED: Capability.le released3' released3>> /\
+    <<RELEASED: View.le released3' released3>> /\
     <<MEM: sim_memory mem3' mem3>>.
 Proof.
   guardH ORD3.
@@ -423,8 +423,8 @@ Lemma reorder_fulfill_fulfill
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
-      (REL2_WF: Capability.wf releasedm2)
-      (REL2_CLOSED: Memory.closed_capability releasedm2 mem0)
+      (REL2_WF: View.wf releasedm2)
+      (REL2_CLOSED: Memory.closed_view releasedm2 mem0)
       (STEP1: fulfill_step lc0 sc0 loc1 from1 to1 val1 releasedm1 released1 ord1 lc1 sc1)
       (STEP2: fulfill_step lc1 sc1 loc2 from2 to2 val2 releasedm2 released2 ord2 lc2 sc2):
   exists lc1' lc2' sc1' sc2',
@@ -440,7 +440,7 @@ Proof.
   esplits.
   - econs; eauto.
     + etrans; eauto. repeat (try condtac; aggrtac; try apply WF0).
-      econs; try by committac. s.
+      econs; try by viewtac. s.
       rewrite <- ? TimeMap.join_r. apply CommitFacts.write_sc_incr.
     + eapply CommitFacts.writable_mon; eauto; try refl.
       * apply CommitFacts.write_commit_incr. apply WF0.
@@ -449,9 +449,9 @@ Proof.
     + etrans; eauto. repeat (try condtac; aggrtac; try apply WF0).
     + inv WRITABLE. econs; i.
       * eapply TimeFacts.le_lt_lt; [|apply TS].
-        repeat (try condtac; committac; unfold TimeMap.singleton in *).
-      * eapply TimeFacts.le_lt_lt; [|apply SC1; auto]. committac.
-      * eapply TimeFacts.le_lt_lt; [|apply SC2; auto]. committac.
+        repeat (try condtac; viewtac; unfold TimeMap.singleton in *).
+      * eapply TimeFacts.le_lt_lt; [|apply SC1; auto]. viewtac.
+      * eapply TimeFacts.le_lt_lt; [|apply SC2; auto]. viewtac.
   - s. econs; ss.
     + apply ReorderCommit.write_write_commit; auto. apply WF0.
     + apply SimPromises.sem_bot.
@@ -469,16 +469,16 @@ Lemma reorder_fulfill_write
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
-      (REL1_WF: Capability.wf releasedm1)
-      (REL1_CLOSED: Memory.closed_capability releasedm1 mem0)
-      (REL2_WF: Capability.wf releasedm2)
-      (REL2_CLOSED: Memory.closed_capability releasedm2 mem0)
+      (REL1_WF: View.wf releasedm1)
+      (REL1_CLOSED: Memory.closed_view releasedm1 mem0)
+      (REL2_WF: View.wf releasedm2)
+      (REL2_CLOSED: Memory.closed_view releasedm2 mem0)
       (STEP1: fulfill_step lc0 sc0 loc1 from1 to1 val1 releasedm1 released1 ord1 lc1 sc1)
       (STEP2: Local.write_step lc1 sc1 mem0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc2 sc2 mem2 kind2):
   exists released2' lc1' lc2' sc1' sc2' mem2',
     <<STEP1: Local.write_step lc0 sc0 mem0 loc2 from2 to2 val2 releasedm2 released2' ord2 lc1' sc1' mem2' kind2>> /\
     <<STEP2: fulfill_step lc1' sc1' loc1 from1 to1 val1 releasedm1 released1 ord1 lc2' sc2'>> /\
-    <<RELEASED2: Capability.le released2' released2>> /\
+    <<RELEASED2: View.le released2' released2>> /\
     <<LOCAL: sim_local lc2' lc2>> /\
     <<SC: TimeMap.le sc2' sc2>> /\
     <<MEM: sim_memory mem2' mem2>>.
@@ -488,8 +488,8 @@ Proof.
   exploit Local.promise_step_future; eauto. i. des.
   exploit reorder_fulfill_promise; try exact STEP1; eauto. i. des.
   exploit Local.promise_step_future; eauto. i. des.
-  exploit fulfill_step_future; try exact STEP5; try exact WF3; eauto; try by committac. i. des.
-  exploit reorder_fulfill_fulfill; try exact STEP5; try exact STEP3; eauto; try by committac. i. des.
+  exploit fulfill_step_future; try exact STEP5; try exact WF3; eauto; try by viewtac. i. des.
+  exploit reorder_fulfill_fulfill; try exact STEP5; try exact STEP3; eauto; try by viewtac. i. des.
   exploit promise_fulfill_write; eauto.
   { i. exploit ORD; eauto. i. des.
     splits; auto. erewrite fulfill_step_promises_diff; eauto.
@@ -512,8 +512,8 @@ Lemma reorder_fulfill_update
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
-      (REL1_WF: Capability.wf releasedm1)
-      (REL1_CLOSED: Memory.closed_capability releasedm1 mem0)
+      (REL1_WF: View.wf releasedm1)
+      (REL1_CLOSED: Memory.closed_view releasedm1 mem0)
       (STEP1: fulfill_step lc0 sc0 loc1 from1 to1 val1 releasedm1 released1 ord1 lc1 sc1)
       (STEP2: Local.read_step lc1 mem0 loc2 ts2 val2 released2 ord2 lc2)
       (STEP3: Local.write_step lc2 sc1 mem0 loc2 from3 to3 val3 released2 released3 ord3 lc3 sc3 mem3 kind3):
@@ -522,7 +522,7 @@ Lemma reorder_fulfill_update
     <<STEP2: Local.write_step lc1' sc0 mem0 loc2 from3 to3 val3 released2 released3' ord3 lc2' sc2' mem2' kind3>> /\
     <<STEP3: fulfill_step lc2' sc2' loc1 from1 to1 val1 releasedm1 released1 ord1 lc3' sc3'>> /\
     <<LOCAL: sim_local lc3' lc3>> /\
-    <<RELEASED: Capability.le released3' released3>> /\
+    <<RELEASED: View.le released3' released3>> /\
     <<SC: TimeMap.le sc3' sc3>> /\
     <<MEM: sim_memory mem2' mem3>>.
 Proof.
@@ -545,8 +545,8 @@ Lemma reorder_write_fence
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
-      (REL_WF: Capability.wf releasedm1)
-      (REL_CLOSED: Memory.closed_capability releasedm1 mem0)
+      (REL_WF: View.wf releasedm1)
+      (REL_CLOSED: Memory.closed_view releasedm1 mem0)
       (STEP1: Local.write_step lc0 sc0 mem0 loc1 from1 to1 val1 releasedm1 released1 ord1 lc1 sc1 mem1 kind1)
       (STEP2: Local.fence_step lc1 sc1 Ordering.relaxed Ordering.acqrel lc2 sc2):
   exists released1 lc1' lc2' sc1',
@@ -561,14 +561,14 @@ Proof.
   assert (REL_EQ:
             (if Ordering.le Ordering.relaxed ord1
              then
-              Capability.join releasedm1
+              View.join releasedm1
                 (Commit.rel
                    (Commit.write_commit (Local.commit lc0) sc0 loc1
                       to1 ord1) loc1)
-             else Capability.bot) =
+             else View.bot) =
      (if Ordering.le Ordering.relaxed ord1
       then
-       Capability.join releasedm1
+       View.join releasedm1
          (Commit.rel
             (Commit.write_commit
                (Commit.write_fence_commit
@@ -578,10 +578,10 @@ Proof.
                   (Commit.read_fence_commit (Local.commit lc0)
                      Ordering.relaxed) sc0 Ordering.acqrel) loc1 to1
                ord1) loc1)
-      else Capability.bot)).
+      else View.bot)).
   { condtac; [|auto]. f_equal.
     unfold Commit.write_fence_commit, Commit.write_fence_sc.
-    apply Capability.antisym; repeat (try condtac; aggrtac; try apply WF0).
+    apply View.antisym; repeat (try condtac; aggrtac; try apply WF0).
     unguardH ORD1. des; [|congr]. destruct ord1; inv ORD1; inv COND.
   }
   esplits.
@@ -641,7 +641,7 @@ Lemma reorder_update_promise
     <<STEP1: Local.promise_step lc0 mem0 loc3 from3 to3 val3 released3 lc1' mem3 kind3>> /\
     <<STEP2: Local.read_step lc1' mem3 loc1 ts1 val1 released1' ord1 lc2'>> /\
     <<STEP3: fulfill_step lc2' sc0 loc1 from2 to2 val2 released1' released2 ord2 lc3' sc3'>> /\
-    <<RELEASED1: Capability.le released1' released1>> /\
+    <<RELEASED1: View.le released1' released1>> /\
     <<LOCAL: sim_local lc3' lc3>> /\
     <<SC: TimeMap.le sc3' sc2>>.
 Proof.
@@ -653,7 +653,7 @@ Proof.
   exploit Local.promise_step_future; eauto. i. des.
   exploit Local.read_step_future; eauto. i. des.
   exploit sim_local_fulfill; try exact STEP4; try exact LOCAL; try exact REL1;
-    try exact WF3; try exact WF5; try refl; eauto; try by committac. i. des.
+    try exact WF3; try exact WF5; try refl; eauto; try by viewtac. i. des.
   esplits; eauto.
 Qed.
 
@@ -696,8 +696,8 @@ Lemma reorder_update_fulfill
       (TIME: ts1 <> to2)
       (ORD2: Ordering.le ord2 Ordering.relaxed)
       (ORD3: Ordering.le ord1 Ordering.acqrel \/ Ordering.le ord3 Ordering.acqrel)
-      (REL_WF: Capability.wf releasedm3)
-      (REL_CLOSED: Memory.closed_capability releasedm3 mem0)
+      (REL_WF: View.wf releasedm3)
+      (REL_CLOSED: Memory.closed_view releasedm3 mem0)
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
@@ -715,10 +715,10 @@ Proof.
   exploit Local.read_step_future; try exact STEP1; eauto. i. des.
   exploit fulfill_step_future; try exact STEP2; eauto. i. des.
   exploit reorder_fulfill_fulfill; try exact STEP2; try exact STEP3; eauto. i. des.
-  exploit fulfill_step_future; try exact STEP0; eauto; try by committac. i. des.
-  exploit reorder_read_fulfill; try exact STEP1; try exact STEP0; eauto; try by committac. i. des.
-  exploit fulfill_step_future; try exact STEP5; eauto; try by committac. i. des.
-  exploit Local.read_step_future; try exact STEP6; eauto; try by committac. i. des.
+  exploit fulfill_step_future; try exact STEP0; eauto; try by viewtac. i. des.
+  exploit reorder_read_fulfill; try exact STEP1; try exact STEP0; eauto; try by viewtac. i. des.
+  exploit fulfill_step_future; try exact STEP5; eauto; try by viewtac. i. des.
+  exploit Local.read_step_future; try exact STEP6; eauto; try by viewtac. i. des.
   exploit sim_local_fulfill; try exact STEP4; try exact LOCAL0; try refl; eauto. i. des.
   esplits; eauto.
   - etrans; eauto.
@@ -737,8 +737,8 @@ Lemma reorder_update_write
       (TIME: ts1 <> to2)
       (ORD2: Ordering.le ord2 Ordering.relaxed)
       (ORD3: Ordering.le ord1 Ordering.acqrel \/ Ordering.le ord3 Ordering.acqrel)
-      (REL_WF: Capability.wf releasedm3)
-      (REL_CLOSED: Memory.closed_capability releasedm3 mem0)
+      (REL_WF: View.wf releasedm3)
+      (REL_CLOSED: Memory.closed_view releasedm3 mem0)
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
@@ -750,8 +750,8 @@ Lemma reorder_update_write
     <<STEP2: Local.read_step lc1' mem1' loc1 ts1 val1 released1 ord1 lc2'>> /\
     <<STEP3: fulfill_step lc2' sc1' loc1 from2 to2 val2 released1 released2' ord2 lc3' sc3'>> /\
     <<LOCAL: sim_local lc3' lc3>> /\
-    <<RELEASED2: Capability.le released2' released2>> /\
-    <<RELEASED3: Capability.le released3' released3>> /\
+    <<RELEASED2: View.le released2' released2>> /\
+    <<RELEASED3: View.le released3' released3>> /\
     <<SC: TimeMap.le sc3' sc3>> /\
     <<MEM: sim_memory mem1' mem3>>.
 Proof.
@@ -764,8 +764,8 @@ Proof.
   i. des.
   exploit Local.promise_step_future; eauto. i. des.
   exploit Local.read_step_future; eauto. i. des.
-  hexploit reorder_update_fulfill; try exact STEP6; try exact STEP7; try exact STEP4; eauto; try by committac. i. des.
-  exploit fulfill_step_future; try exact STEP8; try exact WF3; eauto; try by committac. i. des.
+  hexploit reorder_update_fulfill; try exact STEP6; try exact STEP7; try exact STEP4; eauto; try by viewtac. i. des.
+  exploit fulfill_step_future; try exact STEP8; try exact WF3; eauto; try by viewtac. i. des.
   exploit promise_fulfill_write; eauto.
   { i. exploit ORD; eauto. i. des.
     splits; auto.
@@ -809,8 +809,8 @@ Lemma reorder_update_update
     <<STEP3: Local.read_step lc2' mem2' loc1 ts1 val1 released1 ord1 lc3'>> /\
     <<STEP4: fulfill_step lc3' sc2' loc1 from2 to2 val2 released1 released2' ord2 lc4' sc4'>> /\
     <<LOCAL: sim_local lc4' lc4>> /\
-    <<RELEASED2: Capability.le released2' released2>> /\
-    <<RELEASED4: Capability.le released4' released4>> /\
+    <<RELEASED2: View.le released2' released2>> /\
+    <<RELEASED4: View.le released4' released4>> /\
     <<SC: TimeMap.le sc4' sc4>> /\
     <<MEM: sim_memory mem2' mem4>>.
 Proof.
@@ -903,8 +903,8 @@ Lemma reorder_fence_fulfill
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
-      (REL2_WF: Capability.wf releasedm2)
-      (REL2_CLOSED: Memory.closed_capability releasedm2 mem0)
+      (REL2_WF: View.wf releasedm2)
+      (REL2_CLOSED: Memory.closed_view releasedm2 mem0)
       (STEP1: Local.fence_step lc0 sc0 ordr1 ordw1 lc1 sc1)
       (STEP2: fulfill_step lc1 sc1 loc2 from2 to2 val2 releasedm2 released2 ord2 lc2 sc2):
   exists lc1' lc2' sc1' sc2',
@@ -918,9 +918,9 @@ Proof.
   hexploit CommitFacts.write_fence_future; eauto. i. des.
   esplits.
   - econs; eauto.
-    + etrans; eauto. condtac; [|by committac]. apply Capability.join_spec.
-      * rewrite <- Capability.join_l. refl.
-      * rewrite <- Capability.join_r.
+    + etrans; eauto. condtac; [|by viewtac]. apply View.join_spec.
+      * rewrite <- View.join_l. refl.
+      * rewrite <- View.join_r.
         apply CommitFacts.write_commit_mon; eauto; try refl.
         { etrans.
           - apply CommitFacts.write_fence_commit_incr. apply WF0.
@@ -966,15 +966,15 @@ Lemma reorder_fence_write
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
-      (REL2_WF: Capability.wf releasedm2)
-      (REL2_CLOSED: Memory.closed_capability releasedm2 mem0)
+      (REL2_WF: View.wf releasedm2)
+      (REL2_CLOSED: Memory.closed_view releasedm2 mem0)
       (STEP1: Local.fence_step lc0 sc0 ordr1 ordw1 lc1 sc1)
       (STEP2: Local.write_step lc1 sc1 mem0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc2 sc2 mem2 kind):
   exists released2' lc1' lc2' sc1' sc2' mem1',
     <<STEP1: Local.write_step lc0 sc0 mem0 loc2 from2 to2 val2 releasedm2 released2' ord2 lc1' sc1' mem1' kind>> /\
     <<STEP2: Local.fence_step lc1' sc1' ordr1 ordw1 lc2' sc2'>> /\
     <<LOCAL: sim_local lc2' lc2>> /\
-    <<RELEASED2: Capability.le released2' released2>> /\
+    <<RELEASED2: View.le released2' released2>> /\
     <<SC: TimeMap.le sc2' sc2>> /\
     <<MEM: sim_memory mem1' mem2>>.
 Proof.
@@ -982,7 +982,7 @@ Proof.
   exploit write_promise_fulfill; eauto. i. des.
   exploit reorder_fence_promise; try exact STEP1; try exact STEP0; eauto. i. des.
   exploit Local.promise_step_future; eauto. i. des.
-  exploit reorder_fence_fulfill; try exact STEP5; try exact STEP3; eauto; try by committac. i. des.
+  exploit reorder_fence_fulfill; try exact STEP5; try exact STEP3; eauto; try by viewtac. i. des.
   exploit promise_fulfill_write; eauto.
   { i. exploit ORD; eauto. i. des.
     splits; auto. inv STEP1. auto.

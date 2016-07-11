@@ -12,7 +12,7 @@ Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import Commit.
+Require Import ThreadView.
 Require Import Thread.
 Require Import Configuration.
 Require Import Progress.
@@ -298,7 +298,7 @@ Lemma small_step_write_lt
       (STEP: small_step withprm tid e c c1)
       (EVENT: ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord))
       (THREAD: IdentMap.find tid (Configuration.threads c) = Some (lst, lc)):
-  Time.lt (lc.(Local.commit).(Commit.cur).(Capability.rw) loc) ts.
+  Time.lt (lc.(Local.commit).(Commit.cur).(View.rlx) loc) ts.
 Proof.
   inv STEP. rewrite THREAD in TID. inv TID.
   inv STEP0; inv STEP; inv EVENT.

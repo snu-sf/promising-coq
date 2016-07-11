@@ -18,9 +18,9 @@ Set Implicit Arguments.
 Module Message.
   Structure t := mk {
     val: Const.t;
-    released: Capability.t;
+    released: View.t;
   }.
-  Definition elt: t := mk 0 Capability.bot.
+  Definition elt: t := mk 0 View.bot.
 End Message.
 
 Module Cell.
@@ -48,7 +48,7 @@ Module Cell.
       - rewrite DOMap.gempty in GET1. inv GET1.
     Qed.
 
-    Definition singleton (from to:Time.t) (val:Const.t) (released:Capability.t): t :=
+    Definition singleton (from to:Time.t) (val:Const.t) (released:View.t): t :=
       DOMap.singleton to (from, Message.mk val released).
 
     Lemma singleton_wf
@@ -65,7 +65,7 @@ Module Cell.
     Qed.
 
     Definition init: t :=
-      DOMap.singleton Time.bot (Time.bot, Message.mk 0 Capability.bot).
+      DOMap.singleton Time.bot (Time.bot, Message.mk 0 View.bot).
 
     Lemma init_wf: wf init.
     Proof.
@@ -88,13 +88,13 @@ Module Cell.
       right. econs; eauto. refl.
     Qed.
 
-    Inductive add (cell1:t) (from to:Time.t) (val:Const.t) (released:Capability.t): forall (rhs:t), Prop :=
+    Inductive add (cell1:t) (from to:Time.t) (val:Const.t) (released:View.t): forall (rhs:t), Prop :=
     | add_intro
         (DISJOINT: forall to2 from2 msg2
                      (GET2: DOMap.find to2 cell1 = Some (from2, msg2)),
             Interval.disjoint (from, to) (from2, to2))
         (TO: Time.lt from to)
-        (WF: Capability.wf released):
+        (WF: View.wf released):
         add cell1 from to val released (DOMap.add to (from, (Message.mk val released)) cell1)
     .
 
@@ -131,12 +131,12 @@ Module Cell.
         + eapply DISJOINT; eauto.
     Qed.
 
-    Inductive split (cell1:t) (ts1 ts2 ts3:Time.t) (val2 val3:Const.t) (released2 released3:Capability.t): forall (cell2:t), Prop :=
+    Inductive split (cell1:t) (ts1 ts2 ts3:Time.t) (val2 val3:Const.t) (released2 released3:View.t): forall (cell2:t), Prop :=
     | split_intro
         (GET2: DOMap.find ts3 cell1 = Some (ts1, Message.mk val3 released3))
         (TS12: Time.lt ts1 ts2)
         (TS23: Time.lt ts2 ts3)
-        (REL_WF: Capability.wf released2):
+        (REL_WF: View.wf released2):
         split cell1 ts1 ts2 ts3 val2 val3 released2 released3
               (DOMap.add ts2 (ts1, Message.mk val2 released2)
               (DOMap.add ts3 (ts2, Message.mk val3 released3) cell1))
@@ -195,12 +195,12 @@ Module Cell.
         + eapply DISJOINT; eauto.
     Qed.
 
-    Inductive lower (cell1:t) (from to:Time.t) (val:Const.t) (released1 released2:Capability.t): forall (cell2:t), Prop :=
+    Inductive lower (cell1:t) (from to:Time.t) (val:Const.t) (released1 released2:View.t): forall (cell2:t), Prop :=
     | update_intro
         (GET2: DOMap.find to cell1 = Some (from, Message.mk val released1))
         (TS: Time.lt from to)
-        (REL_WF: Capability.wf released2)
-        (REL_LE: Capability.le released2 released1):
+        (REL_WF: View.wf released2)
+        (REL_LE: View.le released2 released1):
         lower cell1 from to val released1 released2
               (DOMap.add to (from, Message.mk val released2) cell1)
     .
@@ -237,7 +237,7 @@ Module Cell.
         + eapply DISJOINT; eauto.
     Qed.
 
-    Inductive remove (cell1:t) (from to:Time.t) (val:Const.t) (released:Capability.t): forall (cell2:t), Prop :=
+    Inductive remove (cell1:t) (from to:Time.t) (val:Const.t) (released:View.t): forall (cell2:t), Prop :=
     | remove_intro
         (GET: DOMap.find to cell1 = Some (from, Message.mk val released)):
         remove cell1 from to val released (DOMap.remove to cell1)
@@ -309,7 +309,7 @@ Module Cell.
   Proof. ii. rewrite bot_get in LHS. congr. Qed.
 
   Definition singleton
-             (from to:Time.t) (val:Const.t) (released:Capability.t)
+             (from to:Time.t) (val:Const.t) (released:View.t)
              (LT: Time.lt from to): t :=
     mk (Raw.singleton_wf val released LT).
 
@@ -328,16 +328,16 @@ Module Cell.
 
   Definition init: t := mk Raw.init_wf.
 
-  Definition add (cell1:t) (from to:Time.t) (val:Const.t) (released:Capability.t) (cell2:t): Prop :=
+  Definition add (cell1:t) (from to:Time.t) (val:Const.t) (released:View.t) (cell2:t): Prop :=
     Raw.add cell1 from to val released cell2.
 
-  Definition split (cell1:t) (ts1 ts2 ts3:Time.t) (val2 val3:Const.t) (released2 released3:Capability.t) (cell2:t): Prop :=
+  Definition split (cell1:t) (ts1 ts2 ts3:Time.t) (val2 val3:Const.t) (released2 released3:View.t) (cell2:t): Prop :=
     Raw.split cell1 ts1 ts2 ts3 val2 val3 released2 released3 cell2.
 
-  Definition lower (cell1:t) (from to:Time.t) (val:Const.t) (released1 released2:Capability.t) (cell2:t): Prop :=
+  Definition lower (cell1:t) (from to:Time.t) (val:Const.t) (released1 released2:View.t) (cell2:t): Prop :=
     Raw.lower cell1 from to val released1 released2 cell2.
 
-  Definition remove (cell1:t) (from to:Time.t) (val:Const.t) (released:Capability.t) (cell2:t): Prop :=
+  Definition remove (cell1:t) (from to:Time.t) (val:Const.t) (released:View.t) (cell2:t): Prop :=
     Raw.remove cell1 from to val released cell2.
 
   Lemma add_o
@@ -407,7 +407,7 @@ Module Cell.
                      (GET2: get to2 cell1 = Some (from2, msg2)),
             Interval.disjoint (from, to) (from2, to2))
         (TO1: Time.lt from to)
-        (WF: Capability.wf released):
+        (WF: View.wf released):
     exists cell2, add cell1 from to val released cell2.
   Proof.
     destruct cell1. eexists (mk _). unfold add. econs; eauto.
@@ -418,7 +418,7 @@ Module Cell.
   Lemma add_exists_max_ts
         cell1 to val released
         (TO: Time.lt (max_ts cell1) to)
-        (WF: Capability.wf released):
+        (WF: View.wf released):
     exists cell2, add cell1 (max_ts cell1) to val released cell2.
   Proof.
     apply add_exists; auto. i.
@@ -442,7 +442,7 @@ Module Cell.
         (GET2: get ts3 cell1 = Some (ts1, Message.mk val3 released3))
         (TS12: Time.lt ts1 ts2)
         (TS23: Time.lt ts2 ts3)
-        (REL_WF: Capability.wf released2):
+        (REL_WF: View.wf released2):
     exists cell2, split cell1 ts1 ts2 ts3 val2 val3 released2 released3 cell2.
   Proof.
     destruct cell1. eexists (mk _). unfold split. econs; eauto.
@@ -463,8 +463,8 @@ Module Cell.
         cell1 from to val released1 released2
         (GET2: get to cell1 = Some (from, Message.mk val released1))
         (TS: Time.lt from to)
-        (REL_WF: Capability.wf released2)
-        (REL_LE: Capability.le released2 released1):
+        (REL_WF: View.wf released2)
+        (REL_LE: View.le released2 released1):
     exists cell2, lower cell1 from to val released1 released2 cell2.
   Proof.
     destruct cell1. eexists (mk _). unfold lower. econs; eauto.

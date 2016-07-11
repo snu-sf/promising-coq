@@ -13,7 +13,7 @@ Require Import Time.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import Commit.
+Require Import ThreadView.
 Require Import Thread.
 Require Import Configuration.
 
@@ -142,18 +142,18 @@ Proof.
   }
   i. des. esplits; eauto.
   - etrans.
-    + apply Memory.max_timemap_spec; eauto. committac.
+    + apply Memory.max_timemap_spec; eauto. viewtac.
     + apply sim_memory_max_timemap; eauto.
   - etrans.
-    + apply Memory.max_timemap_spec; eauto. committac.
+    + apply Memory.max_timemap_spec; eauto. viewtac.
     + apply Memory.future_max_timemap; eauto.
-  - apply Memory.max_timemap_closed. committac.
+  - apply Memory.max_timemap_closed. viewtac.
   - econs; eauto.
     + etrans; eauto.
     + etrans.
-      * apply Memory.max_timemap_spec; eauto. committac.
+      * apply Memory.max_timemap_spec; eauto. viewtac.
       * apply sim_memory_max_timemap; eauto.
-    + apply Memory.max_timemap_closed. committac.
+    + apply Memory.max_timemap_closed. viewtac.
 Qed.
 
 Lemma sim_load_step
@@ -195,8 +195,8 @@ Proof.
   - (* store *)
     guardH ORD.
     hexploit sim_local_write; try exact LOCAL0; try exact SC;
-      try exact WF2; try refl; eauto; try by committac. i. des.
-    exploit reorder_read_write; try exact READ; try exact STEP_SRC; eauto; try by committac. i. des.
+      try exact WF2; try refl; eauto; try by viewtac. i. des.
+    exploit reorder_read_write; try exact READ; try exact STEP_SRC; eauto; try by viewtac. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
       * econs 2. econs 3; eauto. econs.

@@ -17,7 +17,7 @@ Require Import View.
 Require Import Cell.
 Require Import Memory.
 Require Import MemoryFacts.
-Require Import Commit.
+Require Import ThreadView.
 Require Import Thread.
 Require Import Configuration.
 
@@ -344,7 +344,7 @@ Module SimPromises.
         loc from to val released
         promises1_src mem1_src
         promises1_tgt mem1_tgt promises2_tgt
-        (REL_WF: Capability.wf released)
+        (REL_WF: View.wf released)
         (TIME: Time.lt from to)
         (REMOVE_TGT: Memory.remove promises1_tgt loc from to val released promises2_tgt)
         (INV1: sem inv promises1_src promises1_tgt)
@@ -436,7 +436,7 @@ Module SimPromises.
       erewrite LE2_SRC in GET0; eauto. inv GET0.
       rewrite GET. f_equal. f_equal.
       - apply TimeFacts.antisym; eauto.
-      - f_equal. apply Capability.antisym; eauto.
+      - f_equal. apply View.antisym; eauto.
     }
     exploit future_imm; eauto. i. des.
     exploit IHFUTURE_SRC; eauto.

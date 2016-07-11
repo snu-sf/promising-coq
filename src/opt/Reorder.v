@@ -14,7 +14,7 @@ Require Import View.
 Require Import Cell.
 Require Import Memory.
 Require Import MemoryFacts.
-Require Import Commit.
+Require Import ThreadView.
 Require Import Thread.
 Require Import Configuration.
 Require Import Progress.
@@ -68,12 +68,12 @@ Proof.
   { exploit sim_local_future; try apply LOCAL; eauto. i. des.
     esplits; eauto.
     - etrans.
-      + apply Memory.max_timemap_spec; eauto. committac.
+      + apply Memory.max_timemap_spec; eauto. viewtac.
       + apply sim_memory_max_timemap; eauto.
     - etrans.
-      + apply Memory.max_timemap_spec; eauto. committac.
+      + apply Memory.max_timemap_spec; eauto. viewtac.
       + apply Memory.future_max_timemap; eauto.
-    - apply Memory.max_timemap_closed. committac.
+    - apply Memory.max_timemap_closed. viewtac.
   }
   { esplits; eauto.
     inv LOCAL. apply SimPromises.sem_bot_inv in PROMISES; auto. rewrite PROMISES. auto.
@@ -92,10 +92,10 @@ Proof.
       econs; eauto.
       eapply Local.read_step_future; eauto.
   - (* store *)
-    exploit Local.write_step_future; eauto; try by committac. i. des.
+    exploit Local.write_step_future; eauto; try by viewtac. i. des.
     hexploit sim_local_write; try exact LOCAL0; try exact SC;
-      try exact WF_SRC; try refl; committac. i. des.
-    exploit write_promise_fulfill; eauto; try by committac. i. des.
+      try exact WF_SRC; try refl; viewtac. i. des.
+    exploit write_promise_fulfill; eauto; try by viewtac. i. des.
     exploit Local.promise_step_future; eauto. i. des.
     esplits.
     + eauto.
@@ -110,14 +110,14 @@ Proof.
     exploit Local.write_step_future; eauto. i. des.
     exploit sim_local_read; eauto; try refl. i. des.
     exploit Local.read_step_future; eauto. i. des.
-    hexploit sim_local_write; try apply LOCAL2; try apply LOCAL0; try apply SC; eauto; try refl; try by committac. i. des.
-    exploit write_promise_fulfill; eauto; try by committac. i. des.
+    hexploit sim_local_write; try apply LOCAL2; try apply LOCAL0; try apply SC; eauto; try refl; try by viewtac. i. des.
+    exploit write_promise_fulfill; eauto; try by viewtac. i. des.
     exploit Local.promise_step_future; eauto. i. des.
     exploit reorder_read_promise; try exact STEP_SRC; try exact STEP1; eauto. i. des.
     exploit Local.promise_step_future; eauto. i. des.
     exploit Local.read_step_future; eauto. i. des.
     exploit sim_local_fulfill; try exact STEP2; try exact LOCAL4; try exact REL1;
-      try exact WF3; try refl; eauto; try by committac. i. des.
+      try exact WF3; try refl; eauto; try by viewtac. i. des.
     esplits.
     + eauto.
     + econs 2. econs 1. econs. eauto.

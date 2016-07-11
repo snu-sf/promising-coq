@@ -15,18 +15,18 @@ Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import Commit.
+Require Import ThreadView.
 
 Set Implicit Arguments.
 
 
 Module ThreadEvent.
   Inductive t :=
-  | promise (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:Capability.t)
+  | promise (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:View.t)
   | silent
-  | read (loc:Loc.t) (ts:Time.t) (val:Const.t) (released:Capability.t) (ord:Ordering.t)
-  | write (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:Capability.t) (ord:Ordering.t)
-  | update (loc:Loc.t) (tsr tsw:Time.t) (valr valw:Const.t) (releasedr releasedw:Capability.t) (ordr ordw:Ordering.t)
+  | read (loc:Loc.t) (ts:Time.t) (val:Const.t) (released:View.t) (ord:Ordering.t)
+  | write (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:View.t) (ord:Ordering.t)
+  | update (loc:Loc.t) (tsr tsw:Time.t) (valr valw:Const.t) (releasedr releasedw:View.t) (ordr ordw:Ordering.t)
   | fence (ordr ordw:Ordering.t)
   | syscall (e:Event.t)
   .
@@ -37,14 +37,14 @@ Module ThreadEvent.
     | _ => None
     end.
 
-  Definition is_reading (e:t): option (Loc.t * Time.t * Const.t * Capability.t * Ordering.t) :=
+  Definition is_reading (e:t): option (Loc.t * Time.t * Const.t * View.t * Ordering.t) :=
     match e with
     | read loc ts val released ord => Some (loc, ts, val, released, ord)
     | update loc tsr _ valr _ releasedr _ ordr _ => Some (loc, tsr, valr, releasedr, ordr)
     | _ => None
     end.
 
-  Definition is_writing (e:t): option (Loc.t * Time.t * Time.t * Const.t * Capability.t * Ordering.t) :=
+  Definition is_writing (e:t): option (Loc.t * Time.t * Time.t * Const.t * View.t * Ordering.t) :=
     match e with
     | write loc from to val released ord => Some (loc, from, to, val, released, ord)
     | update loc tsr tsw _ valw _ releasedw _ ordw => Some (loc, tsr, tsw, valw, releasedw, ordw)
@@ -83,15 +83,15 @@ Module Local.
     econs. symmetry. apply H.
   Qed.
 
-  Inductive promise_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:Capability.t): forall (lc2:t) (mem2:Memory.t) (kind:Memory.promise_kind), Prop :=
+  Inductive promise_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:View.t): forall (lc2:t) (mem2:Memory.t) (kind:Memory.promise_kind), Prop :=
   | step_promise
       promises2 mem2 kind
       (PROMISE: Memory.promise lc1.(promises) mem1 loc from to val released promises2 mem2 kind)
-      (CLOSED: Memory.closed_capability released mem2):
+      (CLOSED: Memory.closed_view released mem2):
       promise_step lc1 mem1 loc from to val released (mk lc1.(commit) promises2) mem2 kind
   .
 
-  Inductive read_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (to:Time.t) (val:Const.t) (released:Capability.t) (ord:Ordering.t): forall (lc2:t), Prop :=
+  Inductive read_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (to:Time.t) (val:Const.t) (released:View.t) (ord:Ordering.t): forall (lc2:t), Prop :=
   | step_read
       from
       commit2
@@ -101,12 +101,12 @@ Module Local.
       read_step lc1 mem1 loc to val released ord (mk commit2 lc1.(promises))
   .
 
-  Inductive write_step (lc1:t) (sc1:TimeMap.t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (releasedm released:Capability.t) (ord:Ordering.t): forall (lc2:t) (sc2:TimeMap.t) (mem2:Memory.t) (kind:Memory.promise_kind), Prop :=
+  Inductive write_step (lc1:t) (sc1:TimeMap.t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (releasedm released:View.t) (ord:Ordering.t): forall (lc2:t) (sc2:TimeMap.t) (mem2:Memory.t) (kind:Memory.promise_kind), Prop :=
   | step_write
       promises2 mem2 kind
       (RELEASED: released = if Ordering.le Ordering.relaxed ord
-                            then Capability.join releasedm ((Commit.write_commit lc1.(commit) sc1 loc to ord).(Commit.rel) loc)
-                            else Capability.bot)
+                            then View.join releasedm ((Commit.write_commit lc1.(commit) sc1 loc to ord).(Commit.rel) loc)
+                            else View.bot)
       (WRITABLE: Commit.writable lc1.(commit) sc1 loc to ord)
       (WRITE: Memory.write lc1.(promises) mem1 loc from to val released promises2 mem2 kind)
       (RELEASE: Ordering.le Ordering.acqrel ord ->
@@ -135,9 +135,9 @@ Module Local.
     <<CLOSED2: Memory.closed mem2>> /\
     <<FUTURE: Memory.future mem1 mem2>> /\
     <<COMMIT_FUTURE: Commit.le lc1.(commit) lc2.(commit)>> /\
-    <<REL_WF: Capability.wf released>> /\
-    <<REL_TS: Time.le (Capability.rw released loc) to>> /\
-    <<REL_CLOSED: Memory.closed_capability released mem2>>.
+    <<REL_WF: View.wf released>> /\
+    <<REL_TS: Time.le (released.(View.rlx) loc) to>> /\
+    <<REL_CLOSED: Memory.closed_view released mem2>>.
   Proof.
     inv WF1. inv STEP.
     exploit Memory.promise_future; eauto. i. des.
@@ -158,8 +158,8 @@ Module Local.
         (CLOSED1: Memory.closed mem1):
     <<WF2: wf lc2 mem1>> /\
     <<COMMIT_FUTURE: Commit.le lc1.(commit) lc2.(commit)>> /\
-    <<REL_WF: Capability.wf released>> /\
-    <<REL_CLOSED: Memory.closed_capability released mem1>>.
+    <<REL_WF: View.wf released>> /\
+    <<REL_CLOSED: Memory.closed_view released mem1>>.
   Proof.
     inv WF1. inv STEP.
     exploit CommitFacts.read_future; eauto.
@@ -170,55 +170,55 @@ Module Local.
     - apply CommitFacts.read_commit_incr.
   Qed.
 
-  Lemma promise_closed_capability
+  Lemma promise_closed_view
         promises1 mem1 commit1 sc1 loc from to val releasedm released ord promises2 mem2 kind
         (PROMISES: Memory.le promises1 mem1)
         (CLOSED0: Memory.closed_timemap sc1 mem1)
         (CLOSED1: Memory.closed mem1)
         (CLOSED2: Commit.closed commit1 mem1)
-        (CLOSED3: Memory.closed_capability releasedm mem1)
+        (CLOSED3: Memory.closed_view releasedm mem1)
         (PROMISE: Memory.promise promises1 mem1 loc from to val released promises2 mem2 kind):
-    Memory.closed_capability
+    Memory.closed_view
       (if Ordering.le Ordering.relaxed ord
-       then Capability.join
+       then View.join
               releasedm
               (Commit.rel (Commit.write_commit commit1 sc1 loc to ord) loc)
-       else Capability.bot)
+       else View.bot)
       mem2.
   Proof.
-    exploit Memory.promise_future0; eauto; try by committac. i. des.
-    repeat (try condtac; committac).
-    - eapply Memory.promise_closed_capability; eauto.
-    - eapply Memory.promise_closed_capability; eauto. apply CLOSED2.
+    exploit Memory.promise_future0; eauto; try by viewtac. i. des.
+    repeat (try condtac; viewtac).
+    - eapply Memory.promise_closed_view; eauto.
+    - eapply Memory.promise_closed_view; eauto. apply CLOSED2.
     - eapply LE_PROMISES2. eapply Memory.promise_get2. apply PROMISE.
-    - econs; committac.
+    - econs; viewtac.
       eapply Memory.promise_closed_timemap; eauto.
-    - eapply Memory.promise_closed_capability; eauto. apply CLOSED2.
+    - eapply Memory.promise_closed_view; eauto. apply CLOSED2.
   Qed.
 
-  Lemma write_closed_capability
+  Lemma write_closed_view
         promises1 mem1 commit1 sc1 loc from to val releasedm released ord promises2 mem2 kind
         (PROMISES: Memory.le promises1 mem1)
         (CLOSED0: Memory.closed_timemap sc1 mem1)
         (CLOSED1: Memory.closed mem1)
         (CLOSED2: Commit.closed commit1 mem1)
-        (CLOSED3: Memory.closed_capability releasedm mem1)
+        (CLOSED3: Memory.closed_view releasedm mem1)
         (WRITE: Memory.write promises1 mem1 loc from to val released promises2 mem2 kind):
-    Memory.closed_capability
+    Memory.closed_view
       (if Ordering.le Ordering.relaxed ord
-       then Capability.join
+       then View.join
               releasedm
               (Commit.rel (Commit.write_commit commit1 sc1 loc to ord) loc)
-       else Capability.bot)
+       else View.bot)
       mem2.
   Proof.
-    inv WRITE. eapply promise_closed_capability; eauto.
+    inv WRITE. eapply promise_closed_view; eauto.
   Qed.
 
   Lemma write_step_future lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind
         (STEP: write_step lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind)
-        (REL_WF: Capability.wf releasedm)
-        (REL_CLOSED: Memory.closed_capability releasedm mem1)
+        (REL_WF: View.wf releasedm)
+        (REL_CLOSED: Memory.closed_view releasedm mem1)
         (WF1: wf lc1 mem1)
         (SC1: Memory.closed_timemap sc1 mem1)
         (CLOSED1: Memory.closed mem1):
@@ -228,19 +228,19 @@ Module Local.
     <<COMMIT_FUTURE: Commit.le lc1.(commit) lc2.(commit)>> /\
     <<SC_FUTURE: TimeMap.le sc1 sc2>> /\
     <<MEM_FUTURE: Memory.future mem1 mem2>> /\
-    <<REL_WF: Capability.wf released>> /\
-    <<REL_TS: Time.le (Capability.rw released loc) to>> /\
-    <<REL_CLOSED: Memory.closed_capability released mem2>>.
+    <<REL_WF: View.wf released>> /\
+    <<REL_TS: Time.le (released.(View.rlx) loc) to>> /\
+    <<REL_CLOSED: Memory.closed_view released mem2>>.
   Proof.
-    assert (REL'_WF: Capability.wf released).
-    { inv STEP. repeat (try condtac; committac; try apply WF1). }
-    assert (REL'_TS: Time.le (Capability.rw released loc) to).
+    assert (REL'_WF: View.wf released).
+    { inv STEP. repeat (try condtac; viewtac; try apply WF1). }
+    assert (REL'_TS: Time.le (released.(View.rlx) loc) to).
     { inv STEP. inv WRITE. inv PROMISE; auto. }
-    assert (REL'_CLOSED: Memory.closed_capability released mem2).
-    { inv STEP. eapply write_closed_capability; try apply WF1; eauto. }
+    assert (REL'_CLOSED: Memory.closed_view released mem2).
+    { inv STEP. eapply write_closed_view; try apply WF1; eauto. }
     inv WF1. inv STEP.
     exploit Memory.write_future; try apply WRITE; eauto. i. des.
-    exploit Memory.write_get2; try apply WRITE; eauto; try by committac. i.
+    exploit Memory.write_get2; try apply WRITE; eauto; try by viewtac. i.
     exploit CommitFacts.write_future; eauto.
     { eapply Commit.future_closed; eauto. }
     { eapply Memory.future_closed_timemap; eauto. }
@@ -313,7 +313,7 @@ Module Local.
     <<WF: wf lc mem2>>.
   Proof.
     inv WF1. inv DISJOINT1. inversion WF. inv STEP.
-    exploit Memory.write_future0; try apply WRITE; eauto; try by committac. i. des.
+    exploit Memory.write_future0; try apply WRITE; eauto; try by viewtac. i. des.
     exploit Memory.write_disjoint; try apply WRITE; eauto. i. des.
     splits; ss. econs; eauto.
     inv WRITE. eapply Commit.promise_closed; eauto.
@@ -379,7 +379,7 @@ Module Thread.
         st1 lc1 sc1 mem1
         st2 loc from to val released ord lc2 sc2 mem2 kind
         (STATE: lang.(Language.step) (Some (ProgramEvent.write loc val ord)) st1 st2)
-        (LOCAL: Local.write_step lc1 sc1 mem1 loc from to val Capability.bot released ord lc2 sc2 mem2 kind):
+        (LOCAL: Local.write_step lc1 sc1 mem1 loc from to val View.bot released ord lc2 sc2 mem2 kind):
         program_step (ThreadEvent.write loc from to val released ord) (mk st1 lc1 sc1 mem1) (mk st2 lc2 sc2 mem2)
     | step_update
         st1 lc1 sc1 mem1
@@ -471,7 +471,7 @@ Module Thread.
       inv STEP; ss.
       - splits; eauto; refl.
       - exploit Local.read_step_future; eauto. i. des. splits; ss; refl.
-      - exploit Local.write_step_future; eauto; committac. i. des. splits; ss.
+      - exploit Local.write_step_future; eauto; viewtac. i. des. splits; ss.
       - exploit Local.read_step_future; eauto. i. des.
         exploit Local.write_step_future; eauto. i. des. splits; ss.
         etrans; eauto.
@@ -564,7 +564,7 @@ Module Thread.
       - ss.
       - exploit Local.read_step_future; eauto. i.
         exploit Local.read_step_disjoint; eauto.
-      - exploit Local.write_step_future; eauto; try by committac. i. des.
+      - exploit Local.write_step_future; eauto; try by viewtac. i. des.
         exploit Local.write_step_disjoint; eauto.
       - exploit Local.read_step_future; eauto. i. des.
         exploit Local.read_step_disjoint; eauto. i.

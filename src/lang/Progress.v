@@ -15,7 +15,7 @@ Require Import View.
 Require Import Cell.
 Require Import Memory.
 Require Import MemoryFacts.
-Require Import Commit.
+Require Import ThreadView.
 Require Import Thread.
 
 Set Implicit Arguments.
@@ -73,41 +73,41 @@ Lemma progress_promise_step
       (WF1: Local.wf lc1 mem1)
       (MEM1: Memory.closed mem1)
       (SC1: Memory.closed_timemap sc1 mem1)
-      (WF_REL: Capability.wf releasedm)
-      (CLOSED_REL: Memory.closed_capability releasedm mem1):
+      (WF_REL: View.wf releasedm)
+      (CLOSED_REL: Memory.closed_view releasedm mem1):
   exists promises2 mem2,
     Local.promise_step lc1 mem1 loc (Memory.max_ts loc mem1) to val
                        (if Ordering.le Ordering.relaxed ord
-                        then Capability.join
+                        then View.join
                                releasedm
                                (Commit.rel (Commit.write_commit (Local.commit lc1) sc1 loc to ord) loc)
-                        else Capability.bot)
+                        else View.bot)
                        (Local.mk lc1.(Local.commit) promises2) mem2 Memory.promise_kind_add.
 Proof.
   exploit (@Memory.add_exists_max_ts
              mem1 loc to val
              (if Ordering.le Ordering.relaxed ord
-              then Capability.join releasedm (Commit.rel (Commit.write_commit (Local.commit lc1) sc1 loc to ord) loc)
-              else Capability.bot)); eauto.
-  { committac; try apply WF1. repeat condtac; committac; try apply WF1. }
+              then View.join releasedm (Commit.rel (Commit.write_commit (Local.commit lc1) sc1 loc to ord) loc)
+              else View.bot)); eauto.
+  { viewtac; try apply WF1. repeat condtac; viewtac; try apply WF1. }
   i. des.
   exploit Memory.add_exists_le; try apply WF1; eauto. i. des.
-  hexploit Memory.add_inhabited; try apply x0; [committac|]. i. des.
+  hexploit Memory.add_inhabited; try apply x0; [viewtac|]. i. des.
   esplits. econs.
   - econs; eauto.
-    committac; repeat (condtac; committac);
+    viewtac; repeat (condtac; viewtac);
       (try by apply Time.bot_spec);
       (try by unfold TimeMap.singleton, LocFun.add; condtac; [refl|congr]);
       (try by left; eapply TimeFacts.le_lt_lt; [|eauto];
        eapply closed_timemap_max_ts; apply WF1).
     left. eapply TimeFacts.le_lt_lt; [|eauto].
     eapply closed_timemap_max_ts. apply CLOSED_REL.
-  - committac;
-      repeat condtac; committac;
-        (try eapply Memory.add_closed_capability; eauto);
+  - viewtac;
+      repeat condtac; viewtac;
+        (try eapply Memory.add_closed_view; eauto);
         (try apply WF1).
     + erewrite Memory.add_o; eauto. condtac; eauto. ss. des; congr.
-    + econs; try apply Memory.closed_timemap_bot; committac.
+    + econs; try apply Memory.closed_timemap_bot; viewtac.
     + erewrite Memory.add_o; eauto. condtac; eauto. ss. des; congr.
 Qed.
 
@@ -133,8 +133,8 @@ Lemma progress_write_step
       (WF1: Local.wf lc1 mem1)
       (SC1: Memory.closed_timemap sc1 mem1)
       (MEM1: Memory.closed mem1)
-      (WF_REL: Capability.wf releasedm)
-      (CLOSED_REL: Memory.closed_capability releasedm mem1)
+      (WF_REL: View.wf releasedm)
+      (CLOSED_REL: Memory.closed_view releasedm mem1)
       (PROMISES1: lc1.(Local.promises) = Memory.bot):
   exists released lc2 sc2 mem2,
     Local.write_step lc1 sc1 mem1 loc (Memory.max_ts loc mem1) to val releasedm released ord lc2 sc2 mem2 Memory.promise_kind_add.
@@ -145,8 +145,8 @@ Proof.
             promises2 = Memory.singleton
                           loc val
                           (if Ordering.le Ordering.relaxed ord
-                           then Capability.join releasedm (Commit.rel (Commit.write_commit (Local.commit lc1) sc1 loc to ord) loc)
-                           else Capability.bot)
+                           then View.join releasedm (Commit.rel (Commit.write_commit (Local.commit lc1) sc1 loc to ord) loc)
+                           else View.bot)
                           LT).
   { apply Memory.ext. i.
     inv PROMISE. erewrite Memory.add_o; eauto.

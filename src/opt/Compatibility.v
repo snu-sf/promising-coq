@@ -14,7 +14,7 @@ Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import Commit.
+Require Import ThreadView.
 Require Import Thread.
 Require Import Configuration.
 
@@ -324,12 +324,12 @@ Proof.
     { exploit sim_local_future; try apply LOCAL; eauto. i. des.
       esplits; eauto.
       - etrans.
-        + apply Memory.max_timemap_spec; eauto. committac.
+        + apply Memory.max_timemap_spec; eauto. viewtac.
         + apply sim_memory_max_timemap; eauto.
       - etrans.
-        + apply Memory.max_timemap_spec; eauto. committac.
+        + apply Memory.max_timemap_spec; eauto. viewtac.
         + apply Memory.future_max_timemap; eauto.
-      - apply Memory.max_timemap_closed. committac.
+      - apply Memory.max_timemap_closed. viewtac.
     }
     { subst. esplits; eauto. }
     inv STEP_TGT; try by inv STEP; inv STATE.
@@ -403,12 +403,12 @@ Proof.
     { exploit sim_local_future; try apply LOCAL; eauto. i. des.
       esplits; eauto.
       - etrans.
-        + apply Memory.max_timemap_spec; eauto. committac.
+        + apply Memory.max_timemap_spec; eauto. viewtac.
         + apply sim_memory_max_timemap; eauto.
       - etrans.
-        + apply Memory.max_timemap_spec; eauto. committac.
+        + apply Memory.max_timemap_spec; eauto. viewtac.
         + apply Memory.future_max_timemap; eauto.
-      - apply Memory.max_timemap_closed. committac.
+      - apply Memory.max_timemap_closed. viewtac.
     }
     { ss. subst. esplits; eauto. }
     inv STEP_TGT; ss.
@@ -445,12 +445,12 @@ Proof.
     { exploit sim_local_future; try apply LOCAL; eauto. i. des.
       esplits; eauto.
       - etrans.
-        + apply Memory.max_timemap_spec; eauto. committac.
+        + apply Memory.max_timemap_spec; eauto. viewtac.
         + apply sim_memory_max_timemap; eauto.
       - etrans.
-        + apply Memory.max_timemap_spec; eauto. committac.
+        + apply Memory.max_timemap_spec; eauto. viewtac.
         + apply Memory.future_max_timemap; eauto.
-      - apply Memory.max_timemap_closed. committac.
+      - apply Memory.max_timemap_closed. viewtac.
     }
     { ss. subst. esplits; eauto. }
     inv STEP_TGT; ss.

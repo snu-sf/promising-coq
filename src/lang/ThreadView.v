@@ -19,28 +19,28 @@ Set Implicit Arguments.
 
 Module Commit <: JoinableType.
   Structure t_ := mk {
-    rel: LocFun.t Capability.t;
-    cur: Capability.t;
-    acq: Capability.t;
+    rel: LocFun.t View.t;
+    cur: View.t;
+    acq: View.t;
   }.
   Definition t := t_.
 
-  Definition bot: t := mk (LocFun.init Capability.bot) Capability.bot Capability.bot.
+  Definition bot: t := mk (LocFun.init View.bot) View.bot View.bot.
 
   Inductive wf (commit:t): Prop :=
   | wf_intro
-      (REL: forall loc, Capability.wf (commit.(rel) loc))
-      (CUR: Capability.wf commit.(cur))
-      (ACQ: Capability.wf commit.(acq))
-      (REL_CUR: forall loc, Capability.le (commit.(rel) loc) commit.(cur))
-      (CUR_ACQ: Capability.le commit.(cur) commit.(acq))
+      (REL: forall loc, View.wf (commit.(rel) loc))
+      (CUR: View.wf commit.(cur))
+      (ACQ: View.wf commit.(acq))
+      (REL_CUR: forall loc, View.le (commit.(rel) loc) commit.(cur))
+      (CUR_ACQ: View.le commit.(cur) commit.(acq))
   .
 
   Inductive closed (commit:t) (mem:Memory.t): Prop :=
   | closed_intro
-      (REL: forall loc, Memory.closed_capability (commit.(rel) loc) mem)
-      (CUR: Memory.closed_capability commit.(cur) mem)
-      (ACQ: Memory.closed_capability commit.(acq) mem)
+      (REL: forall loc, Memory.closed_view (commit.(rel) loc) mem)
+      (CUR: Memory.closed_view commit.(cur) mem)
+      (ACQ: Memory.closed_view commit.(acq) mem)
   .
 
   Lemma bot_wf: wf bot.
@@ -50,7 +50,7 @@ Module Commit <: JoinableType.
 
   Lemma bot_closed: closed bot Memory.init.
   Proof.
-    econs; i; eapply Memory.closed_capability_bot; apply Memory.init_closed.
+    econs; i; eapply Memory.closed_view_bot; apply Memory.init_closed.
   Qed.
   
   Lemma future_closed
@@ -59,7 +59,7 @@ Module Commit <: JoinableType.
         (FUTURE: Memory.future mem1 mem2):
     closed commit mem2.
   Proof.
-    inv CLOSED. econs; i; eapply Memory.future_closed_capability; eauto.
+    inv CLOSED. econs; i; eapply Memory.future_closed_view; eauto.
   Qed.
 
   Lemma promise_closed
@@ -69,16 +69,16 @@ Module Commit <: JoinableType.
         (PROMISE: Memory.promise promises1 mem1 loc from to val released promises2 mem2 kind):
     closed commit1 mem2.
   Proof.
-    inv CLOSED. econs; i; eapply Memory.promise_closed_capability; eauto.
+    inv CLOSED. econs; i; eapply Memory.promise_closed_view; eauto.
   Qed.
 
   Definition eq := @eq t.
 
   Inductive le_ (lhs rhs:t): Prop :=
   | le_intro
-      (REL: forall (loc:Loc.t), Capability.le (LocFun.find loc lhs.(rel)) (LocFun.find loc rhs.(rel)))
-      (CUR: Capability.le lhs.(cur) rhs.(cur))
-      (ACQ: Capability.le lhs.(acq) rhs.(acq))
+      (REL: forall (loc:Loc.t), View.le (LocFun.find loc lhs.(rel)) (LocFun.find loc rhs.(rel)))
+      (CUR: View.le lhs.(cur) rhs.(cur))
+      (ACQ: View.le lhs.(acq) rhs.(acq))
   .
   Definition le := le_.
 
@@ -91,40 +91,40 @@ Module Commit <: JoinableType.
   Qed.
 
   Definition join (lhs rhs:t): t :=
-    mk (fun loc => Capability.join (lhs.(rel) loc) (rhs.(rel) loc))
-       (Capability.join lhs.(cur) rhs.(cur))
-       (Capability.join lhs.(acq) rhs.(acq)).
+    mk (fun loc => View.join (lhs.(rel) loc) (rhs.(rel) loc))
+       (View.join lhs.(cur) rhs.(cur))
+       (View.join lhs.(acq) rhs.(acq)).
 
   Lemma join_comm lhs rhs: join lhs rhs = join rhs lhs.
   Proof.
     unfold join. f_equal.
-    - apply LocFun.ext. i. apply Capability.join_comm.
-    - apply Capability.join_comm.
-    - apply Capability.join_comm.
+    - apply LocFun.ext. i. apply View.join_comm.
+    - apply View.join_comm.
+    - apply View.join_comm.
   Qed.
 
   Lemma join_assoc a b c: join (join a b) c = join a (join b c).
   Proof.
     unfold join. s. f_equal.
-    - apply LocFun.ext. i. apply Capability.join_assoc.
-    - apply Capability.join_assoc.
-    - apply Capability.join_assoc.
+    - apply LocFun.ext. i. apply View.join_assoc.
+    - apply View.join_assoc.
+    - apply View.join_assoc.
   Qed.
 
   Lemma join_l lhs rhs: le lhs (join lhs rhs).
   Proof.
     econs.
-    - i. apply Capability.join_l.
-    - apply Capability.join_l.
-    - apply Capability.join_l.
+    - i. apply View.join_l.
+    - apply View.join_l.
+    - apply View.join_l.
   Qed.
 
   Lemma join_r lhs rhs: le rhs (join lhs rhs).
   Proof.
     econs.
-    - i. apply Capability.join_r.
-    - apply Capability.join_r.
-    - apply Capability.join_r.
+    - i. apply View.join_r.
+    - apply View.join_r.
+    - apply View.join_r.
   Qed.
 
   Lemma join_spec lhs rhs o
@@ -133,56 +133,56 @@ Module Commit <: JoinableType.
     le (join lhs rhs) o.
   Proof.
     inv LHS. inv RHS. econs.
-    - i. apply Capability.join_spec; eauto.
-    - apply Capability.join_spec; eauto.
-    - apply Capability.join_spec; eauto.
+    - i. apply View.join_spec; eauto.
+    - apply View.join_spec; eauto.
+    - apply View.join_spec; eauto.
   Qed.
 
   Inductive readable
-            (commit1:t) (loc:Loc.t) (ts:Time.t) (released:Capability.t) (ord:Ordering.t): Prop :=
+            (commit1:t) (loc:Loc.t) (ts:Time.t) (released:View.t) (ord:Ordering.t): Prop :=
   | readable_intro
-      (UR: Time.le (commit1.(cur).(Capability.ur) loc) ts)
+      (UR: Time.le (commit1.(cur).(View.pln) loc) ts)
       (RW: Ordering.le Ordering.relaxed ord ->
-           Time.le (commit1.(cur).(Capability.rw) loc) ts)
-      (SC1: Ordering.le Ordering.seqcst ord -> Time.le (commit1.(cur).(Capability.sc) loc) ts)
-      (SC2: Ordering.le Ordering.seqcst ord -> Time.le (released.(Capability.sc) loc) ts)
+           Time.le (commit1.(cur).(View.rlx) loc) ts)
+      (SC1: Ordering.le Ordering.seqcst ord -> Time.le (commit1.(cur).(View.sc) loc) ts)
+      (SC2: Ordering.le Ordering.seqcst ord -> Time.le (released.(View.sc) loc) ts)
   .
 
   Definition read_commit
-             (commit1:t) (loc:Loc.t) (ts:Time.t) (released:Capability.t) (ord:Ordering.t): t :=
+             (commit1:t) (loc:Loc.t) (ts:Time.t) (released:View.t) (ord:Ordering.t): t :=
     mk commit1.(rel)
-       (Capability.join
-          (Capability.join
+       (View.join
+          (View.join
              commit1.(cur)
-             (Capability.singleton_rw loc ts))
-          (if Ordering.le Ordering.acqrel ord then released else Capability.bot))
-       (Capability.join
-          (Capability.join
+             (View.singleton_rw loc ts))
+          (if Ordering.le Ordering.acqrel ord then released else View.bot))
+       (View.join
+          (View.join
              commit1.(acq)
-             (Capability.singleton_rw loc ts))
-          (if Ordering.le Ordering.relaxed ord then released else Capability.bot)).
+             (View.singleton_rw loc ts))
+          (if Ordering.le Ordering.relaxed ord then released else View.bot)).
 
   Inductive writable
             (commit1:t) (sc1:TimeMap.t) (loc:Loc.t) (ts:Time.t) (ord:Ordering.t): Prop :=
   | writable_intro
-      (TS: Time.lt (commit1.(cur).(Capability.rw) loc) ts)
-      (SC1: Ordering.le Ordering.seqcst ord -> Time.lt (commit1.(cur).(Capability.sc) loc) ts)
+      (TS: Time.lt (commit1.(cur).(View.rlx) loc) ts)
+      (SC1: Ordering.le Ordering.seqcst ord -> Time.lt (commit1.(cur).(View.sc) loc) ts)
       (SC2: Ordering.le Ordering.seqcst ord -> Time.lt (sc1 loc) ts)
   .
 
   Definition write_commit
              (commit1:t) (sc1:TimeMap.t) (loc:Loc.t) (ts:Time.t) (ord:Ordering.t): t :=
-    let cur2 := Capability.join
-                  (Capability.join
+    let cur2 := View.join
+                  (View.join
                      commit1.(Commit.cur)
-                     (Capability.singleton_ur loc ts))
-                  (if Ordering.le Ordering.seqcst ord then Capability.mk TimeMap.bot TimeMap.bot sc1 else Capability.bot)
+                     (View.singleton_ur loc ts))
+                  (if Ordering.le Ordering.seqcst ord then View.mk TimeMap.bot TimeMap.bot sc1 else View.bot)
     in
-    let acq2 := Capability.join
-                  (Capability.join
+    let acq2 := View.join
+                  (View.join
                      commit1.(Commit.acq)
-                     (Capability.singleton_ur loc ts))
-                  (if Ordering.le Ordering.seqcst ord then Capability.mk TimeMap.bot TimeMap.bot sc1 else Capability.bot)
+                     (View.singleton_ur loc ts))
+                  (if Ordering.le Ordering.seqcst ord then View.mk TimeMap.bot TimeMap.bot sc1 else View.bot)
     in
     let rel2 := LocFun.add loc
                      (if Ordering.le Ordering.acqrel ord then cur2 else (commit1.(Commit.rel) loc))
@@ -207,17 +207,17 @@ Module Commit <: JoinableType.
   Definition write_fence_sc
              (commit1:t) (sc1:TimeMap.t) (ord:Ordering.t): TimeMap.t :=
     if Ordering.le Ordering.seqcst ord
-    then TimeMap.join sc1 commit1.(Commit.cur).(Capability.sc)
+    then TimeMap.join sc1 commit1.(Commit.cur).(View.sc)
     else sc1.
 
   Definition write_fence_commit
              (commit1:t) (sc1:TimeMap.t) (ord:Ordering.t): t :=
     let sc2 := write_fence_sc commit1 sc1 ord in
-	  let cur2 := if Ordering.le Ordering.seqcst ord then Capability.mk sc2 sc2 sc2 else commit1.(Commit.cur)
+	  let cur2 := if Ordering.le Ordering.seqcst ord then View.mk sc2 sc2 sc2 else commit1.(Commit.cur)
 	  in
-	  let acq2 := Capability.join
+	  let acq2 := View.join
                   commit1.(Commit.acq)
-				          (if Ordering.le Ordering.seqcst ord then Capability.mk sc2 sc2 sc2 else Capability.bot)
+				          (if Ordering.le Ordering.seqcst ord then View.mk sc2 sc2 sc2 else View.bot)
 	  in
 	  let rel2 := fun l => if Ordering.le Ordering.acqrel ord then cur2 else (commit1.(Commit.rel) l)
     in
@@ -229,18 +229,18 @@ Module Commit <: JoinableType.
     l = r.
   Proof.
     destruct l, r. inv LR. inv RL. ss. f_equal.
-    - apply LocFun.ext. i. apply Capability.antisym; auto.
-    - apply Capability.antisym; auto.
-    - apply Capability.antisym; auto.
+    - apply LocFun.ext. i. apply View.antisym; auto.
+    - apply View.antisym; auto.
+    - apply View.antisym; auto.
   Qed.
 End Commit.
 
 Module CommitFacts.
-  Lemma sc_le_capability_le
+  Lemma sc_le_view_le
         c tm
-        (WF: Capability.wf c)
-        (SC: TimeMap.le c.(Capability.sc) tm):
-    Capability.le c (Capability.mk tm tm tm).
+        (WF: View.wf c)
+        (SC: TimeMap.le c.(View.sc) tm):
+    View.le c (View.mk tm tm tm).
   Proof.
     econs; auto.
     - etrans; eauto. etrans; apply WF.
@@ -253,41 +253,41 @@ Module CommitFacts.
            | [H: ?a <> ?a |- _] => congr
            | [H: Memory.closed ?mem |- Memory.inhabited ?mem] =>
              apply H
-           | [|- Capability.le ?s ?s] =>
+           | [|- View.le ?s ?s] =>
              refl
            | [|- TimeMap.le ?s ?s] =>
              refl
-           | [|- Capability.le Capability.bot ?s] =>
-             apply Capability.bot_spec
+           | [|- View.le View.bot ?s] =>
+             apply View.bot_spec
            | [|- TimeMap.le TimeMap.bot _] =>
              apply TimeMap.bot_spec
            | [|- Time.le (TimeMap.bot _) _] =>
              apply Time.bot_spec
            | [|- Time.le (LocFun.init Time.bot _) _] =>
              apply Time.bot_spec
-           | [|- Capability.le ?s (Capability.join _ ?s)] =>
-             apply Capability.join_r
-           | [|- Capability.le ?s (Capability.join ?s _)] =>
-             apply Capability.join_l
+           | [|- View.le ?s (View.join _ ?s)] =>
+             apply View.join_r
+           | [|- View.le ?s (View.join ?s _)] =>
+             apply View.join_l
            | [|- TimeMap.le ?s (TimeMap.join _ ?s)] =>
              apply TimeMap.join_r
            | [|- TimeMap.le ?s (TimeMap.join ?s _)] =>
              apply TimeMap.join_l
-           | [|- Memory.closed_capability Capability.bot ?m] =>
-             apply Memory.closed_capability_bot
+           | [|- Memory.closed_view View.bot ?m] =>
+             apply Memory.closed_view_bot
            | [|- Memory.closed_timemap TimeMap.bot ?m] =>
              apply Memory.closed_timemap_bot
-           | [WF: Commit.wf ?c |- Capability.le (?c.(Commit.rel) ?l) ?c.(Commit.cur)] =>
+           | [WF: Commit.wf ?c |- View.le (?c.(Commit.rel) ?l) ?c.(Commit.cur)] =>
              apply WF
-           | [WF: Commit.wf ?c |- Capability.le (?c.(Commit.rel) ?l) ?c.(Commit.acq)] =>
+           | [WF: Commit.wf ?c |- View.le (?c.(Commit.rel) ?l) ?c.(Commit.acq)] =>
              etrans; apply WF
-           | [WF: Commit.wf ?c |- Capability.le ?c.(Commit.cur) ?c.(Commit.acq)] =>
+           | [WF: Commit.wf ?c |- View.le ?c.(Commit.cur) ?c.(Commit.acq)] =>
              apply WF
-           | [WF: Capability.wf ?c |- TimeMap.le ?c.(Capability.ur) ?c.(Capability.rw)] =>
+           | [WF: View.wf ?c |- TimeMap.le ?c.(View.pln) ?c.(View.rlx)] =>
              apply WF
-           | [WF: Capability.wf ?c |- TimeMap.le ?c.(Capability.ur) ?c.(Capability.sc)] =>
+           | [WF: View.wf ?c |- TimeMap.le ?c.(View.pln) ?c.(View.sc)] =>
              etrans; apply WF
-           | [WF: Capability.wf ?c |- TimeMap.le ?c.(Capability.rw) ?c.(Capability.sc)] =>
+           | [WF: View.wf ?c |- TimeMap.le ?c.(View.rlx) ?c.(View.sc)] =>
              apply WF
 
            | [H1: is_true (Ordering.le ?o Ordering.relaxed),
@@ -321,19 +321,19 @@ Module CommitFacts.
               H2: Ordering.le ?o0 ?o1 = true,
               H3: Ordering.le ?o0 ?o2 = false |- _] =>
                by destruct o1, o2; inv H1; inv H2; inv H3
-           | [|- Capability.wf (Capability.mk ?tm ?tm ?tm)] =>
+           | [|- View.wf (View.mk ?tm ?tm ?tm)] =>
                by econs; refl
-           | [|- Capability.wf (Capability.mk TimeMap.bot TimeMap.bot _)] =>
+           | [|- View.wf (View.mk TimeMap.bot TimeMap.bot _)] =>
              econs; apply TimeMap.bot_spec
 
-           | [|- Capability.le (Capability.join _ _) _] =>
-             apply Capability.join_spec
-           | [|- Capability.le (Capability.singleton_ur _ _) _] =>
-             apply Capability.singleton_ur_spec
-           | [|- Capability.le (Capability.singleton_rw _ _) _] =>
-             apply Capability.singleton_rw_spec
-           | [|- Capability.le (Capability.singleton_sc _ _) _] =>
-             apply Capability.singleton_sc_spec
+           | [|- View.le (View.join _ _) _] =>
+             apply View.join_spec
+           | [|- View.le (View.singleton_ur _ _) _] =>
+             apply View.singleton_ur_spec
+           | [|- View.le (View.singleton_rw _ _) _] =>
+             apply View.singleton_rw_spec
+           | [|- View.le (View.singleton_sc _ _) _] =>
+             apply View.singleton_sc_spec
            | [|- TimeMap.le (TimeMap.singleton _ _) _] =>
              apply TimeMap.singleton_spec
            | [|- TimeMap.le (TimeMap.join _ _) _] =>
@@ -343,45 +343,45 @@ Module CommitFacts.
            | [|- Time.lt (TimeMap.join _ _ _) _] =>
              apply TimeFacts.join_spec_lt
 
-           | [|- Memory.closed_capability (Capability.join _ _) _] =>
-             eapply Memory.join_closed_capability; eauto
-           | [|- Memory.closed_capability (Capability.singleton_ur _ _) _] =>
-             eapply Memory.singleton_ur_closed_capability; eauto
-           | [|- Memory.closed_capability (Capability.singleton_rw _ _) _] =>
-             eapply Memory.singleton_rw_closed_capability; eauto
-           | [|- Memory.closed_capability (Capability.singleton_sc _ _) _] =>
-             eapply Memory.singleton_sc_closed_capability; eauto
+           | [|- Memory.closed_view (View.join _ _) _] =>
+             eapply Memory.join_closed_view; eauto
+           | [|- Memory.closed_view (View.singleton_ur _ _) _] =>
+             eapply Memory.singleton_ur_closed_view; eauto
+           | [|- Memory.closed_view (View.singleton_rw _ _) _] =>
+             eapply Memory.singleton_rw_closed_view; eauto
+           | [|- Memory.closed_view (View.singleton_sc _ _) _] =>
+             eapply Memory.singleton_sc_closed_view; eauto
            | [|- Memory.closed_timemap (TimeMap.join _ _) _] =>
              eapply Memory.join_closed_timemap; eauto
            | [|- Memory.closed_timemap (TimeMap.singleton _ _) _] =>
              eapply Memory.singleton_closed_timemap; eauto
 
-           | [H1: Memory.closed_capability ?c ?m1,
+           | [H1: Memory.closed_view ?c ?m1,
               H2: Memory.future ?m1 ?m2 |-
-              Memory.closed_capability ?c ?m2] =>
-             eapply Memory.future_closed_capability; [exact H1|exact H2]
+              Memory.closed_view ?c ?m2] =>
+             eapply Memory.future_closed_view; [exact H1|exact H2]
            | [H1: Memory.closed_timemap ?tm ?m1,
               H2: Memory.future ?m1 ?m2 |-
               Memory.closed_timemap ?tm ?m2] =>
              eapply Memory.future_closed_timemap; [exact H1|exact H2]
 
-           | [|- Capability.wf (Capability.join _ _)] =>
-             eapply Capability.join_wf; eauto
-           | [|- Capability.wf (Capability.singleton_ur _ _)] =>
-             eapply Capability.singleton_ur_wf; eauto
-           | [|- Capability.wf (Capability.singleton_rw _ _)] =>
-             eapply Capability.singleton_rw_wf; eauto
-           | [|- Capability.wf (Capability.singleton_sc _ _)] =>
-             eapply Capability.singleton_sc_wf; eauto
-           | [|- Capability.wf Capability.bot] =>
-             apply Capability.bot_wf
+           | [|- View.wf (View.join _ _)] =>
+             eapply View.join_wf; eauto
+           | [|- View.wf (View.singleton_ur _ _)] =>
+             eapply View.singleton_ur_wf; eauto
+           | [|- View.wf (View.singleton_rw _ _)] =>
+             eapply View.singleton_rw_wf; eauto
+           | [|- View.wf (View.singleton_sc _ _)] =>
+             eapply View.singleton_sc_wf; eauto
+           | [|- View.wf View.bot] =>
+             apply View.bot_wf
 
            | [H: Time.lt ?a ?b |- Time.le ?a ?b] =>
              left; apply H
            | [|- Time.le ?a ?a] =>
              refl
-           | [|- Capability.le (Capability.mk ?tm1 ?tm1 ?tm1) (Capability.mk ?tm2 ?tm2 ?tm2)] =>
-             apply Capability.timemap_le_le
+           | [|- View.le (View.mk ?tm1 ?tm1 ?tm1) (View.mk ?tm2 ?tm2 ?tm2)] =>
+             apply View.timemap_le_le
            | [|- context[LocFun.find _ (LocFun.add _ _ _)]] =>
              rewrite LocFun.add_spec
            | [|- context[TimeMap.singleton ?l _ ?l]] =>
@@ -406,9 +406,9 @@ Module CommitFacts.
        try match goal with
            | [|- Time.le ?t1 (TimeMap.singleton ?l ?t2 ?l)] =>
              unfold TimeMap.singleton, LocFun.add; condtac; [|congr]
-           | [|- Capability.le _ (Capability.join _ _)] =>
-             try (by rewrite <- Capability.join_l; aggrtac);
-             try (by rewrite <- Capability.join_r; aggrtac)
+           | [|- View.le _ (View.join _ _)] =>
+             try (by rewrite <- View.join_l; aggrtac);
+             try (by rewrite <- View.join_r; aggrtac)
            | [|- TimeMap.le _ (TimeMap.join _ _)] =>
              try (by rewrite <- TimeMap.join_l; aggrtac);
              try (by rewrite <- TimeMap.join_r; aggrtac)
@@ -416,8 +416,8 @@ Module CommitFacts.
              try (by etrans; [|by apply Time.join_l]; aggrtac);
              try (by etrans; [|by apply Time.join_r]; aggrtac)
 
-           | [|- Capability.le _ (Capability.mk ?tm ?tm ?tm)] =>
-             apply sc_le_capability_le
+           | [|- View.le _ (View.mk ?tm ?tm ?tm)] =>
+             apply sc_le_view_le
            end).
 
   Lemma read_commit_incr
@@ -425,8 +425,8 @@ Module CommitFacts.
     Commit.le commit1 (Commit.read_commit commit1 loc ts released ord).
   Proof.
     econs; tac.
-    - rewrite <- ? Capability.join_l. refl.
-    - rewrite <- ? Capability.join_l. refl.
+    - rewrite <- ? View.join_l. refl.
+    - rewrite <- ? View.join_l. refl.
   Qed.
 
   Lemma write_commit_incr
@@ -472,7 +472,7 @@ Module CommitFacts.
   Lemma readable_mon
         commit1 commit2 loc ts released1 released2 ord1 ord2
         (COMMIT: Commit.le commit1 commit2)
-        (REL: Capability.le released1 released2)
+        (REL: View.le released1 released2)
         (ORD: Ordering.le ord1 ord2)
         (READABLE: Commit.readable commit2 loc ts released2 ord2):
     Commit.readable commit1 loc ts released1 ord1.
@@ -501,9 +501,9 @@ Module CommitFacts.
   Lemma read_commit_mon
         commit1 commit2 loc ts released1 released2 ord1 ord2
         (COMMIT: Commit.le commit1 commit2)
-        (REL: Capability.le released1 released2)
+        (REL: View.le released1 released2)
         (WF2: Commit.wf commit2)
-        (WF_REL2: Capability.wf released2)
+        (WF_REL2: View.wf released2)
         (ORD: Ordering.le ord1 ord2):
     Commit.le
       (Commit.read_commit commit1 loc ts released1 ord1)
@@ -512,7 +512,7 @@ Module CommitFacts.
     unfold Commit.read_commit.
     econs; repeat (condtac; aggrtac);
       (try by etrans; [apply COMMIT|aggrtac]);
-      (try by rewrite <- ? Capability.join_r; econs; aggrtac);
+      (try by rewrite <- ? View.join_r; econs; aggrtac);
       (try apply WF2).
   Qed.
 
@@ -529,7 +529,7 @@ Module CommitFacts.
     unfold Commit.write_commit.
     econs; repeat (condtac; aggrtac);
       (try by etrans; [apply COMMIT|aggrtac]);
-      (try by rewrite <- ? Capability.join_r; econs; aggrtac);
+      (try by rewrite <- ? View.join_r; econs; aggrtac);
       (try apply WF2).
   Qed.
 
@@ -556,7 +556,7 @@ Module CommitFacts.
     unfold Commit.read_fence_commit.
     econs; repeat (condtac; aggrtac);
       (try by etrans; [apply COMMIT|aggrtac]);
-      (try by rewrite <- ? Capability.join_r; aggrtac;
+      (try by rewrite <- ? View.join_r; aggrtac;
        rewrite <- ? TimeMap.join_r; apply COMMIT).
   Qed.
 
@@ -573,7 +573,7 @@ Module CommitFacts.
     unfold Commit.write_fence_commit, Commit.write_fence_sc.
     econs; repeat (condtac; aggrtac);
       (try by etrans; [apply COMMIT|aggrtac]);
-      (try by rewrite <- ? Capability.join_r; aggrtac;
+      (try by rewrite <- ? View.join_r; aggrtac;
        rewrite <- ? TimeMap.join_r; apply COMMIT);
       (try by apply WF1).
     - rewrite <- TimeMap.join_r. etrans; [apply WF1|]. apply COMMIT.
@@ -592,7 +592,7 @@ Module CommitFacts.
     unfold Commit.write_fence_sc.
     repeat (condtac; aggrtac);
       (try by etrans; [apply COMMIT|aggrtac]);
-      (try rewrite <- ? Capability.join_r; aggrtac;
+      (try rewrite <- ? View.join_r; aggrtac;
        rewrite <- ? TimeMap.join_r; apply COMMIT).
   Qed.
 
@@ -636,14 +636,14 @@ Module CommitFacts.
         (MEM: Memory.closed mem)
         (WF_COMMIT: Commit.wf commit)
         (CLOSED_COMMIT: Commit.closed commit mem)
-        (RELEASED: Capability.wf released)
+        (RELEASED: View.wf released)
         (GET: Memory.get loc to mem = Some (from, Message.mk val released)):
     <<WF_COMMIT: Commit.wf (Commit.read_commit commit loc to released ord)>> /\
     <<CLOSED_COMMIT: Commit.closed (Commit.read_commit commit loc to released ord) mem>>.
   Proof.
     splits; tac.
     - econs; repeat (try condtac; tac);
-      try by rewrite <- ? Capability.join_l; apply WF_COMMIT.
+      try by rewrite <- ? View.join_l; apply WF_COMMIT.
       + apply TimeMap.singleton_inv.
         rewrite <- TimeMap.join_l. tac.
       + apply TimeMap.singleton_inv.
@@ -672,8 +672,8 @@ Module CommitFacts.
       + condtac; tac; try apply WF_COMMIT.
       + condtac; tac.
       + unfold LocFun.add, LocFun.find.
-        repeat condtac; tac; rewrite <- ? Capability.join_l; apply WF_COMMIT.
-      + repeat condtac; tac; rewrite <- ? Capability.join_l; apply WF_COMMIT.
+        repeat condtac; tac; rewrite <- ? View.join_l; apply WF_COMMIT.
+      + repeat condtac; tac; rewrite <- ? View.join_l; apply WF_COMMIT.
       + condtac; tac.
       + apply TimeMap.singleton_inv. rewrite <- TimeMap.join_l. tac.
     - econs; tac; (try by apply CLOSED_COMMIT).
@@ -719,7 +719,7 @@ Module CommitFacts.
       + repeat (try condtac; aggrtac; try apply WF_COMMIT).
         unfold Commit.write_fence_sc. condtac; tac.
         rewrite <- TimeMap.join_r. apply WF_COMMIT.
-      + repeat condtac; tac; rewrite <- Capability.join_l; apply WF_COMMIT.
+      + repeat condtac; tac; rewrite <- View.join_l; apply WF_COMMIT.
     - econs; tac; try apply CLOSED_COMMIT.
       + unfold Commit.write_fence_sc.
         repeat condtac; tac; try apply CLOSED_COMMIT.
@@ -735,5 +735,5 @@ Module CommitFacts.
   Qed.
 End CommitFacts.
 
-Ltac committac := CommitFacts.tac.
+Ltac viewtac := CommitFacts.tac.
 Ltac aggrtac := CommitFacts.aggrtac.

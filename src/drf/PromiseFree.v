@@ -12,7 +12,7 @@ Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import Commit.
+Require Import ThreadView.
 Require Import Thread.
 Require Import Configuration.
 Require Import Progress.
@@ -85,7 +85,7 @@ Lemma can_fulfill_lt
       (FIND: IdentMap.find tid c1.(Configuration.threads) = Some (lst1, lc1))
       (PROMISE: Memory.get loc ts lc1.(Local.promises) = Some (from, msg))
       (WF: Configuration.wf c1):
-  Time.lt (lc1.(Local.commit).(Commit.cur).(Capability.rw) loc) ts.
+  Time.lt (lc1.(Local.commit).(Commit.cur).(View.rlx) loc) ts.
 Proof.
   destruct FULFILL.
   inv STEP.
@@ -182,31 +182,31 @@ Lemma key_lemma_time_lt:
     (cM4' : Configuration.t) (lc4 : Local.t) 
     (com4' : Commit.t) (prm3' : Memory.t) (sc2 : TimeMap.t)
     (memory2 : Memory.t) (loc0 : Loc.t) (ts0 from : Time.t)
-    (valr valw : Const.t) (relr relw : Capability.t)
+    (valr valw : Const.t) (relr relw : View.t)
     (ordr : Ordering.t) (m1' : Memory.t) (ordw0 : Ordering.t)
-    (releasedw : Capability.t) (lc2 : Local.t)
+    (releasedw : View.t) (lc2 : Local.t)
     (LC2: Commit.wf (Local.commit lc2))
     (tsw : Time.t) (valw0 : Const.t) (kind : Memory.promise_kind),
-    Time.lt (Capability.rw (Commit.cur (Local.commit lc4)) loc) ts ->
+    Time.lt ((Commit.cur (Local.commit lc4)).(View.rlx) loc) ts ->
     Local.read_step
       {| Local.commit := com4'; Local.promises := prm3' |}
       (Configuration.memory cM4') loc0 ts0 valr relr ordr lc2 ->
     Local.write_step lc2 (Configuration.sc cM4')
                      (Configuration.memory cM4') loc0 ts0 tsw valw0 relr releasedw
                      ordw0 lc4 sc2 memory2 kind ->
-    Memory_op m1' loc0 from ts0 valw (Capability_lift loc ts relw)
+    Memory_op m1' loc0 from ts0 valw (View_lift loc ts relw)
               (Configuration.memory cM4') k ->
     Ordering.le Ordering.acqrel ordr -> False.
 Proof.
   intros loc ts k cM4' lc4 com4' prm3' sc2 memory2 loc0 ts0 from valr valw relr relw ordr m1' ordw0 releasedw lc2 WF tsw valw0 kind TIMELT LOCAL1 LOCAL2 PMREL ORDR.
   assert (COM: Commit.le lc2.(Local.commit) lc4.(Local.commit)).
   { eapply write_step_commit_mon; eauto. }
-  assert (LT: Time.lt (Capability.rw (Commit.cur (Local.commit lc2)) loc) ts).
+  assert (LT: Time.lt ((Commit.cur (Local.commit lc2)).(View.rlx) loc) ts).
   { eapply TimeFacts.le_lt_lt; eauto. apply COM. }
   inv LOCAL1. ss.
   erewrite memory_op_get in GET; eauto. inv GET.
   apply TimeFacts.join_lt_des in LT. des.
-  revert BC. rewrite ORDR. unfold Capability_lift. destruct relw. ss.
+  revert BC. rewrite ORDR. unfold View_lift. destruct relw. ss.
   unfold TimeMap_lift. condtac; [|congr]. i.
   apply TimeFacts.join_lt_des in BC. des.
   eapply Time.lt_strorder. eauto.
@@ -215,7 +215,7 @@ Qed.
 Lemma key_lemma_time_lt2:
   forall (loc : Loc.t) (ts : Time.t) (cM4' : Configuration.t)
     (com4' : Commit.t) (loc0 : Loc.t) (ts0 : Time.t)
-    (relw : Capability.t) (ordr ordw0 : Ordering.t) 
+    (relw : View.t) (ordr ordw0 : Ordering.t) 
     (tsw : Time.t) xx yy,
     Ordering.le Ordering.acqrel ordr ->
     Time.lt
@@ -223,17 +223,17 @@ Lemma key_lemma_time_lt2:
          (TimeMap.join
             (TimeMap.join
                yy
-               (Capability.rw
+               (View.rlx
                   (if Ordering.le Ordering.acqrel ordr
-                   then Capability_lift loc ts relw
-                   else Capability.bot))) (TimeMap.singleton loc0 tsw))
+                   then View_lift loc ts relw
+                   else View.bot))) (TimeMap.singleton loc0 tsw))
          xx loc) ts -> False.
 Proof.
   intros.
   apply TimeFacts.join_lt_des in H0. des.
   apply TimeFacts.join_lt_des in AC. des.
   apply TimeFacts.join_lt_des in AC0. des.
-  revert BC1. rewrite H. unfold Capability_lift. destruct relw. ss.
+  revert BC1. rewrite H. unfold View_lift. destruct relw. ss.
   unfold TimeMap_lift. condtac; [|congr]. i.
   apply TimeFacts.join_lt_des in BC1. des.
   eapply Time.lt_strorder. eauto.
@@ -254,8 +254,8 @@ Lemma key_lemma_rw_race
   (PROMISE2: Memory.get loc ts (Local.promises lc2) = Some (from2, msg2))
 
   msgs
-  (WF3: pi_wf (Capability_lift_le loc ts msgs) (cS3', cM3'))
-  (WF4: pi_wf (Capability_lift_le loc ts (msg_add loc e msgs)) (cS4', cM4'))
+  (WF3: pi_wf (View_lift_le loc ts msgs) (cS3', cM3'))
+  (WF4: pi_wf (View_lift_le loc ts (msg_add loc e msgs)) (cS4', cM4'))
 
   lst lc3 lc4 prm
   (THS3: IdentMap.find tid (Configuration.threads cM3') = Some (lst, lc3))
@@ -264,10 +264,10 @@ Lemma key_lemma_rw_race
 
   lst5 lc5
   (THS5: IdentMap.find tid (Configuration.threads cM5') = Some (lst5, lc5))
-  (TIMELT: Time.lt (Capability.rw (Commit.cur (Local.commit lc5)) loc) ts)
+  (TIMELT: Time.lt (View.rlx (Commit.cur (Local.commit lc5)) loc) ts)
 :
   forall (loc0 : Loc.t) (ts0 from : Time.t) (valr valw : Const.t)
-    (relr relw : Capability.t) (ordr ordw : Ordering.t)
+    (relr relw : View.t) (ordr ordw : Ordering.t)
     (EVTR: ThreadEvent.is_reading e0 = Some (loc0, ts0, valr, relr, ordr))
     (EVTW: ThreadEvent.is_writing e = Some (loc0, from, ts0, valw, relw, ordw)),
   False.
@@ -324,7 +324,7 @@ Proof.
   i; des. 
 
   inv MEMLE. r in MEMWR. rewrite EVTW in MEMWR. des.
-  revert PMREL. unfold Capability_lift_if. condtac; i.
+  revert PMREL. unfold View_lift_if. condtac; i.
   { des; subst.
     - congr.
     - destruct ordw; inv ORDW; inv o.
@@ -335,7 +335,7 @@ Proof.
   inv STEP; inv STEP0; inv EVTR.
   - inv LOCAL. erewrite memory_op_get in GET; eauto. inv GET.
     ss. apply TimeFacts.join_lt_des in TIMELT. des. revert BC.
-    rewrite ORDR. unfold Capability_lift. destruct relw. ss.
+    rewrite ORDR. unfold View_lift. destruct relw. ss.
     unfold TimeMap_lift. condtac; [|congr]. i.
     apply TimeFacts.join_lt_des in BC. des.
     eapply Time.lt_strorder. eauto.
@@ -369,8 +369,8 @@ Lemma key_lemma_core
   (THS4: IdentMap.find tid (Configuration.threads cM4') = Some (existT _ lang st4', Local.mk com4' prm4'))
   (THS3': IdentMap.find tid (Configuration.threads cM3'') = Some (existT _ lang st4'', Local.mk com3'' prm4''))
   (THS4': IdentMap.find tid (Configuration.threads cM4'') = Some (existT _ lang st4'', Local.mk com4'' prm4''))
-  (WF3: pi_wf (Capability_lift_le l t msgs) (cS3, conf_update_memory cT3 M3))
-  (WF4: pi_wf (Capability_lift_le l t (msg_add l e msgs)) (cS4', cM4'))
+  (WF3: pi_wf (View_lift_le l t msgs) (cS3, conf_update_memory cT3 M3))
+  (WF4: pi_wf (View_lift_le l t (msg_add l e msgs)) (cS4', cM4'))
   (EVT: thread_event_eqlerel evt3 evt4)
   (NOTIN: pre_in_msgs (Some(cM4',evt4))  (msg_add l e msgs)):
   exists cS4'' pre4'',
@@ -449,7 +449,7 @@ Proof.
   }
 
   (* Write step *)
-  { hexploit (@local_simul_write (Capability_lift_le l t (msg_add l e msgs))); try apply LOCAL.
+  { hexploit (@local_simul_write (View_lift_le l t (msg_add l e msgs))); try apply LOCAL.
     { inv WF4. ii. apply LR in IN. des. esplits; eauto. }
     { inv WF4.
       econs. i. destruct msg1. exploit LR; eauto. i. des.
@@ -493,7 +493,7 @@ Proof.
   (* Update step *)
   { assert (X:= LOCAL1). inv X. ss.
 
-    hexploit (@local_simul_write (Capability_lift_le l t (msg_add l e msgs))); try apply LOCAL2. 
+    hexploit (@local_simul_write (View_lift_le l t (msg_add l e msgs))); try apply LOCAL2. 
     { inv WF4. ii. apply LR in IN. des. esplits; eauto. }
     { inv WF4.
       econs. i. destruct msg1. exploit LR; eauto. i. des.
@@ -618,7 +618,7 @@ Lemma key_lemma
       (STEPS_LIFT : rtc (pi_step_lift_except loc ts tid) (cS2, cT2, cT2.(Configuration.memory)) cSTM3)
       (PRCONS: forall tid0, promise_consistent_th tid0 cSTM3.(fst).(snd)):
   exists msgs,
-  <<EQMEM: mem_eqrel (Capability_lift_le loc ts msgs) cSTM3.(fst).(snd).(Configuration.memory) cSTM3.(snd)>> /\
+  <<EQMEM: mem_eqrel (View_lift_le loc ts msgs) cSTM3.(fst).(snd).(Configuration.memory) cSTM3.(snd)>> /\
   <<IN: Memory.get loc ts cSTM3.(fst).(snd).(Configuration.memory) <> None>> /\
   <<MSGS: forall loc' to' (IN: List.In (loc', to') msgs),
           (exists from msg, nonpromise cSTM3.(fst).(snd) loc' from to' msg) /\
@@ -630,7 +630,7 @@ Lemma key_lemma
       (PRCONSIS: forall tid0, promise_consistent_th tid0 cM4)
       lst4 lc4
       (THREAD4 : IdentMap.find tid (Configuration.threads cM4) = Some (lst4, lc4))
-      (TIMELT: Time.lt (lc4.(Local.commit).(Commit.cur).(Capability.rw) loc) ts),
+      (TIMELT: Time.lt (lc4.(Local.commit).(Commit.cur).(View.rlx) loc) ts),
     <<NOMSG: pre_in_msgs pre msgs>> /\
     exists cS4 pre',
     <<STEPS: with_pre (pi_step false tid) (cSTM3.(fst).(fst), conf_update_memory cSTM3.(fst).(snd) cSTM3.(snd)) pre' (cS4, cM4)>>

@@ -15,7 +15,7 @@ Require Import View.
 Require Import Cell.
 Require Import Memory.
 Require Import MemoryFacts.
-Require Import Commit.
+Require Import ThreadView.
 Require Import Thread.
 
 Require Import SimMemory.
@@ -28,11 +28,11 @@ Require Import Semantics.
 Set Implicit Arguments.
 
 
-Inductive fulfill_step (lc1:Local.t) (sc1:TimeMap.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (releasedm released:Capability.t) (ord:Ordering.t): forall (lc2:Local.t) (sc2:TimeMap.t), Prop :=
+Inductive fulfill_step (lc1:Local.t) (sc1:TimeMap.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (releasedm released:View.t) (ord:Ordering.t): forall (lc2:Local.t) (sc2:TimeMap.t), Prop :=
 | step_fulfill
     promises2
-    (REL_LE: Capability.le (if Ordering.le Ordering.relaxed ord then Capability.join releasedm ((Commit.write_commit lc1.(Local.commit) sc1 loc to ord).(Commit.rel) loc) else Capability.bot) released)
-    (REL_WF: Capability.wf released)
+    (REL_LE: View.le (if Ordering.le Ordering.relaxed ord then View.join releasedm ((Commit.write_commit lc1.(Local.commit) sc1 loc to ord).(Commit.rel) loc) else View.bot) released)
+    (REL_WF: View.wf released)
     (WRITABLE: Commit.writable lc1.(Local.commit) sc1 loc to ord)
     (REMOVE: Memory.remove lc1.(Local.promises) loc from to val released promises2)
     (TIME: Time.lt from to):
@@ -43,7 +43,7 @@ Inductive fulfill_step (lc1:Local.t) (sc1:TimeMap.t) (loc:Loc.t) (from to:Time.t
 
 Lemma fulfill_step_future lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2
       (STEP: fulfill_step lc1 sc1 loc from to val releasedm released ord lc2 sc2)
-      (REL: Memory.closed_capability releasedm mem1)
+      (REL: Memory.closed_view releasedm mem1)
       (WF1: Local.wf lc1 mem1)
       (SC1: Memory.closed_timemap sc1 mem1)
       (CLOSED1: Memory.closed mem1):
@@ -64,8 +64,8 @@ Qed.
 Lemma write_promise_fulfill
       lc0 sc0 mem0 loc from to val releasedm released ord lc2 sc2 mem2 kind
       (WRITE: Local.write_step lc0 sc0 mem0 loc from to val releasedm released ord lc2 sc2 mem2 kind)
-      (REL_WF: Capability.wf releasedm)
-      (REL_CLOSED: Memory.closed_capability releasedm mem0)
+      (REL_WF: View.wf releasedm)
+      (REL_CLOSED: Memory.closed_view releasedm mem0)
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0):
@@ -74,10 +74,10 @@ Lemma write_promise_fulfill
     <<STEP2: fulfill_step lc1 sc0 loc from to val releasedm released ord lc2 sc2>> /\
     <<REL: released =
            if Ordering.le Ordering.relaxed ord
-           then Capability.join
+           then View.join
                   releasedm
                   (Commit.rel (Commit.write_commit (Local.commit lc0) sc0 loc to ord) loc)
-           else Capability.bot>> /\
+           else View.bot>> /\
     <<ORD: Ordering.le Ordering.acqrel ord ->
            Local.promises lc0 loc = Cell.bot /\
            kind = Memory.promise_kind_add>>.
@@ -93,21 +93,21 @@ Qed.
 Lemma fulfill_write
       lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2
       (FULFILL: fulfill_step lc1 sc1 loc from to val releasedm released ord lc2 sc2)
-      (REL_WF: Capability.wf releasedm)
-      (REL_CLOSED: Memory.closed_capability releasedm mem1)
+      (REL_WF: View.wf releasedm)
+      (REL_CLOSED: Memory.closed_view releasedm mem1)
       (ORD: Ordering.le ord Ordering.relaxed)
       (WF1: Local.wf lc1 mem1)
       (SC1: Memory.closed_timemap sc1 mem1)
       (MEM1: Memory.closed mem1):
   exists released' mem2',
     <<STEP: Local.write_step lc1 sc1 mem1 loc from to val releasedm released' ord lc2 sc2 mem2' (Memory.promise_kind_lower released)>> /\
-    <<REL_LE: Capability.le released' released>> /\
+    <<REL_LE: View.le released' released>> /\
     <<MEM: sim_memory mem2' mem1>>.
 Proof.
   inv FULFILL.
   exploit MemorySplit.remove_promise_remove;
     try exact REMOVE; eauto; try apply WF1; try refl.
-  { repeat (try condtac; committac; try apply WF1). }
+  { repeat (try condtac; viewtac; try apply WF1). }
   { eapply MEM1. apply WF1. eapply Memory.remove_get0. eauto. }
   i. des.
   esplits; eauto.
@@ -121,8 +121,8 @@ Lemma promise_fulfill_write
       lc0 sc0 mem0 loc from to val releasedm released ord lc1 lc2 sc2 mem2 kind
       (PROMISE: Local.promise_step lc0 mem0 loc from to val released lc1 mem2 kind)
       (FULFILL: fulfill_step lc1 sc0 loc from to val releasedm released ord lc2 sc2)
-      (REL_WF: Capability.wf releasedm)
-      (REL_CLOSED: Memory.closed_capability releasedm mem0)
+      (REL_WF: View.wf releasedm)
+      (REL_CLOSED: Memory.closed_view releasedm mem0)
       (ORD: Ordering.le Ordering.acqrel ord -> lc0.(Local.promises) loc = Cell.bot /\
                                               kind = Memory.promise_kind_add)
       (WF0: Local.wf lc0 mem0)
@@ -130,20 +130,20 @@ Lemma promise_fulfill_write
       (MEM0: Memory.closed mem0):
   exists released' mem2',
     <<STEP: Local.write_step lc0 sc0 mem0 loc from to val releasedm released' ord lc2 sc2 mem2' kind>> /\
-    <<REL_LE: Capability.le released' released>> /\
+    <<REL_LE: View.le released' released>> /\
     <<MEM: sim_memory mem2' mem2>> /\
     <<REL: released' =
            if Ordering.le Ordering.relaxed ord
-           then Capability.join
+           then View.join
                   releasedm
                   (Commit.rel (Commit.write_commit (Local.commit lc0) sc0 loc to ord) loc)
-           else Capability.bot>>.
+           else View.bot>>.
 Proof.
   exploit Local.promise_step_future; eauto. i. des.
   inv PROMISE. inv FULFILL.
   exploit MemorySplit.remove_promise_remove;
     try exact REMOVE; eauto; try apply WF2; try refl.
-  { repeat (try condtac; committac; try apply WF2). }
+  { repeat (try condtac; viewtac; try apply WF2). }
   i. des.
   esplits; eauto.
   - refine (Local.step_write _ _ _ _ _ _); eauto.
@@ -156,8 +156,8 @@ Lemma promise_fulfill_write_exact
       lc0 sc0 mem0 loc from to val releasedm released ord lc1 lc2 sc2 mem2 kind
       (PROMISE: Local.promise_step lc0 mem0 loc from to val released lc1 mem2 kind)
       (FULFILL: fulfill_step lc1 sc0 loc from to val releasedm released ord lc2 sc2)
-      (REL_WF: Capability.wf releasedm)
-      (REL_CLOSED: Memory.closed_capability releasedm mem0)
+      (REL_WF: View.wf releasedm)
+      (REL_CLOSED: Memory.closed_view releasedm mem0)
       (ORD: Ordering.le Ordering.acqrel ord -> lc0.(Local.promises) loc = Cell.bot /\
                                               kind = Memory.promise_kind_add)
       (WF0: Local.wf lc0 mem0)
@@ -165,10 +165,10 @@ Lemma promise_fulfill_write_exact
       (MEM0: Memory.closed mem0)
       (REL: released =
             if Ordering.le Ordering.relaxed ord
-            then Capability.join
+            then View.join
                    releasedm
                    (Commit.rel (Commit.write_commit (Local.commit lc0) sc0 loc to ord) loc)
-            else Capability.bot):
+            else View.bot):
   Local.write_step lc0 sc0 mem0 loc from to val releasedm released ord lc2 sc2 mem2 kind.
 Proof.
   exploit Local.promise_step_future; eauto. i. des.

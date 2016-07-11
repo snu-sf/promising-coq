@@ -14,7 +14,7 @@ Require Import View.
 Require Import Cell.
 Require Import Memory.
 Require Import MemoryFacts.
-Require Import Commit.
+Require Import ThreadView.
 Require Import Thread.
 Require Import Configuration.
 
@@ -46,12 +46,12 @@ Proof.
   { i. exploit sim_local_future; try apply LOCAL; eauto. i. des.
     esplits; eauto.
     - etrans.
-      + apply Memory.max_timemap_spec; eauto. committac.
+      + apply Memory.max_timemap_spec; eauto. viewtac.
       + apply sim_memory_max_timemap; eauto.
     - etrans.
-      + apply Memory.max_timemap_spec; eauto. committac.
+      + apply Memory.max_timemap_spec; eauto. viewtac.
       + apply Memory.future_max_timemap; eauto.
-    - apply Memory.max_timemap_closed. committac.
+    - apply Memory.max_timemap_closed. viewtac.
   }
   { i. esplits; eauto.
     eapply sim_local_memory_bot; eauto.
@@ -85,12 +85,12 @@ Proof.
   { i. exploit sim_local_future; try apply LOCAL; eauto. i. des.
     esplits; eauto.
     - etrans.
-      + apply Memory.max_timemap_spec; eauto. committac.
+      + apply Memory.max_timemap_spec; eauto. viewtac.
       + apply sim_memory_max_timemap; eauto.
     - etrans.
-      + apply Memory.max_timemap_spec; eauto. committac.
+      + apply Memory.max_timemap_spec; eauto. viewtac.
       + apply Memory.future_max_timemap; eauto.
-    - apply Memory.max_timemap_closed. committac.
+    - apply Memory.max_timemap_closed. viewtac.
   }
   { i. esplits; eauto.
     eapply sim_local_memory_bot; eauto.
@@ -132,12 +132,12 @@ Proof.
   { i. exploit sim_local_future; try apply LOCAL; eauto. i. des.
     esplits; eauto.
     - etrans.
-      + apply Memory.max_timemap_spec; eauto. committac.
+      + apply Memory.max_timemap_spec; eauto. viewtac.
       + apply sim_memory_max_timemap; eauto.
     - etrans.
-      + apply Memory.max_timemap_spec; eauto. committac.
+      + apply Memory.max_timemap_spec; eauto. viewtac.
       + apply Memory.future_max_timemap; eauto.
-    - apply Memory.max_timemap_closed. committac.
+    - apply Memory.max_timemap_closed. viewtac.
   }
   { i. esplits; eauto.
     eapply sim_local_memory_bot; eauto.
@@ -149,7 +149,7 @@ Proof.
     + econs 2. econs 1. econs. eauto.
     + auto.
   - (* store *)
-    hexploit sim_local_write; try exact LOCAL0; try exact SC; eauto; try refl; try by committac. i. des.
+    hexploit sim_local_write; try exact LOCAL0; try exact SC; eauto; try refl; try by viewtac. i. des.
     exploit merge_write_read1; try exact STEP_SRC; eauto. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
@@ -178,12 +178,12 @@ Proof.
   { i. exploit sim_local_future; try apply LOCAL; eauto. i. des.
     esplits; eauto.
     - etrans.
-      + apply Memory.max_timemap_spec; eauto. committac.
+      + apply Memory.max_timemap_spec; eauto. viewtac.
       + apply sim_memory_max_timemap; eauto.
     - etrans.
-      + apply Memory.max_timemap_spec; eauto. committac.
+      + apply Memory.max_timemap_spec; eauto. viewtac.
       + apply Memory.future_max_timemap; eauto.
-    - apply Memory.max_timemap_closed. committac.
+    - apply Memory.max_timemap_closed. viewtac.
   }
   { i. esplits; eauto.
     eapply sim_local_memory_bot; eauto.
@@ -197,8 +197,8 @@ Proof.
     exploit Time.middle_spec; eauto.
     { inv LOCAL0. eapply MemoryFacts.write_time_lt. eauto. }
     i. des.
-    hexploit sim_local_write; try exact LOCAL0; try exact SC; eauto; try refl; try by committac. i. des.
-    exploit merge_write_write_bot; try exact STEP_SRC; eauto; try by committac. i. des.
+    hexploit sim_local_write; try exact LOCAL0; try exact SC; eauto; try refl; try by viewtac. i. des.
+    exploit merge_write_write_bot; try exact STEP_SRC; eauto; try by viewtac. i. des.
     + esplits.
       * econs 2; [|econs 2; eauto].
         { econs. econs 1. econs; eauto. auto. }
@@ -242,12 +242,12 @@ Proof.
   { i. exploit sim_local_future; try apply LOCAL; eauto. i. des.
     esplits; eauto.
     - etrans.
-      + apply Memory.max_timemap_spec; eauto. committac.
+      + apply Memory.max_timemap_spec; eauto. viewtac.
       + apply sim_memory_max_timemap; eauto.
     - etrans.
-      + apply Memory.max_timemap_spec; eauto. committac.
+      + apply Memory.max_timemap_spec; eauto. viewtac.
       + apply Memory.future_max_timemap; eauto.
-    - apply Memory.max_timemap_closed. committac.
+    - apply Memory.max_timemap_closed. viewtac.
   }
   { i. esplits; eauto.
     eapply sim_local_memory_bot; eauto.
@@ -261,10 +261,10 @@ Proof.
     exploit Time.middle_spec; eauto.
     { inv LOCAL0. eapply MemoryFacts.write_time_lt. eauto. }
     i. des.
-    hexploit sim_local_write; try exact LOCAL0; try exact SC; eauto; try refl; try by committac. i. des.
-    exploit merge_write_write; try exact STEP_SRC; eauto; try by committac. i. des.
+    hexploit sim_local_write; try exact LOCAL0; try exact SC; eauto; try refl; try by viewtac. i. des.
+    exploit merge_write_write; try exact STEP_SRC; eauto; try by viewtac. i. des.
     exploit Local.promise_step_future; eauto. i. des.
-    exploit Local.write_step_future; try apply STEP2; eauto; try by committac. i. des.
+    exploit Local.write_step_future; try apply STEP2; eauto; try by viewtac. i. des.
     + esplits.
       * econs 2; [|econs 2; eauto].
         { econs. econs 1. econs; eauto. auto. }
@@ -313,12 +313,12 @@ Proof.
   { i. exploit sim_local_future; try apply LOCAL; eauto. i. des.
     esplits; eauto.
     - etrans.
-      + apply Memory.max_timemap_spec; eauto. committac.
+      + apply Memory.max_timemap_spec; eauto. viewtac.
       + apply sim_memory_max_timemap; eauto.
     - etrans.
-      + apply Memory.max_timemap_spec; eauto. committac.
+      + apply Memory.max_timemap_spec; eauto. viewtac.
       + apply Memory.future_max_timemap; eauto.
-    - apply Memory.max_timemap_closed. committac.
+    - apply Memory.max_timemap_closed. viewtac.
   }
   { i. esplits; eauto.
     eapply sim_local_memory_bot; eauto.
@@ -342,10 +342,10 @@ Proof.
     exploit sim_local_read; try exact LOCAL1;
       try match goal with
           | [|- is_true (Ordering.le _ _)] => refl
-          end; eauto; try refl; try by committac. i. des.
-    exploit Local.read_step_future; eauto; try by committac. i. des.
+          end; eauto; try refl; try by viewtac. i. des.
+    exploit Local.read_step_future; eauto; try by viewtac. i. des.
     hexploit sim_local_write; try apply SC; try apply LOCAL2; eauto; try refl. i. des.
-    exploit Local.write_step_future; try apply STEP_SRC; eauto; try by committac. i. des.
+    exploit Local.write_step_future; try apply STEP_SRC; eauto; try by viewtac. i. des.
     exploit sim_local_read; try exact x0; eauto; try refl. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
@@ -376,12 +376,12 @@ Proof.
   { i. exploit sim_local_future; try apply LOCAL; eauto. i. des.
     esplits; eauto.
     - etrans.
-      + apply Memory.max_timemap_spec; eauto. committac.
+      + apply Memory.max_timemap_spec; eauto. viewtac.
       + apply sim_memory_max_timemap; eauto.
     - etrans.
-      + apply Memory.max_timemap_spec; eauto. committac.
+      + apply Memory.max_timemap_spec; eauto. viewtac.
       + apply Memory.future_max_timemap; eauto.
-    - apply Memory.max_timemap_closed. committac.
+    - apply Memory.max_timemap_closed. viewtac.
   }
   { i. esplits; eauto.
     eapply sim_local_memory_bot; eauto.
@@ -399,14 +399,14 @@ Proof.
     exploit sim_local_read; try exact LOCAL1;
       try match goal with
           | [|- is_true (Ordering.le _ _)] => refl
-          end; eauto; try refl; try by committac. i. des.
+          end; eauto; try refl; try by viewtac. i. des.
     exploit Local.read_step_future; eauto. i. des.
     hexploit sim_local_write; try exact LOCAL2; try exact SC; eauto; try refl. i. des.
     exploit merge_write_write; try exact STEP_SRC0; eauto.
     { inv STEP_SRC. eapply MEM_SRC. eauto. }
     i. des.
     + exploit Local.promise_step_future; eauto. i. des.
-      exploit Local.write_step_future; try apply STEP2; eauto; try by committac. i. des.
+      exploit Local.write_step_future; try apply STEP2; eauto; try by viewtac. i. des.
       exploit reorder_read_promise_diff; try exact STEP_SRC; try exact STEP1; eauto.
       { inv LOCAL2. exploit MemoryFacts.write_time_lt; eauto. ii. inv H.
         eapply Time.lt_strorder. eauto.
@@ -421,7 +421,7 @@ Proof.
         }
       * econs 2. econs 2. econs 4; eauto.
         { econs. econs. s. rewrite ? Const.add_0_r. eauto. }
-        { inv RMW. eapply merge_write_read2; try exact STEP2; committac.
+        { inv RMW. eapply merge_write_read2; try exact STEP2; viewtac.
           - inv STEP4. s. repeat (try condtac; aggrtac).
             destruct or2, ordr; inv H; inv OR2; inv COND.
           - inv STEP4. s. repeat (try condtac; aggrtac).
@@ -437,7 +437,7 @@ Proof.
         }
         { i. inv PR. }
     + inv STEP1.
-      exploit Local.write_step_future; try apply STEP2; eauto; try by committac. i. des.
+      exploit Local.write_step_future; try apply STEP2; eauto; try by viewtac. i. des.
       esplits.
       * econs 2; eauto.
         econs. econs 2. econs 4; try exact STEP_SRC; try exact STEP2; eauto.
@@ -445,7 +445,7 @@ Proof.
         { auto. }
       * econs 2. econs 2. econs 4; eauto.
         { econs. econs. s. rewrite ? Const.add_0_r. eauto. }
-        { inv RMW. eapply merge_write_read2; try exact STEP2; committac.
+        { inv RMW. eapply merge_write_read2; try exact STEP2; viewtac.
           - inv STEP_SRC. s. repeat (try condtac; aggrtac).
             destruct or2, ordr; inv H; inv OR2; inv COND.
           - inv STEP_SRC. s. repeat (try condtac; aggrtac).
@@ -474,12 +474,12 @@ Proof.
   { i. exploit sim_local_future; try apply LOCAL; eauto. i. des.
     esplits; eauto.
     - etrans.
-      + apply Memory.max_timemap_spec; eauto. committac.
+      + apply Memory.max_timemap_spec; eauto. viewtac.
       + apply sim_memory_max_timemap; eauto.
     - etrans.
-      + apply Memory.max_timemap_spec; eauto. committac.
+      + apply Memory.max_timemap_spec; eauto. viewtac.
       + apply Memory.future_max_timemap; eauto.
-    - apply Memory.max_timemap_closed. committac.
+    - apply Memory.max_timemap_closed. viewtac.
   }
   { i. esplits; eauto.
     eapply sim_local_memory_bot; eauto.

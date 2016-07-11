@@ -13,7 +13,7 @@ Require Import Time.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import Commit.
+Require Import ThreadView.
 Require Import Thread.
 Require Import Configuration.
 Require Import Progress.
@@ -33,8 +33,8 @@ Lemma read_read_commit
       loc2 ts2 released2 ord2
       commit0
       (WF0: Commit.wf commit0)
-      (WF1: Capability.wf released1)
-      (WF2: Capability.wf released2):
+      (WF1: View.wf released1)
+      (WF2: View.wf released2):
   Commit.le
     (Commit.read_commit
        (Commit.read_commit commit0 loc2 ts2 released2 ord2)
@@ -53,7 +53,7 @@ Lemma read_write_commit
       loc2 ts2 ord2
       commit0 sc0
       (WF0: Commit.wf commit0)
-      (WF1: Capability.wf released1):
+      (WF1: View.wf released1):
   Commit.le
     (Commit.read_commit
        (Commit.write_commit commit0 sc0 loc2 ts2 ord2)
@@ -73,7 +73,7 @@ Lemma read_read_fence_commit
       ord2
       commit0
       (WF0: Commit.wf commit0)
-      (WF1: Capability.wf released1):
+      (WF1: View.wf released1):
   Commit.le
     (Commit.read_commit
        (Commit.read_fence_commit commit0 ord2)
@@ -95,7 +95,7 @@ Lemma read_write_fence_commit
       ord2
       commit0 sc0
       (WF0: Commit.wf commit0)
-      (WF1: Capability.wf released1):
+      (WF1: View.wf released1):
   Commit.le
     (Commit.read_commit
        (Commit.write_fence_commit commit0 sc0 ord2)
@@ -114,7 +114,7 @@ Lemma write_read_commit
       commit0 sc0
       (ORD1: Ordering.le ord1 Ordering.relaxed)
       (WF0: Commit.wf commit0)
-      (WF2: Capability.wf released2):
+      (WF2: View.wf released2):
   Commit.le
     (Commit.write_commit
        (Commit.read_commit commit0 loc2 ts2 released2 ord2)
@@ -150,13 +150,13 @@ Proof.
   econs; aggrtac;
     (try by apply WF0);
     (repeat (condtac; aggrtac; try apply WF0)).
-  - rewrite <- ? Capability.join_r.
+  - rewrite <- ? View.join_r.
     econs; aggrtac. apply CommitFacts.write_sc_incr.
-  - rewrite <- ? Capability.join_r.
+  - rewrite <- ? View.join_r.
     econs; aggrtac. apply CommitFacts.write_sc_incr.
-  - rewrite <- ? Capability.join_r.
+  - rewrite <- ? View.join_r.
     econs; aggrtac. apply CommitFacts.write_sc_incr.
-  - econs; committac.
+  - econs; viewtac.
     rewrite <- ? TimeMap.join_r.
     apply CommitFacts.write_sc_incr.
 Qed.
@@ -255,7 +255,7 @@ Lemma write_fence_read_commit
       commit0 sc0
       (ORD1: Ordering.le ord1 Ordering.relaxed)
       (WF0: Commit.wf commit0)
-      (WF2: Capability.wf released2):
+      (WF2: View.wf released2):
   Commit.le
     (Commit.write_fence_commit
        (Commit.read_commit commit0 loc2 ts2 released2 ord2) sc0 ord1)
@@ -340,9 +340,9 @@ Proof.
   - rewrite <- TimeMap.join_r. apply WF0.
   - rewrite <- TimeMap.join_r. apply WF0.
   - rewrite <- TimeMap.join_r. apply WF0.
-  - rewrite <- Capability.join_r. committac.
+  - rewrite <- View.join_r. viewtac.
     rewrite <- TimeMap.join_r. apply WF0.
-  - rewrite <- Capability.join_r. committac.
+  - rewrite <- View.join_r. viewtac.
     rewrite <- TimeMap.join_r. apply WF0.
 Qed.
 
@@ -352,7 +352,7 @@ Lemma read_write_commit_eq
       commit0 sc0
       (ORD1: Ordering.le ord2 Ordering.relaxed)
       (WF0: Commit.wf commit0)
-      (WF1: Capability.wf released1):
+      (WF1: View.wf released1):
   (Commit.read_commit
      (Commit.write_commit commit0 sc0 loc2 ts2 ord2)
      loc1 ts1 released1 ord1) =

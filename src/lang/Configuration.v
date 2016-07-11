@@ -12,7 +12,7 @@ Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import Commit.
+Require Import ThreadView.
 Require Import Thread.
 
 Set Implicit Arguments.
@@ -142,7 +142,7 @@ Module Configuration.
   Proof.
     econs.
     - apply Threads.init_wf.
-    - committac.
+    - viewtac.
     - apply Memory.init_closed.
   Qed.
 

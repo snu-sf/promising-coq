@@ -17,7 +17,7 @@ Require Import View.
 Require Import Cell.
 Require Import Memory.
 Require Import MemoryFacts.
-Require Import Commit.
+Require Import ThreadView.
 Require Import Thread.
 Require Import Configuration.
 
@@ -38,7 +38,7 @@ Inductive sim_memory (mem_src mem_tgt:Memory.t): Prop :=
             (GET: Memory.get loc to mem_tgt = Some (from_tgt, Message.mk val released_tgt)),
         exists from_src released_src,
           <<GET: Memory.get loc to mem_src = Some (from_src, Message.mk val released_src)>> /\
-          <<RELEASED: Capability.le released_src released_tgt>>)
+          <<RELEASED: View.le released_src released_tgt>>)
 .
 
 Program Instance sim_memory_PreOrder: PreOrder sim_memory.
@@ -59,7 +59,7 @@ Lemma sim_memory_get
       (GET: Memory.get loc to mem_tgt = Some (from_tgt, Message.mk val released_tgt)):
   exists from_src released_src,
     <<GET: Memory.get loc to mem_src = Some (from_src, Message.mk val released_src)>> /\
-    <<RELEASED: Capability.le released_src released_tgt>>.
+    <<RELEASED: View.le released_src released_tgt>>.
 Proof.
   eapply SIM. eauto.
 Qed.
@@ -86,12 +86,12 @@ Proof.
   esplits; eauto.
 Qed.
 
-Lemma sim_memory_max_capability
+Lemma sim_memory_max_view
       mem_src mem_tgt
       (CLOSED_SRC: Memory.closed mem_src)
       (CLOSED_TGT: Memory.closed mem_tgt)
       (SIM: sim_memory mem_src mem_tgt):
-  Capability.le (Memory.max_capability mem_src) (Memory.max_capability mem_tgt).
+  View.le (Memory.max_view mem_src) (Memory.max_view mem_tgt).
 Proof.
   econs; apply sim_memory_max_timemap; auto.
 Qed.
@@ -101,7 +101,7 @@ Lemma sim_memory_max_released
       (CLOSED_SRC: Memory.closed mem_src)
       (CLOSED_TGT: Memory.closed mem_tgt)
       (SIM: sim_memory mem_src mem_tgt):
-  Capability.le (Memory.max_released mem_src loc ts) (Memory.max_released mem_tgt loc ts).
+  View.le (Memory.max_released mem_src loc ts) (Memory.max_released mem_tgt loc ts).
 Proof.
   unfold Memory.max_released. econs; s.
   - ii. unfold TimeMap.add. condtac; [refl|].
@@ -233,7 +233,7 @@ Lemma sim_memory_add
       mem1_src mem1_tgt released_src
       mem2_src mem2_tgt released_tgt
       loc from to val
-      (REL_LE: Capability.le released_src released_tgt)
+      (REL_LE: View.le released_src released_tgt)
       (SRC: Memory.add mem1_src loc from to val released_src mem2_src)
       (TGT: Memory.add mem1_tgt loc from to val released_tgt mem2_tgt)
       (SIM: sim_memory mem1_src mem1_tgt):
@@ -254,7 +254,7 @@ Lemma sim_memory_split
       mem1_src mem1_tgt
       mem2_src mem2_tgt
       loc ts1 ts2 ts3 val2 val3 released2_src released3_src released2_tgt released3_tgt
-      (REL_LE: Capability.le released2_src released2_tgt)
+      (REL_LE: View.le released2_src released2_tgt)
       (SRC: Memory.split mem1_src loc ts1 ts2 ts3 val2 val3 released2_src released3_src mem2_src)
       (TGT: Memory.split mem1_tgt loc ts1 ts2 ts3 val2 val3 released2_tgt released3_tgt mem2_tgt)
       (SIM: sim_memory mem1_src mem1_tgt):
@@ -279,7 +279,7 @@ Lemma sim_memory_lower
       mem1_src mem1_tgt
       mem2_src mem2_tgt
       loc from to val released1_src released1_tgt released2_src released2_tgt
-      (REL_LE: Capability.le released2_src released2_tgt)
+      (REL_LE: View.le released2_src released2_tgt)
       (SRC: Memory.lower mem1_src loc from to val released1_src released2_src mem2_src)
       (TGT: Memory.lower mem1_tgt loc from to val released1_tgt released2_tgt mem2_tgt)
       (SIM: sim_memory mem1_src mem1_tgt):
@@ -298,7 +298,7 @@ Lemma sim_memory_promise
       loc from to val kind
       promises1_src mem1_src released_src promises2_src mem2_src
       promises1_tgt mem1_tgt released_tgt promises2_tgt mem2_tgt
-      (REL_LE: Capability.le released_src released_tgt)
+      (REL_LE: View.le released_src released_tgt)
       (PROMISE_SRC: Memory.promise promises1_src mem1_src loc from to val released_src promises2_src mem2_src kind)
       (PROMISE_TGT: Memory.promise promises1_tgt mem1_tgt loc from to val released_tgt promises2_tgt mem2_tgt kind)
       (SIM: sim_memory mem1_src mem1_tgt):
@@ -321,12 +321,12 @@ Proof.
   exploit sim_memory_get; eauto. i. des. eauto.
 Qed.
 
-Lemma sim_memory_closed_capability
+Lemma sim_memory_closed_view
       mem_src mem_tgt
-      capability
+      view
       (SIM: sim_memory mem_src mem_tgt)
-      (TGT: Memory.closed_capability capability mem_tgt):
-  Memory.closed_capability capability mem_src.
+      (TGT: Memory.closed_view view mem_tgt):
+  Memory.closed_view view mem_src.
 Proof.
   econs.
   - eapply sim_memory_closed_timemap; eauto. apply TGT.

@@ -14,7 +14,7 @@ Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import Commit.
+Require Import ThreadView.
 Require Import Thread.
 
 Require Import SimMemory.
@@ -31,7 +31,7 @@ Set Implicit Arguments.
 Definition promise_consistent (lc:Local.t): Prop :=
   forall loc ts from msg
     (PROMISE: Memory.get loc ts lc.(Local.promises) = Some (from, msg)),
-    Time.lt (lc.(Local.commit).(Commit.cur).(Capability.rw) loc) ts.
+    Time.lt (lc.(Local.commit).(Commit.cur).(View.rlx) loc) ts.
 
 Definition promise_consistent_th (tid: Ident.t) (c: Configuration.t) : Prop :=
   forall lst lc
@@ -67,7 +67,7 @@ Lemma fulfill_unset_promises
       (FULFILL: Memory.remove promises1 loc from ts val rel promises2)
       (TH1: Memory.get l t promises1 = Some (f, m))
       (TH2: Memory.get l t promises2 = None):
-  l = loc /\ t = ts /\ f = from /\ m.(Message.val) = val /\ Capability.le rel m.(Message.released).
+  l = loc /\ t = ts /\ f = from /\ m.(Message.val) = val /\ View.le rel m.(Message.released).
 Proof.
   revert TH2. erewrite Memory.remove_o; eauto. condtac; ss; [|congr].
   des. subst. erewrite Memory.remove_get0 in TH1; eauto. inv TH1.
@@ -196,7 +196,7 @@ Lemma thread_step_unset_promises
   exists ord from val rel,
   <<EVENT: ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord)>> /\
   <<ORD: Ordering.le ord Ordering.relaxed>> /\
-  <<TIME: Time.lt (th1.(Thread.local).(Local.commit).(Commit.cur).(Capability.rw) loc) ts>>.
+  <<TIME: Time.lt (th1.(Thread.local).(Local.commit).(Commit.cur).(View.rlx) loc) ts>>.
 Proof.
   inv STEP.
   { inv STEP0. inv LOCAL. destruct msg. ss. 
@@ -233,7 +233,7 @@ Lemma rtc_small_step_unset_promises
       (GET1: Memory.get loc ts lc1.(Local.promises) = Some (from, msg))
       (FIND2: IdentMap.find tid c2.(Configuration.threads) = Some (lst2, lc2))
       (GET2: Memory.get loc ts lc2.(Local.promises) = None):
-  Time.lt (lc1.(Local.commit).(Commit.cur).(Capability.rw) loc) ts.
+  Time.lt (lc1.(Local.commit).(Commit.cur).(View.rlx) loc) ts.
 Proof.
   ginduction STEPS; i; subst.
   { ss. rewrite FIND1 in FIND2. depdes FIND2.

@@ -13,7 +13,7 @@ Require Import Time.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import Commit.
+Require Import ThreadView.
 Require Import Thread.
 Require Import Configuration.
 Require Import Progress.
@@ -117,7 +117,7 @@ Proof.
   { by inv REORDER. }
   i. des.
   exploit sim_local_fulfill; try apply x0; try exact LOCAL0; try refl;
-    try exact WF0; try by committac.
+    try exact WF0; try by viewtac.
   { econs.
     - apply WF2.
     - eapply Commit.future_closed; eauto. apply WF2.
@@ -155,13 +155,13 @@ Lemma sim_update_future
 Proof.
   inv SIM1.
   exploit Local.read_step_future; eauto. i. des.
-  exploit fulfill_step_future; eauto; try by committac. i. des.
+  exploit fulfill_step_future; eauto; try by viewtac. i. des.
   exploit future_read_step; try exact READ; eauto. i. des.
   exploit Local.read_step_future; eauto. i. des.
-  exploit future_fulfill_step; try exact FULFILL; eauto; try refl; try by committac.
+  exploit future_fulfill_step; try exact FULFILL; eauto; try refl; try by viewtac.
   { by inv REORDER. }
   i. des.
-  exploit fulfill_step_future; try apply x0; try exact WF1; eauto; try by committac.
+  exploit fulfill_step_future; try apply x0; try exact WF1; eauto; try by viewtac.
   { econs.
     - apply WF2.
     - eapply Commit.future_closed; eauto. apply WF2.
@@ -182,22 +182,22 @@ Proof.
   }
   i. des. esplits.
   - etrans.
-    + apply Memory.max_timemap_spec; eauto. committac.
+    + apply Memory.max_timemap_spec; eauto. viewtac.
     + apply sim_memory_max_timemap; eauto.
   - eauto.
   - etrans.
-    + apply Memory.max_timemap_spec; eauto. committac.
+    + apply Memory.max_timemap_spec; eauto. viewtac.
     + apply Memory.future_max_timemap; eauto.
   - auto.
   - auto.
-  - apply Memory.max_timemap_closed. committac.
+  - apply Memory.max_timemap_closed. viewtac.
   - auto.
   - econs; eauto.
     + etrans; eauto.
     + etrans.
-      * apply Memory.max_timemap_spec; eauto. committac.
+      * apply Memory.max_timemap_spec; eauto. viewtac.
       * apply sim_memory_max_timemap; eauto.
-    + apply Memory.max_timemap_closed. committac.
+    + apply Memory.max_timemap_closed. viewtac.
 Qed.
 
 Lemma sim_update_step
@@ -252,12 +252,12 @@ Proof.
   - (* store *)
     guardH ORD2.
     apply RegSet.disjoint_add in REGS. des.
-    hexploit sim_local_write; try exact LOCAL0; try exact LOCAL; try exact SC; try exact WF0; try refl; eauto; try by committac. i. des.
-    hexploit reorder_update_write; try exact READ; try exact FULFILL; try exact STEP_SRC; eauto; try by committac.
+    hexploit sim_local_write; try exact LOCAL0; try exact LOCAL; try exact SC; try exact WF0; try refl; eauto; try by viewtac. i. des.
+    hexploit reorder_update_write; try exact READ; try exact FULFILL; try exact STEP_SRC; eauto; try by viewtac.
     { ii. subst. inv FULFILL. eapply Time.lt_strorder. eauto. }
     i. des.
-    exploit Local.write_step_future; try exact STEP1; eauto; try by committac. i. des.
-    exploit Local.read_step_future; try exact STEP2; eauto; try by committac. i. des.
+    exploit Local.write_step_future; try exact STEP1; eauto; try by viewtac. i. des.
+    exploit Local.read_step_future; try exact STEP2; eauto; try by viewtac. i. des.
     exploit fulfill_write; eauto. i. des.
     esplits.
     + econs 2; eauto. econs.
@@ -277,11 +277,11 @@ Proof.
     guardH ORDW2.
     apply RegSet.disjoint_add in REGS. des.
     symmetry in REGS0. apply RegSet.disjoint_add in REGS0. des.
-    exploit fulfill_step_future; try exact FULFILL; eauto; try by committac. i. des.
-    exploit Local.read_step_future; try exact LOCAL1; eauto; try by committac. i. des.
+    exploit fulfill_step_future; try exact FULFILL; eauto; try by viewtac. i. des.
+    exploit Local.read_step_future; try exact LOCAL1; eauto; try by viewtac. i. des.
     exploit sim_local_read; try exact LOCAL1; (try by etrans; eauto); eauto; try refl. i. des.
     exploit Local.read_step_future; try exact STEP_SRC; eauto. i. des.
-    hexploit sim_local_write; try exact LOCAL2; eauto; try refl; try by committac. i. des.
+    hexploit sim_local_write; try exact LOCAL2; eauto; try refl; try by viewtac. i. des.
     hexploit ReorderStep.reorder_update_update; try exact FULFILL; try exact READ; try exact STEP_SRC0; eauto.
     { ii. subst. inv FULFILL. eapply Time.lt_strorder. eauto. }
     i. des.

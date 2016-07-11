@@ -13,7 +13,7 @@ Require Import Time.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import Commit.
+Require Import ThreadView.
 Require Import Thread.
 Require Import Configuration.
 Require Import Progress.
@@ -58,13 +58,13 @@ Lemma unused_read
     Local.read_step lc0 mem0 loc ts val released ord lc0.
 Proof.
   destruct lc0.
-  assert (exists from val released, Memory.get loc (Capability.ur (Commit.cur commit) loc) mem0 = Some (from, Message.mk val released)).
+  assert (exists from val released, Memory.get loc ((Commit.cur commit).(View.pln) loc) mem0 = Some (from, Message.mk val released)).
   { inv WF. ss. inv COMMIT_CLOSED. inv CUR.
     exploit UR; eauto.
   }
   des. inv MEM. exploit CLOSED; eauto. i. des.
   esplits. econs; s; eauto.
-  - econs; committac.
+  - econs; viewtac.
   - apply Commit.antisym.
     + unfold Commit.read_commit. econs; repeat (condtac; aggrtac; try apply WF).
       etrans; apply WF.
@@ -95,12 +95,12 @@ Proof.
   { i. exploit sim_local_future; try apply LOCAL; eauto. i. des.
     esplits; eauto.
     - etrans.
-      + apply Memory.max_timemap_spec; eauto. committac.
+      + apply Memory.max_timemap_spec; eauto. viewtac.
       + apply sim_memory_max_timemap; eauto.
     - etrans.
-      + apply Memory.max_timemap_spec; eauto. committac.
+      + apply Memory.max_timemap_spec; eauto. viewtac.
       + apply Memory.future_max_timemap; eauto.
-    - apply Memory.max_timemap_closed. committac.
+    - apply Memory.max_timemap_closed. viewtac.
   }
   { i. esplits; eauto.
     eapply sim_local_memory_bot; eauto.

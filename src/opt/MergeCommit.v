@@ -13,7 +13,7 @@ Require Import Time.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import Commit.
+Require Import ThreadView.
 Require Import Thread.
 Require Import Configuration.
 Require Import Progress.
@@ -32,7 +32,7 @@ Lemma read_read_commit
       loc ts released ord
       commit0
       (WF0: Commit.wf commit0)
-      (WF_REL: Capability.wf released):
+      (WF_REL: View.wf released):
   Commit.le
     (Commit.read_commit (Commit.read_commit commit0 loc ts released ord) loc ts released ord)
     (Commit.read_commit commit0 loc ts released ord).
@@ -67,12 +67,12 @@ Lemma write_write_commit
                          loc ts2 ord)
     (Commit.write_commit commit0 sc0 loc ts2 ord).
 Proof.
-  econs; committac;
+  econs; viewtac;
     (repeat (condtac; aggrtac));
     (try by apply WF0).
-  - econs; committac. unfold Commit.write_sc. condtac; aggrtac.
-  - econs; committac. unfold Commit.write_sc. condtac; aggrtac.
-  - econs; committac. unfold Commit.write_sc. condtac; aggrtac.
+  - econs; viewtac. unfold Commit.write_sc. condtac; aggrtac.
+  - econs; viewtac. unfold Commit.write_sc. condtac; aggrtac.
+  - econs; viewtac. unfold Commit.write_sc. condtac; aggrtac.
 Qed.
 
 Lemma write_write_sc
@@ -97,7 +97,7 @@ Lemma read_fence_read_fence_commit
 Proof.
   econs; aggrtac;
     (try by apply WF0).
-  repeat condtac; committac.
+  repeat condtac; viewtac.
 Qed.
 
 Lemma write_fence_write_fence_sc
@@ -123,7 +123,7 @@ Proof.
   econs; aggrtac;
     (try by apply WF0);
     (repeat condtac; aggrtac);
-    rewrite <- ? Capability.join_r; committac.
+    rewrite <- ? View.join_r; viewtac.
   - apply write_fence_write_fence_sc; auto.
   - apply write_fence_write_fence_sc; auto.
   - apply write_fence_write_fence_sc; auto.

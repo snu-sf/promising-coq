@@ -140,26 +140,26 @@ Module TimeMap <: JoinableType.
   Qed.
 End TimeMap.
 
-Module Capability <: JoinableType.
+Module View <: JoinableType.
   Structure t_ := mk {
-    ur: TimeMap.t;
-    rw: TimeMap.t;
+    pln: TimeMap.t;
+    rlx: TimeMap.t;
     sc: TimeMap.t;
   }.
   Definition t := t_.
 
-  Inductive wf (capability:t): Prop :=
+  Inductive wf (view:t): Prop :=
   | wf_intro
-      (UR_RW: TimeMap.le capability.(ur) capability.(rw))
-      (RW_SC: TimeMap.le capability.(rw) capability.(sc))
+      (PLN_RLX: TimeMap.le view.(pln) view.(rlx))
+      (RLX_SC: TimeMap.le view.(rlx) view.(sc))
   .
 
   Definition eq := @eq t.
 
   Inductive le_ (lhs rhs:t): Prop :=
   | le_intro
-      (UR: TimeMap.le lhs.(ur) rhs.(ur))
-      (RW: TimeMap.le lhs.(rw) rhs.(rw))
+      (PLN: TimeMap.le lhs.(pln) rhs.(pln))
+      (RLX: TimeMap.le lhs.(rlx) rhs.(rlx))
       (SC: TimeMap.le lhs.(sc) rhs.(sc))
   .
   Definition le := le_.
@@ -173,8 +173,8 @@ Module Capability <: JoinableType.
   Qed.
 
   Lemma ext l r
-        (UR: l.(ur) = r.(ur))
-        (RW: l.(rw) = r.(rw))
+        (PLN: l.(pln) = r.(pln))
+        (RLX: l.(rlx) = r.(rlx))
         (SC: l.(sc) = r.(sc)):
     l = r.
   Proof.
@@ -190,8 +190,8 @@ Module Capability <: JoinableType.
   Proof. econs; apply TimeMap.bot_spec. Qed.
 
   Definition join (lhs rhs:t): t :=
-    mk (TimeMap.join lhs.(ur) rhs.(ur))
-       (TimeMap.join lhs.(rw) rhs.(rw))
+    mk (TimeMap.join lhs.(pln) rhs.(pln))
+       (TimeMap.join lhs.(rlx) rhs.(rlx))
        (TimeMap.join lhs.(sc) rhs.(sc)).
 
   Lemma join_comm lhs rhs: join lhs rhs = join rhs lhs.
@@ -260,7 +260,7 @@ Module Capability <: JoinableType.
 
   Lemma singleton_ur_spec loc ts c
         (WF: wf c)
-        (TS: Time.le ts (c.(ur) loc)):
+        (TS: Time.le ts (c.(pln) loc)):
     le (singleton_ur loc ts) c.
   Proof.
     econs; s;
@@ -272,7 +272,7 @@ Module Capability <: JoinableType.
 
   Lemma singleton_ur_inv loc ts c
         (LE: le (singleton_ur loc ts) c):
-    Time.le ts (c.(ur) loc).
+    Time.le ts (c.(pln) loc).
   Proof.
     apply TimeMap.singleton_inv. apply LE.
   Qed.
@@ -291,7 +291,7 @@ Module Capability <: JoinableType.
 
   Lemma singleton_rw_spec loc ts c
         (WF: wf c)
-        (TS: Time.le ts (c.(rw) loc)):
+        (TS: Time.le ts (c.(rlx) loc)):
     le (singleton_rw loc ts) c.
   Proof.
     econs; s;
@@ -302,7 +302,7 @@ Module Capability <: JoinableType.
 
   Lemma singleton_rw_inv loc ts c
         (LE: le (singleton_rw loc ts) c):
-    Time.le ts (c.(rw) loc).
+    Time.le ts (c.(rlx) loc).
   Proof.
     apply TimeMap.singleton_inv. apply LE.
   Qed.
@@ -367,4 +367,4 @@ Module Capability <: JoinableType.
         (LE: TimeMap.le tm1 tm2):
     le (mk tm1 tm1 tm1) (mk tm2 tm2 tm2).
   Proof. econs; eauto. Qed.
-End Capability.
+End View.

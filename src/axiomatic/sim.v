@@ -17,7 +17,7 @@ Require Import View.
 Require Import Cell.
 Require Import Memory.
 Require Import Thread.
-Require Import Commit.
+Require Import ThreadView.
 
 Require Import Gevents.
 Require Import model.
@@ -188,7 +188,7 @@ Lemma Readable_full acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
   (COH': Coherent acts' sb' rmw' rf' mo' sc') 
   f (MON: monotone mo f) l v o b (LABa: lab a = Aload l v o)
   commit rel
-  (MSG: max_value f (fun a => msg_rel scr acts sb rmw rf sc l a b) (Capability.sc rel l))
+  (MSG: max_value f (fun a => msg_rel scr acts sb rmw rf sc l a b) (View.sc rel l))
   (CUR: sim_cur f acts sb rmw rf sc (Commit.cur commit) (thread a))
   (RFb: rf' b a): 
     Commit.readable commit l (f b) rel o.
@@ -521,7 +521,7 @@ Qed.
 
 
 Lemma memory_add_bot l from to val released (LT : Time.lt from to) 
-      (WF : Capability.wf released) :
+      (WF : View.wf released) :
   Memory.add Memory.bot l from to val released 
     (Memory.singleton l val released LT). 
 Proof.
@@ -534,8 +534,8 @@ Lemma memory_exists
   mem (CLOSED: Memory.closed mem)
   from to (FROM: Time.lt from to)
   commit (CWF: Commit.wf commit)
-  released (RWF: Capability.wf released)
-  l (LE: Time.le (Capability.rw released l) to) 
+  released (RWF: View.wf released)
+  l (LE: Time.le (released.(View.rlx) l) to) 
   (DISJ: forall (to2 from2 : Time.t) (msg2 : Message.t),
            Memory.get l to2 mem = Some (from2, msg2) ->
            Interval.disjoint (from, to) (from2, to2)) v :
@@ -553,7 +553,7 @@ Lemma memory_exists_write
   mem (CLOSED: Memory.closed mem)
   from to (FROM: Time.lt from to)
   commit (CWF: Commit.wf commit)
-  l (CUR_LE: Time.le (Capability.rw (Commit.cur commit) l) to)
+  l (CUR_LE: Time.le (View.rlx (Commit.cur commit) l) to)
   (DISJ: forall (to2 from2 : Time.t) (msg2 : Message.t),
            Memory.get l to2 mem = Some (from2, msg2) ->
            Interval.disjoint (from, to) (from2, to2)) 
@@ -561,22 +561,22 @@ Lemma memory_exists_write
   exists mem', 
     Memory.write Memory.bot mem l from to v 
                  (if Ordering.le Ordering.relaxed o
-                   then Capability.join Capability.bot
+                   then View.join View.bot
                           (Commit.rel (Commit.write_commit commit sc_map l to o) l)
-                   else Capability.bot)  
+                   else View.bot)  
                  Memory.bot mem' Memory.promise_kind_add .
 Proof.
   eapply memory_exists; eauto.
   {
     destruct CWF.
-    desf; try apply Capability.join_wf; eauto using Capability.bot_wf.
+    desf; try apply View.join_wf; eauto using View.bot_wf.
     simpl; desf; ins; eauto.
     all: unfold LocFun.add; desf; try congruence;
-         repeat apply Capability.join_wf; simpl; 
-         eauto using Capability.bot_wf, Capability.singleton_ur_wf.
+         repeat apply View.join_wf; simpl; 
+         eauto using View.bot_wf, View.singleton_ur_wf.
     split; ins; eauto using TimeMap.bot_spec.
   }
-  assert (YY: Time.le (Capability.rw (Commit.rel commit l) l) to).
+  assert (YY: Time.le (View.rlx (Commit.rel commit l) l) to).
     by etransitivity; [|exact CUR_LE]; apply CWF.
   ins; desf; ins; unfold TimeMap.join, TimeMap.bot; ins; desf;
   unfold LocFun.add; desf; try congruence; ins;
@@ -676,7 +676,7 @@ Lemma memory_step_write_cell acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0
   (FROM: Time.lt (ffrom' a) (f' a))
   mem' (ADD: Memory.write Memory.bot mem l (ffrom' a) (f' a) v 
           (if Ordering.le Ordering.relaxed o then 
-          (Commit.rel (Commit.write_commit commit sc_map l (f' a) o) l) else Capability.bot)
+          (Commit.rel (Commit.write_commit commit sc_map l (f' a) o) l) else View.bot)
      Memory.bot mem' Memory.promise_kind_add)
   (GET: Memory.get l0 to mem' = Some (from0, Message.mk v0 rel0)):
   exists b, In b acts0 /\ is_write b /\ loc b = Some l0 /\
@@ -694,30 +694,30 @@ destruct (classic (l=l0 /\ f' a = to /\ ffrom' a = from0)).
 ins.
 
 assert(LocFun.add l0 (if Ordering.le Ordering.acqrel o
-then Capability.join (Capability.join (Commit.cur commit)
- (Capability.singleton_ur l0 (f' a)))
+then View.join (View.join (Commit.cur commit)
+ (View.singleton_ur l0 (f' a)))
 (if Ordering.le Ordering.seqcst o
 then
 {|
-Capability.ur := TimeMap.bot;
-Capability.rw := TimeMap.bot;
-Capability.sc := sc_map |}
-else Capability.bot)
+View.pln := TimeMap.bot;
+View.rlx := TimeMap.bot;
+View.sc := sc_map |}
+else View.bot)
 else Commit.rel commit l0) 
 (Commit.rel commit) l0=
 LocFun.find l0 (LocFun.add l0
 (if Ordering.le Ordering.acqrel o
 then
-Capability.join
-(Capability.join (Commit.cur commit)
- (Capability.singleton_ur l0 (f' a)))
+View.join
+(View.join (Commit.cur commit)
+ (View.singleton_ur l0 (f' a)))
 (if Ordering.le Ordering.seqcst o
 then
 {|
-Capability.ur := TimeMap.bot;
-Capability.rw := TimeMap.bot;
-Capability.sc := sc_map |}
-else Capability.bot)
+View.pln := TimeMap.bot;
+View.rlx := TimeMap.bot;
+View.sc := sc_map |}
+else View.bot)
 else Commit.rel commit l0) 
 (Commit.rel commit))).  done.
 rewrite H in ADD. clear H.
@@ -815,7 +815,7 @@ Lemma memory_step_write acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a
   commit (SIM_COMMIT : sim_commit fto acts sb rmw rf sc commit (thread a))
   mem' (ADD: Memory.write Memory.bot mem l (ffrom' a) (fto' a) v 
   (if Ordering.le Ordering.relaxed o then 
-      (Commit.rel (Commit.write_commit commit sc_map l (fto' a) o) l) else Capability.bot)
+      (Commit.rel (Commit.write_commit commit sc_map l (fto' a) o) l) else View.bot)
  Memory.bot mem' Memory.promise_kind_add):
   sim_mem ffrom' fto' acts0 sb0 rmw0 rf0 sc0 mem'.
 Proof.
@@ -864,7 +864,7 @@ desf.
 {
   assert (K: forall l, 
           max_value f (S_tm acts0 sb0 rmw0 rf0 l)
-           (LocFun.find l (TimeMap.join sc_map (Capability.sc acq)))).
+           (LocFun.find l (TimeMap.join sc_map (View.sc acq)))).
     cdes COMMIT; cdes ACQ0; ins. 
     ins; rewrite !tm_find_join.
     ins; eapply max_value_join; [eapply SIM_SC_MAP| |]; eauto.
@@ -892,7 +892,7 @@ by destruct ACQ; eauto.
 {
   assert (K: forall l, 
           max_value f (S_tm acts0 sb0 rmw0 rf0 l)
-           (LocFun.find l (TimeMap.join sc_map (Capability.sc cur)))).
+           (LocFun.find l (TimeMap.join sc_map (View.sc cur)))).
     cdes COMMIT; cdes CUR0; ins. 
     ins; rewrite !tm_find_join.
     ins; eapply max_value_join; [eapply SIM_SC_MAP| |]; eauto.
@@ -1218,13 +1218,13 @@ Proof.
                         (Configuration.memory op_st) l (f_from' a) (f_to' a) v
                         (if Ordering.le Ordering.relaxed o
                          then
-                           Capability.join Capability.bot
+                           View.join View.bot
                              (Commit.rel
                                 (Commit.write_commit
                                    (Local.commit {| Local.commit := commit; 
                                                     Local.promises := Memory.bot |})
                                    (Configuration.sc op_st) l (f_to' a) o) l)
-                         else Capability.bot)
+                         else View.bot)
                         Memory.bot mem' Memory.promise_kind_add).
   {
     eapply memory_exists_write; try edone; ins.
@@ -1269,7 +1269,7 @@ Proof.
     * eapply sc_map_step_write; eauto.
     * eapply memory_step_write; eauto.
       destruct WF_OP_ST; done.
-      rewrite Capability.join_comm, cap_join_bot in H; done.
+      rewrite View.join_comm, cap_join_bot in H; done.
     * clear H.
       cdes GSTEP; ins; subst.
       exploit mo_acta; try exact MO; try eassumption.

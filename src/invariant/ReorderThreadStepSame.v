@@ -14,7 +14,7 @@ Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
-Require Import Commit.
+Require Import ThreadView.
 Require Import Thread.
 
 Require Import SimMemory.
@@ -59,7 +59,7 @@ Lemma reorder_promise_promise
       (STEP1: Local.promise_step lc0 mem0 loc1 from1 to1 val1 released1 lc1 mem1 kind1)
       (STEP2: Local.promise_step lc1 mem1 loc2 from2 to2 val2 released2 lc2 mem2 kind2)
       (REL_CLOSED: forall promises1' mem1' kind1' (PROMISE1: Memory.promise (Local.promises lc0) mem0 loc2 from2 to2 val2 released2 promises1' mem1' kind1'),
-          Memory.closed_capability released2 mem1')
+          Memory.closed_view released2 mem1')
       (LOCAL0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
       (LOCTS: forall to1' val1' released1'
@@ -91,7 +91,7 @@ Proof.
       + right. esplits; eauto.
         refine (Local.step_promise _ _ _); eauto.
         econs; eauto.
-        eapply Memory.add_closed_capability; eauto.
+        eapply Memory.add_closed_view; eauto.
       + auto.
     - exploit MemoryReorder.add_split; try exact PROMISES; try exact PROMISES0; eauto. i. des.
       + subst.
@@ -103,7 +103,7 @@ Proof.
         * right. esplits; cycle 2.
           { refine (Local.step_promise _ _ _); eauto.
             - econs; eauto.
-            - eapply Memory.split_closed_capability; eauto.
+            - eapply Memory.split_closed_view; eauto.
           }
           { ii. inv H. inv ADD3. inv ADD. eapply Time.lt_strorder. eauto. }
           { congr. }
@@ -116,7 +116,7 @@ Proof.
         * right. esplits; cycle 2.
           { refine (Local.step_promise _ _ _); eauto.
             - econs; eauto.
-            - eapply Memory.split_closed_capability; eauto.
+            - eapply Memory.split_closed_view; eauto.
           }
           { ii. inv H. exploit Memory.split_get0; try exact MEM1; eauto. i. des.
             revert GET2. erewrite Memory.add_o; eauto. condtac; ss. des; congr.
@@ -138,7 +138,7 @@ Proof.
         * right. esplits; cycle 2.
           { refine (Local.step_promise _ _ _); eauto.
             - econs; eauto.
-            - eapply Memory.lower_closed_capability; eauto.
+            - eapply Memory.lower_closed_view; eauto.
           }
           { auto. }
           { congr. }
@@ -154,7 +154,7 @@ Proof.
       + right. esplits; eauto; cycle 1.
         refine (Local.step_promise _ _ _); eauto.
         econs 2; eauto.
-        eapply Memory.add_closed_capability; eauto.
+        eapply Memory.add_closed_view; eauto.
       + auto.
     - exploit MemoryReorder.split_split; try exact PROMISES; try exact PROMISES0; eauto.
       { ii. inv H. eapply LOCTS; eauto. }
@@ -169,7 +169,7 @@ Proof.
         * right. esplits; cycle 2.
           { refine (Local.step_promise _ _ _); eauto.
             - econs 2; eauto.
-            - eapply Memory.split_closed_capability; eauto.
+            - eapply Memory.split_closed_view; eauto.
           }
           { ii. inv H. inv SPLIT2. inv SPLIT. eapply Time.lt_strorder. eauto. }
           { i. inv KIND. splits.
@@ -187,7 +187,7 @@ Proof.
         * right. esplits; cycle 2.
           { refine (Local.step_promise _ _ _); eauto.
             - econs 2; eauto.
-            - eapply Memory.split_closed_capability; eauto.
+            - eapply Memory.split_closed_view; eauto.
           }
           { ii. inv H. exploit Memory.split_get0; try exact MEM1; eauto. i. des.
             revert GET2. erewrite Memory.split_o; eauto. repeat condtac; ss.
@@ -222,7 +222,7 @@ Proof.
         * right. esplits; cycle 2.
           { refine (Local.step_promise _ _ _); eauto.
             - econs 2; eauto.
-            - eapply Memory.lower_closed_capability; eauto.
+            - eapply Memory.lower_closed_view; eauto.
           }
           { ii. inv H. exploit Memory.split_get0; try exact MEM1; eauto. }
           { i. inv KIND. splits.
@@ -241,7 +241,7 @@ Proof.
       + right. esplits; eauto.
         refine (Local.step_promise _ _ _); eauto.
         econs; eauto.
-        eapply Memory.add_closed_capability; eauto.
+        eapply Memory.add_closed_view; eauto.
       + auto.
     - exploit MemoryReorder.lower_split; try exact PROMISES; try exact PROMISES0; eauto. i. des.
       exploit MemoryReorder.lower_split; try exact MEM; try exact MEM0; eauto. i. des.
@@ -254,7 +254,7 @@ Proof.
         * right. esplits; cycle 2.
           { refine (Local.step_promise _ _ _); eauto.
             - econs 3; eauto.
-            - eapply Memory.split_closed_capability; eauto.
+            - eapply Memory.split_closed_view; eauto.
           }
           { ii. inv H. inv SPLIT1. inv SPLIT.
             exfalso. eapply Time.lt_strorder. eauto.
@@ -269,7 +269,7 @@ Proof.
         * right. esplits; cycle 2.
           { refine (Local.step_promise _ _ _); eauto.
             - econs 3; eauto.
-            - eapply Memory.split_closed_capability; eauto.
+            - eapply Memory.split_closed_view; eauto.
           }
           { ii. inv H. exploit Memory.lower_get0; try exact MEM; eauto.
             exploit Memory.split_get0; try exact SPLIT0; eauto. i. des. congr.
@@ -291,7 +291,7 @@ Proof.
         * right. esplits; cycle 2.
           { refine (Local.step_promise _ _ _); eauto.
             - econs 3; eauto.
-            - eapply Memory.lower_closed_capability; eauto.
+            - eapply Memory.lower_closed_view; eauto.
           }
           { auto. }
           { auto. }
@@ -344,8 +344,8 @@ Lemma reorder_promise_write
       loc2 from2 to2 val2 releasedm2 released2 ord2 kind2
       (STEP1: Local.promise_step lc0 mem0 loc1 from1 to1 val1 released1 lc1 mem1 kind1)
       (STEP2: Local.write_step lc1 sc0 mem1 loc2 from2 to2 val2 releasedm2 released2 ord2 lc2 sc2 mem2 kind2)
-      (REL_WF: Capability.wf releasedm2)
-      (REL_CLOSED: Memory.closed_capability releasedm2 mem0)
+      (REL_WF: View.wf releasedm2)
+      (REL_CLOSED: Memory.closed_view releasedm2 mem0)
       (LOCAL0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
@@ -362,9 +362,9 @@ Lemma reorder_promise_write
     <<KIND2: kind2 = Memory.promise_kind_add -> kind2' = Memory.promise_kind_add>>.
 Proof.
   exploit Local.promise_step_future; eauto. i. des.
-  exploit write_promise_fulfill; eauto; try by committac. i. des.
+  exploit write_promise_fulfill; eauto; try by viewtac. i. des.
   exploit reorder_promise_promise; try exact STEP1; eauto.
-  { i. subst. eapply Local.promise_closed_capability; try exact PROMISE1; try apply LOCAL0; eauto.
+  { i. subst. eapply Local.promise_closed_view; try exact PROMISE1; try apply LOCAL0; eauto.
     inv STEP1. apply LOCAL0.
   }
   i. des.
@@ -383,8 +383,8 @@ Proof.
     exploit reorder_promise_fulfill; try exact STEP6; eauto.
     { i. eapply STEP6; eauto. }
     i. des.
-    exploit fulfill_step_future; try exact STEP7; try exact WF0; eauto; try by committac. i. des.
-    exploit promise_fulfill_write_exact; try exact STEP4; eauto; try by committac.
+    exploit fulfill_step_future; try exact STEP7; try exact WF0; eauto; try by viewtac. i. des.
+    exploit promise_fulfill_write_exact; try exact STEP4; eauto; try by viewtac.
     { i. exploit ORD; eauto. i. des. splits; auto.
       apply Cell.ext. i. rewrite Cell.bot_get.
       destruct (Cell.get ts (Local.promises lc0 loc2)) as [[? []]|] eqn:X; auto.
@@ -403,8 +403,8 @@ Lemma reorder_promise_write'
       loc2 from2 to2 val2 releasedm2 released2 ord2 kind2
       (STEP1: Local.promise_step lc0 mem0 loc1 from1 to1 val1 released1 lc1 mem1 kind1)
       (STEP2: Local.write_step lc1 sc0 mem1 loc2 from2 to2 val2 releasedm2 released2 ord2 lc2 sc2 mem2 kind2)
-      (REL_WF: Capability.wf releasedm2)
-      (REL_CLOSED: Memory.closed_capability releasedm2 mem0)
+      (REL_WF: View.wf releasedm2)
+      (REL_CLOSED: Memory.closed_view releasedm2 mem0)
       (LOCAL0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0):
@@ -449,7 +449,7 @@ Proof.
     esplits; eauto.
     right. esplits. econs. eauto.
   - (* read *)
-    exploit reorder_promise_read; try exact LOCAL0; eauto; try by committac.
+    exploit reorder_promise_read; try exact LOCAL0; eauto; try by viewtac.
     { ii. inv H.
       inv LOCAL0. exploit Memory.promise_get2; eauto. i.
       exploit promise_consistent_promise_read; eauto. i.
@@ -459,7 +459,7 @@ Proof.
     + econs 2; eauto.
     + right. esplits. econs; eauto.
   - (* write *)
-    exploit reorder_promise_write'; try exact LOCAL0; eauto; try by committac. i. des.
+    exploit reorder_promise_write'; try exact LOCAL0; eauto; try by viewtac. i. des.
     { subst. inv LOCAL0. exploit Memory.promise_get2; eauto. i.
       exploit promise_consistent_promise_write; eauto. i.
       exfalso. eapply Time.lt_strorder. eapply TimeFacts.le_lt_lt; eauto.
@@ -470,7 +470,7 @@ Proof.
       * inv STEP2. left. auto.
       * right. esplits. econs; eauto.
   - (* update *)
-    exploit reorder_promise_read; try exact LOCAL1; eauto; try by committac.
+    exploit reorder_promise_read; try exact LOCAL1; eauto; try by viewtac.
     { ii. inv H.
       inv LOCAL0. exploit Memory.promise_get2; eauto. i.
       exploit promise_consistent_promise_read; eauto.
@@ -479,7 +479,7 @@ Proof.
     }
     i. des.
     exploit Local.read_step_future; eauto. i. des.
-    exploit reorder_promise_write'; try exact LOCAL2; eauto; try by committac. i. des.
+    exploit reorder_promise_write'; try exact LOCAL2; eauto; try by viewtac. i. des.
     { subst. inv STEP2. exploit Memory.promise_get2; eauto. i.
       exploit promise_consistent_promise_write; eauto. i.
       exfalso. eapply Time.lt_strorder. eapply TimeFacts.le_lt_lt; eauto.
