@@ -31,7 +31,7 @@ Set Implicit Arguments.
 Inductive fulfill_step (lc1:Local.t) (sc1:TimeMap.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (releasedm released:View.t) (ord:Ordering.t): forall (lc2:Local.t) (sc2:TimeMap.t), Prop :=
 | step_fulfill
     promises2
-    (REL_LE: View.le (if Ordering.le Ordering.relaxed ord then View.join releasedm ((TView.write_tview lc1.(Local.tview) sc1 loc to ord).(TView.rel) loc) else View.bot) released)
+    (REL_LE: View.le (TView.write_released lc1.(Local.tview) sc1 loc to releasedm ord) released)
     (REL_WF: View.wf released)
     (WRITABLE: TView.writable lc1.(Local.tview) sc1 loc to ord)
     (REMOVE: Memory.remove lc1.(Local.promises) loc from to val released promises2)
@@ -55,7 +55,7 @@ Proof.
   hexploit Memory.remove_future; try apply REMOVE; try apply WF1; eauto. i. des.
   exploit Memory.remove_get0; eauto. i.
   inversion WF1. exploit PROMISES; eauto. i.
-  exploit TViewFacts.write_future; try apply x; try apply SC1; try apply WF1; eauto. i. des.
+  exploit TViewFacts.write_future_fulfill; try apply x; try apply SC1; try apply WF1; eauto. s. i. des.
   esplits; eauto.
   - econs; eauto.
   - apply TViewFacts.write_sc_incr.
@@ -72,15 +72,10 @@ Lemma write_promise_fulfill
   exists lc1,
     <<STEP1: Local.promise_step lc0 mem0 loc from to val released lc1 mem2 kind>> /\
     <<STEP2: fulfill_step lc1 sc0 loc from to val releasedm released ord lc2 sc2>> /\
-    <<REL: released =
-           if Ordering.le Ordering.relaxed ord
-           then View.join
-                  releasedm
-                  (TView.rel (TView.write_tview (Local.tview lc0) sc0 loc to ord) loc)
-           else View.bot>> /\
+    <<REL: released = TView.write_released lc0.(Local.tview) sc0 loc to releasedm ord>> /\
     <<ORD: Ordering.le Ordering.acqrel ord ->
            Local.promises lc0 loc = Cell.bot /\
-           kind = Memory.promise_kind_add>>.
+           kind = Memory.op_kind_add>>.
 Proof.
   exploit Local.write_step_future; eauto. i. des.
   inv WRITE. inv WRITE0. esplits; eauto.
@@ -100,14 +95,17 @@ Lemma fulfill_write
       (SC1: Memory.closed_timemap sc1 mem1)
       (MEM1: Memory.closed mem1):
   exists released' mem2',
-    <<STEP: Local.write_step lc1 sc1 mem1 loc from to val releasedm released' ord lc2 sc2 mem2' (Memory.promise_kind_lower released)>> /\
+    <<STEP: Local.write_step lc1 sc1 mem1 loc from to val releasedm released' ord lc2 sc2 mem2' (Memory.op_kind_lower released)>> /\
     <<REL_LE: View.le released' released>> /\
     <<MEM: sim_memory mem2' mem1>>.
 Proof.
   inv FULFILL.
+  exploit TViewFacts.write_future_fulfill;
+    try exact REL_CLOSED; try exact SC1; eauto; try by apply WF1.
+  { apply WF1. eapply Memory.remove_get0. eauto. }
+  i. des.
   exploit MemorySplit.remove_promise_remove;
     try exact REMOVE; eauto; try apply WF1; try refl.
-  { repeat (try condtac; viewtac; try apply WF1). }
   { eapply MEM1. apply WF1. eapply Memory.remove_get0. eauto. }
   i. des.
   esplits; eauto.
@@ -124,7 +122,7 @@ Lemma promise_fulfill_write
       (REL_WF: View.wf releasedm)
       (REL_CLOSED: Memory.closed_view releasedm mem0)
       (ORD: Ordering.le Ordering.acqrel ord -> lc0.(Local.promises) loc = Cell.bot /\
-                                              kind = Memory.promise_kind_add)
+                                              kind = Memory.op_kind_add)
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0):
@@ -132,22 +130,18 @@ Lemma promise_fulfill_write
     <<STEP: Local.write_step lc0 sc0 mem0 loc from to val releasedm released' ord lc2 sc2 mem2' kind>> /\
     <<REL_LE: View.le released' released>> /\
     <<MEM: sim_memory mem2' mem2>> /\
-    <<REL: released' =
-           if Ordering.le Ordering.relaxed ord
-           then View.join
-                  releasedm
-                  (TView.rel (TView.write_tview (Local.tview lc0) sc0 loc to ord) loc)
-           else View.bot>>.
+    <<REL: released' = TView.write_released lc0.(Local.tview) sc0 loc to releasedm ord>>.
 Proof.
   exploit Local.promise_step_future; eauto. i. des.
-  inv PROMISE. inv FULFILL.
+  inv PROMISE. inv FULFILL. ss.
+  exploit TViewFacts.write_future_fulfill; try exact REL_WF; eauto; try by apply WF2.
+  { eapply Memory.future_closed_view; eauto. }
+  { apply WF2. eapply Memory.promise_get2. eauto. }
+  s. i. des.
   exploit MemorySplit.remove_promise_remove;
-    try exact REMOVE; eauto; try apply WF2; try refl.
-  { repeat (try condtac; viewtac; try apply WF2). }
-  i. des.
+    try exact REMOVE; eauto; try apply WF2; try refl. i. des.
   esplits; eauto.
-  - refine (Local.step_write _ _ _ _ _ _); eauto.
-    econs; eauto.
+  - econs; eauto. econs; eauto.
     eapply MemoryMerge.promise_promise_promise; eauto.
   - eapply promise_lower_sim_memory. eauto.
 Qed.
@@ -159,16 +153,11 @@ Lemma promise_fulfill_write_exact
       (REL_WF: View.wf releasedm)
       (REL_CLOSED: Memory.closed_view releasedm mem0)
       (ORD: Ordering.le Ordering.acqrel ord -> lc0.(Local.promises) loc = Cell.bot /\
-                                              kind = Memory.promise_kind_add)
+                                              kind = Memory.op_kind_add)
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
-      (REL: released =
-            if Ordering.le Ordering.relaxed ord
-            then View.join
-                   releasedm
-                   (TView.rel (TView.write_tview (Local.tview lc0) sc0 loc to ord) loc)
-            else View.bot):
+      (REL: released = TView.write_released lc0.(Local.tview) sc0 loc to releasedm ord):
   Local.write_step lc0 sc0 mem0 loc from to val releasedm released ord lc2 sc2 mem2 kind.
 Proof.
   exploit Local.promise_step_future; eauto. i. des.

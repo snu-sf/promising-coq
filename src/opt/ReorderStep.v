@@ -107,13 +107,13 @@ Proof.
   { unfold TView.write_tview. repeat (condtac; viewtac). }
   assert (SC_EQ: sc1' = TView.write_sc sc1' loc to ord).
   { i. unfold TView.write_sc. apply TimeMap.antisym; repeat (condtac; aggrtac). }
-  inversion STEP. subst lc2 sc2. esplits.
-  - rewrite TVIEW. rewrite SC_EQ at 3. econs; eauto.
-    + etrans; eauto. condtac; viewtac. apply View.join_spec.
-      * rewrite <- View.join_l. auto.
-      * rewrite <- View.join_r. rewrite TVIEW. refl.
-    + econs; try apply WRITABLE.
-      i. destruct ord; inversion H; inversion ORD.
+  inversion STEP. subst lc2 sc2.
+  rewrite TVIEW. rewrite SC_EQ at 3. econs; eauto.
+  - etrans; eauto. unfold TView.write_released. condtac; viewtac. apply View.join_spec.
+    + rewrite <- View.join_l. auto.
+    + rewrite <- View.join_r. rewrite TVIEW. refl.
+  - econs; try apply WRITABLE.
+    i. destruct ord; inversion H; inversion ORD.
 Qed.
 
 
@@ -225,7 +225,8 @@ Proof.
   inv STEP1. inv STEP2.
   esplits; eauto.
   - econs; eauto.
-    + etrans; eauto. repeat (try condtac; aggrtac; try apply WF0).
+    + etrans; eauto. unfold TView.write_released. s.
+      repeat (try condtac; aggrtac; try apply WF0).
     + eapply TViewFacts.writable_mon; eauto; try refl.
   - econs; eauto.
     s. inv READABLE.
@@ -382,7 +383,8 @@ Proof.
     rewrite ReorderTView.read_write_tview_eq; eauto; try apply WF0; cycle 1.
     { eapply MEM0. eauto. }
     econs; try exact REMOVE; eauto.
-    + etrans; eauto. repeat (try condtac; aggrtac).
+    + etrans; eauto. unfold TView.write_released. s.
+      repeat (try condtac; aggrtac).
     + s. unfold TView.read_tview.
       econs; repeat (try condtac; try splits; aggrtac; eauto; try apply WRITABLE;
                      unfold TimeMap.singleton, LocFun.add in *);
@@ -439,14 +441,16 @@ Proof.
   unfold Local.promises in REMOVE0.
   esplits.
   - econs; eauto.
-    + etrans; eauto. repeat (try condtac; aggrtac; try apply WF0).
+    + etrans; eauto. unfold TView.write_released. s.
+      repeat (try condtac; aggrtac; try apply WF0).
       econs; try by viewtac. s.
       rewrite <- ? TimeMap.join_r. apply TViewFacts.write_sc_incr.
     + eapply TViewFacts.writable_mon; eauto; try refl.
       * apply TViewFacts.write_tview_incr. apply WF0.
       * apply TViewFacts.write_sc_incr.
   - econs; eauto.
-    + etrans; eauto. repeat (try condtac; aggrtac; try apply WF0).
+    + etrans; eauto. unfold TView.write_released. s.
+      repeat (try condtac; aggrtac; try apply WF0).
     + inv WRITABLE. econs; i.
       * eapply TimeFacts.le_lt_lt; [|apply TS].
         repeat (try condtac; viewtac; unfold TimeMap.singleton in *).
@@ -558,28 +562,16 @@ Proof.
   exploit Local.write_step_future; eauto. i. des.
   inv STEP1. inv STEP2.
   unfold Local.tview at 1 3. unfold Local.promises.
-  assert (REL_EQ:
-            (if Ordering.le Ordering.relaxed ord1
-             then
-              View.join releasedm1
-                (TView.rel
-                   (TView.write_tview (Local.tview lc0) sc0 loc1
-                      to1 ord1) loc1)
-             else View.bot) =
-     (if Ordering.le Ordering.relaxed ord1
-      then
-       View.join releasedm1
-         (TView.rel
-            (TView.write_tview
-               (TView.write_fence_tview
-                  (TView.read_fence_tview (Local.tview lc0)
-                     Ordering.relaxed) sc0 Ordering.acqrel)
-               (TView.write_fence_sc
-                  (TView.read_fence_tview (Local.tview lc0)
-                     Ordering.relaxed) sc0 Ordering.acqrel) loc1 to1
-               ord1) loc1)
-      else View.bot)).
-  { condtac; [|auto]. f_equal.
+  assert (REL_EQ: TView.write_released (Local.tview lc0) sc0 loc1 to1 releasedm1 ord1 =
+                  TView.write_released
+                    (TView.write_fence_tview
+                       (TView.read_fence_tview (Local.tview lc0)
+                                               Ordering.relaxed) sc0 Ordering.acqrel)
+                    (TView.write_fence_sc
+                       (TView.read_fence_tview (Local.tview lc0)
+                                               Ordering.relaxed) sc0 Ordering.acqrel)
+                    loc1 to1 releasedm1 ord1).
+  { unfold TView.write_released. condtac; [|auto]. f_equal.
     unfold TView.write_fence_tview, TView.write_fence_sc.
     apply View.antisym; repeat (try condtac; aggrtac; try apply WF0).
     unguardH ORD1. des; [|congr]. destruct ord1; inv ORD1; inv COND.
@@ -918,7 +910,8 @@ Proof.
   hexploit TViewFacts.write_fence_future; eauto. i. des.
   esplits.
   - econs; eauto.
-    + etrans; eauto. condtac; [|by viewtac]. apply View.join_spec.
+    + etrans; eauto. unfold TView.write_released.
+      condtac; [|by viewtac]. apply View.join_spec.
       * rewrite <- View.join_l. refl.
       * rewrite <- View.join_r.
         apply TViewFacts.write_tview_mon; eauto; try refl.
@@ -942,7 +935,9 @@ Proof.
         { apply ReorderTView.read_fence_write_tview; auto. apply WF0. }
         { exploit Memory.remove_get0; eauto. s. i.
           inv WF0. exploit PROMISES; eauto. i.
-          exploit TViewFacts.write_future; try exact x; try exact SC0; eauto. i. des.
+          exploit TViewFacts.write_future_fulfill; try exact SC0; eauto.
+          { eapply MEM0. eauto. }
+          i. des.
           eapply TViewFacts.read_fence_future; eauto.
         }
       * apply ReorderTView.write_fence_write_tview; auto.

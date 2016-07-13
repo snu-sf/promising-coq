@@ -178,7 +178,7 @@ Proof.
 Qed.
 
 Lemma key_lemma_time_lt:
-  forall (loc : Loc.t) (ts : Time.t) (k : Memory.promise_kind)
+  forall (loc : Loc.t) (ts : Time.t) (k : Memory.op_kind)
     (cM4' : Configuration.t) (lc4 : Local.t) 
     (com4' : TView.t) (prm3' : Memory.t) (sc2 : TimeMap.t)
     (memory2 : Memory.t) (loc0 : Loc.t) (ts0 from : Time.t)
@@ -186,7 +186,7 @@ Lemma key_lemma_time_lt:
     (ordr : Ordering.t) (m1' : Memory.t) (ordw0 : Ordering.t)
     (releasedw : View.t) (lc2 : Local.t)
     (LC2: TView.wf (Local.tview lc2))
-    (tsw : Time.t) (valw0 : Const.t) (kind : Memory.promise_kind),
+    (tsw : Time.t) (valw0 : Const.t) (kind : Memory.op_kind),
     Time.lt ((TView.cur (Local.tview lc4)).(View.rlx) loc) ts ->
     Local.read_step
       {| Local.tview := com4'; Local.promises := prm3' |}
@@ -194,7 +194,7 @@ Lemma key_lemma_time_lt:
     Local.write_step lc2 (Configuration.sc cM4')
                      (Configuration.memory cM4') loc0 ts0 tsw valw0 relr releasedw
                      ordw0 lc4 sc2 memory2 kind ->
-    Memory_op m1' loc0 from ts0 valw (View_lift loc ts relw)
+    Memory.op m1' loc0 from ts0 valw (View_lift loc ts relw)
               (Configuration.memory cM4') k ->
     Ordering.le Ordering.acqrel ordr -> False.
 Proof.
@@ -204,7 +204,7 @@ Proof.
   assert (LT: Time.lt ((TView.cur (Local.tview lc2)).(View.rlx) loc) ts).
   { eapply TimeFacts.le_lt_lt; eauto. apply COM. }
   inv LOCAL1. ss.
-  erewrite memory_op_get in GET; eauto. inv GET.
+  erewrite Memory.op_get2 in GET; eauto. inv GET.
   apply TimeFacts.join_lt_des in LT. des.
   revert BC. rewrite ORDR. unfold View_lift. destruct relw. ss.
   unfold TimeMap_lift. condtac; [|congr]. i.
@@ -333,7 +333,7 @@ Proof.
   inv PSTEP0. ss. rewrite IdentMap.gss in THS5. depdes THS5.
 
   inv STEP; inv STEP0; inv EVTR.
-  - inv LOCAL. erewrite memory_op_get in GET; eauto. inv GET.
+  - inv LOCAL. erewrite Memory.op_get2 in GET; eauto. inv GET.
     ss. apply TimeFacts.join_lt_des in TIMELT. des. revert BC.
     rewrite ORDR. unfold View_lift. destruct relw. ss.
     unfold TimeMap_lift. condtac; [|congr]. i.

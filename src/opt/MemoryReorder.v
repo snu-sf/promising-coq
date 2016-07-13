@@ -705,11 +705,11 @@ Module MemoryReorder.
         promises0 mem0
         promises1 mem1
         promises2 mem2
-        (PROMISE1: Memory.promise promises0 mem0 loc1 from1 to1 val1 released1 promises1 mem1 Memory.promise_kind_add)
-        (PROMISE2: Memory.promise promises1 mem1 loc2 from2 to2 val2 released2 promises2 mem2 Memory.promise_kind_add):
+        (PROMISE1: Memory.promise promises0 mem0 loc1 from1 to1 val1 released1 promises1 mem1 Memory.op_kind_add)
+        (PROMISE2: Memory.promise promises1 mem1 loc2 from2 to2 val2 released2 promises2 mem2 Memory.op_kind_add):
     exists promises1' mem1',
-      <<PROMISE1: Memory.promise promises0 mem0 loc2 from2 to2 val2 released2 promises1' mem1' Memory.promise_kind_add>> /\
-      <<PROMISE2: Memory.promise promises1' mem1' loc1 from1 to1 val1 released1 promises2 mem2 Memory.promise_kind_add>> /\
+      <<PROMISE1: Memory.promise promises0 mem0 loc2 from2 to2 val2 released2 promises1' mem1' Memory.op_kind_add>> /\
+      <<PROMISE2: Memory.promise promises1' mem1' loc1 from1 to1 val1 released1 promises2 mem2 Memory.op_kind_add>> /\
       <<LOCTS: (loc1, to1) <> (loc2, to2)>>.
   Proof.
     inv PROMISE1. inv PROMISE2.
@@ -727,11 +727,11 @@ Module MemoryReorder.
         promises1 mem1
         promises2
         (LOCTS1: (loc1, to1) <> (loc2, to2))
-        (PROMISE1: Memory.promise promises0 mem0 loc1 from1 to1 val1 released1 promises1 mem1 Memory.promise_kind_add)
+        (PROMISE1: Memory.promise promises0 mem0 loc1 from1 to1 val1 released1 promises1 mem1 Memory.op_kind_add)
         (REMOVE2: Memory.remove promises1 loc2 from2 to2 val2 released2 promises2):
     exists promises1',
       <<REMOVE1: Memory.remove promises0 loc2 from2 to2 val2 released2 promises1'>> /\
-      <<PROMISE2: Memory.promise promises1' mem0 loc1 from1 to1 val1 released1 promises2 mem1 Memory.promise_kind_add>>.
+      <<PROMISE2: Memory.promise promises1' mem0 loc1 from1 to1 val1 released1 promises2 mem1 Memory.op_kind_add>>.
   Proof.
     inv PROMISE1.
     exploit add_remove; try exact PROMISES; eauto. i. des.

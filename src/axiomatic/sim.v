@@ -541,7 +541,7 @@ Lemma memory_exists
            Interval.disjoint (from, to) (from2, to2)) v :
   exists mem', 
     Memory.write Memory.bot mem l from to v 
-                 released Memory.bot mem' Memory.promise_kind_add .
+                 released Memory.bot mem' Memory.op_kind_add .
 Proof.
   exploit (@Memory.add_exists mem l from to v); try edone.
   intro M; desc; exists mem2.
@@ -564,7 +564,7 @@ Lemma memory_exists_write
                    then View.join View.bot
                           (TView.rel (TView.write_tview tview sc_map l to o) l)
                    else View.bot)  
-                 Memory.bot mem' Memory.promise_kind_add .
+                 Memory.bot mem' Memory.op_kind_add .
 Proof.
   eapply memory_exists; eauto.
   {
@@ -586,7 +586,7 @@ Qed.
 
 
 Lemma memory_write0 mem mem' l from t v rel l0 t0
-  (ADD: Memory.write Memory.bot mem l from t v rel Memory.bot mem' Memory.promise_kind_add)
+  (ADD: Memory.write Memory.bot mem l from t v rel Memory.bot mem' Memory.op_kind_add)
   from0 m (NEW: Memory.get l0 t0 mem = Some (from0, m)):
   Memory.get l0 t0 mem' = Some (from0, m).
 Proof.
@@ -596,7 +596,7 @@ Proof.
 Qed.
 
 Lemma memory_write1 mem mem' l from t v rel 
-  (ADD: Memory.write Memory.bot mem l from t v rel Memory.bot mem' Memory.promise_kind_add)
+  (ADD: Memory.write Memory.bot mem l from t v rel Memory.bot mem' Memory.op_kind_add)
   l0 t0 from0 m
   (NEW: Memory.get l0 t0 mem' = Some (from0, m)) (NEQ: l <> l0 \/ t <> t0 \/ from <> from0):
   Memory.get l0 t0 mem = Some (from0, m).
@@ -614,7 +614,7 @@ Lemma memory_step_write_dom acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0
   mem mem' (CLOSED: Memory.closed mem)
   l0 b (DOM : In b acts /\ is_write b /\ loc b = Some l0 -> Memory.get l0 (f b) mem <> None)
   from rel 
-  (ADD: Memory.write Memory.bot mem l from (f' a) v rel Memory.bot mem' Memory.promise_kind_add):
+  (ADD: Memory.write Memory.bot mem l from (f' a) v rel Memory.bot mem' Memory.op_kind_add):
   In b acts0 /\ is_write b /\ loc b = Some l0 -> Memory.get l0 (f' b) mem' <> None.
 Proof.
 ins; red in GSTEP; desc.
@@ -642,7 +642,7 @@ Lemma memory_step_write_rmw acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0
   mem mem' 
   from rel 
   (ADD: Memory.write Memory.bot mem l from (f' a) v rel Memory.bot mem' 
-                     Memory.promise_kind_add)
+                     Memory.op_kind_add)
   l0 b c (RF_RMW: (rf0;; rmw0) b c) (LOC: loc b = Some l0)
   (UPDATES: forall a b (RF_RMW: (rf ;; rmw) a b) (LOC: loc a = Some l0),
                 exists m, Memory.get l0 (f b) mem = Some ((f a), m)):
@@ -677,7 +677,7 @@ Lemma memory_step_write_cell acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0
   mem' (ADD: Memory.write Memory.bot mem l (ffrom' a) (f' a) v 
           (if Ordering.le Ordering.relaxed o then 
           (TView.rel (TView.write_tview tview sc_map l (f' a) o) l) else View.bot)
-     Memory.bot mem' Memory.promise_kind_add)
+     Memory.bot mem' Memory.op_kind_add)
   (GET: Memory.get l0 to mem' = Some (from0, Message.mk v0 rel0)):
   exists b, In b acts0 /\ is_write b /\ loc b = Some l0 /\
     ffrom' b = from0 /\ f' b = to /\ sim_mem_helper f' acts0 sb0 rmw0 rf0 sc0 b from0 v0 rel0.
@@ -816,7 +816,7 @@ Lemma memory_step_write acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a
   mem' (ADD: Memory.write Memory.bot mem l (ffrom' a) (fto' a) v 
   (if Ordering.le Ordering.relaxed o then 
       (TView.rel (TView.write_tview tview sc_map l (fto' a) o) l) else View.bot)
- Memory.bot mem' Memory.promise_kind_add):
+ Memory.bot mem' Memory.op_kind_add):
   sim_mem ffrom' fto' acts0 sb0 rmw0 rf0 sc0 mem'.
 Proof.
 red; ins.
@@ -1225,7 +1225,7 @@ Proof.
                                                     Local.promises := Memory.bot |})
                                    (Configuration.sc op_st) l (f_to' a) o) l)
                          else View.bot)
-                        Memory.bot mem' Memory.promise_kind_add).
+                        Memory.bot mem' Memory.op_kind_add).
   {
     eapply memory_exists_write; try edone; ins.
     by destruct WF_OP_ST; done.

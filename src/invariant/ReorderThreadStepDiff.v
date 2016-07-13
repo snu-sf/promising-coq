@@ -216,7 +216,11 @@ Proof.
   { inv STEP1. eapply Memory.promise_closed_view; eauto. }
   i. des.
   exploit reorder_promise_promise_diff; try exact STEP1; try exact STEP0; eauto.
-  { i. subst. eapply Local.promise_closed_view; try exact PROMISE1; try apply LOCAL2; eauto. }
+  { i. subst.
+    exploit Memory.promise_op; eauto. i.
+    eapply TViewFacts.op_closed_released; try exact x0; eauto.
+    apply LOCAL2.
+  }
   i. des.
   esplits; eauto.
   eapply promise_fulfill_write_exact; eauto.

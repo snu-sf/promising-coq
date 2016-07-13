@@ -77,24 +77,19 @@ Lemma progress_promise_step
       (CLOSED_REL: Memory.closed_view releasedm mem1):
   exists promises2 mem2,
     Local.promise_step lc1 mem1 loc (Memory.max_ts loc mem1) to val
-                       (if Ordering.le Ordering.relaxed ord
-                        then View.join
-                               releasedm
-                               (TView.rel (TView.write_tview (Local.tview lc1) sc1 loc to ord) loc)
-                        else View.bot)
-                       (Local.mk lc1.(Local.tview) promises2) mem2 Memory.promise_kind_add.
+                       (TView.write_released (Local.tview lc1) sc1 loc to releasedm ord)
+                       (Local.mk lc1.(Local.tview) promises2) mem2 Memory.op_kind_add.
 Proof.
   exploit (@Memory.add_exists_max_ts
              mem1 loc to val
-             (if Ordering.le Ordering.relaxed ord
-              then View.join releasedm (TView.rel (TView.write_tview (Local.tview lc1) sc1 loc to ord) loc)
-              else View.bot)); eauto.
-  { viewtac; try apply WF1. repeat condtac; viewtac; try apply WF1. }
+             (TView.write_released (Local.tview lc1) sc1 loc to releasedm ord)); eauto.
+  { eapply TViewFacts.write_future0; eauto. apply WF1. }
   i. des.
   exploit Memory.add_exists_le; try apply WF1; eauto. i. des.
   hexploit Memory.add_inhabited; try apply x0; [viewtac|]. i. des.
   esplits. econs.
   - econs; eauto.
+    unfold TView.write_released.
     viewtac; repeat (condtac; viewtac);
       (try by apply Time.bot_spec);
       (try by unfold TimeMap.singleton, LocFun.add; condtac; [refl|congr]);
@@ -102,7 +97,8 @@ Proof.
        eapply closed_timemap_max_ts; apply WF1).
     left. eapply TimeFacts.le_lt_lt; [|eauto].
     eapply closed_timemap_max_ts. apply CLOSED_REL.
-  - viewtac;
+  - unfold TView.write_released.
+    viewtac;
       repeat condtac; viewtac;
         (try eapply Memory.add_closed_view; eauto);
         (try apply WF1).
@@ -137,16 +133,14 @@ Lemma progress_write_step
       (CLOSED_REL: Memory.closed_view releasedm mem1)
       (PROMISES1: lc1.(Local.promises) = Memory.bot):
   exists released lc2 sc2 mem2,
-    Local.write_step lc1 sc1 mem1 loc (Memory.max_ts loc mem1) to val releasedm released ord lc2 sc2 mem2 Memory.promise_kind_add.
+    Local.write_step lc1 sc1 mem1 loc (Memory.max_ts loc mem1) to val releasedm released ord lc2 sc2 mem2 Memory.op_kind_add.
 Proof.
   exploit progress_promise_step; eauto. i. des.
   exploit Local.promise_step_future; eauto. i. des. inv x0.
   assert (PROMISES2:
             promises2 = Memory.singleton
                           loc val
-                          (if Ordering.le Ordering.relaxed ord
-                           then View.join releasedm (TView.rel (TView.write_tview (Local.tview lc1) sc1 loc to ord) loc)
-                           else View.bot)
+                          (TView.write_released (Local.tview lc1) sc1 loc to releasedm ord)
                           LT).
   { apply Memory.ext. i.
     inv PROMISE. erewrite Memory.add_o; eauto.

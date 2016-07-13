@@ -66,7 +66,7 @@ Module MemorySplit.
         (TS: Time.lt from to)
         (REMOVE: Memory.remove promises0 loc from to val released1 promises2):
     exists promises1' mem1',
-      <<PROMISE: Memory.promise promises0 mem0 loc from to val released2 promises1' mem1' (Memory.promise_kind_lower released1)>> /\
+      <<PROMISE: Memory.promise promises0 mem0 loc from to val released2 promises1' mem1' (Memory.op_kind_lower released1)>> /\
       <<REMOVE: Memory.remove promises1' loc from to val released2 promises2>>.
   Proof.
     exploit remove_lower_remove; eauto. i. des.
@@ -117,7 +117,7 @@ Module MemorySplit.
         (LE: Memory.le promises0 mem0)
         (REMOVE: Memory.remove promises0 loc ts1 ts3 val3 released3 promises3):
     exists promises1 promises2 mem1,
-      <<STEP1: Memory.promise promises0 mem0 loc ts1 ts2 val2 released2 promises1 mem1 (Memory.promise_kind_split ts3 val3 released3)>> /\
+      <<STEP1: Memory.promise promises0 mem0 loc ts1 ts2 val2 released2 promises1 mem1 (Memory.op_kind_split ts3 val3 released3)>> /\
       <<STEP2: Memory.remove promises1 loc ts1 ts2 val2 released2 promises2>> /\
       <<STEP3: Memory.remove promises2 loc ts2 ts3 val3 released3 promises3>>.
   Proof.
@@ -168,11 +168,11 @@ Module MemorySplit.
         promises0 mem0 loc ts1 ts2 ts3 val2 val3 released2 released3
         promises1 mem1
         promises2 mem2
-        (ADD1: Memory.promise promises0 mem0 loc ts1 ts3 val3 released3 promises1 mem1 Memory.promise_kind_add)
-        (SPLIT2: Memory.promise promises1 mem1 loc ts1 ts2 val2 released2 promises2 mem2 (Memory.promise_kind_split ts3 val3 released3)):
+        (ADD1: Memory.promise promises0 mem0 loc ts1 ts3 val3 released3 promises1 mem1 Memory.op_kind_add)
+        (SPLIT2: Memory.promise promises1 mem1 loc ts1 ts2 val2 released2 promises2 mem2 (Memory.op_kind_split ts3 val3 released3)):
     exists promises1' mem1',
-      <<ADD1: Memory.promise promises0 mem0 loc ts1 ts2 val2 released2 promises1' mem1' Memory.promise_kind_add>> /\
-      <<ADD2: Memory.promise promises1' mem1' loc ts2 ts3 val3 released3 promises2 mem2 Memory.promise_kind_add>>.
+      <<ADD1: Memory.promise promises0 mem0 loc ts1 ts2 val2 released2 promises1' mem1' Memory.op_kind_add>> /\
+      <<ADD2: Memory.promise promises1' mem1' loc ts2 ts3 val3 released3 promises2 mem2 Memory.op_kind_add>>.
   Proof.
     inv ADD1. inv SPLIT2.
     exploit commute_add_split_add_add; try exact PROMISES; eauto. i. des.

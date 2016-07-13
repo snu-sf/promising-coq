@@ -83,7 +83,7 @@ Module Local.
     econs. symmetry. apply H.
   Qed.
 
-  Inductive promise_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:View.t): forall (lc2:t) (mem2:Memory.t) (kind:Memory.promise_kind), Prop :=
+  Inductive promise_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:View.t): forall (lc2:t) (mem2:Memory.t) (kind:Memory.op_kind), Prop :=
   | step_promise
       promises2 mem2 kind
       (PROMISE: Memory.promise lc1.(promises) mem1 loc from to val released promises2 mem2 kind)
@@ -101,17 +101,15 @@ Module Local.
       read_step lc1 mem1 loc to val released ord (mk tview2 lc1.(promises))
   .
 
-  Inductive write_step (lc1:t) (sc1:TimeMap.t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (releasedm released:View.t) (ord:Ordering.t): forall (lc2:t) (sc2:TimeMap.t) (mem2:Memory.t) (kind:Memory.promise_kind), Prop :=
+  Inductive write_step (lc1:t) (sc1:TimeMap.t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (releasedm released:View.t) (ord:Ordering.t): forall (lc2:t) (sc2:TimeMap.t) (mem2:Memory.t) (kind:Memory.op_kind), Prop :=
   | step_write
       promises2 mem2 kind
-      (RELEASED: released = if Ordering.le Ordering.relaxed ord
-                            then View.join releasedm ((TView.write_tview lc1.(tview) sc1 loc to ord).(TView.rel) loc)
-                            else View.bot)
+      (RELEASED: released = TView.write_released lc1.(tview) sc1 loc to releasedm ord)
       (WRITABLE: TView.writable lc1.(tview) sc1 loc to ord)
       (WRITE: Memory.write lc1.(promises) mem1 loc from to val released promises2 mem2 kind)
       (RELEASE: Ordering.le Ordering.acqrel ord ->
                 lc1.(promises) loc = Cell.bot /\
-                kind = Memory.promise_kind_add):
+                kind = Memory.op_kind_add):
       write_step lc1 sc1 mem1 loc from to val releasedm released ord
                  (mk (TView.write_tview lc1.(tview) sc1 loc to ord) promises2)
                  (TView.write_sc sc1 loc to ord)
@@ -170,51 +168,6 @@ Module Local.
     - apply TViewFacts.read_tview_incr.
   Qed.
 
-  Lemma promise_closed_view
-        promises1 mem1 tview1 sc1 loc from to val releasedm released ord promises2 mem2 kind
-        (PROMISES: Memory.le promises1 mem1)
-        (CLOSED0: Memory.closed_timemap sc1 mem1)
-        (CLOSED1: Memory.closed mem1)
-        (CLOSED2: TView.closed tview1 mem1)
-        (CLOSED3: Memory.closed_view releasedm mem1)
-        (PROMISE: Memory.promise promises1 mem1 loc from to val released promises2 mem2 kind):
-    Memory.closed_view
-      (if Ordering.le Ordering.relaxed ord
-       then View.join
-              releasedm
-              (TView.rel (TView.write_tview tview1 sc1 loc to ord) loc)
-       else View.bot)
-      mem2.
-  Proof.
-    exploit Memory.promise_future0; eauto; try by viewtac. i. des.
-    repeat (try condtac; viewtac).
-    - eapply Memory.promise_closed_view; eauto.
-    - eapply Memory.promise_closed_view; eauto. apply CLOSED2.
-    - eapply LE_PROMISES2. eapply Memory.promise_get2. apply PROMISE.
-    - econs; viewtac.
-      eapply Memory.promise_closed_timemap; eauto.
-    - eapply Memory.promise_closed_view; eauto. apply CLOSED2.
-  Qed.
-
-  Lemma write_closed_view
-        promises1 mem1 tview1 sc1 loc from to val releasedm released ord promises2 mem2 kind
-        (PROMISES: Memory.le promises1 mem1)
-        (CLOSED0: Memory.closed_timemap sc1 mem1)
-        (CLOSED1: Memory.closed mem1)
-        (CLOSED2: TView.closed tview1 mem1)
-        (CLOSED3: Memory.closed_view releasedm mem1)
-        (WRITE: Memory.write promises1 mem1 loc from to val released promises2 mem2 kind):
-    Memory.closed_view
-      (if Ordering.le Ordering.relaxed ord
-       then View.join
-              releasedm
-              (TView.rel (TView.write_tview tview1 sc1 loc to ord) loc)
-       else View.bot)
-      mem2.
-  Proof.
-    inv WRITE. eapply promise_closed_view; eauto.
-  Qed.
-
   Lemma write_step_future lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind
         (STEP: write_step lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind)
         (REL_WF: View.wf releasedm)
@@ -232,22 +185,17 @@ Module Local.
     <<REL_TS: Time.le (released.(View.rlx) loc) to>> /\
     <<REL_CLOSED: Memory.closed_view released mem2>>.
   Proof.
-    assert (REL'_WF: View.wf released).
-    { inv STEP. repeat (try condtac; viewtac; try apply WF1). }
-    assert (REL'_TS: Time.le (released.(View.rlx) loc) to).
-    { inv STEP. inv WRITE. inv PROMISE; auto. }
-    assert (REL'_CLOSED: Memory.closed_view released mem2).
-    { inv STEP. eapply write_closed_view; try apply WF1; eauto. }
     inv WF1. inv STEP.
-    exploit Memory.write_future; try apply WRITE; eauto. i. des.
-    exploit Memory.write_get2; try apply WRITE; eauto; try by viewtac. i.
     exploit TViewFacts.write_future; eauto.
-    { eapply TView.future_closed; eauto. }
-    { eapply Memory.future_closed_timemap; eauto. }
-    i. des. splits; eauto.
+    { inv WRITE. eapply Memory.promise_op. eauto. }
+    s. i. des.
+    exploit Memory.write_future; try apply WRITE; eauto. i. des.
+    exploit Memory.write_get2; try apply WRITE; eauto; try by viewtac. i. des.
+    splits; eauto.
     - econs; ss.
     - apply TViewFacts.write_tview_incr. auto.
     - apply TViewFacts.write_sc_incr.
+    - inv WRITE. inv PROMISE; auto.
   Qed.
 
   Lemma fence_step_future lc1 sc1 mem1 ordr ordw lc2 sc2

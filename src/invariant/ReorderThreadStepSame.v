@@ -64,8 +64,8 @@ Lemma reorder_promise_promise
       (MEM0: Memory.closed mem0)
       (LOCTS: forall to1' val1' released1'
                 (LOC: loc1 = loc2)
-                (KIND: kind1 = Memory.promise_kind_split to1' val1' released1'),
-          to1' <> to2 /\ forall val2' released2', kind2 <> Memory.promise_kind_split to1' val2' released2'):
+                (KIND: kind1 = Memory.op_kind_split to1' val1' released1'),
+          to1' <> to2 /\ forall val2' released2', kind2 <> Memory.op_kind_split to1' val2' released2'):
   exists lc1' mem1' kind2',
     <<STEP1: Local.promise_step lc0 mem0 loc2 from2 to2 val2 released2 lc1' mem1' kind2'>> /\
     <<STEP2: __guard__
@@ -74,10 +74,10 @@ Lemma reorder_promise_promise
                     (loc1, to1) <> (loc2, to2) /\
                     (forall to1' val1' released1'
                        (LOC: loc1 = loc2)
-                       (KIND: kind1' = Memory.promise_kind_split to1' val1' released1'),
-                        to1' <> to2 /\ forall val2' released2', kind2 <> Memory.promise_kind_split to1' val2' released2') /\
+                       (KIND: kind1' = Memory.op_kind_split to1' val1' released1'),
+                        to1' <> to2 /\ forall val2' released2', kind2 <> Memory.op_kind_split to1' val2' released2') /\
                     Local.promise_step lc1' mem1' loc1 from1' to1 val1 released1 lc2 mem2 kind1'))>> /\
-    <<KIND2: kind2 = Memory.promise_kind_add -> kind2' = Memory.promise_kind_add>>.
+    <<KIND2: kind2 = Memory.op_kind_add -> kind2' = Memory.op_kind_add>>.
 Proof.
   inv STEP1. inv STEP2. ss.
   inv PROMISE.
@@ -312,7 +312,7 @@ Lemma reorder_promise_fulfill
       (LOCTS1: (loc1, to1) <> (loc2, to2))
       (LOCTS2: forall to1' val1' released1'
                  (LOC: loc1 = loc2)
-                 (KIND: kind1 = Memory.promise_kind_split to1' val1' released1'),
+                 (KIND: kind1 = Memory.op_kind_split to1' val1' released1'),
           to1' <> to2):
   exists lc1',
     <<STEP1: fulfill_step lc0 sc0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc1' sc2>> /\
@@ -351,20 +351,22 @@ Lemma reorder_promise_write
       (MEM0: Memory.closed mem0)
       (LOCTS: forall to1' val1' released1'
                 (LOC: loc1 = loc2)
-                (KIND: kind1 = Memory.promise_kind_split to1' val1' released1'),
-          to1' <> to2 /\ forall val2' released2', kind2 <> Memory.promise_kind_split to1' val2' released2'):
+                (KIND: kind1 = Memory.op_kind_split to1' val1' released1'),
+          to1' <> to2 /\ forall val2' released2', kind2 <> Memory.op_kind_split to1' val2' released2'):
   exists kind2' lc1' mem1',
     <<STEP1: Local.write_step lc0 sc0 mem0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc1' sc2 mem1' kind2'>> /\
     <<STEP2: __guard__
                ((lc2, mem2) = (lc1', mem1') \/
                 ((loc1, to1) <> (loc2, to2) /\
                  exists from1' kind1', <<STEP2: Local.promise_step lc1' mem1' loc1 from1' to1 val1 released1 lc2 mem2 kind1'>>))>> /\
-    <<KIND2: kind2 = Memory.promise_kind_add -> kind2' = Memory.promise_kind_add>>.
+    <<KIND2: kind2 = Memory.op_kind_add -> kind2' = Memory.op_kind_add>>.
 Proof.
   exploit Local.promise_step_future; eauto. i. des.
   exploit write_promise_fulfill; eauto; try by viewtac. i. des.
   exploit reorder_promise_promise; try exact STEP1; eauto.
-  { i. subst. eapply Local.promise_closed_view; try exact PROMISE1; try apply LOCAL0; eauto.
+  { i. subst.
+    exploit Memory.promise_op; eauto. i.
+    eapply TViewFacts.op_closed_released; try exact x0; eauto.
     inv STEP1. apply LOCAL0.
   }
   i. des.
@@ -377,7 +379,7 @@ Proof.
       inv STEP1. exploit Memory.promise_promises_get1; eauto. i. des.
       ss. unfold Memory.get in GET. rewrite x, Cell.bot_get in *. congr.
     }
-    { condtac; [|auto]. do 3 f_equal. inv STEP1. ss. }
+    { inv STEP1. ss. }
     i. esplits; eauto. left; eauto.
   - exploit Local.promise_step_future; try exact STEP4; eauto. i. des.
     exploit reorder_promise_fulfill; try exact STEP6; eauto.
@@ -391,7 +393,7 @@ Proof.
       inv STEP1. exploit Memory.promise_promises_get1; eauto. i. des.
       ss. unfold Memory.get in GET. rewrite x, Cell.bot_get in *. congr.
     }
-    { condtac; [|auto]. do 3 f_equal. inv STEP1. ss. }
+    { subst. inv STEP1. ss. }
     i. esplits; eauto. right. esplits; eauto.
 Qed.
 
@@ -415,7 +417,7 @@ Lemma reorder_promise_write'
                 ((lc2, mem2) = (lc1', mem1') \/
                  ((loc1, to1) <> (loc2, to2) /\
                   exists from1' kind1', <<STEP2: Local.promise_step lc1' mem1' loc1 from1' to1 val1 released1 lc2 mem2 kind1'>>))>> /\
-     <<KIND2: kind2 = Memory.promise_kind_add -> kind2' = Memory.promise_kind_add>>).
+     <<KIND2: kind2 = Memory.op_kind_add -> kind2' = Memory.op_kind_add>>).
 Proof.
   destruct (classic (loc1 = loc2 /\ Time.lt to1 to2)); auto.
   right. eapply reorder_promise_write; eauto. i. subst. splits.

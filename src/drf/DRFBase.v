@@ -140,7 +140,7 @@ Lemma local_simul_write
       (DISJOINT: Memory.disjoint mS prm)
       (WRITE: Local.write_step (Local.mk com prm) sc mT loc from to val relr relw ord (Local.mk com' prm') sc' mT' kind):
   exists mS',
-  Local.write_step (Local.mk com Memory.bot) sc mS loc from to val relr relw ord (Local.mk com' Memory.bot) sc' mS' Memory.promise_kind_add.
+  Local.write_step (Local.mk com Memory.bot) sc mS loc from to val relr relw ord (Local.mk com' Memory.bot) sc' mS' Memory.op_kind_add.
 Proof.
   set (relw' := relw).
   assert (RELW_WF: View.wf relw').

@@ -180,47 +180,17 @@ Proof.
   inv STEP_TGT.
   assert (RELT_LE:
    View.le
-     (if Ordering.le Ordering.relaxed ord_src
-      then View.join releasedm_src
-        (TView.rel
-           (TView.write_tview (Local.tview lc1_src) sc1_src loc to
-              ord_src) loc)
-      else View.bot)
-     (if Ordering.le Ordering.relaxed ord_tgt
-      then View.join releasedm_tgt
-        (TView.rel
-           (TView.write_tview (Local.tview lc1_tgt) sc1_tgt loc to
-              ord_tgt) loc)
-      else View.bot)).
-  { repeat (try condtac; aggrtac).
-    - rewrite <- View.join_r.
-      rewrite <- ? View.join_l.
-      apply LOCAL1.
-    - rewrite <- View.join_r.
-      rewrite <- ? View.join_l.
-      apply LOCAL1.
+     (TView.write_released lc1_src.(Local.tview) sc1_src loc to releasedm_src ord_src)
+     (TView.write_released lc1_tgt.(Local.tview) sc1_tgt loc to releasedm_tgt ord_tgt)).
+  { apply TViewFacts.write_released_mon; ss.
+    - apply LOCAL1.
     - apply WF1_TGT.
-    - econs; aggrtac.
-    - rewrite <- View.join_r.
-      rewrite <- View.join_l.
-      rewrite <- View.join_l.
-      etrans; [|apply LOCAL1].
-      apply WF1_SRC.
-    - rewrite <- View.join_r.
-      rewrite <- View.join_l.
-      rewrite <- View.join_l.
-      etrans; [|apply LOCAL1].
-      apply WF1_SRC.
-    - rewrite <- View.join_r.
-      apply LOCAL1.
   }
   assert (RELT_WF:
-   View.wf
-     (View.join releasedm_src
-        (TView.rel
-           (TView.write_tview (Local.tview lc1_src) sc1_src loc to
-              ord_src) loc))).
-  { repeat (try condtac; viewtac; try apply WF1_SRC). }
+   View.wf (TView.write_released lc1_src.(Local.tview) sc1_src loc to releasedm_src ord_src)).
+  { unfold TView.write_released.
+    repeat (try condtac; viewtac; try apply WF1_SRC).
+  }
   exploit SimPromises.remove; try exact REMOVE;
     try exact MEM1; try apply LOCAL1; eauto.
   { apply WF1_SRC. }

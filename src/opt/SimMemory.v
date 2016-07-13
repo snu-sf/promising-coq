@@ -350,7 +350,7 @@ Qed.
 
 Lemma promise_lower_sim_memory
       promises1 mem1 loc from to val released1 released2 promises2 mem2
-      (PROMISE: Memory.promise promises1 mem1 loc from to val released2 promises2 mem2 (Memory.promise_kind_lower released1)):
+      (PROMISE: Memory.promise promises1 mem1 loc from to val released2 promises2 mem2 (Memory.op_kind_lower released1)):
   sim_memory mem2 mem1.
 Proof.
   inv PROMISE. eapply lower_sim_memory. eauto.

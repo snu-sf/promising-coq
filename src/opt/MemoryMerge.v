@@ -64,7 +64,7 @@ Module MemoryMerge.
   Lemma promise_promise_promise
         loc from to val released1 released2 promises0 promises1 promises2 mem0 mem1 mem2 kind
         (PROMISE1: Memory.promise promises0 mem0 loc from to val released1 promises1 mem1 kind)
-        (PROMISE2: Memory.promise promises1 mem1 loc from to val released2 promises2 mem2 (Memory.promise_kind_lower released1)):
+        (PROMISE2: Memory.promise promises1 mem1 loc from to val released2 promises2 mem2 (Memory.op_kind_lower released1)):
     Memory.promise promises0 mem0 loc from to val released2 promises2 mem2 kind.
   Proof.
     inv PROMISE2. inv PROMISE1.
