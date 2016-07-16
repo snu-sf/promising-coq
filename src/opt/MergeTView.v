@@ -32,7 +32,7 @@ Lemma read_read_tview
       loc ts released ord
       tview0
       (WF0: TView.wf tview0)
-      (WF_REL: View.wf released):
+      (WF_REL: View.opt_wf released):
   TView.le
     (TView.read_tview (TView.read_tview tview0 loc ts released ord) loc ts released ord)
     (TView.read_tview tview0 loc ts released ord).
@@ -49,7 +49,7 @@ Lemma write_read_tview
       (WF0: TView.wf tview0):
   TView.le
     (TView.read_tview (TView.write_tview tview0 sc0 loc ts ord1) loc ts
-                        ((TView.write_tview tview0 sc0 loc ts ord1).(TView.rel) loc)
+                        (Some ((TView.write_tview tview0 sc0 loc ts ord1).(TView.rel) loc))
                         ord2)
     (TView.write_tview tview0 sc0 loc ts ord1).
 Proof.

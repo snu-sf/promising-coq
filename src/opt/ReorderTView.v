@@ -33,8 +33,8 @@ Lemma read_read_tview
       loc2 ts2 released2 ord2
       tview0
       (WF0: TView.wf tview0)
-      (WF1: View.wf released1)
-      (WF2: View.wf released2):
+      (WF1: View.opt_wf released1)
+      (WF2: View.opt_wf released2):
   TView.le
     (TView.read_tview
        (TView.read_tview tview0 loc2 ts2 released2 ord2)
@@ -53,7 +53,7 @@ Lemma read_write_tview
       loc2 ts2 ord2
       tview0 sc0
       (WF0: TView.wf tview0)
-      (WF1: View.wf released1):
+      (WF1: View.opt_wf released1):
   TView.le
     (TView.read_tview
        (TView.write_tview tview0 sc0 loc2 ts2 ord2)
@@ -73,7 +73,7 @@ Lemma read_read_fence_tview
       ord2
       tview0
       (WF0: TView.wf tview0)
-      (WF1: View.wf released1):
+      (WF1: View.opt_wf released1):
   TView.le
     (TView.read_tview
        (TView.read_fence_tview tview0 ord2)
@@ -95,7 +95,7 @@ Lemma read_write_fence_tview
       ord2
       tview0 sc0
       (WF0: TView.wf tview0)
-      (WF1: View.wf released1):
+      (WF1: View.opt_wf released1):
   TView.le
     (TView.read_tview
        (TView.write_fence_tview tview0 sc0 ord2)
@@ -114,7 +114,7 @@ Lemma write_read_tview
       tview0 sc0
       (ORD1: Ordering.le ord1 Ordering.relaxed)
       (WF0: TView.wf tview0)
-      (WF2: View.wf released2):
+      (WF2: View.opt_wf released2):
   TView.le
     (TView.write_tview
        (TView.read_tview tview0 loc2 ts2 released2 ord2)
@@ -255,7 +255,7 @@ Lemma write_fence_read_tview
       tview0 sc0
       (ORD1: Ordering.le ord1 Ordering.relaxed)
       (WF0: TView.wf tview0)
-      (WF2: View.wf released2):
+      (WF2: View.opt_wf released2):
   TView.le
     (TView.write_fence_tview
        (TView.read_tview tview0 loc2 ts2 released2 ord2) sc0 ord1)
@@ -352,7 +352,7 @@ Lemma read_write_tview_eq
       tview0 sc0
       (ORD1: Ordering.le ord2 Ordering.relaxed)
       (WF0: TView.wf tview0)
-      (WF1: View.wf released1):
+      (WF1: View.opt_wf released1):
   (TView.read_tview
      (TView.write_tview tview0 sc0 loc2 ts2 ord2)
      loc1 ts1 released1 ord1) =

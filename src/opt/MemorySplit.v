@@ -21,9 +21,9 @@ Set Implicit Arguments.
 Module MemorySplit.
   Lemma remove_lower_remove
         mem0 loc from to val released1 released2 mem2
-        (REL_LE: View.le released2 released1)
-        (REL_WF1: View.wf released1)
-        (REL_WF2: View.wf released2)
+        (REL_LE: View.opt_le released2 released1)
+        (REL_WF1: View.opt_wf released1)
+        (REL_WF2: View.opt_wf released2)
         (TS: Time.lt from to)
         (REMOVE: Memory.remove mem0 loc from to val released1 mem2):
     exists mem1',
@@ -59,10 +59,10 @@ Module MemorySplit.
   Lemma remove_promise_remove
         promises0 mem0 loc from to val released1 released2 promises2
         (PROMISES: Memory.le promises0 mem0)
-        (REL_LE: View.le released2 released1)
-        (REL_WF1: View.wf released1)
-        (REL_WF2: View.wf released2)
-        (REL_TO: Time.le (released1.(View.rlx) loc) to)
+        (REL_LE: View.opt_le released2 released1)
+        (REL_WF1: View.opt_wf released1)
+        (REL_WF2: View.opt_wf released2)
+        (REL_TO: Time.le (released1.(View.unwrap).(View.rlx) loc) to)
         (TS: Time.lt from to)
         (REMOVE: Memory.remove promises0 loc from to val released1 promises2):
     exists promises1' mem1',
@@ -72,7 +72,7 @@ Module MemorySplit.
     exploit remove_lower_remove; eauto. i. des.
     exploit Memory.lower_exists_le; eauto. i. des.
     esplits; eauto.
-    - econs; eauto. etrans; eauto. apply REL_LE.
+    econs; eauto. etrans; eauto. apply View.unwrap_opt_le. ss.
   Qed.
 
   Lemma commute_remove_split_remove_remove
@@ -112,8 +112,8 @@ Module MemorySplit.
         promises3
         (TS12: Time.lt ts1 ts2)
         (TS23: Time.lt ts2 ts3)
-        (WF2: View.wf released2)
-        (TS2: Time.le (released2.(View.rlx) loc) ts2)
+        (WF2: View.opt_wf released2)
+        (TS2: Time.le (released2.(View.unwrap).(View.rlx) loc) ts2)
         (LE: Memory.le promises0 mem0)
         (REMOVE: Memory.remove promises0 loc ts1 ts3 val3 released3 promises3):
     exists promises1 promises2 mem1,

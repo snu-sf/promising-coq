@@ -198,7 +198,7 @@ Proof.
     { inv LOCAL0. eapply MemoryFacts.write_time_lt. eauto. }
     i. des.
     hexploit sim_local_write; try exact LOCAL0; try exact SC; eauto; try refl; try by viewtac. i. des.
-    exploit merge_write_write_bot; try exact STEP_SRC; eauto; try by viewtac. i. des.
+    exploit merge_write_write_None; try exact STEP_SRC; eauto; try by viewtac. i. des.
     + esplits.
       * econs 2; [|econs 2; eauto].
         { econs. econs 1. econs; eauto. auto. }

@@ -38,7 +38,7 @@ Inductive sim_memory (mem_src mem_tgt:Memory.t): Prop :=
             (GET: Memory.get loc to mem_tgt = Some (from_tgt, Message.mk val released_tgt)),
         exists from_src released_src,
           <<GET: Memory.get loc to mem_src = Some (from_src, Message.mk val released_src)>> /\
-          <<RELEASED: View.le released_src released_tgt>>)
+          <<RELEASED: View.opt_le released_src released_tgt>>)
 .
 
 Program Instance sim_memory_PreOrder: PreOrder sim_memory.
@@ -59,7 +59,7 @@ Lemma sim_memory_get
       (GET: Memory.get loc to mem_tgt = Some (from_tgt, Message.mk val released_tgt)):
   exists from_src released_src,
     <<GET: Memory.get loc to mem_src = Some (from_src, Message.mk val released_src)>> /\
-    <<RELEASED: View.le released_src released_tgt>>.
+    <<RELEASED: View.opt_le released_src released_tgt>>.
 Proof.
   eapply SIM. eauto.
 Qed.
@@ -233,7 +233,7 @@ Lemma sim_memory_add
       mem1_src mem1_tgt released_src
       mem2_src mem2_tgt released_tgt
       loc from to val
-      (REL_LE: View.le released_src released_tgt)
+      (REL_LE: View.opt_le released_src released_tgt)
       (SRC: Memory.add mem1_src loc from to val released_src mem2_src)
       (TGT: Memory.add mem1_tgt loc from to val released_tgt mem2_tgt)
       (SIM: sim_memory mem1_src mem1_tgt):
@@ -254,7 +254,7 @@ Lemma sim_memory_split
       mem1_src mem1_tgt
       mem2_src mem2_tgt
       loc ts1 ts2 ts3 val2 val3 released2_src released3_src released2_tgt released3_tgt
-      (REL_LE: View.le released2_src released2_tgt)
+      (REL_LE: View.opt_le released2_src released2_tgt)
       (SRC: Memory.split mem1_src loc ts1 ts2 ts3 val2 val3 released2_src released3_src mem2_src)
       (TGT: Memory.split mem1_tgt loc ts1 ts2 ts3 val2 val3 released2_tgt released3_tgt mem2_tgt)
       (SIM: sim_memory mem1_src mem1_tgt):
@@ -279,7 +279,7 @@ Lemma sim_memory_lower
       mem1_src mem1_tgt
       mem2_src mem2_tgt
       loc from to val released1_src released1_tgt released2_src released2_tgt
-      (REL_LE: View.le released2_src released2_tgt)
+      (REL_LE: View.opt_le released2_src released2_tgt)
       (SRC: Memory.lower mem1_src loc from to val released1_src released2_src mem2_src)
       (TGT: Memory.lower mem1_tgt loc from to val released1_tgt released2_tgt mem2_tgt)
       (SIM: sim_memory mem1_src mem1_tgt):
@@ -298,7 +298,7 @@ Lemma sim_memory_promise
       loc from to val kind
       promises1_src mem1_src released_src promises2_src mem2_src
       promises1_tgt mem1_tgt released_tgt promises2_tgt mem2_tgt
-      (REL_LE: View.le released_src released_tgt)
+      (REL_LE: View.opt_le released_src released_tgt)
       (PROMISE_SRC: Memory.promise promises1_src mem1_src loc from to val released_src promises2_src mem2_src kind)
       (PROMISE_TGT: Memory.promise promises1_tgt mem1_tgt loc from to val released_tgt promises2_tgt mem2_tgt kind)
       (SIM: sim_memory mem1_src mem1_tgt):
@@ -332,6 +332,16 @@ Proof.
   - eapply sim_memory_closed_timemap; eauto. apply TGT.
   - eapply sim_memory_closed_timemap; eauto. apply TGT.
   - eapply sim_memory_closed_timemap; eauto. apply TGT.
+Qed.
+
+Lemma sim_memory_closed_opt_view
+      mem_src mem_tgt
+      view
+      (SIM: sim_memory mem_src mem_tgt)
+      (TGT: Memory.closed_opt_view view mem_tgt):
+  Memory.closed_opt_view view mem_src.
+Proof.
+  inv TGT; econs. eapply sim_memory_closed_view; eauto.
 Qed.
 
 Lemma lower_sim_memory

@@ -154,6 +154,15 @@ Module View <: JoinableType.
       (RLX_SC: TimeMap.le view.(rlx) view.(sc))
   .
 
+  Inductive opt_wf: forall (view:option View.t), Prop :=
+  | opt_wf_some
+      view
+      (WF: wf view):
+      opt_wf (Some view)
+  | opt_wf_none:
+      opt_wf None
+  .
+
   Definition eq := @eq t.
 
   Inductive le_ (lhs rhs:t): Prop :=
@@ -170,6 +179,24 @@ Module View <: JoinableType.
   Qed.
   Next Obligation.
     ii. inv H. inv H0. econs; etrans; eauto.
+  Qed.
+
+  Inductive opt_le: forall (lhs rhs:option t), Prop :=
+  | opt_le_none
+      rhs:
+      opt_le None rhs
+  | opt_le_some
+      lhs rhs
+      (LE: le lhs rhs):
+      opt_le (Some lhs) (Some rhs)
+  .
+
+  Global Program Instance opt_le_PreOrder: PreOrder opt_le.
+  Next Obligation.
+    ii. destruct x; econs. refl.
+  Qed.
+  Next Obligation.
+    ii. inv H; inv H0; econs. etrans; eauto.
   Qed.
 
   Lemma ext l r
@@ -363,8 +390,53 @@ Module View <: JoinableType.
     - apply TimeMap.antisym; auto.
   Qed.
 
+  Lemma opt_antisym l r
+        (LR: opt_le l r)
+        (RL: opt_le r l):
+    l = r.
+  Proof.
+    inv LR; inv RL; ss. f_equal.
+    apply antisym; ss.
+  Qed.
+
   Lemma timemap_le_le tm1 tm2
         (LE: TimeMap.le tm1 tm2):
     le (mk tm1 tm1 tm1) (mk tm2 tm2 tm2).
   Proof. econs; eauto. Qed.
+
+  Definition unwrap (view:option t): t :=
+    match view with
+    | Some view => view
+    | None => bot
+    end.
+
+  Lemma unwrap_opt_wf
+        view
+        (WF: opt_wf view):
+    wf view.(unwrap).
+  Proof.
+    inv WF; ss. apply bot_wf.
+  Qed.
+
+  Lemma unwrap_opt_le
+        view1 view2
+        (WF: opt_le view1 view2):
+    le view1.(unwrap) view2.(unwrap).
+  Proof.
+    inv WF; ss. apply bot_spec.
+  Qed.
+
+  Lemma opt_None_spec rhs:
+    opt_le None rhs.
+  Proof. econs. Qed.
+
+  Lemma join_bot_l rhs:
+    join bot rhs = rhs.
+  Proof.
+    apply antisym.
+    - apply join_spec.
+      + apply bot_spec.
+      + refl.
+    - apply join_r.
+  Qed.
 End View.

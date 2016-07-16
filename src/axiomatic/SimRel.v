@@ -354,7 +354,7 @@ Definition sim_mem mem :=
                 (CELL: Memory.get l to mem = Some (from, Message.mk v rel)),
                 exists b, In b acts /\ is_write b /\ loc b = Some l 
                           /\ f_from b = from /\ f_to b = to /\
-                          sim_mem_helper b from v rel >> /\
+                          sim_mem_helper b from v rel.(View.unwrap) >> /\
     << UPDATES: forall a b (RF_RMW: (rf ;; rmw) a b) (LOC: loc a = Some l),
                 exists m, Memory.get l (f_to b) mem = Some (f_to a, m) >>.
 

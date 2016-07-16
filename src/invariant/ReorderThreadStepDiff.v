@@ -61,7 +61,7 @@ Lemma reorder_promise_promise_diff
       (MEM0: Memory.closed mem0)
       (DISJ: Local.disjoint lc1 lc2)
       (REL_CLOSED: forall promises2' mem1' kind1' (PROMISE1: Memory.promise (Local.promises lc2) mem0 loc2 from2 to2 val2 released2 promises2' mem1' kind1'),
-          Memory.closed_view released2 mem1'):
+          Memory.closed_opt_view released2 mem1'):
   exists mem1',
     <<STEP1: Local.promise_step lc2 mem0 loc2 from2 to2 val2 released2 lc2' mem1' kind2>> /\
     <<STEP2: Local.promise_step lc1 mem1' loc1 from1 to1 val1 released1 lc1' mem2 kind1>>.
@@ -77,7 +77,7 @@ Proof.
         * eapply REL_CLOSED. econs; eauto.
       + econs.
         * econs; eauto.
-        * eapply Memory.add_closed_view; eauto.
+        * eapply Memory.add_closed_opt_view; eauto.
     - exploit MemoryReorder.add_split; try exact MEM; try exact MEM0; eauto. i. des.
       { subst. exfalso. eapply Memory.disjoint_get; try apply DISJOINT2; s; cycle 1.
         - eapply Memory.split_get0. eauto.
@@ -89,7 +89,7 @@ Proof.
         * eapply REL_CLOSED. econs 2; eauto.
       + econs.
         * econs; eauto.
-        * eapply Memory.split_closed_view; eauto.
+        * eapply Memory.split_closed_opt_view; eauto.
     - exploit MemoryReorder.add_lower; try exact MEM; try exact MEM0; eauto. i. des.
       { subst. exfalso. eapply Memory.disjoint_get; try apply DISJOINT2; s; cycle 1.
         - eapply Memory.lower_get0. eauto.
@@ -101,7 +101,7 @@ Proof.
         * eapply REL_CLOSED. econs 3; eauto.
       + econs.
         * econs; eauto.
-        * eapply Memory.lower_closed_view; eauto.
+        * eapply Memory.lower_closed_opt_view; eauto.
   }
   { inv PROMISE0.
     - exploit MemoryReorder.split_add; try exact MEM; try exact MEM0; eauto. i. des.
@@ -111,7 +111,7 @@ Proof.
         * eapply REL_CLOSED. econs; eauto.
       + econs.
         * econs; eauto.
-        * eapply Memory.add_closed_view; eauto.
+        * eapply Memory.add_closed_opt_view; eauto.
     - exploit MemoryReorder.split_split; try exact MEM; try exact MEM0; eauto.
       { ii. inv H. exfalso. eapply Memory.disjoint_get; try apply DISJ.
         - eapply Memory.split_get0. eauto.
@@ -130,7 +130,7 @@ Proof.
         * eapply REL_CLOSED. econs 2; eauto.
       + econs.
         * econs; eauto.
-        * eapply Memory.split_closed_view; eauto.
+        * eapply Memory.split_closed_opt_view; eauto.
     - exploit MemoryReorder.split_lower; try exact MEM; try exact MEM0; eauto.
       { ii. inv H. exfalso. eapply Memory.disjoint_get; try apply DISJ.
         - eapply Memory.split_get0. eauto.
@@ -149,7 +149,7 @@ Proof.
         * eapply REL_CLOSED. econs 3; eauto.
       + econs.
         * econs; eauto.
-        * eapply Memory.lower_closed_view; eauto.
+        * eapply Memory.lower_closed_opt_view; eauto.
   }
   { inv PROMISE0.
     - exploit MemoryReorder.lower_add; try exact MEM; try exact MEM0; eauto. i. des.
@@ -159,7 +159,7 @@ Proof.
         * eapply REL_CLOSED. econs; eauto.
       + econs.
         * econs; eauto.
-        * eapply Memory.add_closed_view; eauto.
+        * eapply Memory.add_closed_opt_view; eauto.
     - exploit MemoryReorder.lower_split; try exact MEM; try exact MEM0; eauto. i. des.
       unguardH FROM1. des.
       { inv FROM1. exfalso. eapply Memory.disjoint_get; try apply DISJ.
@@ -173,7 +173,7 @@ Proof.
         * eapply REL_CLOSED. econs 2; eauto.
       + econs.
         * econs; eauto.
-        * eapply Memory.split_closed_view; eauto.
+        * eapply Memory.split_closed_opt_view; eauto.
     - exploit MemoryReorder.lower_lower; try exact MEM; try exact MEM0; eauto. i. des.
       { subst. exfalso. eapply Memory.disjoint_get; try apply DISJ.
         - eapply Memory.lower_get0. eauto.
@@ -185,7 +185,7 @@ Proof.
         * eapply REL_CLOSED. econs 3; eauto.
       + econs.
         * econs; eauto.
-        * eapply Memory.lower_closed_view; eauto.
+        * eapply Memory.lower_closed_opt_view; eauto.
   }
 Qed.
 
@@ -199,8 +199,8 @@ Lemma reorder_promise_write_diff
       loc2 from2 to2 val2 releasedm2 released2 ord2 kind2
       (STEP1: Local.promise_step lc1 mem0 loc1 from1 to1 val1 released1 lc1' mem1 kind1)
       (STEP2: Local.write_step lc2 sc0 mem1 loc2 from2 to2 val2 releasedm2 released2 ord2 lc2' sc2 mem2 kind2)
-      (REL_WF: View.wf releasedm2)
-      (REL_CLOSED: Memory.closed_view releasedm2 mem0)
+      (REL_WF: View.opt_wf releasedm2)
+      (REL_CLOSED: Memory.closed_opt_view releasedm2 mem0)
       (LOCAL1: Local.wf lc1 mem0)
       (LOCAL2: Local.wf lc2 mem0)
       (DISJ: Local.disjoint lc1 lc2)
@@ -213,7 +213,7 @@ Proof.
   exploit Local.promise_step_future; eauto. i. des.
   exploit Local.promise_step_disjoint; eauto. i. des.
   exploit write_promise_fulfill; eauto.
-  { inv STEP1. eapply Memory.promise_closed_view; eauto. }
+  { inv STEP1. eapply Memory.promise_closed_opt_view; eauto. }
   i. des.
   exploit reorder_promise_promise_diff; try exact STEP1; try exact STEP0; eauto.
   { i. subst.

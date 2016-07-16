@@ -22,11 +22,11 @@ Set Implicit Arguments.
 
 Module ThreadEvent.
   Inductive t :=
-  | promise (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:View.t)
+  | promise (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:option View.t)
   | silent
-  | read (loc:Loc.t) (ts:Time.t) (val:Const.t) (released:View.t) (ord:Ordering.t)
-  | write (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:View.t) (ord:Ordering.t)
-  | update (loc:Loc.t) (tsr tsw:Time.t) (valr valw:Const.t) (releasedr releasedw:View.t) (ordr ordw:Ordering.t)
+  | read (loc:Loc.t) (ts:Time.t) (val:Const.t) (released:option View.t) (ord:Ordering.t)
+  | write (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:option View.t) (ord:Ordering.t)
+  | update (loc:Loc.t) (tsr tsw:Time.t) (valr valw:Const.t) (releasedr releasedw:option View.t) (ordr ordw:Ordering.t)
   | fence (ordr ordw:Ordering.t)
   | syscall (e:Event.t)
   .
@@ -37,14 +37,20 @@ Module ThreadEvent.
     | _ => None
     end.
 
-  Definition is_reading (e:t): option (Loc.t * Time.t * Const.t * View.t * Ordering.t) :=
+  Definition is_promising (e:t) : option (Loc.t * Time.t) :=
+    match e with
+    | promise loc from to v rel => Some (loc, to)
+    | _ => None
+    end.
+
+  Definition is_reading (e:t): option (Loc.t * Time.t * Const.t * option View.t * Ordering.t) :=
     match e with
     | read loc ts val released ord => Some (loc, ts, val, released, ord)
     | update loc tsr _ valr _ releasedr _ ordr _ => Some (loc, tsr, valr, releasedr, ordr)
     | _ => None
     end.
 
-  Definition is_writing (e:t): option (Loc.t * Time.t * Time.t * Const.t * View.t * Ordering.t) :=
+  Definition is_writing (e:t): option (Loc.t * Time.t * Time.t * Const.t * option View.t * Ordering.t) :=
     match e with
     | write loc from to val released ord => Some (loc, from, to, val, released, ord)
     | update loc tsr tsw _ valw _ releasedw _ ordw => Some (loc, tsr, tsw, valw, releasedw, ordw)
@@ -83,15 +89,15 @@ Module Local.
     econs. symmetry. apply H.
   Qed.
 
-  Inductive promise_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:View.t): forall (lc2:t) (mem2:Memory.t) (kind:Memory.op_kind), Prop :=
+  Inductive promise_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:option View.t): forall (lc2:t) (mem2:Memory.t) (kind:Memory.op_kind), Prop :=
   | step_promise
       promises2 mem2 kind
       (PROMISE: Memory.promise lc1.(promises) mem1 loc from to val released promises2 mem2 kind)
-      (CLOSED: Memory.closed_view released mem2):
+      (CLOSED: Memory.closed_opt_view released mem2):
       promise_step lc1 mem1 loc from to val released (mk lc1.(tview) promises2) mem2 kind
   .
 
-  Inductive read_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (to:Time.t) (val:Const.t) (released:View.t) (ord:Ordering.t): forall (lc2:t), Prop :=
+  Inductive read_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (to:Time.t) (val:Const.t) (released:option View.t) (ord:Ordering.t): forall (lc2:t), Prop :=
   | step_read
       from
       tview2
@@ -101,7 +107,7 @@ Module Local.
       read_step lc1 mem1 loc to val released ord (mk tview2 lc1.(promises))
   .
 
-  Inductive write_step (lc1:t) (sc1:TimeMap.t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (releasedm released:View.t) (ord:Ordering.t): forall (lc2:t) (sc2:TimeMap.t) (mem2:Memory.t) (kind:Memory.op_kind), Prop :=
+  Inductive write_step (lc1:t) (sc1:TimeMap.t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (releasedm released:option View.t) (ord:Ordering.t): forall (lc2:t) (sc2:TimeMap.t) (mem2:Memory.t) (kind:Memory.op_kind), Prop :=
   | step_write
       promises2 mem2 kind
       (RELEASED: released = TView.write_released lc1.(tview) sc1 loc to releasedm ord)
@@ -133,9 +139,9 @@ Module Local.
     <<CLOSED2: Memory.closed mem2>> /\
     <<FUTURE: Memory.future mem1 mem2>> /\
     <<TVIEW_FUTURE: TView.le lc1.(tview) lc2.(tview)>> /\
-    <<REL_WF: View.wf released>> /\
-    <<REL_TS: Time.le (released.(View.rlx) loc) to>> /\
-    <<REL_CLOSED: Memory.closed_view released mem2>>.
+    <<REL_WF: View.opt_wf released>> /\
+    <<REL_TS: Time.le (released.(View.unwrap).(View.rlx) loc) to>> /\
+    <<REL_CLOSED: Memory.closed_opt_view released mem2>>.
   Proof.
     inv WF1. inv STEP.
     exploit Memory.promise_future; eauto. i. des.
@@ -156,8 +162,8 @@ Module Local.
         (CLOSED1: Memory.closed mem1):
     <<WF2: wf lc2 mem1>> /\
     <<TVIEW_FUTURE: TView.le lc1.(tview) lc2.(tview)>> /\
-    <<REL_WF: View.wf released>> /\
-    <<REL_CLOSED: Memory.closed_view released mem1>>.
+    <<REL_WF: View.opt_wf released>> /\
+    <<REL_CLOSED: Memory.closed_opt_view released mem1>>.
   Proof.
     inv WF1. inv STEP.
     exploit TViewFacts.read_future; eauto.
@@ -170,8 +176,8 @@ Module Local.
 
   Lemma write_step_future lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind
         (STEP: write_step lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind)
-        (REL_WF: View.wf releasedm)
-        (REL_CLOSED: Memory.closed_view releasedm mem1)
+        (REL_WF: View.opt_wf releasedm)
+        (REL_CLOSED: Memory.closed_opt_view releasedm mem1)
         (WF1: wf lc1 mem1)
         (SC1: Memory.closed_timemap sc1 mem1)
         (CLOSED1: Memory.closed mem1):
@@ -181,9 +187,9 @@ Module Local.
     <<TVIEW_FUTURE: TView.le lc1.(tview) lc2.(tview)>> /\
     <<SC_FUTURE: TimeMap.le sc1 sc2>> /\
     <<MEM_FUTURE: Memory.future mem1 mem2>> /\
-    <<REL_WF: View.wf released>> /\
-    <<REL_TS: Time.le (released.(View.rlx) loc) to>> /\
-    <<REL_CLOSED: Memory.closed_view released mem2>>.
+    <<REL_WF: View.opt_wf released>> /\
+    <<REL_TS: Time.le (released.(View.unwrap).(View.rlx) loc) to>> /\
+    <<REL_CLOSED: Memory.closed_opt_view released mem2>>.
   Proof.
     inv WF1. inv STEP.
     exploit TViewFacts.write_future; eauto.
@@ -327,7 +333,7 @@ Module Thread.
         st1 lc1 sc1 mem1
         st2 loc from to val released ord lc2 sc2 mem2 kind
         (STATE: lang.(Language.step) (Some (ProgramEvent.write loc val ord)) st1 st2)
-        (LOCAL: Local.write_step lc1 sc1 mem1 loc from to val View.bot released ord lc2 sc2 mem2 kind):
+        (LOCAL: Local.write_step lc1 sc1 mem1 loc from to val None released ord lc2 sc2 mem2 kind):
         program_step (ThreadEvent.write loc from to val released ord) (mk st1 lc1 sc1 mem1) (mk st2 lc2 sc2 mem2)
     | step_update
         st1 lc1 sc1 mem1

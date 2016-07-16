@@ -67,7 +67,7 @@ Lemma fulfill_unset_promises
       (FULFILL: Memory.remove promises1 loc from ts val rel promises2)
       (TH1: Memory.get l t promises1 = Some (f, m))
       (TH2: Memory.get l t promises2 = None):
-  l = loc /\ t = ts /\ f = from /\ m.(Message.val) = val /\ View.le rel m.(Message.released).
+  l = loc /\ t = ts /\ f = from /\ m.(Message.val) = val /\ View.opt_le rel m.(Message.released).
 Proof.
   revert TH2. erewrite Memory.remove_o; eauto. condtac; ss; [|congr].
   des. subst. erewrite Memory.remove_get0 in TH1; eauto. inv TH1.

@@ -30,7 +30,7 @@ Inductive pi_step withprm: Ident.t -> ThreadEvent.t -> Configuration.t*Configura
 | pi_step_step
     e tid cS1 cT1 cS2 cT2
     (STEPT: small_step withprm tid e cT1 cT2)
-    (STEPS: if ThreadEvent_is_promising e
+    (STEPS: if ThreadEvent.is_promising e
             then cS1 = cS2
             else small_step false tid e cS1 cS2)
     (LANGMATCH: 
@@ -109,14 +109,14 @@ Lemma pi_step_future
   <<FUTURET: Memory.future cST1.(snd).(Configuration.memory) cST2.(snd).(Configuration.memory)>>.
 Proof.
   inv WF1. inv STEP. inv USTEP. splits; cycle 1. 
-  - destruct (ThreadEvent_is_promising e).
+  - destruct (ThreadEvent.is_promising e).
     + subst. ss. econs.
     + eapply small_step_future in STEPS; eauto; des; ss.
   - eapply small_step_future in STEPT; eauto; des; ss.
   - assert (WFT2: Configuration.wf cT2).
     { by eapply small_step_future, STEPT. }
     assert (WFS2: Configuration.wf cS2).
-    { destruct (ThreadEvent_is_promising e); [by inv STEPS|].
+    { destruct (ThreadEvent.is_promising e); [by inv STEPS|].
       by eapply small_step_future, STEPS. }
     assert (STEPS' :=STEPS).
 
@@ -480,7 +480,7 @@ Lemma pi_steps_small_steps_fst
 Proof.
   induction PI_STEPS; eauto.
   inv H. inv USTEP. 
-  destruct (ThreadEvent_is_promising e).
+  destruct (ThreadEvent.is_promising e).
   - subst. eauto.
   - econs; eauto. s. inv STEPS. destruct withprm'; econs; eauto 10. 
 Qed.
@@ -510,7 +510,7 @@ Lemma pi_steps_all_pf_steps_fst
 Proof.
   induction PI_STEPS; eauto.
   inv H. inv USTEP. inv USTEP0. 
-  destruct (ThreadEvent_is_promising e0) eqn: PROM.
+  destruct (ThreadEvent.is_promising e0) eqn: PROM.
   - subst. eauto.
   - econs; eauto. s. inv STEPS. destruct withprm'; econs; eauto 10. 
 Qed.
@@ -525,7 +525,7 @@ Proof.
   des. rewrite <-IHSTEP, <-IHSTEP0.
   inv H. inv PI_STEP. inv USTEP.
   split; eauto using small_step_find.
-  destruct (ThreadEvent_is_promising e); subst; eauto using small_step_find.
+  destruct (ThreadEvent.is_promising e); subst; eauto using small_step_find.
 Qed.
 
 Lemma pi_step_except_withoutprm
@@ -555,7 +555,7 @@ Lemma pi_wf_small_step_is_promising
       withprm cmp tid l t
       (PWF: pi_wf cmp (s1, t1))
       (STEP: small_step withprm tid e t1 t2)
-      (PROMISING: ThreadEvent_is_promising e = Some (l, t)):
+      (PROMISING: ThreadEvent.is_promising e = Some (l, t)):
   Threads.is_promised tid l t t2.(Configuration.threads).
 Proof.
   inv STEP. inv STEP0; inv STEP; inv PROMISING.
@@ -577,7 +577,7 @@ Lemma small_step_is_promised
       withprm tid e c1 c2 x l t loc to
       (STEP: small_step withprm tid e c1 c2)
       (PROMISED: Threads.is_promised x l t c1.(Configuration.threads))
-      (PROMISING: ThreadEvent_is_promising e = Some (loc, to)):
+      (PROMISING: ThreadEvent.is_promising e = Some (loc, to)):
   Threads.is_promised x l t c2.(Configuration.threads).
 Proof.
   inv PROMISED. destruct msg.
@@ -622,7 +622,7 @@ Proof.
     - omega.
   }
   inversion A12. inv PI_STEP. inv USTEP.
-  assert (E0: ThreadEvent_is_promising e0 = None); [by inv STEPT0|].
+  assert (E0: ThreadEvent.is_promising e0 = None); [by inv STEPT0|].
   destruct p.
   exploit reorder_promise_small_step; try exact STEPT; eauto.
   { inv WF. auto. }

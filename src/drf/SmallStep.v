@@ -39,7 +39,7 @@ Inductive small_step (withprm: bool) (tid:Ident.t) (e:ThreadEvent.t) (c1:Configu
     (TID: IdentMap.find tid c1.(Configuration.threads) = Some (existT _ lang st1, lc1))
     (STEP: Thread.step e (Thread.mk _ st1 lc1 c1.(Configuration.sc) c1.(Configuration.memory)) (Thread.mk _ st2 lc2 sc2 memory2))
     (THS2: ths2 = IdentMap.add tid (existT _ _ st2, lc2) c1.(Configuration.threads))
-    (PFREE: if withprm then True else ThreadEvent_is_promising e = None)
+    (PFREE: if withprm then True else ThreadEvent.is_promising e = None)
   :
   small_step withprm tid e c1 (Configuration.mk ths2 sc2 memory2)
 .

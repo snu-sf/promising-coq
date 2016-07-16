@@ -182,9 +182,9 @@ Lemma key_lemma_time_lt:
     (cM4' : Configuration.t) (lc4 : Local.t) 
     (com4' : TView.t) (prm3' : Memory.t) (sc2 : TimeMap.t)
     (memory2 : Memory.t) (loc0 : Loc.t) (ts0 from : Time.t)
-    (valr valw : Const.t) (relr relw : View.t)
+    (valr valw : Const.t) (relr relw : option View.t)
     (ordr : Ordering.t) (m1' : Memory.t) (ordw0 : Ordering.t)
-    (releasedw : View.t) (lc2 : Local.t)
+    (releasedw : option View.t) (lc2 : Local.t)
     (LC2: TView.wf (Local.tview lc2))
     (tsw : Time.t) (valw0 : Const.t) (kind : Memory.op_kind),
     Time.lt ((TView.cur (Local.tview lc4)).(View.rlx) loc) ts ->
@@ -194,7 +194,7 @@ Lemma key_lemma_time_lt:
     Local.write_step lc2 (Configuration.sc cM4')
                      (Configuration.memory cM4') loc0 ts0 tsw valw0 relr releasedw
                      ordw0 lc4 sc2 memory2 kind ->
-    Memory.op m1' loc0 from ts0 valw (View_lift loc ts relw)
+    Memory.op m1' loc0 from ts0 valw (opt_View_lift loc ts relw)
               (Configuration.memory cM4') k ->
     Ordering.le Ordering.acqrel ordr -> False.
 Proof.
@@ -206,7 +206,8 @@ Proof.
   inv LOCAL1. ss.
   erewrite Memory.op_get2 in GET; eauto. inv GET.
   apply TimeFacts.join_lt_des in LT. des.
-  revert BC. rewrite ORDR. unfold View_lift. destruct relw. ss.
+  revert BC. rewrite ORDR.
+  s. destruct relw.(View.unwrap). ss.
   unfold TimeMap_lift. condtac; [|congr]. i.
   apply TimeFacts.join_lt_des in BC. des.
   eapply Time.lt_strorder. eauto.
@@ -215,7 +216,7 @@ Qed.
 Lemma key_lemma_time_lt2:
   forall (loc : Loc.t) (ts : Time.t) (cM4' : Configuration.t)
     (com4' : TView.t) (loc0 : Loc.t) (ts0 : Time.t)
-    (relw : View.t) (ordr ordw0 : Ordering.t) 
+    (relw : option View.t) (ordr ordw0 : Ordering.t) 
     (tsw : Time.t) xx yy,
     Ordering.le Ordering.acqrel ordr ->
     Time.lt
@@ -225,15 +226,16 @@ Lemma key_lemma_time_lt2:
                yy
                (View.rlx
                   (if Ordering.le Ordering.acqrel ordr
-                   then View_lift loc ts relw
-                   else View.bot))) (TimeMap.singleton loc0 tsw))
+                   then opt_View_lift loc ts relw
+                   else None).(View.unwrap))) (TimeMap.singleton loc0 tsw))
          xx loc) ts -> False.
 Proof.
   intros.
   apply TimeFacts.join_lt_des in H0. des.
   apply TimeFacts.join_lt_des in AC. des.
   apply TimeFacts.join_lt_des in AC0. des.
-  revert BC1. rewrite H. unfold View_lift. destruct relw. ss.
+  revert BC1. rewrite H. s.
+  destruct relw.(View.unwrap). ss.
   unfold TimeMap_lift. condtac; [|congr]. i.
   apply TimeFacts.join_lt_des in BC1. des.
   eapply Time.lt_strorder. eauto.
@@ -267,7 +269,7 @@ Lemma key_lemma_rw_race
   (TIMELT: Time.lt (View.rlx (TView.cur (Local.tview lc5)) loc) ts)
 :
   forall (loc0 : Loc.t) (ts0 from : Time.t) (valr valw : Const.t)
-    (relr relw : View.t) (ordr ordw : Ordering.t)
+    (relr relw : option View.t) (ordr ordw : Ordering.t)
     (EVTR: ThreadEvent.is_reading e0 = Some (loc0, ts0, valr, relr, ordr))
     (EVTW: ThreadEvent.is_writing e = Some (loc0, from, ts0, valw, relw, ordw)),
   False.
@@ -284,7 +286,7 @@ Proof.
   }
 
   (* assert (X:= PI_STEP). inv X. *)
-  destruct (ThreadEvent_is_promising e) eqn: EQ.
+  destruct (ThreadEvent.is_promising e) eqn: EQ.
   { destruct e; inv EQ; inv EVTW. }
 
   assert (FREE3: pf_racefree cS3').
@@ -335,7 +337,7 @@ Proof.
   inv STEP; inv STEP0; inv EVTR.
   - inv LOCAL. erewrite Memory.op_get2 in GET; eauto. inv GET.
     ss. apply TimeFacts.join_lt_des in TIMELT. des. revert BC.
-    rewrite ORDR. unfold View_lift. destruct relw. ss.
+    rewrite ORDR. unfold View_lift. destruct relw.(View.unwrap). ss.
     unfold TimeMap_lift. condtac; [|congr]. i.
     apply TimeFacts.join_lt_des in BC. des.
     eapply Time.lt_strorder. eauto.
@@ -792,7 +794,7 @@ Proof.
     s. rewrite IdentMap.gss. eauto. }
 
   (* Simulation exists *)  
-  assert (NOPRMEVT: ThreadEvent_is_promising eS = None).
+  assert (NOPRMEVT: ThreadEvent.is_promising eS = None).
   { destruct e0; inv PFREE; inv EVT; eauto. }
 
   subst. destruct thS2 as [stx lcx scx mx]. ss. subst.
@@ -837,7 +839,7 @@ Proof.
     { destruct eS; inv EVT; inv EVTR; eauto. }
 
     destruct (ThreadEvent.is_writing e) as [[[[[[]]]]]|] eqn: EVTW; eauto.
-    destruct (loc_ord_dec t4 t9 loc) eqn: LOD; eauto.
+    destruct (loc_ord_dec t3 t7 loc) eqn: LOD; eauto.
 
     apply List.not_in_cons; split; eauto.
     intro X; inv X. 
@@ -987,4 +989,3 @@ Proof.
   econs; eauto.
   by rewrite THS; setoid_rewrite IdentMap.Properties.F.map_o; rewrite TH0.
 Qed.
-

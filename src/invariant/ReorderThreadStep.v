@@ -41,8 +41,8 @@ Lemma reorder_promise_small_step
       (WF: Configuration.wf c0)
       (STEP1: small_step true tid1 e1 c0 c1)
       (STEP2: small_step false tid2 e2 c1 c2)
-      (E1: ThreadEvent_is_promising e1 = Some (loc, to))
-      (E2: ThreadEvent_is_promising e2 = None)
+      (E1: ThreadEvent.is_promising e1 = Some (loc, to))
+      (E2: ThreadEvent.is_promising e2 = None)
       (E12: forall val released ord, ThreadEvent.is_reading e2 <> Some (loc, to, val, released, ord))
       (PCONS: promise_consistent_th tid1 c2):
   exists c1',
@@ -51,7 +51,7 @@ Lemma reorder_promise_small_step
                ((tid1, c1') = (tid2, c2) \/
                 exists e1' l t,
                   <<STEP2: small_step true tid1 e1' c1' c2>> /\
-                  <<PROMISING: ThreadEvent_is_promising e1' = Some (l, t)>>)>>.
+                  <<PROMISING: ThreadEvent.is_promising e1' = Some (l, t)>>)>>.
 Proof.
   destruct (Ident.eq_dec tid1 tid2).
   - subst. inv STEP1. inv STEP2. ss.

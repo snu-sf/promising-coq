@@ -118,7 +118,7 @@ Proof.
     { apply WF_SRC. }
     { apply WF_TGT. }
     i. des.
-    exploit sim_memory_closed_view; eauto. i.
+    exploit sim_memory_closed_opt_view; eauto. i.
     exploit Memory.promise_future; try apply PROMISE_SRC; eauto.
     { apply WF_SRC. }
     i. des.

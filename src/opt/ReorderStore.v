@@ -64,7 +64,7 @@ Inductive sim_store: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (sc1
     lc1_tgt sc1_tgt mem1_tgt
     lc2_src sc2_src
     (REORDER: reorder_store l1 v1 o1 i2)
-    (FULFILL: fulfill_step lc1_src sc1_src l1 f1 t1 (RegFile.eval_value rs v1) View.bot released1 o1 lc2_src sc2_src)
+    (FULFILL: fulfill_step lc1_src sc1_src l1 f1 t1 (RegFile.eval_value rs v1) None released1 o1 lc2_src sc2_src)
     (LOCAL: sim_local lc2_src lc1_tgt)
     (SC: TimeMap.le sc2_src sc1_tgt)
     (MEMORY: sim_memory mem1_src mem1_tgt)
