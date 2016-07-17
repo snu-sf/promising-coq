@@ -49,7 +49,7 @@ Proof.
     econs 1. auto.
   - destruct c2.
     punfold SIM. exploit SIM; eauto; try refl. i. des.
-    exploit STEP0; eauto. i. des; [|done].
+    exploit STEP0; eauto. i. des. inv SIM0; [|done].
     eapply rtc_tau_step_behavior; eauto.
     exploit Configuration.step_future; try apply STEP; eauto. i. des.
     exploit Configuration.rtc_step_future; eauto. i. des.
@@ -58,7 +58,7 @@ Proof.
     eapply IHPR; eauto.
   - destruct c2.
     punfold SIM. exploit SIM; eauto; try refl. i. des.
-    inv STEP. exploit STEP0; eauto. i. des; [|done].
+    inv STEP. exploit STEP0; eauto. i. des. inv SIM0; [|done].
     eapply rtc_tau_step_behavior; eauto.
     exploit Configuration.step_future; try apply STEP; eauto. i. des.
     exploit Configuration.rtc_step_future; eauto. i. des.

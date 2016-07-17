@@ -118,7 +118,7 @@ Proof.
     + exploit sim_local_promise; eauto. i. des.
       esplits; (try exact SC); eauto.
       econs 2. econs 1. econs; eauto.
-    + exploit STEP; eauto. i. des; [|done].
+    + exploit STEP; eauto. i. des. inv SIM0; [|done].
       inv EVT. inv STEP_SRC.
       { esplits;
         (try by apply rtc_lang_tau_step_rtc_thread_tau_step; eauto);
@@ -132,7 +132,7 @@ Proof.
           eauto.
         econs 2. econs 2. econs 1; eauto.
       }
-    + exploit STEP; eauto. i. des; [|done].
+    + exploit STEP; eauto. i. des. inv SIM0; [|done].
       inv EVT. inv ORD. inv STEP_SRC.
       exploit sim_local_read; eauto. i. des.
       esplits;
@@ -142,7 +142,7 @@ Proof.
       * ss.
       * ss.
       * right. apply CIH; auto.
-    + exploit STEP; eauto. i. des; [|done].
+    + exploit STEP; eauto. i. des. inv SIM0; [|done].
       inv EVT. inv ORD. inv STEP_SRC.
       hexploit sim_local_write;
         (try exact LOCAL);
@@ -156,7 +156,7 @@ Proof.
       * ss.
       * ss.
       * right. apply CIH; auto.
-    + exploit STEP; eauto. i. des; [|done].
+    + exploit STEP; eauto. i. des. inv SIM0; [|done].
       inv EVT. inv ORD. inv STEP_SRC.
       exploit Local.read_step_future; eauto. i. des.
       exploit sim_local_read; eauto; try refl. i. des.
@@ -173,7 +173,7 @@ Proof.
       * ss.
       * ss.
       * right. apply CIH; auto.
-    + exploit STEP; eauto. i. des; [|done].
+    + exploit STEP; eauto. i. des. inv SIM0; [|done].
       inv EVT. inv ORD. inv STEP_SRC.
       exploit sim_local_fence;
         (try exact LOCAL);
@@ -187,7 +187,7 @@ Proof.
       * ss.
       * ss.
       * right. apply CIH; auto.
-    + exploit STEP; eauto. i. des; [|done].
+    + exploit STEP; eauto. i. des. inv SIM0; [|done].
       inv EVT. inv ORD. inv STEP_SRC.
       exploit sim_local_fence;
         (try exact LOCAL);

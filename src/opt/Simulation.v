@@ -129,7 +129,7 @@ Section SimulationLocal.
     splits; auto.
     - i. exploit TERMINAL; eauto. i. des.
       esplits; eauto.
-    - ii. exploit STEP; eauto. i. des; [|done].
+    - ii. exploit STEP; eauto. i. des. inv SIM0; [|done].
       esplits; eauto.
   Qed.
 End SimulationLocal.
@@ -307,7 +307,7 @@ Lemma sim_step
 Proof.
   punfold SIM. exploit SIM; eauto; try refl. i. des.
   exploit Thread.step_future; eauto. s. i. des.
-  exploit STEP0; eauto. i. des; [|done].
+  exploit STEP0; eauto. i. des. inv SIM0; [|done].
   exploit Thread.rtc_step_future; eauto. s. i. des.
   exploit Thread.opt_step_future; eauto. s. i. des.
   esplits; eauto.

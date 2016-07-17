@@ -427,7 +427,7 @@ Proof.
     + exploit Configuration.step_future; eauto. s. i. des.
       exploit Configuration.step_disjoint; eauto. s. i. des.
       punfold SIM1. exploit SIM1; try apply SC1; eauto. i. des.
-      exploit STEP0; eauto. i. des; [|done].
+      exploit STEP0; eauto. i. des. inv SIM; [|done].
       exploit Configuration.rtc_step_future; eauto. s. i. des.
       exploit Configuration.rtc_step_disjoint; eauto. s. i. des.
       exploit compose_rtc_step1; eauto. s. i. des.
@@ -444,7 +444,7 @@ Proof.
     + exploit Configuration.step_future; eauto. s. i. des.
       exploit Configuration.step_disjoint; try symmetry; eauto. s. i. des.
       punfold SIM2. exploit SIM2; try apply SC1; eauto. i. des.
-      exploit STEP0; eauto. i. des; [|done].
+      exploit STEP0; eauto. i. des. inv SIM; [|done].
       exploit Configuration.rtc_step_future; eauto. s. i. des.
       exploit Configuration.rtc_step_disjoint; try symmetry; eauto. s. i. des.
       exploit compose_rtc_step2; eauto. s. i. des.

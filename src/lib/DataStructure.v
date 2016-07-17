@@ -83,7 +83,7 @@ Module UsualProd (A B:UsualOrderedType) <: UsualOrderedType.
      destruct (B.compare_spec t1 t3); subst; econs; auto.
      - econs 2; auto.
      - econs 2; auto.
-   Qed.
+   Defined.
 
    Lemma eq_dec: forall x y : t, {x = y} + {x <> y}.
    Proof.
@@ -93,7 +93,7 @@ Module UsualProd (A B:UsualOrderedType) <: UsualOrderedType.
        + left. subst. auto.
        + right. contradict n. inv n. auto.
      - right. contradict n. inv n. auto.
-   Qed.
+   Defined.
 End UsualProd.
 
 

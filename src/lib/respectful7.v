@@ -124,7 +124,7 @@ Section Respectful7.
   Proof.
     intro r; pcofix CIH; i; pfold.
     eapply gf_mon, grespectful7_compose, grespectful7_respectful7.
-    destruct grespectful7_respectful7; eapply RESPECTFUL, PR; i; [by eauto using grespectful7_incl|].
+    destruct grespectful7_respectful7; eapply RESPECTFUL, PR; i; [by apply grespectful7_incl; eauto|].
     punfold PR0.
       by eapply gfgres7_mon; eauto; i; destruct PR1; eauto.
   Qed.
@@ -211,7 +211,7 @@ Section Respectful7.
   Proof.
     pcofix CIH. i. punfold PR. pfold.
     eapply gf_mon; [|apply grespectful7_incl].
-    eapply gf_mon; eauto. right. des; auto.
+    eapply gf_mon; eauto. i. right. inv PR0; auto.
   Qed.
 
   Lemma upto7_step

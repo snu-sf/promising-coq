@@ -2,8 +2,9 @@
 
 ## Build
 
-- You need Coq 8.5, and Make.
+- You need Coq 8.5pl2, and Make.
 - You can build by the `make` command in the root directory.
+- You can quickly build omitting all the proofs by the `make quick` command in the root directory.
 
 ## References
 

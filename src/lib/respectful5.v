@@ -122,7 +122,7 @@ Section Respectful5.
   Proof.
     intro r; pcofix CIH; i; pfold.
     eapply gf_mon, grespectful5_compose, grespectful5_respectful5.
-    destruct grespectful5_respectful5; eapply RESPECTFUL, PR; i; [by eauto using grespectful5_incl|].
+    destruct grespectful5_respectful5; eapply RESPECTFUL, PR; i; [by apply grespectful5_incl; eauto|].
     punfold PR0.
       by eapply gfgres5_mon; eauto; i; destruct PR1; eauto.
   Qed.
@@ -209,7 +209,7 @@ Section Respectful5.
   Proof.
     pcofix CIH. i. punfold PR. pfold.
     eapply gf_mon; [|apply grespectful5_incl].
-    eapply gf_mon; eauto. right. des; auto.
+    eapply gf_mon; eauto. i. right. inv PR0; auto.
   Qed.
 
   Lemma upto5_step

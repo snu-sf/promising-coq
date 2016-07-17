@@ -126,7 +126,7 @@ Section Respectful9.
   Proof.
     intro r; pcofix CIH; i; pfold.
     eapply gf_mon, grespectful9_compose, grespectful9_respectful9.
-    destruct grespectful9_respectful9; eapply RESPECTFUL, PR; i; [by eauto using grespectful9_incl|].
+    destruct grespectful9_respectful9; eapply RESPECTFUL, PR; i; [by apply grespectful9_incl; eauto|].
     punfold PR0.
       by eapply gfgres9_mon; eauto; i; destruct PR1; eauto.
   Qed.
@@ -213,7 +213,7 @@ Section Respectful9.
   Proof.
     pcofix CIH. i. punfold PR. pfold.
     eapply gf_mon; [|apply grespectful9_incl].
-    eapply gf_mon; eauto. right. des; auto.
+    eapply gf_mon; eauto. right. inv PR0; auto.
   Qed.
 
   Lemma upto9_step

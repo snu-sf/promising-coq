@@ -3,13 +3,23 @@ COQTHEORIES  := src/*/*.v
 
 .PHONY: all theories clean
 
-all: theories
+all: sflib paco Makefile.coq
+	$(MAKE) -f Makefile.coq all
+
+quick: sflib-quick paco-quick Makefile.coq
+	$(MAKE) -f Makefile.coq quick
 
 sflib: lib/sflib
 	$(MAKE) -C lib/sflib
 
+sflib-quick: lib/sflib
+	$(MAKE) -C lib/sflib quick
+
 paco: lib/paco/src
 	$(MAKE) -C lib/paco/src
+
+paco-quick: lib/paco/src
+	$(MAKE) -C lib/paco/src quick
 
 Makefile.coq: Makefile $(COQTHEORIES)
 	(echo "-R lib/sflib sflib"; \
@@ -26,9 +36,6 @@ Makefile.coq: Makefile $(COQTHEORIES)
    \
    echo $(COQTHEORIES)) > _CoqProject
 	coq_makefile -f _CoqProject -o Makefile.coq
-
-theories: sflib paco Makefile.coq
-	$(MAKE) -f Makefile.coq
 
 %.vo: Makefile.coq
 	$(MAKE) -f Makefile.coq "$@"
