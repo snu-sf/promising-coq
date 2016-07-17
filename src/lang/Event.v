@@ -24,21 +24,21 @@ Module Const := Nat.
 
 Module Ordering.
   (* NOTE: we curently do not support the nonatomics (#61).  Nonatomic
-     accesses differ from unordered accesses in that nonatomic
-     accesses may corrupt data in the presence of a race.
+     accesses differ from plain accesses in that nonatomic accesses may
+     corrupt data in the presence of a race.
 
      Even in Java, a data race may result in out-of-thin-air integral
      values.  But even with data races, it is impossible to forge an
      out-of-thin-air reference values.  See the link for more details:
      https://docs.oracle.com/javase/specs/jls/se7/html/jls-17.html#jls-17.7
 
-     Hence, our compilation scheme for Java plain accesses is as
+     Hence, our compilation scheme for Java normal accesses is as
      follows.
-     - Plain accesses to pointers are compiled to unordered accesses.
-     - Plain accesses to numbers are compiled to nonatomic accesses.
+     - Normal accesses to pointers are compiled to plain accesses.
+     - Normal accesses to numbers are compiled to nonatomic accesses.
    *)
   Inductive t :=
-  | unordered
+  | plain
   | relaxed
   | acqrel
   | seqcst
@@ -46,8 +46,8 @@ Module Ordering.
 
   Definition le (lhs rhs:t): bool :=
     match lhs, rhs with
-    | unordered, _ => true
-    | _, unordered => false
+    | plain, _ => true
+    | _, plain => false
 
     | relaxed, _ => true
     | _, relaxed => false

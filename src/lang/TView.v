@@ -314,16 +314,16 @@ Module TViewFacts.
            | [H1: is_true (Ordering.le ?o Ordering.acqrel),
               H2: Ordering.le Ordering.seqcst ?o = true |- _] =>
                by destruct o; inv H1; inv H2
-           | [H1: is_true (Ordering.le ?o Ordering.unordered),
+           | [H1: is_true (Ordering.le ?o Ordering.plain),
               H2: Ordering.le Ordering.acqrel ?o = true |- _] =>
                by destruct o; inv H1; inv H2
-           | [H1: is_true (Ordering.le ?o Ordering.unordered),
+           | [H1: is_true (Ordering.le ?o Ordering.plain),
               H2: Ordering.le Ordering.relaxed ?o = true |- _] =>
                by destruct o; inv H1; inv H2
-           | [H1: is_true (Ordering.le ?o Ordering.unordered),
+           | [H1: is_true (Ordering.le ?o Ordering.plain),
               H2: is_true (Ordering.le Ordering.relaxed ?o) |- _] =>
                by destruct o; inv H1; inv H2
-           | [H1: is_true (Ordering.le ?o Ordering.unordered),
+           | [H1: is_true (Ordering.le ?o Ordering.plain),
               H2: is_true (Ordering.le Ordering.seqcst ?o) |- _] =>
                by destruct o; inv H1; inv H2
            | [H1: is_true (Ordering.le ?o Ordering.acqrel),

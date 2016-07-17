@@ -219,7 +219,7 @@ Lemma read_fence_read_tview
       ord1
       loc2 ts2 released2 ord2
       tview0
-      (ORD2: Ordering.le ord2 Ordering.unordered \/ Ordering.le Ordering.acqrel ord2)
+      (ORD2: Ordering.le ord2 Ordering.plain \/ Ordering.le Ordering.acqrel ord2)
       (WF0: TView.wf tview0):
   TView.le
     (TView.read_fence_tview

@@ -36,7 +36,7 @@ Inductive reorder_fence (or1 ow1:Ordering.t): forall (i2:Instr.t), Prop :=
     r2 l2 o2
     (ORDR1: Ordering.le or1 Ordering.acqrel)
     (ORDW1: Ordering.le ow1 Ordering.relaxed)
-    (ORD2: Ordering.le o2 Ordering.unordered \/ Ordering.le Ordering.acqrel o2):
+    (ORD2: Ordering.le o2 Ordering.plain \/ Ordering.le Ordering.acqrel o2):
     reorder_fence or1 ow1 (Instr.load r2 l2 o2)
 | reorder_fence_store
     l2 v2 o2
@@ -47,7 +47,7 @@ Inductive reorder_fence (or1 ow1:Ordering.t): forall (i2:Instr.t), Prop :=
     r2 l2 rmw2 or2 ow2
     (ORDR1: Ordering.le or1 Ordering.acqrel)
     (ORDW1: Ordering.le ow1 Ordering.relaxed)
-    (ORDR2: Ordering.le or2 Ordering.unordered \/ Ordering.le Ordering.acqrel or2):
+    (ORDR2: Ordering.le or2 Ordering.plain \/ Ordering.le Ordering.acqrel or2):
     reorder_fence or1 ow1 (Instr.update r2 l2 rmw2 or2 ow2)
 .
 

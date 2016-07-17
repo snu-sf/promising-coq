@@ -32,7 +32,7 @@ Set Implicit Arguments.
 (* NOTE: Elimination of a unused relaxed load is unsound under the
  * liveness-aware semantics.  Consider the following example:
 
-    while (!y_unordered) {
+    while (!y_plain) {
         r = x_rlx;
         fence(acquire);
     }
@@ -44,14 +44,14 @@ Set Implicit Arguments.
 
  * Under the liveness-aware semantics, the loop *should* break, as
  * once `x_rlx` will read `x =rel 1` and the acquire fence guarantees
- * that `y_unordered` will read 1.  However, the elimination of
+ * that `y_plain` will read 1.  However, the elimination of
  * `x_rlx` will allow the loop to run forever.
  *)
 
 Lemma unused_read
       lc0 mem0
       loc ord
-      (ORD: Ordering.le ord Ordering.unordered)
+      (ORD: Ordering.le ord Ordering.plain)
       (WF: Local.wf lc0 mem0)
       (MEM: Memory.closed mem0):
   exists ts val released,
@@ -73,7 +73,7 @@ Qed.
 
 Lemma unused_load_sim_stmts
       r loc ord
-      (ORD: Ordering.le ord Ordering.unordered):
+      (ORD: Ordering.le ord Ordering.plain):
   sim_stmts (RegFile.eq_except (RegSet.singleton r))
             [Stmt.instr (Instr.load r loc ord)]
             []

@@ -39,11 +39,11 @@ Inductive reorder_release_fenceF: forall (i2:Instr.t), Prop :=
     reorder_release_fenceF (Instr.load r2 l2 o2)
 | reorder_release_fenceF_store
     l2 v2 o2
-    (ORD2: Ordering.le o2 Ordering.unordered \/ Ordering.le Ordering.acqrel o2):
+    (ORD2: Ordering.le o2 Ordering.plain \/ Ordering.le Ordering.acqrel o2):
     reorder_release_fenceF (Instr.store l2 v2 o2)
 | reorder_release_fenceF_update
     r2 l2 rmw2 or2 ow2
-    (ORDW2: Ordering.le ow2 Ordering.unordered \/ Ordering.le Ordering.acqrel ow2):
+    (ORDW2: Ordering.le ow2 Ordering.plain \/ Ordering.le Ordering.acqrel ow2):
     reorder_release_fenceF (Instr.update r2 l2 rmw2 or2 ow2)
 | reorder_release_fenceF_fence:
     reorder_release_fenceF (Instr.fence Ordering.acqrel Ordering.relaxed)

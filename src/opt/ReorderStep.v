@@ -123,7 +123,7 @@ Lemma reorder_read_read
       lc0 mem0
       lc1
       lc2
-      (LOC: loc1 = loc2 -> Ordering.le ord1 Ordering.unordered)
+      (LOC: loc1 = loc2 -> Ordering.le ord1 Ordering.plain)
       (ORD2: Ordering.le ord2 Ordering.relaxed)
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
@@ -545,7 +545,7 @@ Lemma reorder_write_fence
       lc0 sc0 mem0
       lc1 sc1 mem1
       lc2 sc2
-      (ORD1: Ordering.le ord1 Ordering.unordered \/ Ordering.le Ordering.acqrel ord1)
+      (ORD1: Ordering.le ord1 Ordering.plain \/ Ordering.le Ordering.acqrel ord1)
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
@@ -822,7 +822,7 @@ Lemma reorder_fence_read
       lc2
       (ORDR1: Ordering.le ordr1 Ordering.acqrel)
       (ORDW1: Ordering.le ordw1 Ordering.relaxed)
-      (ORD2: Ordering.le ord2 Ordering.unordered \/ Ordering.le Ordering.acqrel ord2)
+      (ORD2: Ordering.le ord2 Ordering.plain \/ Ordering.le Ordering.acqrel ord2)
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
