@@ -40,6 +40,9 @@ Makefile.coq: Makefile $(COQTHEORIES)
 %.vo: Makefile.coq
 	$(MAKE) -f Makefile.coq "$@"
 
+%.vio: Makefile.coq
+	$(MAKE) -f Makefile.coq "$@"
+
 clean:
 	$(MAKE) -f Makefile.coq clean
 	rm -f _CoqProject Makefile.coq
