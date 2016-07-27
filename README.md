@@ -2,9 +2,9 @@
 
 ## Build
 
-- You need Coq 8.5pl2, and Make.
-- You can build by the `make` command in the root directory.
-- You can quickly build omitting all the proofs by the `make quick` command in the root directory.
+- Requirement: Coq 8.5pl2, Make, Rsync.
+- `make`: quickly build without checking all the proofs.
+- `./build.sh`: build with checking all the proofs.  It will incrementally copy the development in the `.build` directory, and then build there.
 
 ## References
 
