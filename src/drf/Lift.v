@@ -20,6 +20,7 @@ Require Import Progress.
 
 Require Import DRFBase.
 Require Import SmallStep.
+Require Import Fulfilled.
 Require Import Race.
 Require Import PIStep.
 
@@ -610,7 +611,7 @@ Lemma conf_update_memory_wf
       (EQMEM: mem_eqrel (View_lift_le l t msgs) cT1.(Configuration.memory) M1)
       (IN: Memory.get l t cT1.(Configuration.memory) <> None)
       (MSGS: forall loc to (IN: List.In (loc, to) msgs),
-          (exists from msg, nonpromise cT1 loc from to msg) /\
+          (exists from msg, fulfilled cT1 loc from to msg) /\
           loc <> l /\
           to <> Time.bot):
   pi_wf (View_lift_le l t msgs) (cS1,conf_update_memory cT1 M1).
@@ -624,7 +625,7 @@ Proof.
         eapply EQMEM in x. des. rewrite IN0.
         unfold View_lift_le in CMP. des; subst; ss.
         exploit MSGS; eauto. i. des.
-        inv x. exfalso. eapply NONPROMISE. econs; eauto.
+        inv x. exfalso. eapply FULFILLED. econs; eauto.
     + eapply mem_eqrel_closed_timemap; eauto.
     + inv MEM. econs.
       * i. inv EQMEM. des. exploit H0; eauto. i. des.
@@ -924,35 +925,35 @@ Proof.
   - inv LOCAL2. eapply Memory_write_not_bot. eauto.
 Qed.
 
-Lemma nonwriting_small_step_nonpromise_forward
+Lemma nonwriting_small_step_fulfilled_forward
       tid e c1 c2
       (WF: Configuration.wf c1)
       (STEP: small_step false tid e c1 c2)
       (NONWRITING: ThreadEvent.is_writing e = None):
   forall l f t msg
-    (NP: nonpromise c1 l f t msg),
-    nonpromise c2 l f t msg.
+    (NP: fulfilled c1 l f t msg),
+    fulfilled c2 l f t msg.
 Proof.
   inv STEP. inv STEP0; inv STEP; inv PFREE; inv NONWRITING.
   - i. inv NP. econs; eauto. ii. inv H. ss.
     revert TID0. rewrite IdentMap.gsspec. condtac; ss; i.
-    + inv TID0. eapply NONPROMISE. econs; eauto.
-    + eapply NONPROMISE. econs; eauto.
+    + inv TID0. eapply FULFILLED. econs; eauto.
+    + eapply FULFILLED. econs; eauto.
   - inv LOCAL.
     i. inv NP. econs; eauto. ii. inv H. ss.
     revert TID0. rewrite IdentMap.gsspec. condtac; ss; i.
-    + inv TID0. eapply NONPROMISE. econs; eauto.
-    + eapply NONPROMISE. econs; eauto.
+    + inv TID0. eapply FULFILLED. econs; eauto.
+    + eapply FULFILLED. econs; eauto.
   - inv LOCAL.
     i. inv NP. econs; eauto. ii. inv H. ss.
     revert TID0. rewrite IdentMap.gsspec. condtac; ss; i.
-    + inv TID0. eapply NONPROMISE. econs; eauto.
-    + eapply NONPROMISE. econs; eauto.
+    + inv TID0. eapply FULFILLED. econs; eauto.
+    + eapply FULFILLED. econs; eauto.
   - inv LOCAL.
     i. inv NP. econs; eauto. ii. inv H. ss.
     revert TID0. rewrite IdentMap.gsspec. condtac; ss; i.
-    + inv TID0. eapply NONPROMISE. econs; eauto.
-    + eapply NONPROMISE. econs; eauto.
+    + inv TID0. eapply FULFILLED. econs; eauto.
+    + eapply FULFILLED. econs; eauto.
 Qed.
 
 Lemma pi_step_lift_except_future
@@ -962,14 +963,14 @@ Lemma pi_step_lift_except_future
       (IN: Memory.get l t cT1.(Configuration.memory) <> None)
       (PI_STEP: pi_step_lift_except_aux l t tid e (cS1,cT1,M1) (cS2,cT2,M2))
       (MSGS: forall loc to (IN: List.In (loc, to) msgs),
-          (exists from msg, nonpromise cT1 loc from to msg) /\
+          (exists from msg, fulfilled cT1 loc from to msg) /\
           loc <> l /\
           to <> Time.bot)
 :
   <<EQMEM: mem_eqrel (View_lift_le l t (msg_add l e msgs)) cT2.(Configuration.memory) M2>> /\
   <<IN: Memory.get l t cT2.(Configuration.memory) <> None>> /\
   <<MSGS: forall loc to (IN: List.In (loc, to) (msg_add l e msgs)),
-          (exists from msg, nonpromise cT2 loc from to msg) /\
+          (exists from msg, fulfilled cT2 loc from to msg) /\
           loc <> l /\
           to <> Time.bot>> /\
   <<MEMFUT: Memory.future M1 M2>> /\
@@ -1031,11 +1032,11 @@ Proof.
     + exploit MSGS; eauto. i. des. esplits; eauto.
       inv WF. inv PI_STEP0.
       destruct (ThreadEvent.is_writing e) as [[[[[[]]]]]|] eqn:X; ss.
-      * eapply writing_small_step_nonpromise_forward; eauto.
-      * eapply nonwriting_small_step_nonpromise_forward; eauto.
+      * eapply writing_small_step_fulfilled_forward; eauto.
+      * eapply nonwriting_small_step_fulfilled_forward; eauto.
     + destruct (ThreadEvent.is_writing e) as [[[[[[]]]]]|] eqn:X; ss.
       des. subst.
-      inv WF. inv PI_STEP0. exploit writing_small_step_nonpromise_new; eauto. i.
+      inv WF. inv PI_STEP0. exploit writing_small_step_fulfilled_new; eauto. i.
       esplits; eauto. eapply writing_small_step_not_bot; eauto.
 Qed.
 
@@ -1054,7 +1055,7 @@ Lemma rtc_pi_step_lift_except_future
 Proof.
   apply (@proj2 (<<EQMEM: exists msgs, mem_eqrel (View_lift_le l t msgs) cSTM2.(fst).(snd).(Configuration.memory) cSTM2.(snd) /\
                  <<MSGS: forall loc to (IN: List.In (loc, to) msgs),
-                         (exists from msg, nonpromise cSTM2.(fst).(snd) loc from to msg) /\
+                         (exists from msg, fulfilled cSTM2.(fst).(snd) loc from to msg) /\
                          loc <> l /\
                          to <> Time.bot>> >> /\
                  <<IN: Memory.get l t cSTM2.(fst).(snd).(Configuration.memory) <> None>>)).

@@ -47,6 +47,6 @@
     + We did not formalize DRF-RA (Theorem 2) and DRF-SC (Theorem 3).
 
 - `src/invariant`: An Invariant-Based Program Logic (Section 5.4)
-    + Promise-free certification: Lemma `consistent_pf_consistent` (`Certification.v`)
+    + Promise-free certification: Lemma `consistent_pf_consistent` (`PFConsistent.v`)
       In certification, promise is useless.
     + Soundness: Lemma `sound` (`Invariant.v`)

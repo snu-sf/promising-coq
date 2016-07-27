@@ -27,8 +27,8 @@ Require Import MemoryReorder.
 Require Import DRFBase.
 Require Import SmallStep.
 Require Import PromiseConsistent.
-Require Import ReorderThreadStepSame.
-Require Import ReorderThreadStepDiff.
+Require Import ReorderPromiseSame.
+Require Import ReorderPromiseDiff.
 
 Set Implicit Arguments.
 

@@ -365,6 +365,13 @@ Module Thread.
         (STEP: program_step e e1 e2)
     .
 
+    Inductive tau_program_step (e1 e2:t): Prop :=
+    | step_program_tau
+        e
+        (STEP: program_step e e1 e2)
+        (TAU: ThreadEvent.get_event e = None)
+    .
+
     Inductive tau_step (e1 e2:t): Prop :=
     | step_tau
         e

@@ -16,36 +16,12 @@ Require Import TView.
 Require Import Thread.
 Require Import Configuration.
 Require Import Progress.
+Require Import MemoryFacts.
 
 Set Implicit Arguments.
 
 Hint Constructors Thread.program_step.
 Hint Constructors Thread.step.
-
-
-Definition option_app {A} (a b: option A) : option A :=
-  if a then a else b.
-
-Lemma strengthen
-      (A B: Prop)
-      (H: A /\ (A -> B)):
-  A /\ B.
-Proof. intuition. Qed.
-
-Lemma option_map_map 
-      A B C (f: B -> C) (g: A -> B) (a: option A):
-  option_map f (option_map g a) = option_map (fun x => f (g x)) a.
-Proof.
-  destruct a; eauto.
-Qed.
-
-Lemma ordering_relaxed_dec
-      ord:
-  Ordering.le ord Ordering.relaxed \/ Ordering.le Ordering.acqrel ord.
-Proof. destruct ord; auto. Qed.
-
-
-
 
 
 Inductive step_union {A} {E} (step: E -> A -> A -> Prop) (c1 c2: A) : Prop :=
@@ -118,6 +94,7 @@ Definition mem_sub (cmp: Loc.t -> Time.t -> option View.t -> option View.t -> Pr
 Definition loctmeq (l: Loc.t) (t: Time.t) (r1 r2: option View.t) : Prop := r1 = r2.
 Hint Unfold loctmeq.
 
+
 Lemma local_simul_fence
       com prm prm' sc ordr ordw com' sc'
       (LOCAL: Local.fence_step (Local.mk com prm) sc ordr ordw (Local.mk com' prm') sc'):
@@ -126,7 +103,6 @@ Proof.
   inv LOCAL. econs; eauto.
 Qed.
 
-Require Import MemoryFacts.
 
 Lemma local_simul_write
       cmp com com' sc sc' mS mT mT' loc from to val relr relw ord kind prm prm'

@@ -30,6 +30,7 @@ Makefile.coq: Makefile $(COQTHEORIES)
    echo "-R src/lib $(COQMODULE)"; \
    echo "-R src/lang $(COQMODULE)"; \
    echo "-R src/while $(COQMODULE)"; \
+   echo "-R src/prop $(COQMODULE)"; \
    echo "-R src/opt $(COQMODULE)"; \
    echo "-R src/drf $(COQMODULE)"; \
    echo "-R src/invariant $(COQMODULE)"; \

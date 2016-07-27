@@ -26,13 +26,6 @@ Definition Thread_step_all {lang} (t1 t2:Thread.t lang) : Prop :=
   step_union (@Thread.step lang) t1 t2.
 Hint Unfold Thread_step_all.
 
-Inductive tau_program_step lang e1 e2: Prop :=
-| step_program_tau
-    e
-    (STEP: @Thread.program_step lang e e1 e2)
-    (TAU: ThreadEvent.get_event e = None)
-.
-
 Inductive small_step (withprm: bool) (tid:Ident.t) (e:ThreadEvent.t) (c1:Configuration.t): forall (c2:Configuration.t), Prop :=
 | small_step_intro
     lang st1 st2 lc1 ths2 lc2 sc2 memory2
@@ -164,7 +157,7 @@ Lemma tau_program_step_small_step
       st1 lc1 sc1 mem1
       st2 lc2 sc2 mem2
       (TID: IdentMap.find tid threads = Some (existT _ lang st1, lc1))
-      (STEP: tau_program_step (Thread.mk lang st1 lc1 sc1 mem1) (Thread.mk lang st2 lc2 sc2 mem2)):
+      (STEP: Thread.tau_program_step (Thread.mk lang st1 lc1 sc1 mem1) (Thread.mk lang st2 lc2 sc2 mem2)):
   small_step_evt false tid 
              (Configuration.mk threads sc1 mem1)
              (Configuration.mk (IdentMap.add tid (existT _ lang st2, lc2) threads) sc2 mem2).
@@ -176,7 +169,7 @@ Lemma tau_program_step_small_step_aux
       lang tid threads
       st1 lc1 sc1 mem1
       st2 lc2 sc2 mem2
-      (STEP: tau_program_step (Thread.mk lang st1 lc1 sc1 mem1) (Thread.mk lang st2 lc2 sc2 mem2)):
+      (STEP: Thread.tau_program_step (Thread.mk lang st1 lc1 sc1 mem1) (Thread.mk lang st2 lc2 sc2 mem2)):
   small_step_evt false tid
              (Configuration.mk (IdentMap.add tid (existT _ lang st1, lc1) threads) sc1 mem1)
              (Configuration.mk (IdentMap.add tid (existT _ lang st2, lc2) threads) sc2 mem2).
@@ -190,7 +183,7 @@ Lemma rtc_tau_program_step_rtc_small_step_aux
       lang tid threads
       th1 th2
       (TID: IdentMap.find tid threads = Some (existT _ lang th1.(Thread.state), th1.(Thread.local)))
-      (STEP: (rtc (@tau_program_step lang)) th1 th2):
+      (STEP: (rtc (@Thread.tau_program_step lang)) th1 th2):
   rtc (small_step_evt false tid)
       (Configuration.mk threads th1.(Thread.sc) th1.(Thread.memory))
       (Configuration.mk (IdentMap.add tid (existT _ lang th2.(Thread.state), th2.(Thread.local)) threads) th2.(Thread.sc) th2.(Thread.memory)).
@@ -211,7 +204,7 @@ Lemma rtc_tau_program_step_rtc_small_step
       st1 lc1 sc1 mem1
       st2 lc2 sc2 mem2
       (TID: IdentMap.find tid threads = Some (existT _ lang st1, lc1))
-      (STEP: (rtc (@tau_program_step lang)) (Thread.mk lang st1 lc1 sc1 mem1) (Thread.mk lang st2 lc2 sc2 mem2)):
+      (STEP: (rtc (@Thread.tau_program_step lang)) (Thread.mk lang st1 lc1 sc1 mem1) (Thread.mk lang st2 lc2 sc2 mem2)):
   rtc (small_step_evt false tid)
       (Configuration.mk threads sc1 mem1)
       (Configuration.mk (IdentMap.add tid (existT _ lang st2, lc2) threads) sc2 mem2).
@@ -351,300 +344,4 @@ Proof.
   i; des. rewrite FIND0 in FIND1. inv FIND1.
   rewrite PROMISES in *. 
   setoid_rewrite Cell.bot_get in PROMISES0. done.
-Qed.
-
-Inductive nonpromise c l f t msg :=
-| nonpromise_intro
-    (GET: Memory.get l t c.(Configuration.memory) = Some (f, msg))
-    (NONPROMISE: forall tid, ~ Threads.is_promised tid l t c.(Configuration.threads))
-.
-
-Lemma writing_small_step_nonpromise_forward
-      withprm tid e c1 c2 loc from to val released ord
-      (WF: Configuration.wf c1)
-      (STEP: small_step withprm tid e c1 c2)
-      (WRITING: ThreadEvent.is_writing e = Some (loc, from, to, val, released, ord)):
-  forall l f t msg
-    (NP: nonpromise c1 l f t msg),
-    nonpromise c2 l f t msg.
-Proof.
-  inv STEP. inv STEP0; inv STEP; inv WRITING.
-  - inv LOCAL. inv WRITE. inv PROMISE.
-    { i. inv NP. econs; s.
-      - erewrite Memory.add_o; eauto. condtac; ss.
-        des. subst. exploit Memory.add_get0; eauto. congr.
-      - ii. inv H. revert TID0. rewrite IdentMap.gsspec. condtac.
-        + i. inv TID0. apply inj_pair2 in H1. subst. ss.
-          revert PROMISES0. erewrite Memory.remove_o; eauto. condtac; ss.
-          erewrite Memory.add_o; eauto. condtac; ss. i.
-          eapply NONPROMISE. econs; eauto.
-        + i. eapply NONPROMISE. econs; eauto.
-    }
-    { i. inv NP. econs; s.
-      - erewrite Memory.split_o; eauto. condtac; ss.
-        { des. subst. exploit Memory.split_get0; eauto. i. des. congr. }
-        condtac; ss. guardH o. des. subst.
-        exfalso. eapply NONPROMISE. econs; eauto.
-        hexploit Memory.split_get0; try exact PROMISES; eauto. i. des. eauto.
-      - ii. inv H. revert TID0. rewrite IdentMap.gsspec. condtac.
-        + i. inv TID0. apply inj_pair2 in H1. subst. ss.
-          revert PROMISES0. erewrite Memory.remove_o; eauto. condtac; ss.
-          erewrite Memory.split_o; eauto. repeat condtac; ss.
-          * guardH o. guardH o0. i. des. inv PROMISES0.
-            eapply NONPROMISE. econs; eauto.
-            hexploit Memory.split_get0; try exact PROMISES; eauto. i. des. eauto.
-          * i. eapply NONPROMISE. econs; eauto.
-        + i. eapply NONPROMISE. econs; eauto.
-    }
-    { i. inv NP. econs; s.
-      - erewrite Memory.lower_o; eauto. condtac; ss.
-        des. subst. exfalso. eapply NONPROMISE. econs; eauto.
-        hexploit Memory.lower_get0; try exact PROMISES; eauto.
-      - ii. inv H. revert TID0. rewrite IdentMap.gsspec. condtac.
-        + i. inv TID0. apply inj_pair2 in H1. subst. ss.
-          revert PROMISES0. erewrite Memory.remove_o; eauto. condtac; ss.
-          erewrite Memory.lower_o; eauto. condtac; ss.
-          guardH o. guardH o0. i. des. inv PROMISES0.
-          eapply NONPROMISE. econs; eauto.
-        + i. eapply NONPROMISE. econs; eauto.
-    }
-  - inv LOCAL1. clear GET.
-    inv LOCAL2. inv WRITE. inv PROMISE.
-    { i. inv NP. econs; s.
-      - erewrite Memory.add_o; eauto. condtac; ss.
-        des. subst. exploit Memory.add_get0; eauto. congr.
-      - ii. inv H. revert TID0. rewrite IdentMap.gsspec. condtac.
-        + i. inv TID0. apply inj_pair2 in H1. subst. ss.
-          revert PROMISES0. erewrite Memory.remove_o; eauto. condtac; ss.
-          erewrite Memory.add_o; eauto. condtac; ss. i.
-          eapply NONPROMISE. econs; eauto.
-        + i. eapply NONPROMISE. econs; eauto.
-    }
-    { i. inv NP. econs; s.
-      - erewrite Memory.split_o; eauto. condtac; ss.
-        { des. subst. exploit Memory.split_get0; eauto. i. des. congr. }
-        condtac; ss. guardH o. des. subst.
-        exfalso. eapply NONPROMISE. econs; eauto.
-        hexploit Memory.split_get0; try exact PROMISES; eauto. i. des. eauto.
-      - ii. inv H. revert TID0. rewrite IdentMap.gsspec. condtac.
-        + i. inv TID0. apply inj_pair2 in H1. subst. ss.
-          revert PROMISES0. erewrite Memory.remove_o; eauto. condtac; ss.
-          erewrite Memory.split_o; eauto. repeat condtac; ss.
-          * guardH o. guardH o0. i. des. inv PROMISES0.
-            eapply NONPROMISE. econs; eauto.
-            hexploit Memory.split_get0; try exact PROMISES; eauto. i. des. eauto.
-          * i. eapply NONPROMISE. econs; eauto.
-        + i. eapply NONPROMISE. econs; eauto.
-    }
-    { i. inv NP. econs; s.
-      - erewrite Memory.lower_o; eauto. condtac; ss.
-        des. subst. exfalso. eapply NONPROMISE. econs; eauto.
-        hexploit Memory.lower_get0; try exact PROMISES; eauto.
-      - ii. inv H. revert TID0. rewrite IdentMap.gsspec. condtac.
-        + i. inv TID0. apply inj_pair2 in H1. subst. ss.
-          revert PROMISES0. erewrite Memory.remove_o; eauto. condtac; ss.
-          erewrite Memory.lower_o; eauto. condtac; ss.
-          guardH o. guardH o0. i. des. inv PROMISES0.
-          eapply NONPROMISE. econs; eauto.
-        + i. eapply NONPROMISE. econs; eauto.
-    }
-Qed.
-
-Lemma writing_small_step_nonpromise_new
-      withprm tid e c1 c2 loc from to val released ord
-      (WF: Configuration.wf c1)
-      (STEP: small_step withprm tid e c1 c2)
-      (WRITING: ThreadEvent.is_writing e = Some (loc, from, to, val, released, ord)):
-  nonpromise c2 loc from to (Message.mk val released).
-Proof.
-  inv STEP. inv STEP0; inv STEP; inv WRITING.
-  - inv LOCAL. inv WRITE. inv PROMISE.
-    { econs; s.
-      - erewrite Memory.add_o; eauto. condtac; ss. des; congr.
-      - ii. inv H. revert TID0. rewrite IdentMap.gsspec. condtac.
-        + i. inv TID0. apply inj_pair2 in H1. subst. ss.
-          revert PROMISES0. erewrite Memory.remove_o; eauto. condtac; ss.
-          des; congr.
-        + i. exploit Memory.add_get0; eauto. i.
-          inv WF. inv WF0. exploit THREADS; eauto. i. inv x.
-          apply PROMISES1 in PROMISES0. congr.
-    }
-    { econs; s.
-      - erewrite Memory.split_o; eauto. condtac; ss.
-        exfalso. clear -o. des; apply o; auto.
-      - ii. inv H. revert TID0. rewrite IdentMap.gsspec. condtac.
-        + i. inv TID0. apply inj_pair2 in H1. subst. ss.
-          revert PROMISES0. erewrite Memory.remove_o; eauto. condtac; ss.
-          des; congr.
-        + i. exploit Memory.split_get0; eauto. i. des.
-          inv WF. inv WF0. exploit THREADS; eauto. i. inv x.
-          apply PROMISES1 in PROMISES0. congr.
-    }
-    { econs; s.
-      - erewrite Memory.lower_o; eauto. condtac; ss. des; congr.
-      - ii. inv H. revert TID0. rewrite IdentMap.gsspec. condtac.
-        + i. inv TID0. apply inj_pair2 in H1. subst. ss.
-          revert PROMISES0. erewrite Memory.remove_o; eauto. condtac; ss.
-          des; congr.
-        + i. exploit Memory.lower_get0; eauto. i.
-          inv WF. inv WF0. exploit DISJOINT; eauto. i.
-          eapply Memory.disjoint_get; try apply x; eauto.
-          eapply Memory.lower_get0. eauto.
-    }
-  - inv LOCAL1. clear GET.
-    inv LOCAL2. inv WRITE. inv PROMISE.
-    { econs; s.
-      - erewrite Memory.add_o; eauto. condtac; ss. des; congr.
-      - ii. inv H. revert TID0. rewrite IdentMap.gsspec. condtac.
-        + i. inv TID0. apply inj_pair2 in H1. subst. ss.
-          revert PROMISES0. erewrite Memory.remove_o; eauto. condtac; ss.
-          des; congr.
-        + i. exploit Memory.add_get0; eauto. i.
-          inv WF. inv WF0. exploit THREADS; eauto. i. inv x.
-          apply PROMISES1 in PROMISES0. congr.
-    }
-    { econs; s.
-      - erewrite Memory.split_o; eauto. condtac; ss.
-        exfalso. clear -o. des; apply o; auto.
-      - ii. inv H. revert TID0. rewrite IdentMap.gsspec. condtac.
-        + i. inv TID0. apply inj_pair2 in H1. subst. ss.
-          revert PROMISES0. erewrite Memory.remove_o; eauto. condtac; ss.
-          des; congr.
-        + i. exploit Memory.split_get0; eauto. i. des.
-          inv WF. inv WF0. exploit THREADS; eauto. i. inv x.
-          apply PROMISES1 in PROMISES0. congr.
-    }
-    { econs; s.
-      - erewrite Memory.lower_o; eauto. condtac; ss. des; congr.
-      - ii. inv H. revert TID0. rewrite IdentMap.gsspec. condtac.
-        + i. inv TID0. apply inj_pair2 in H1. subst. ss.
-          revert PROMISES0. erewrite Memory.remove_o; eauto. condtac; ss.
-          des; congr.
-        + i. exploit Memory.lower_get0; eauto. i.
-          inv WF. inv WF0. exploit DISJOINT; eauto. i.
-          eapply Memory.disjoint_get; try apply x; eauto.
-          eapply Memory.lower_get0. eauto.
-    }
-Qed.
-
-Lemma writing_small_step_nonpromise_backward
-      withprm tid e c1 c2 loc from to val released ord
-      (WF: Configuration.wf c1)
-      (STEP: small_step withprm tid e c1 c2)
-      (WRITING: ThreadEvent.is_writing e = Some (loc, from, to, val, released, ord)):
-  forall l f t msg
-    (NP: nonpromise c2 l f t msg),
-    nonpromise c1 l f t msg \/ (l, f, t, msg) = (loc, from, to, Message.mk val released).
-Proof.
-  inv STEP. inv STEP0; inv STEP; inv WRITING.
-  - inv LOCAL. inv WRITE. inv PROMISE.
-    { i. inv NP. ss. revert GET. erewrite Memory.add_o; eauto. condtac; ss.
-      { i. des. inv GET. auto. }
-      { left. econs; eauto. ii. inv H.
-        destruct (Ident.eq_dec tid0 tid).
-        - subst. rewrite TID in TID0. inv TID0. apply inj_pair2 in H1. subst.
-          eapply NONPROMISE. econs.
-          + rewrite IdentMap.gss. eauto.
-          + s. erewrite Memory.remove_o; eauto. condtac; ss.
-            erewrite Memory.add_o; eauto. condtac; [|eauto]. ss.
-        - eapply NONPROMISE. econs; eauto.
-          rewrite IdentMap.gso; eauto.
-      }
-    }
-    { i. inv NP. ss. revert GET. erewrite Memory.split_o; eauto. condtac; ss.
-      { i. des. inv GET. auto. }
-      guardH o. condtac; ss.
-      { i. des. inv GET. exfalso. eapply NONPROMISE. econs.
-        - rewrite IdentMap.gss. eauto.
-        - erewrite Memory.remove_o; eauto. condtac; ss.
-          erewrite Memory.split_o; eauto.
-          do 2 (condtac; try congr). eauto.
-      }
-      { left. econs; eauto. ii. inv H.
-        destruct (Ident.eq_dec tid0 tid).
-        - subst. rewrite TID in TID0. inv TID0. apply inj_pair2 in H1. subst.
-          eapply NONPROMISE. econs.
-          + rewrite IdentMap.gss. eauto.
-          + s. erewrite Memory.remove_o; eauto. condtac; ss.
-            erewrite Memory.split_o; eauto. do 2 (condtac; try congr). eauto.
-        - eapply NONPROMISE. econs; eauto.
-          rewrite IdentMap.gso; eauto.
-      }
-    }
-    { i. inv NP. ss. revert GET. erewrite Memory.lower_o; eauto. condtac; ss.
-      { i. des. inv GET. auto. }
-      { left. econs; eauto. ii. inv H.
-        destruct (Ident.eq_dec tid0 tid).
-        - subst. rewrite TID in TID0. inv TID0. apply inj_pair2 in H1. subst.
-          eapply NONPROMISE. econs.
-          + rewrite IdentMap.gss. eauto.
-          + s. erewrite Memory.remove_o; eauto. condtac; ss.
-            erewrite Memory.lower_o; eauto. condtac; [|eauto]. ss.
-        - eapply NONPROMISE. econs; eauto.
-          rewrite IdentMap.gso; eauto.
-      }
-    }
-  - inv LOCAL1. clear GET.
-    inv LOCAL2. inv WRITE. inv PROMISE.
-    { i. inv NP. ss. revert GET. erewrite Memory.add_o; eauto. condtac; ss.
-      { i. des. inv GET. auto. }
-      { left. econs; eauto. ii. inv H.
-        destruct (Ident.eq_dec tid0 tid).
-        - subst. rewrite TID in TID0. inv TID0. apply inj_pair2 in H1. subst.
-          eapply NONPROMISE. econs.
-          + rewrite IdentMap.gss. eauto.
-          + s. erewrite Memory.remove_o; eauto. condtac; ss.
-            erewrite Memory.add_o; eauto. condtac; [|eauto]. ss.
-        - eapply NONPROMISE. econs; eauto.
-          rewrite IdentMap.gso; eauto.
-      }
-    }
-    { i. inv NP. ss. revert GET. erewrite Memory.split_o; eauto. condtac; ss.
-      { i. des. inv GET. auto. }
-      guardH o. condtac; ss.
-      { i. des. inv GET. exfalso. eapply NONPROMISE. econs.
-        - rewrite IdentMap.gss. eauto.
-        - erewrite Memory.remove_o; eauto. condtac; ss.
-          erewrite Memory.split_o; eauto.
-          do 2 (condtac; try congr). eauto.
-      }
-      { left. econs; eauto. ii. inv H.
-        destruct (Ident.eq_dec tid0 tid).
-        - subst. rewrite TID in TID0. inv TID0. apply inj_pair2 in H1. subst.
-          eapply NONPROMISE. econs.
-          + rewrite IdentMap.gss. eauto.
-          + s. erewrite Memory.remove_o; eauto. condtac; ss.
-            erewrite Memory.split_o; eauto. do 2 (condtac; try congr). eauto.
-        - eapply NONPROMISE. econs; eauto.
-          rewrite IdentMap.gso; eauto.
-      }
-    }
-    { i. inv NP. ss. revert GET. erewrite Memory.lower_o; eauto. condtac; ss.
-      { i. des. inv GET. auto. }
-      { left. econs; eauto. ii. inv H.
-        destruct (Ident.eq_dec tid0 tid).
-        - subst. rewrite TID in TID0. inv TID0. apply inj_pair2 in H1. subst.
-          eapply NONPROMISE. econs.
-          + rewrite IdentMap.gss. eauto.
-          + s. erewrite Memory.remove_o; eauto. condtac; ss.
-            erewrite Memory.lower_o; eauto. condtac; [|eauto]. ss.
-        - eapply NONPROMISE. econs; eauto.
-          rewrite IdentMap.gso; eauto.
-      }
-    }
-Qed.
-
-Lemma writing_small_step_nonpromise
-      withprm tid e c1 c2 loc from to val released ord
-      (WF: Configuration.wf c1)
-      (STEP: small_step withprm tid e c1 c2)
-      (WRITING: ThreadEvent.is_writing e = Some (loc, from, to, val, released, ord)):
-  forall l f t msg,
-    nonpromise c2 l f t msg <-> nonpromise c1 l f t msg \/ (l, f, t, msg) = (loc, from, to, Message.mk val released).
-Proof.
-  econs; i.
-  - eapply writing_small_step_nonpromise_backward; eauto.
-  - des.
-    + eapply writing_small_step_nonpromise_forward; eauto.
-    + inv H. eapply writing_small_step_nonpromise_new; eauto.
 Qed.

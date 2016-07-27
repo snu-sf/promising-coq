@@ -19,9 +19,7 @@ Require Import Thread.
 Require Import Configuration.
 
 Require Import PromiseConsistent.
-Require Import ReorderThreadStepSame.
-Require Import InvariantBase.
-Require Import Certification.
+Require Import ReorderPromises.
 
 Set Implicit Arguments.
 
@@ -304,34 +302,6 @@ Section Invariant.
     - exploit lower_get1; eauto. i. des. esplits; eauto.
   Qed.
 
-  Lemma promise_step_evt_bot
-        lang e1 e2
-        (STEP: @promise_step_evt lang e1 e2)
-        (PROMISE: e2.(Thread.local).(Local.promises) = Memory.bot):
-    False.
-  Proof.
-    inv STEP. inv STEP0. inv LOCAL. ss. subst. inv PROMISE0.
-    - exploit (@Memory.add_o Memory.bot lc1.(Local.promises) loc from to val released loc to)
-      ; try exact PROMISES; eauto. condtac; ss; [|des; congr].
-      rewrite Memory.bot_get. congr.
-    - exploit (@Memory.split_o Memory.bot lc1.(Local.promises) loc from to ts3 val val3 released released3 loc to)
-      ; try exact PROMISES; eauto. condtac; ss; [|des; congr].
-      rewrite Memory.bot_get. congr.
-    - exploit (@Memory.lower_o Memory.bot lc1.(Local.promises) loc from to val released0 released loc to)
-      ; try exact PROMISES; eauto. condtac; ss; [|des; congr].
-      rewrite Memory.bot_get. congr.
-  Qed.
-
-  Lemma rtc_promise_step_evt_bot
-        lang e1 e2
-        (STEPS: rtc (@promise_step_evt lang) e1 e2)
-        (PROMISE: e2.(Thread.local).(Local.promises) = Memory.bot):
-    e1 = e2.
-  Proof.
-    exploit rtc_tail; eauto. i. des; ss.
-    exfalso. eapply promise_step_evt_bot; eauto.
-  Qed.
-
   Lemma configuration_step_sem
         e tid c1 c2
         (WF: Configuration.wf c1)
@@ -359,7 +329,7 @@ Section Invariant.
       i. des.
       exploit rtc_promise_step_evt_future; eauto. s. i. des.
       subst. eapply rtc_thread_step_sem; try exact STEPS1; eauto; ss; try by inv WF.
-      { inv WF. eapply WF3. eauto. }
+      inv WF. eapply WF3. eauto.
     - inv STEP. ss.
       eapply rtc_implies in STEPS; [|by apply tau_step_step_evt].
       exploit rtc_n1; eauto; i.

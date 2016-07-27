@@ -19,11 +19,13 @@ Require Import Progress.
 
 Require Import DRFBase.
 Require Import SmallStep.
+Require Import Fulfilled.
 Require Import Race.
 Require Import PIStep.
+Require Import PIStepProgress.
 Require Import Lift.
 Require Import PromiseConsistent.
-Require Import Certification.
+Require Import PFConsistent.
 
 Set Implicit Arguments.
 
@@ -623,7 +625,7 @@ Lemma key_lemma
   <<EQMEM: mem_eqrel (View_lift_le loc ts msgs) cSTM3.(fst).(snd).(Configuration.memory) cSTM3.(snd)>> /\
   <<IN: Memory.get loc ts cSTM3.(fst).(snd).(Configuration.memory) <> None>> /\
   <<MSGS: forall loc' to' (IN: List.In (loc', to') msgs),
-          (exists from msg, nonpromise cSTM3.(fst).(snd) loc' from to' msg) /\
+          (exists from msg, fulfilled cSTM3.(fst).(snd) loc' from to' msg) /\
           loc' <> loc /\
           to' <> Time.bot>> /\
   <<MAIN:
