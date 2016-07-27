@@ -3,7 +3,9 @@ COQTHEORIES  := src/*/*.v
 
 .PHONY: all theories clean
 
-all: sflib paco Makefile.coq
+all: quick
+
+build: sflib paco Makefile.coq
 	$(MAKE) -f Makefile.coq all
 
 quick: sflib-quick paco-quick Makefile.coq
