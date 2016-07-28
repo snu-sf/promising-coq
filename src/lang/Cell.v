@@ -383,7 +383,7 @@ Module Cell.
   Proof. eapply Raw.remove_o. eauto. Qed.
 
   Definition max_ts (cell:t): Time.t :=
-    DOMap.max_key _ cell.(raw).
+    DOMap.max_key cell.(raw).
 
   Lemma max_ts_spec
         ts from msg cell
@@ -392,9 +392,9 @@ Module Cell.
     <<MAX: Time.le ts (max_ts cell)>>.
   Proof.
     unfold get in GET.
-    generalize (DOMap.max_key_spec _ cell.(Cell.raw)). i. des. splits; eauto.
+    generalize (DOMap.max_key_spec cell.(Cell.raw)). i. des. splits; eauto.
     - destruct (DOMap.find
-                  (DOMap.max_key (DenseOrder.t * Message.t) (Cell.raw cell))
+                  (DOMap.max_key (Cell.raw cell))
                   (Cell.raw cell)) as [[? []]|] eqn:X.
       + esplits. eauto.
       + exfalso. eapply FIND; eauto. rewrite GET. congr.

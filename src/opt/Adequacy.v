@@ -16,6 +16,8 @@ Require Import Behavior.
 Require Import SimMemory.
 Require Import Simulation.
 
+Set Implicit Arguments.
+
 Lemma rtc_tau_step_behavior
   c1 c2 b
   (STEPS: rtc Configuration.tau_step c1 c2)

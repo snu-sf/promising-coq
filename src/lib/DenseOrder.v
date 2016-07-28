@@ -12,6 +12,8 @@ Require Import Basic.
 Require Import DataStructure.
 Require Import UsualFMapPositive.
 
+Set Implicit Arguments.
+
 Module Type IsDense (Import T:EqLtLe).
   Parameter bot: t.
   Axiom bot_spec: forall x, le bot x.
@@ -643,7 +645,7 @@ Module DOMap.
     match m with
     | Raw.Leaf _ => None
     | Raw.Node l o r =>
-      match raw_max_key _ r, o, raw_max_key _ l with
+      match raw_max_key r, o, raw_max_key l with
       | Some k, _, _ => Some (xI k)
       | None, Some _, _ => Some xH
       | None, None, Some k => Some (xO k)
@@ -652,24 +654,24 @@ Module DOMap.
     end.
 
   Lemma raw_max_key_spec1 A (m:Raw.t A)
-        (KEY: raw_max_key _ m = None):
+        (KEY: raw_max_key m = None):
     forall k', Raw.find k' m = None.
   Proof.
     revert KEY. induction m; s; i.
     { apply Raw.gleaf. }
-    destruct (raw_max_key A m2) eqn:K2; [congr|].
+    destruct (raw_max_key m2) eqn:K2; [congr|].
     destruct o eqn:O; [congr|].
-    destruct (raw_max_key A m1) eqn:K1; [congr|].
+    destruct (raw_max_key m1) eqn:K1; [congr|].
     destruct k'; eauto.
   Qed.
 
   Lemma raw_max_key_spec2 A (m:Raw.t A) k
-        (KEY: raw_max_key _ m = Some k):
+        (KEY: raw_max_key m = Some k):
     <<FIND: Raw.find k m <> None>> /\
     <<MAX: forall k' (FIND': Raw.find k' m <> None), DOAux.le k' k>>.
   Proof.
     revert k KEY. induction m; s; [congr|].
-    destruct (raw_max_key A m2) eqn:K2.
+    destruct (raw_max_key m2) eqn:K2.
     { i. inv KEY. s. exploit IHm2; eauto. i. des.
       splits; eauto. i. destruct k'; ss.
       - apply DOAux.le_xI. auto.
@@ -683,7 +685,7 @@ Module DOMap.
       - left. econs.
       - refl.
     }
-    destruct (raw_max_key A m1) eqn:K1.
+    destruct (raw_max_key m1) eqn:K1.
     { i. inv KEY. s. exploit IHm1; eauto. i. des.
       splits; eauto. i. destruct k'; ss.
       - erewrite raw_max_key_spec1 in FIND'; eauto. congr.
@@ -697,7 +699,7 @@ Module DOMap.
     match proj1_sig m with
     | Raw.Leaf _ => DenseOrder.bot
     | Raw.Node l o r =>
-      match raw_max_key _ r, raw_max_key _ l, o with
+      match raw_max_key r, raw_max_key l, o with
       | Some k, _, _ => xI k
       | None, Some k, _ => xO k
       | None, None, Some _ => xH
@@ -706,8 +708,8 @@ Module DOMap.
     end.
 
   Lemma max_key_spec A (m:t A):
-    <<FIND: forall k', find k' m <> None -> find (max_key _ m) m <> None>> /\
-    <<MAX: forall k' (FIND': find k' m <> None), DenseOrder.le k' (max_key _ m)>>.
+    <<FIND: forall k', find k' m <> None -> find (max_key m) m <> None>> /\
+    <<MAX: forall k' (FIND': find k' m <> None), DenseOrder.le k' (max_key m)>>.
   Proof.
     destruct m.
     unfold max_key, find. s. destruct x eqn:X; subst.
@@ -715,7 +717,7 @@ Module DOMap.
       + rewrite PositiveMap.gleaf in H. congr.
       + rewrite PositiveMap.gleaf in FIND'. congr.
     }
-    destruct (raw_max_key A t0_2) eqn:Y.
+    destruct (raw_max_key t0_2) eqn:Y.
     { exploit raw_max_key_spec2; eauto. i. des. splits; i; auto.
       destruct k'; ss.
       - exploit MAX; eauto. i. inv x.
@@ -724,7 +726,7 @@ Module DOMap.
       - left. econs.
       - left. econs.
     }
-    destruct (raw_max_key A t0_1) eqn:Z.
+    destruct (raw_max_key t0_1) eqn:Z.
     { exploit raw_max_key_spec2; eauto. i. des. splits; i; auto.
       destruct k'; ss.
       - erewrite raw_max_key_spec1 in FIND'; eauto. congr.
