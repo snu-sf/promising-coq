@@ -261,6 +261,23 @@ Module Memory.
   | op_kind_lower (released1:option View.t)
   .
 
+  Inductive op_kind_match: forall (k1 k2:op_kind), Prop :=
+  | op_kind_match_add:
+      op_kind_match
+        Memory.op_kind_add
+        Memory.op_kind_add
+  | op_kind_match_split
+      to v1 v2 r1 r2:
+      op_kind_match
+        (Memory.op_kind_split to v1 r1)
+        (Memory.op_kind_split to v2 r2)
+  | op_kind_match_lower
+      r1 r2:
+      op_kind_match
+        (Memory.op_kind_lower r1)
+        (Memory.op_kind_lower r2)
+  .
+
   Inductive op mem1 loc from to val rel mem2: forall (kind:op_kind), Prop :=
   | op_add
       (ADD: add mem1 loc from to val rel mem2):

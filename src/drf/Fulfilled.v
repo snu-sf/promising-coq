@@ -17,7 +17,6 @@ Require Import Thread.
 Require Import Configuration.
 Require Import Progress.
 
-Require Import DRFBase.
 Require Import SmallStep.
 
 Set Implicit Arguments.
@@ -316,4 +315,35 @@ Proof.
   - des.
     + eapply writing_small_step_fulfilled_forward; eauto.
     + inv H. eapply writing_small_step_fulfilled_new; eauto.
+Qed.
+
+Lemma nonwriting_small_step_fulfilled_forward
+      tid e c1 c2
+      (WF: Configuration.wf c1)
+      (STEP: small_step false tid e c1 c2)
+      (NONWRITING: ThreadEvent.is_writing e = None):
+  forall l f t msg
+    (NP: fulfilled c1 l f t msg),
+    fulfilled c2 l f t msg.
+Proof.
+  inv STEP. inv STEP0; inv STEP; inv PFREE; inv NONWRITING.
+  - i. inv NP. econs; eauto. ii. inv H. ss.
+    revert TID0. rewrite IdentMap.gsspec. condtac; ss; i.
+    + inv TID0. eapply FULFILLED. econs; eauto.
+    + eapply FULFILLED. econs; eauto.
+  - inv LOCAL.
+    i. inv NP. econs; eauto. ii. inv H. ss.
+    revert TID0. rewrite IdentMap.gsspec. condtac; ss; i.
+    + inv TID0. eapply FULFILLED. econs; eauto.
+    + eapply FULFILLED. econs; eauto.
+  - inv LOCAL.
+    i. inv NP. econs; eauto. ii. inv H. ss.
+    revert TID0. rewrite IdentMap.gsspec. condtac; ss; i.
+    + inv TID0. eapply FULFILLED. econs; eauto.
+    + eapply FULFILLED. econs; eauto.
+  - inv LOCAL.
+    i. inv NP. econs; eauto. ii. inv H. ss.
+    revert TID0. rewrite IdentMap.gsspec. condtac; ss; i.
+    + inv TID0. eapply FULFILLED. econs; eauto.
+    + eapply FULFILLED. econs; eauto.
 Qed.

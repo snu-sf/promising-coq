@@ -18,7 +18,6 @@ Require Import Thread.
 Require Import Configuration.
 Require Import Progress.
 
-Require Import DRFBase.
 Require Import SmallStep.
 Require Import Race.
 Require Import PIStep.

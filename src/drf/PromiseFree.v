@@ -17,7 +17,7 @@ Require Import Thread.
 Require Import Configuration.
 Require Import Progress.
 
-Require Import DRFBase.
+Require Import MemRel.
 Require Import SmallStep.
 Require Import Fulfilled.
 Require Import Race.
@@ -196,7 +196,7 @@ Lemma key_lemma_time_lt:
     Local.write_step lc2 (Configuration.sc cM4')
                      (Configuration.memory cM4') loc0 ts0 tsw valw0 relr releasedw
                      ordw0 lc4 sc2 memory2 kind ->
-    Memory.op m1' loc0 from ts0 valw (opt_View_lift loc ts relw)
+    Memory.op m1' loc0 from ts0 valw (lift_opt_view loc ts relw)
               (Configuration.memory cM4') k ->
     Ordering.le Ordering.acqrel ordr -> False.
 Proof.
@@ -210,7 +210,7 @@ Proof.
   apply TimeFacts.join_lt_des in LT. des.
   revert BC. rewrite ORDR.
   s. destruct relw.(View.unwrap). ss.
-  unfold TimeMap_lift. condtac; [|congr]. i.
+  unfold lift_timemap. condtac; [|congr]. i.
   apply TimeFacts.join_lt_des in BC. des.
   eapply Time.lt_strorder. eauto.
 Qed.
@@ -228,7 +228,7 @@ Lemma key_lemma_time_lt2:
                yy
                (View.rlx
                   (if Ordering.le Ordering.acqrel ordr
-                   then opt_View_lift loc ts relw
+                   then lift_opt_view loc ts relw
                    else None).(View.unwrap))) (TimeMap.singleton loc0 tsw))
          xx loc) ts -> False.
 Proof.
@@ -238,7 +238,7 @@ Proof.
   apply TimeFacts.join_lt_des in AC0. des.
   revert BC1. rewrite H. s.
   destruct relw.(View.unwrap). ss.
-  unfold TimeMap_lift. condtac; [|congr]. i.
+  unfold lift_timemap. condtac; [|congr]. i.
   apply TimeFacts.join_lt_des in BC1. des.
   eapply Time.lt_strorder. eauto.
 Qed.
@@ -258,8 +258,8 @@ Lemma key_lemma_rw_race
   (PROMISE2: Memory.get loc ts (Local.promises lc2) = Some (from2, msg2))
 
   msgs
-  (WF3: pi_wf (View_lift_le loc ts msgs) (cS3', cM3'))
-  (WF4: pi_wf (View_lift_le loc ts (msg_add loc e msgs)) (cS4', cM4'))
+  (WF3: pi_wf (lift_view_le loc ts msgs) (cS3', cM3'))
+  (WF4: pi_wf (lift_view_le loc ts (msg_add loc e msgs)) (cS4', cM4'))
 
   lst lc3 lc4 prm
   (THS3: IdentMap.find tid (Configuration.threads cM3') = Some (lst, lc3))
@@ -328,7 +328,7 @@ Proof.
   i; des. 
 
   inv MEMLE. r in MEMWR. rewrite EVTW in MEMWR. des.
-  revert PMREL. unfold View_lift_if. condtac; i.
+  revert PMREL. unfold lift_view_if. condtac; i.
   { des; subst.
     - congr.
     - destruct ordw; inv ORDW; inv o.
@@ -339,8 +339,8 @@ Proof.
   inv STEP; inv STEP0; inv EVTR.
   - inv LOCAL. erewrite Memory.op_get2 in GET; eauto. inv GET.
     ss. apply TimeFacts.join_lt_des in TIMELT. des. revert BC.
-    rewrite ORDR. unfold View_lift. destruct relw.(View.unwrap). ss.
-    unfold TimeMap_lift. condtac; [|congr]. i.
+    rewrite ORDR. unfold lift_view. destruct relw.(View.unwrap). ss.
+    unfold lift_timemap. condtac; [|congr]. i.
     apply TimeFacts.join_lt_des in BC. des.
     eapply Time.lt_strorder. eauto.
   - destruct lc4. eapply key_lemma_time_lt; eauto.
@@ -373,9 +373,9 @@ Lemma key_lemma_core
   (THS4: IdentMap.find tid (Configuration.threads cM4') = Some (existT _ lang st4', Local.mk com4' prm4'))
   (THS3': IdentMap.find tid (Configuration.threads cM3'') = Some (existT _ lang st4'', Local.mk com3'' prm4''))
   (THS4': IdentMap.find tid (Configuration.threads cM4'') = Some (existT _ lang st4'', Local.mk com4'' prm4''))
-  (WF3: pi_wf (View_lift_le l t msgs) (cS3, conf_update_memory cT3 M3))
-  (WF4: pi_wf (View_lift_le l t (msg_add l e msgs)) (cS4', cM4'))
-  (EVT: thread_event_eqlerel evt3 evt4)
+  (WF3: pi_wf (lift_view_le l t msgs) (cS3, conf_update_memory cT3 M3))
+  (WF4: pi_wf (lift_view_le l t (msg_add l e msgs)) (cS4', cM4'))
+  (EVT: ThreadEvent.le evt3 evt4)
   (NOTIN: pre_in_msgs (Some(cM4',evt4))  (msg_add l e msgs)):
   exists cS4'' pre4'',
     <<STEPS: with_pre (pi_step false tid) (cS4, conf_update_memory cT4 M4) pre4'' (cS4'', cM4'')>> /\
@@ -453,7 +453,7 @@ Proof.
   }
 
   (* Write step *)
-  { hexploit (@local_simul_write (View_lift_le l t (msg_add l e msgs))); try apply LOCAL.
+  { hexploit (@local_simul_write (lift_view_le l t (msg_add l e msgs))); try apply LOCAL.
     { inv WF4. ii. apply LR in IN. des. esplits; eauto. }
     { inv WF4.
       econs. i. destruct msg1. exploit LR; eauto. i. des.
@@ -497,7 +497,7 @@ Proof.
   (* Update step *)
   { assert (X:= LOCAL1). inv X. ss.
 
-    hexploit (@local_simul_write (View_lift_le l t (msg_add l e msgs))); try apply LOCAL2. 
+    hexploit (@local_simul_write (lift_view_le l t (msg_add l e msgs))); try apply LOCAL2. 
     { inv WF4. ii. apply LR in IN. des. esplits; eauto. }
     { inv WF4.
       econs. i. destruct msg1. exploit LR; eauto. i. des.
@@ -622,7 +622,7 @@ Lemma key_lemma
       (STEPS_LIFT : rtc (pi_step_lift_except loc ts tid) (cS2, cT2, cT2.(Configuration.memory)) cSTM3)
       (PRCONS: forall tid0, promise_consistent_th tid0 cSTM3.(fst).(snd)):
   exists msgs,
-  <<EQMEM: mem_eqrel (View_lift_le loc ts msgs) cSTM3.(fst).(snd).(Configuration.memory) cSTM3.(snd)>> /\
+  <<EQMEM: mem_eqrel (lift_view_le loc ts msgs) cSTM3.(fst).(snd).(Configuration.memory) cSTM3.(snd)>> /\
   <<IN: Memory.get loc ts cSTM3.(fst).(snd).(Configuration.memory) <> None>> /\
   <<MSGS: forall loc' to' (IN: List.In (loc', to') msgs),
           (exists from msg, fulfilled cSTM3.(fst).(snd) loc' from to' msg) /\
