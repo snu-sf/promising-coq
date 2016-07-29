@@ -62,9 +62,13 @@ Proof.
       { apply Time.incr_spec. }
       { inv H. auto. }
       i. des. esplits. econs 4; eauto. econs. econs. apply surjective_pairing.
-    + hexploit progress_fence_step; eauto. i. des.
+    + hexploit progress_fence_step; eauto.
+      { i. rewrite PROMISES1. apply Memory.bot_nonsynch. }
+      i. des.
       esplits. econs 5; eauto. econs. econs.
-    + hexploit progress_fence_step; eauto. i. des.
+    + hexploit progress_fence_step; eauto.
+      { i. rewrite PROMISES1. apply Memory.bot_nonsynch. }
+      i. des.
       esplits. econs 6; eauto. econs. econs.
   - esplits. econs 1; eauto. econs.
   - esplits. econs 1; eauto. econs.
@@ -495,8 +499,9 @@ Proof.
   exploit fulfill_step_future; try exact STEP5; try exact WF3; eauto; try by viewtac. i. des.
   exploit reorder_fulfill_fulfill; try exact STEP5; try exact STEP3; eauto; try by viewtac. i. des.
   exploit promise_fulfill_write; eauto.
-  { i. exploit ORD; eauto. i. des.
-    splits; auto. erewrite fulfill_step_promises_diff; eauto.
+  { i. exploit ORD; eauto. i. des. splits; ss.
+    ii. unfold Memory.get in GET.
+    erewrite fulfill_step_promises_diff in GET; eauto.
   }
   i. des.
   esplits; eauto.
@@ -579,12 +584,13 @@ Proof.
   }
   esplits.
   - econs; eauto.
+    admit.
   - econs; eauto. ss. inv WRITABLE. econs; eauto.
   - s. econs; ss.
     + unfold TView.write_fence_sc, TView.write_fence_tview.
       econs; repeat (try condtac; aggrtac; try apply WF0).
     + apply SimPromises.sem_bot.
-Qed.
+Admitted.
 
 Lemma reorder_update_read
       loc1 ts1 val1 released1 ord1
@@ -763,7 +769,7 @@ Proof.
   { i. exploit ORD; eauto. i. des.
     splits; auto.
     erewrite Local.read_step_promises; [|eauto].
-    erewrite fulfill_step_promises_diff; eauto.
+    ii. unfold Memory.get in GET. erewrite fulfill_step_promises_diff in GET; eauto.
   }
   i. des.
   inv STEP1.
@@ -871,6 +877,7 @@ Lemma reorder_fence_promise
       lc1 sc1
       lc2 mem2
       kind
+      (ORDW1: Ordering.le ordw1 Ordering.relaxed)
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
       (STEP1: Local.fence_step lc0 sc0 ordr1 ordw1 lc1 sc1)
@@ -882,7 +889,7 @@ Proof.
   inv STEP1. inv STEP2. ss.
   esplits.
   - econs; eauto.
-  - econs; eauto.
+  - econs; eauto. s. i. destruct ordw1; inv ORDW1; inv H.
 Qed.
 
 Lemma reorder_fence_fulfill
@@ -929,7 +936,8 @@ Proof.
           eapply TViewFacts.read_fence_future; apply WF0.
         }
       * apply TViewFacts.write_fence_sc_incr.
-  - econs; eauto.
+  - econs; eauto. ss. ii. revert GET.
+    erewrite Memory.remove_o; eauto. condtac; ss. i. eapply RELEASE; eauto.
   - s. econs; s.
     + etrans; [|etrans].
       * apply TViewFacts.write_fence_tview_mon; [|refl|refl|].

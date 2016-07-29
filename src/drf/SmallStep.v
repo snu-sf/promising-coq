@@ -92,6 +92,7 @@ Lemma local_simul_fence
   Local.fence_step (Local.mk com Memory.bot) sc ordr ordw (Local.mk com' Memory.bot) sc'.
 Proof.
   inv LOCAL. econs; eauto.
+  s. i. apply Memory.bot_nonsynch.
 Qed.
 
 
@@ -137,8 +138,10 @@ Proof.
     erewrite (@Memory.remove_o mem1); eauto. erewrite (@Memory.add_o mem2); eauto.
     condtac; ss. des. subst. apply Memory.bot_get.
   }
-  esplits. econs; eauto. econs; eauto. econs; eauto.
-  inv WRITE0. by inv PROMISE.
+  esplits. econs; eauto.
+  - econs; eauto. econs; eauto.
+    inv WRITE0. by inv PROMISE.
+  - s. i. splits; ss. apply Memory.bot_nonsynch.
 Qed.
 
 

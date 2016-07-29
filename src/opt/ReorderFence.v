@@ -110,7 +110,9 @@ Proof.
     exploit sim_local_promise; eauto.
     { eapply Local.fence_step_future; eauto. }
     i. des.
-    exploit reorder_fence_promise; try apply x0; try apply STEP_SRC; eauto. i. des.
+    exploit reorder_fence_promise; try apply x0; try apply STEP_SRC; eauto.
+    { inv REORDER; ss. }
+    i. des.
     esplits; try apply SC; eauto.
     + econs 2. econs 1. econs. eauto.
     + eauto.

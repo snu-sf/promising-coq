@@ -140,7 +140,7 @@ Module Local.
       (WRITABLE: TView.writable lc1.(tview) sc1 loc to ord)
       (WRITE: Memory.write lc1.(promises) mem1 loc from to val released promises2 mem2 kind)
       (RELEASE: Ordering.le Ordering.acqrel ord ->
-                lc1.(promises) loc = Cell.bot /\
+                Memory.nonsynch_loc loc lc1.(promises) /\
                 kind = Memory.op_kind_add):
       write_step lc1 sc1 mem1 loc from to val releasedm released ord
                  (mk (TView.write_tview lc1.(tview) sc1 loc to ord) promises2)
@@ -151,7 +151,8 @@ Module Local.
   Inductive fence_step (lc1:t) (sc1:TimeMap.t) (ordr ordw:Ordering.t): forall (lc2:t) (sc2:TimeMap.t), Prop :=
   | step_fence
       tview2
-      (READ: TView.read_fence_tview lc1.(tview) ordr = tview2):
+      (READ: TView.read_fence_tview lc1.(tview) ordr = tview2)
+      (RELEASE: Ordering.le Ordering.acqrel ordw -> Memory.nonsynch lc1.(promises)):
       fence_step lc1 sc1 ordr ordw (mk (TView.write_fence_tview tview2 sc1 ordw) lc1.(promises)) (TView.write_fence_sc tview2 sc1 ordw)
   .
 

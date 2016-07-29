@@ -1243,8 +1243,9 @@ Proof.
   desc; eexists _,_,_,mem',_,_,_; splits; eauto.
   - eapply Thread.step_write; eauto.
     econstructor; eauto.
-    cdes GSTEP; desf; red in TVIEW; desc; eapply Writable_full; 
-    eauto using TimeFacts.le_lt_lt, Time.bot_spec, in_eq.
+    + cdes GSTEP; desf; red in TVIEW; desc; eapply Writable_full; 
+        eauto using TimeFacts.le_lt_lt, Time.bot_spec, in_eq.
+    + s. i. splits; ss. apply Memory.bot_nonsynch_loc.
   - exists f_from', f_to'; splits; try done.
     * eapply tview_step_write; eauto.
     * eapply sc_map_step_write; eauto.
@@ -1313,6 +1314,7 @@ Proof.
   eexists _,_,_,_,_,_,_; splits; eauto.
   eapply Thread.step_fence; eauto.
   econstructor; eauto.
+  { s. i. apply Memory.bot_nonsynch. }
   exists ffrom, fto; splits; eauto.
   * rewrite <- gstep_non_write_mo; eauto with acts.
 

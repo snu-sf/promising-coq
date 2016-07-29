@@ -46,13 +46,22 @@ Next Obligation.
   rewrite PROMISES, PROMISES0. apply SimPromises.sem_bot.
 Qed.
 
-Lemma sim_local_cell_bot
+Lemma sim_local_nonsynch_loc
       loc lc_src lc_tgt
       (SIM: sim_local lc_src lc_tgt)
-      (BOT: lc_tgt.(Local.promises) loc = Cell.bot):
-  lc_src.(Local.promises) loc = Cell.bot.
+      (NONSYNCH: Memory.nonsynch_loc loc lc_tgt.(Local.promises)):
+  Memory.nonsynch_loc loc lc_src.(Local.promises).
 Proof.
   inv SIM. eapply SimPromises.sem_bot_inv in PROMISES; auto. rewrite PROMISES. auto.
+Qed.
+
+Lemma sim_local_nonsynch
+      lc_src lc_tgt
+      (SIM: sim_local lc_src lc_tgt)
+      (NONSYNCH: Memory.nonsynch lc_tgt.(Local.promises)):
+  Memory.nonsynch lc_src.(Local.promises).
+Proof.
+  ii. eapply sim_local_nonsynch_loc; eauto.
 Qed.
 
 Lemma sim_local_memory_bot
@@ -244,7 +253,7 @@ Proof.
   exploit promise_fulfill_write; try exact STEP_SRC; try exact STEP_SRC0; eauto.
   { i. exploit ORD0; eauto.
     - etrans; eauto.
-    - i. des. splits; auto. eapply sim_local_cell_bot; eauto.
+    - i. des. splits; auto. eapply sim_local_nonsynch_loc; eauto.
   }
   i. des. esplits; eauto. etrans; eauto.
 Qed.
@@ -305,7 +314,8 @@ Lemma sim_local_fence
     <<SC2: TimeMap.le sc2_src sc2_tgt>>.
 Proof.
   inv STEP_TGT. esplits; eauto.
-  - econs; eauto.
+  - econs; eauto. i. eapply sim_local_nonsynch; eauto.
+    apply RELEASE. etrans; eauto.
   - econs; try apply LOCAL1. s.
     apply TViewFacts.write_fence_tview_mon; auto; try refl.
     apply TViewFacts.read_fence_tview_mon; auto; try refl.

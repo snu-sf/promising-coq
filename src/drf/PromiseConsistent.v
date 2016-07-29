@@ -211,7 +211,10 @@ Proof.
     unfold Memory.get in *.
     esplits; s; eauto.
     + edestruct ordering_relaxed_dec; eauto.
-      apply RELEASE in H. des. ss. by rewrite H, Cell.bot_get in TH1.
+      apply RELEASE in H. des. subst. ss.
+      exploit H; eauto. s. i. subst. inv RELEASED. inv x4.
+      revert H1. unfold TView.write_released. condtac; ss.
+      destruct ord; inv COND. ss.
     + inv WRITABLE. eauto.
   - inv LOCAL1. inv LOCAL2. inv WRITE.
     exploit Memory.promise_promises_get1; eauto. i. des.
@@ -219,7 +222,10 @@ Proof.
     unfold Memory.get in *.
     esplits; s; eauto.
     + edestruct ordering_relaxed_dec; eauto.
-      apply RELEASE in H. des. ss. by rewrite H, Cell.bot_get in TH1.
+      apply RELEASE in H. des. subst. ss.
+      exploit H; eauto. s. i. subst. inv RELEASED. inv x4.
+      revert H1. unfold TView.write_released. condtac; ss.
+      destruct ordw; inv COND. ss.
     + inv WRITABLE. inv READABLE. ss. move TS at bottom.
       eapply TimeFacts.le_lt_lt; eauto.
       repeat (etrans; [|apply Time.join_l]). refl.

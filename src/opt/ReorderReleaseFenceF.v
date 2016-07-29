@@ -129,7 +129,7 @@ Proof.
     + auto.
     + auto.
     + right. econs 1; eauto.
-      * econs; eauto.
+      * econs; eauto. s. i. admit.
       * s. econs; eauto. s.
         inv LOCAL. ss.
   - (* fence *)
@@ -142,7 +142,7 @@ Proof.
     + auto.
     + auto.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
-Qed.
+Admitted.
 
 Lemma sim_release_fenceF_sim_thread:
   sim_release_fenceF <8= (sim_thread (sim_terminal eq)).
@@ -185,108 +185,116 @@ Lemma reorder_release_fenceF_sim_stmts
             [Stmt.instr i1; Stmt.instr (Instr.fence Ordering.relaxed Ordering.acqrel)]
             eq.
 Proof.
-  pcofix CIH. ii. subst. pfold. ii. splits; ii.
-  { inv TERMINAL_TGT. }
-  { exploit sim_local_future; try apply LOCAL; eauto. i. des.
-    esplits; eauto.
-    - etrans.
-      + apply Memory.max_timemap_spec; eauto. viewtac.
-      + apply sim_memory_max_timemap; eauto.
-    - etrans.
-      + apply Memory.max_timemap_spec; eauto. viewtac.
-      + apply Memory.future_max_timemap; eauto.
-    - apply Memory.max_timemap_closed. viewtac.
-  }
-  { esplits; eauto.
-    inv LOCAL. apply SimPromises.sem_bot_inv in PROMISES; auto. rewrite PROMISES. auto.
-  }
-  inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR; inv REORDER); ss.
-  - (* promise *)
-    exploit sim_local_promise; eauto. i. des.
-    esplits; try apply SC; eauto.
-    + econs 2. econs 1; eauto. econs; eauto.
-    + auto.
-  - (* load *)
-    exploit Local.read_step_future; eauto. i. des.
-    exploit progress_fence_step; eauto. i. des.
-    exploit sim_local_read; eauto; try refl. i. des.
-    exploit Local.read_step_future; eauto. i. des.
-    exploit sim_local_fence; try exact SC; eauto; try refl. i. des.
-    exploit reorder_read_fence; try exact STEP_SRC; eauto; try refl. i. des.
-    esplits.
-    + econs 2; eauto. econs.
-      { econs 2. econs 5; eauto. econs. econs. }
-      { auto. }
-    + econs 2. econs 2. econs 2; eauto. econs. econs.
-    + auto.
-    + etrans; eauto. etrans; eauto.
-      inv x0. unfold TView.write_fence_sc. condtac; ss. refl.
-    + auto.
-    + left. eapply paco9_mon; [apply sim_release_fenceF_sim_thread|]; ss.
-      econs 1; eauto. etrans; eauto.
-  - (* store *)
-    guardH ORD2.
-    exploit Local.write_step_future; eauto; try by viewtac. i. des.
-    exploit progress_fence_step; eauto. i. des.
-    hexploit sim_local_write; try exact LOCAL0; try exact LOCAL; try exact SC; try exact MEMORY;
-      try refl; eauto; try by viewtac. i. des.
-    exploit Local.write_step_future; eauto; try by viewtac. i. des.
-    exploit sim_local_fence; try exact SC0; eauto; try refl. i. des.
-    exploit reorder_write_fence; try exact STEP_SRC; eauto; try by viewtac. i. des.
-    esplits.
-    + econs 2; eauto. econs.
-      * econs 2. econs 5; eauto. econs. econs.
-      * auto.
-    + econs 2. econs 2. econs 3; eauto. econs. econs.
-    + auto.
-    + etrans; eauto.
-      inv x0. unfold TView.write_fence_sc. condtac; ss. refl.
-    + auto.
-    + left. eapply paco9_mon; [apply sim_release_fenceF_sim_thread|]; ss.
-      econs 1; eauto. etrans; eauto.
-  - (* update *)
-    guardH ORDW2.
-    exploit Local.read_step_future; eauto. i. des.
-    exploit Local.write_step_future; eauto. i. des.
-    exploit progress_fence_step; eauto. i. des.
-    exploit sim_local_read; eauto; try refl. i. des.
-    exploit Local.read_step_future; eauto. i. des.
-    exploit reorder_write_fence; try exact LOCAL2; eauto. i. des.
-    exploit Local.fence_step_future; eauto. i. des.
-    exploit sim_local_fence; try exact SC; eauto; try refl. i. des.
-    exploit reorder_read_fence; try exact STEP_SRC; eauto; try refl. i. des.
-    exploit Local.fence_step_future; eauto. i. des.
-    exploit Local.read_step_future; eauto. i. des.
-    generalize LOCAL5. i. rewrite LOCAL4 in LOCAL6.
-    generalize SC3. i. rewrite SC1 in SC5.
-    hexploit sim_local_write; try exact STEP2; try exact LOCAL6; try exact SC5; eauto; try refl. i. des.
-    esplits.
-    + econs 2; eauto. econs.
-      { econs 2. econs 5; eauto. econs. econs. }
-      { auto. }
-    + econs 2. econs 2. econs 4; eauto. econs. econs. eauto.
-    + auto.
-    + etrans; eauto.
-      inv x0. unfold TView.write_fence_sc. condtac; ss. refl.
-    + auto.
-    + left. eapply paco9_mon; [apply sim_release_fenceF_sim_thread|]; ss.
-      econs 1; eauto. etrans; eauto.
-  - (* fence *)
-    exploit Local.fence_step_future; eauto. i. des.
-    exploit progress_fence_step; eauto. i. des.
-    exploit sim_local_fence; try exact LOCAL0; try exact SC; eauto; try refl. i. des.
-    exploit Local.fence_step_future; eauto. i. des.
-    exploit sim_local_fence; try eexact x0; try exact SC0; eauto; try refl. i. des.
-    exploit reorder_fence_fence; try exact STEP_SRC; eauto; try refl. i. des.
-    esplits.
-    + econs 2; eauto. econs.
-      { econs 2. econs 5; eauto. econs. econs. }
-      { auto. }
-    + econs 2. econs 2. econs 5; eauto. econs. econs.
-    + auto.
-    + etrans; eauto. etrans; eauto.
-      inv x0. unfold TView.write_fence_sc. condtac; ss. refl.
-    + auto.
-    + left. eapply paco9_mon; [apply sim_release_fenceF_sim_thread|]; ss.
-      econs 1; eauto. etrans; eauto.
-Qed.
+  (* pcofix CIH. ii. subst. pfold. ii. splits; ii. *)
+  (* { inv TERMINAL_TGT. } *)
+  (* { exploit sim_local_future; try apply LOCAL; eauto. i. des. *)
+  (*   esplits; eauto. *)
+  (*   - etrans. *)
+  (*     + apply Memory.max_timemap_spec; eauto. viewtac. *)
+  (*     + apply sim_memory_max_timemap; eauto. *)
+  (*   - etrans. *)
+  (*     + apply Memory.max_timemap_spec; eauto. viewtac. *)
+  (*     + apply Memory.future_max_timemap; eauto. *)
+  (*   - apply Memory.max_timemap_closed. viewtac. *)
+  (* } *)
+  (* { esplits; eauto. *)
+  (*   inv LOCAL. apply SimPromises.sem_bot_inv in PROMISES; auto. rewrite PROMISES. auto. *)
+  (* } *)
+  (* inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR; inv REORDER); ss. *)
+  (* - (* promise *) *)
+  (*   exploit sim_local_promise; eauto. i. des. *)
+  (*   esplits; try apply SC; eauto. *)
+  (*   + econs 2. econs 1; eauto. econs; eauto. *)
+  (*   + auto. *)
+  (* - (* load *) *)
+  (*   exploit Local.read_step_future; eauto. i. des. *)
+  (*   exploit progress_fence_step; eauto. *)
+  (*   { admit. } *)
+  (*   i. des. *)
+  (*   exploit sim_local_read; eauto; try refl. i. des. *)
+  (*   exploit Local.read_step_future; eauto. i. des. *)
+  (*   exploit sim_local_fence; try exact SC; eauto; try refl. i. des. *)
+  (*   exploit reorder_read_fence; try exact STEP_SRC; eauto; try refl. i. des. *)
+  (*   esplits. *)
+  (*   + econs 2; eauto. econs. *)
+  (*     { econs 2. econs 5; eauto. econs. econs. } *)
+  (*     { auto. } *)
+  (*   + econs 2. econs 2. econs 2; eauto. econs. econs. *)
+  (*   + auto. *)
+  (*   + etrans; eauto. etrans; eauto. *)
+  (*     inv x0. unfold TView.write_fence_sc. condtac; ss. refl. *)
+  (*   + auto. *)
+  (*   + left. eapply paco9_mon; [apply sim_release_fenceF_sim_thread|]; ss. *)
+  (*     econs 1; eauto. etrans; eauto. *)
+  (* - (* store *) *)
+  (*   guardH ORD2. *)
+  (*   exploit Local.write_step_future; eauto; try by viewtac. i. des. *)
+  (*   exploit progress_fence_step; eauto. *)
+  (*   { admit. } *)
+  (*   i. des. *)
+  (*   hexploit sim_local_write; try exact LOCAL0; try exact LOCAL; try exact SC; try exact MEMORY; *)
+  (*     try refl; eauto; try by viewtac. i. des. *)
+  (*   exploit Local.write_step_future; eauto; try by viewtac. i. des. *)
+  (*   exploit sim_local_fence; try exact SC0; eauto; try refl. i. des. *)
+  (*   exploit reorder_write_fence; try exact STEP_SRC; eauto; try by viewtac. i. des. *)
+  (*   esplits. *)
+  (*   + econs 2; eauto. econs. *)
+  (*     * econs 2. econs 5; eauto. econs. econs. *)
+  (*     * auto. *)
+  (*   + econs 2. econs 2. econs 3; eauto. econs. econs. *)
+  (*   + auto. *)
+  (*   + etrans; eauto. *)
+  (*     inv x0. unfold TView.write_fence_sc. condtac; ss. refl. *)
+  (*   + auto. *)
+  (*   + left. eapply paco9_mon; [apply sim_release_fenceF_sim_thread|]; ss. *)
+  (*     econs 1; eauto. etrans; eauto. *)
+  (* - (* update *) *)
+  (*   guardH ORDW2. *)
+  (*   exploit Local.read_step_future; eauto. i. des. *)
+  (*   exploit Local.write_step_future; eauto. i. des. *)
+  (*   exploit progress_fence_step; eauto. *)
+  (*   { admit. } *)
+  (*   i. des. *)
+  (*   exploit sim_local_read; eauto; try refl. i. des. *)
+  (*   exploit Local.read_step_future; eauto. i. des. *)
+  (*   exploit reorder_write_fence; try exact LOCAL2; eauto. i. des. *)
+  (*   exploit Local.fence_step_future; eauto. i. des. *)
+  (*   exploit sim_local_fence; try exact SC; eauto; try refl. i. des. *)
+  (*   exploit reorder_read_fence; try exact STEP_SRC; eauto; try refl. i. des. *)
+  (*   exploit Local.fence_step_future; eauto. i. des. *)
+  (*   exploit Local.read_step_future; eauto. i. des. *)
+  (*   generalize LOCAL5. i. rewrite LOCAL4 in LOCAL6. *)
+  (*   generalize SC3. i. rewrite SC1 in SC5. *)
+  (*   hexploit sim_local_write; try exact STEP2; try exact LOCAL6; try exact SC5; eauto; try refl. i. des. *)
+  (*   esplits. *)
+  (*   + econs 2; eauto. econs. *)
+  (*     { econs 2. econs 5; eauto. econs. econs. } *)
+  (*     { auto. } *)
+  (*   + econs 2. econs 2. econs 4; eauto. econs. econs. eauto. *)
+  (*   + auto. *)
+  (*   + etrans; eauto. *)
+  (*     inv x0. unfold TView.write_fence_sc. condtac; ss. refl. *)
+  (*   + auto. *)
+  (*   + left. eapply paco9_mon; [apply sim_release_fenceF_sim_thread|]; ss. *)
+  (*     econs 1; eauto. etrans; eauto. *)
+  (* - (* fence *) *)
+  (*   exploit Local.fence_step_future; eauto. i. des. *)
+  (*   exploit progress_fence_step; eauto. *)
+  (*   { admit. } *)
+  (*   i. des. *)
+  (*   exploit sim_local_fence; try exact LOCAL0; try exact SC; eauto; try refl. i. des. *)
+  (*   exploit Local.fence_step_future; eauto. i. des. *)
+  (*   exploit sim_local_fence; try eexact x0; try exact SC0; eauto; try refl. i. des. *)
+  (*   exploit reorder_fence_fence; try exact STEP_SRC; eauto; try refl. i. des. *)
+  (*   esplits. *)
+  (*   + econs 2; eauto. econs. *)
+  (*     { econs 2. econs 5; eauto. econs. econs. } *)
+  (*     { auto. } *)
+  (*   + econs 2. econs 2. econs 5; eauto. econs. econs. *)
+  (*   + auto. *)
+  (*   + etrans; eauto. etrans; eauto. *)
+  (*     inv x0. unfold TView.write_fence_sc. condtac; ss. refl. *)
+  (*   + auto. *)
+  (*   + left. eapply paco9_mon; [apply sim_release_fenceF_sim_thread|]; ss. *)
+  (*     econs 1; eauto. etrans; eauto. *)
+Admitted.

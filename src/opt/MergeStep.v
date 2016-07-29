@@ -364,25 +364,21 @@ Proof.
   - econs; eauto.
 Qed.
 
-Lemma write_step_promise
+Lemma write_step_nonsynch_loc
       lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind l
       (STEP: Local.write_step lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind)
-      (PROMISES: lc1.(Local.promises) l = Cell.bot):
-  lc2.(Local.promises) l = Cell.bot.
+      (PROMISES: Memory.nonsynch_loc l lc1.(Local.promises)):
+  Memory.nonsynch_loc l lc2.(Local.promises).
 Proof.
-  inv STEP. inv WRITE. s.
-  apply Cell.ext. i. rewrite Cell.bot_get.
-  etrans; [eapply Memory.remove_o; eauto|].
-  inv PROMISE.
-  - erewrite Memory.add_o; eauto. condtac; ss.
-    unfold Memory.get. rewrite PROMISES, Cell.bot_get. auto.
+  inv STEP. inv WRITE. s. ii. revert GET.
+  erewrite Memory.remove_o; eauto. condtac; ss. inv PROMISE.
+  - erewrite Memory.add_o; eauto. condtac; ss. apply PROMISES.
   - erewrite Memory.split_o; eauto. repeat condtac; ss.
-    + guardH o. des. subst.
-      exploit Memory.split_get0; try exact PROMISES0; eauto.
-      unfold Memory.get. rewrite PROMISES, ? Cell.bot_get. i. des. congr.
-    + unfold Memory.get. rewrite PROMISES, Cell.bot_get. auto.
-  - erewrite Memory.lower_o; eauto. condtac; ss.
-    unfold Memory.get. rewrite PROMISES, Cell.bot_get. auto.
+    + guardH o. guardH o0. des. subst.
+      exploit Memory.split_get0; try exact PROMISES0; eauto. i. des. inv GET.
+      eapply PROMISES. eauto.
+    + apply PROMISES.
+  - erewrite Memory.lower_o; eauto. condtac; ss. apply PROMISES.
 Qed.
 
 Lemma merge_write_write_add
@@ -428,7 +424,7 @@ Proof.
   exploit Local.write_step_future; eauto. i. des.
   exploit promise_fulfill_write; try eexact STEP8; eauto.
   { i. exploit ORD; eauto. i. des. splits; auto.
-    eapply write_step_promise; eauto.
+    eapply write_step_nonsynch_loc; eauto.
   }
   i. des.
   hexploit sim_local_write; try exact MEM; try exact REL_LE; try refl; eauto. i. des.

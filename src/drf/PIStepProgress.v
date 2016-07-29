@@ -246,6 +246,7 @@ Proof.
           by rewrite TID.
         + econs 2; econs 5; eauto.
           econs; eauto.
+          s. i. apply Memory.bot_nonsynch.
         + eauto.
         + eauto.
       - s. by rewrite !IdentMap.gss.
@@ -258,6 +259,7 @@ Proof.
           by rewrite TID.
         + econs 2; econs 6; eauto.
           econs; eauto.
+          s. i. apply Memory.bot_nonsynch.
         + eauto.
         + eauto.
       - s. by rewrite !IdentMap.gss.

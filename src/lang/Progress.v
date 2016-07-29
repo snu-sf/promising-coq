@@ -154,12 +154,14 @@ Proof.
     + apply Memory.max_ts_spec2. apply WF1.
     + apply Memory.max_ts_spec2. auto.
   - econs; eauto. subst promises2. apply Memory.remove_singleton.
-  - rewrite PROMISES1. auto.
+  - rewrite PROMISES1. i. splits; ss.
+    apply Memory.bot_nonsynch_loc.
 Qed.
 
 Lemma progress_fence_step
       lc1 sc1
-      ordr ordw:
+      ordr ordw
+      (PROMISES1: Ordering.le Ordering.acqrel ordw -> Memory.nonsynch lc1.(Local.promises)):
   exists lc2 sc2,
     Local.fence_step lc1 sc1 ordr ordw lc2 sc2.
 Proof.

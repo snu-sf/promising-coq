@@ -69,7 +69,7 @@ Lemma reorder_promise_promise
   exists lc1' mem1' kind2',
     <<STEP1: Local.promise_step lc0 mem0 loc2 from2 to2 val2 released2 lc1' mem1' kind2'>> /\
     <<STEP2: __guard__
-               ((lc2, mem2) = (lc1', mem1') \/
+               ((lc2, mem2, loc1, from1, to1) = (lc1', mem1', loc2, from2, to2) \/
                 (exists from1' kind1',
                     (loc1, to1) <> (loc2, to2) /\
                     (forall to1' val1' released1'
@@ -356,7 +356,7 @@ Lemma reorder_promise_write
   exists kind2' lc1' mem1',
     <<STEP1: Local.write_step lc0 sc0 mem0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc1' sc2 mem1' kind2'>> /\
     <<STEP2: __guard__
-               ((lc2, mem2) = (lc1', mem1') \/
+               ((lc2, mem2, loc1, from1, to1) = (lc1', mem1', loc2, from2, to2) \/
                 ((loc1, to1) <> (loc2, to2) /\
                  exists from1' kind1', <<STEP2: Local.promise_step lc1' mem1' loc1 from1' to1 val1 released1 lc2 mem2 kind1'>>))>> /\
     <<KIND2: kind2 = Memory.op_kind_add -> kind2' = Memory.op_kind_add>>.
@@ -373,11 +373,9 @@ Proof.
   unguardH STEP5. des.
   - inv STEP5.
     exploit promise_fulfill_write_exact; try exact STEP4; eauto.
-    { i. exploit ORD; eauto. i. des. splits; auto.
-      apply Cell.ext. i. rewrite Cell.bot_get.
-      destruct (Cell.get ts (Local.promises lc0 loc2)) as [[? []]|] eqn:X; auto.
-      inv STEP1. exploit Memory.promise_promises_get1; eauto. i. des.
-      ss. unfold Memory.get in GET. rewrite x, Cell.bot_get in *. congr.
+    { i. exploit ORD; eauto. i. des. subst.
+      inv STEP0. inv PROMISE. exploit Memory.add_get0; try exact PROMISES; eauto.
+      inv STEP1. exploit Memory.promise_get2; eauto. s. i. congr.
     }
     { inv STEP1. ss. }
     i. esplits; eauto. left; eauto.
@@ -387,15 +385,23 @@ Proof.
     i. des.
     exploit fulfill_step_future; try exact STEP7; try exact WF0; eauto; try by viewtac. i. des.
     exploit promise_fulfill_write_exact; try exact STEP4; eauto; try by viewtac.
-    { i. exploit ORD; eauto. i. des. splits; auto.
-      apply Cell.ext. i. rewrite Cell.bot_get.
-      destruct (Cell.get ts (Local.promises lc0 loc2)) as [[? []]|] eqn:X; auto.
-      inv STEP1. exploit Memory.promise_promises_get1; eauto. i. des.
-      ss. unfold Memory.get in GET. rewrite x, Cell.bot_get in *. congr.
+    { i. exploit ORD; eauto. i. des. subst. splits; auto.
+      admit.
+
+  (* x : Memory.nonsynch_loc loc2 (Local.promises lc1) *)
+
+  (* STEP1 : Local.promise_step lc0 mem0 loc1 from1 to1 val1 released1 *)
+  (*           lc1 mem1 kind1 *)
+
+
+      (* apply Cell.ext. i. rewrite Cell.bot_get. *)
+      (* destruct (Cell.get ts (Local.promises lc0 loc2)) as [[? []]|] eqn:X; auto. *)
+      (* inv STEP1. exploit Memory.promise_promises_get1; eauto. i. des. *)
+      (* ss. unfold Memory.get in GET. rewrite x, Cell.bot_get in *. congr. *)
     }
     { subst. inv STEP1. ss. }
     i. esplits; eauto. right. esplits; eauto.
-Qed.
+Admitted.
 
 Lemma reorder_promise_write'
       lc0 sc0 mem0
@@ -414,7 +420,7 @@ Lemma reorder_promise_write'
   (exists kind2' lc1' mem1',
      <<STEP1: Local.write_step lc0 sc0 mem0 loc2 from2 to2 val2 releasedm2 released2 ord2 lc1' sc2 mem1' kind2'>> /\
      <<STEP2: __guard__
-                ((lc2, mem2) = (lc1', mem1') \/
+                ((lc2, mem2, loc1, from1, to1) = (lc1', mem1', loc2, from2, to2) \/
                  ((loc1, to1) <> (loc2, to2) /\
                   exists from1' kind1', <<STEP2: Local.promise_step lc1' mem1' loc1 from1' to1 val1 released1 lc2 mem2 kind1'>>))>> /\
      <<KIND2: kind2 = Memory.op_kind_add -> kind2' = Memory.op_kind_add>>).
@@ -494,9 +500,11 @@ Proof.
   - inv LOCAL0. inv LOCAL1.
     esplits; eauto.
     + econs 5; eauto. econs; eauto.
+      admit.
     + right. esplits. econs. econs; eauto.
   - inv LOCAL0. inv LOCAL1.
     esplits; eauto.
     + econs 6; eauto. econs; eauto.
+      admit.
     + right. esplits. econs. econs; eauto.
-Qed.
+Admitted.
