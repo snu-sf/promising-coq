@@ -136,7 +136,7 @@ Proof.
   exploit future_fulfill_step; try exact FULFILL; eauto; try refl; try by viewtac.
   { by inv REORDER. }
   i. des.
-  exploit sim_local_future; try exact MEM1; eauto.
+  exploit SimPromises.future; try exact MEM1; eauto.
   { inv LOCAL. apply SimPromises.sem_bot_inv in PROMISES; auto. rewrite <- PROMISES.
     apply SimPromises.sem_bot.
   }

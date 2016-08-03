@@ -178,7 +178,7 @@ Lemma sim_fence_sim_thread:
 Proof.
   pcofix CIH. i. pfold. ii. ss. splits; ss.
   - i. inv TERMINAL_TGT. inv PR; ss.
-  - i. inv PR. exploit sim_local_future; try apply LOCAL; eauto.
+  - i. inv PR. exploit SimPromises.future; try apply LOCAL; eauto.
     { eapply Local.fence_step_future; try exact SC_SRC; eauto.
       eapply future_fence_step; try apply FENCE; eauto.
       inv REORDER; etrans; eauto.

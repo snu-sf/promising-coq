@@ -321,7 +321,7 @@ Proof.
     destruct lc_src, lc_tgt. ss. subst.
     splits; s; ii.
     { inv TERMINAL_TGT. ss. esplits; eauto; ss. }
-    { exploit sim_local_future; try apply LOCAL; eauto. i. des.
+    { exploit SimPromises.future; try apply LOCAL; eauto. i. des.
       esplits; eauto.
       - etrans.
         + apply Memory.max_timemap_spec; eauto. viewtac.
@@ -400,7 +400,7 @@ Proof.
     destruct lc_src, lc_tgt. ss. subst.
     splits; s; ii.
     { inv TERMINAL_TGT. }
-    { exploit sim_local_future; try apply LOCAL; eauto. i. des.
+    { exploit SimPromises.future; try apply LOCAL; eauto. i. des.
       esplits; eauto.
       - etrans.
         + apply Memory.max_timemap_spec; eauto. viewtac.
@@ -442,7 +442,7 @@ Proof.
     destruct lc_src, lc_tgt. ss. subst.
     splits; s; ii.
     { inv TERMINAL_TGT. }
-    { exploit sim_local_future; try apply LOCAL; eauto. i. des.
+    { exploit SimPromises.future; try apply LOCAL; eauto. i. des.
       esplits; eauto.
       - etrans.
         + apply Memory.max_timemap_spec; eauto. viewtac.

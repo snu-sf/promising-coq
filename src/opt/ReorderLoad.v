@@ -136,7 +136,7 @@ Lemma sim_load_future
 Proof.
   inv SIM1.
   exploit future_read_step; try exact READ; eauto. i. des.
-  exploit sim_local_future; try apply MEM1; eauto.
+  exploit SimPromises.future; try apply MEM1; eauto.
   { inv LOCAL. apply SimPromises.sem_bot_inv in PROMISES; auto. rewrite <- PROMISES.
     inv READ. ss. apply SimPromises.sem_bot.
   }

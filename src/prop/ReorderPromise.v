@@ -24,7 +24,7 @@ Require Import SimLocal.
 Require Import FulfillStep.
 Require Import MemoryReorder.
 
-Require Import MemRel.
+Require Import MemoryRel.
 Require Import SmallStep.
 Require Import PromiseConsistent.
 Require Import ReorderPromiseSame.

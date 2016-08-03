@@ -153,7 +153,7 @@ Proof.
     exploit future_fence_step; try exact FENCE; eauto; try refl. i.
     exploit Local.fence_step_future; eauto. i. des.
     exploit Local.fence_step_future; eauto. i. des.
-    exploit sim_local_future; try apply LOCAL; eauto. i. des.
+    exploit SimPromises.future; try apply LOCAL; eauto. i. des.
     esplits.
     + etrans.
       { apply Memory.max_timemap_spec; eauto. viewtac. }
@@ -187,7 +187,7 @@ Lemma reorder_release_fenceF_sim_stmts
 Proof.
   (* pcofix CIH. ii. subst. pfold. ii. splits; ii. *)
   (* { inv TERMINAL_TGT. } *)
-  (* { exploit sim_local_future; try apply LOCAL; eauto. i. des. *)
+  (* { exploit SimPromises.future; try apply LOCAL; eauto. i. des. *)
   (*   esplits; eauto. *)
   (*   - etrans. *)
   (*     + apply Memory.max_timemap_spec; eauto. viewtac. *)

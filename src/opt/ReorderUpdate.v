@@ -176,7 +176,7 @@ Proof.
   }
   i. des.
   exploit fulfill_step_future; eauto. i. des.
-  exploit sim_local_future; try apply MEM1; eauto.
+  exploit SimPromises.future; try apply MEM1; eauto.
   { inv LOCAL. apply SimPromises.sem_bot_inv in PROMISES; auto. rewrite <- PROMISES.
     apply SimPromises.sem_bot.
   }

@@ -19,7 +19,7 @@ Require Import Thread.
 Require Import Configuration.
 Require Import Progress.
 
-Require Import MemRel.
+Require Import MemoryRel.
 Require Import SmallStep.
 Require Import Fulfilled.
 Require Import Race.

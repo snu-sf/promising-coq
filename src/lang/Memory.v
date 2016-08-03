@@ -1502,4 +1502,55 @@ Module Memory.
 
   Lemma bot_nonsynch: nonsynch Memory.bot.
   Proof. ii. eapply bot_nonsynch_loc. eauto. Qed.
+
+  Definition finite (mem:t): Prop :=
+    exists dom,
+    forall loc from to msg (GET: get loc to mem = Some (from, msg)),
+      List.In (loc, to) dom.
+
+  Lemma add_finite
+        mem1 loc from to val released mem2
+        (FINITE: finite mem1)
+        (ADD: add mem1 loc from to val released mem2):
+    finite mem2.
+  Proof.
+    unfold finite in *. des. exists ((loc, to) :: dom). i.
+    revert GET. erewrite add_o; eauto. condtac; ss; eauto.
+    i. des. inv GET. auto.
+  Qed.
+
+  Lemma split_finite
+        mem1 loc ts1 ts2 ts3 val2 val3 released2 released3 mem2
+        (FINITE: finite mem1)
+        (SPLIT: split mem1 loc ts1 ts2 ts3 val2 val3 released2 released3 mem2):
+    finite mem2.
+  Proof.
+    unfold finite in *. des. exists ((loc, ts2) :: dom). i.
+    revert GET. erewrite split_o; eauto. repeat condtac; ss; eauto.
+    - i. des. inv GET. auto.
+    - guardH o. i. des. inv GET. right. eapply FINITE.
+      eapply split_get0. eauto.
+  Qed.
+
+  Lemma lower_finite
+        mem1 loc from to val released1 released2 mem2
+        (FINITE: finite mem1)
+        (LOWER: lower mem1 loc from to val released1 released2 mem2):
+    finite mem2.
+  Proof.
+    unfold finite in *. des. exists dom. i.
+    revert GET. erewrite lower_o; eauto. condtac; ss; eauto.
+    i. des. inv GET. eapply FINITE.
+    eapply lower_get0. eauto.
+  Qed.
+
+  Lemma remove_finite
+        mem1 loc from to val released mem2
+        (FINITE: finite mem1)
+        (REMOVE: remove mem1 loc from to val released mem2):
+    finite mem2.
+  Proof.
+    unfold finite in *. des. exists dom. i.
+    revert GET. erewrite remove_o; eauto. condtac; ss; eauto.
+  Qed.
 End Memory.

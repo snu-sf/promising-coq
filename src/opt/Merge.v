@@ -43,7 +43,7 @@ Lemma assign_sim_thread:
 Proof.
   pcofix CIH. i. pfold. ii. splits.
   { i. inv TERMINAL_TGT. }
-  { i. exploit sim_local_future; try apply LOCAL; eauto. i. des.
+  { i. exploit SimPromises.future; try apply LOCAL; eauto. i. des.
     esplits; eauto.
     - etrans.
       + apply Memory.max_timemap_spec; eauto. viewtac.
@@ -82,7 +82,7 @@ Lemma merge_load_load_sim_stmts
 Proof.
   pcofix CIH. ii. subst. pfold. ii. splits.
   { i. inv TERMINAL_TGT. }
-  { i. exploit sim_local_future; try apply LOCAL; eauto. i. des.
+  { i. exploit SimPromises.future; try apply LOCAL; eauto. i. des.
     esplits; eauto.
     - etrans.
       + apply Memory.max_timemap_spec; eauto. viewtac.
@@ -129,7 +129,7 @@ Lemma merge_store_load_sim_stmts
 Proof.
   pcofix CIH. ii. subst. pfold. ii. splits.
   { i. inv TERMINAL_TGT. }
-  { i. exploit sim_local_future; try apply LOCAL; eauto. i. des.
+  { i. exploit SimPromises.future; try apply LOCAL; eauto. i. des.
     esplits; eauto.
     - etrans.
       + apply Memory.max_timemap_spec; eauto. viewtac.
@@ -175,7 +175,7 @@ Lemma merge_store_store_sim_stmts
 Proof.
   pcofix CIH. ii. subst. pfold. ii. splits.
   { i. inv TERMINAL_TGT. }
-  { i. exploit sim_local_future; try apply LOCAL; eauto. i. des.
+  { i. exploit SimPromises.future; try apply LOCAL; eauto. i. des.
     esplits; eauto.
     - etrans.
       + apply Memory.max_timemap_spec; eauto. viewtac.
@@ -239,7 +239,7 @@ Lemma merge_store_update_sim_stmts
 Proof.
   pcofix CIH. ii. subst. pfold. ii. splits.
   { i. inv TERMINAL_TGT. }
-  { i. exploit sim_local_future; try apply LOCAL; eauto. i. des.
+  { i. exploit SimPromises.future; try apply LOCAL; eauto. i. des.
     esplits; eauto.
     - etrans.
       + apply Memory.max_timemap_spec; eauto. viewtac.
@@ -310,7 +310,7 @@ Lemma merge_update_load_sim_stmts
 Proof.
   pcofix CIH. ii. subst. pfold. ii. splits.
   { i. inv TERMINAL_TGT. }
-  { i. exploit sim_local_future; try apply LOCAL; eauto. i. des.
+  { i. exploit SimPromises.future; try apply LOCAL; eauto. i. des.
     esplits; eauto.
     - etrans.
       + apply Memory.max_timemap_spec; eauto. viewtac.
@@ -373,7 +373,7 @@ Lemma merge_update_update_sim_stmts
 Proof.
   pcofix CIH. ii. subst. pfold. ii. splits.
   { i. inv TERMINAL_TGT. }
-  { i. exploit sim_local_future; try apply LOCAL; eauto. i. des.
+  { i. exploit SimPromises.future; try apply LOCAL; eauto. i. des.
     esplits; eauto.
     - etrans.
       + apply Memory.max_timemap_spec; eauto. viewtac.
@@ -471,7 +471,7 @@ Lemma merge_fence_fence_sim_stmts
 Proof.
   pcofix CIH. ii. subst. pfold. ii. splits.
   { i. inv TERMINAL_TGT. }
-  { i. exploit sim_local_future; try apply LOCAL; eauto. i. des.
+  { i. exploit SimPromises.future; try apply LOCAL; eauto. i. des.
     esplits; eauto.
     - etrans.
       + apply Memory.max_timemap_spec; eauto. viewtac.
