@@ -2,16 +2,15 @@
 
 ## Build
 
-- You need Coq 8.5pl2, and Make.
-- You can build by the `make` command in the root directory.
-- You can quickly build omitting all the proofs by the `make quick` command in the root directory.
+- Requirement: Coq 8.5pl2, Make, Rsync.
+- `make`: quickly build without checking all the proofs.
+- `./build.sh`: build with checking all the proofs.  It will incrementally copy the development in the `.build` directory, and then build there.
 
 ## References
 
 ### Model
 
-- `lib`, `src/lib` and `src/hahn` contains libraries not necessarily related to the relaxed-memory concurrency.
-    + Hahn is a library with many lemmas about relations, transitive closures, etc.
+- `lib` and `src/lib` contains libraries not necessarily related to the relaxed-memory concurrency.
 
 - `src/lang`: Model (Section 2-4)
     + `Language.v`: abstract interface of the programming languages
@@ -20,6 +19,10 @@
     + `Thread.v`: thread and its execution (`READ`, `WRITE`, `UPDATE`, `FENCE`, `SYSTEM CALL`, `SILENT`, `PROMISE` rules in Figure 3)
     + `Configuration.v`: configuration (machine state) and its execution (`MACHINE STEP` rule in Figure 3)
     + `Behavior.v`: the behaviors of a configuration
+
+- `src/prop`: General properties on the memory model
+    + Promise-free certification: Lemma `consistent_pf_consistent` (`PFConsistent.v`)
+      In certification, promise is useless.
 
 - `src/while` Toy "while" language
   This language provides the basis for the optimization & compilation results.
@@ -47,6 +50,4 @@
     + We did not formalize DRF-RA (Theorem 2) and DRF-SC (Theorem 3).
 
 - `src/invariant`: An Invariant-Based Program Logic (Section 5.4)
-    + Promise-free certification: Lemma `consistent_pf_consistent` (`Certification.v`)
-      In certification, promise is useless.
     + Soundness: Lemma `sound` (`Invariant.v`)

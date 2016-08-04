@@ -125,4 +125,49 @@ Module MemoryFacts.
   Proof.
     apply Cell.ext. i. eapply remove_get_diff; eauto. refl.
   Qed.
+
+  Lemma get_same_from_aux
+        l f t1 t2 m msg1 msg2
+        (GET1: Memory.get l t1 m = Some (f, msg1))
+        (GET2: Memory.get l t2 m = Some (f, msg2))
+        (LE: Time.le t1 t2)
+        (T1: t1 <> Time.bot):
+    t1 = t2 /\ msg1 = msg2.
+  Proof.
+    inv LE; cycle 1.
+    { inv H. rewrite GET1 in GET2. inv GET2. ss. }
+    destruct (m l).(Cell.WF). exfalso.
+    assert (t1 <> t2).
+    { ii. subst. eapply Time.lt_strorder. eauto. }
+    eapply DISJOINT; try exact H0; eauto.
+    - apply Interval.mem_ub. exploit VOLUME; try exact GET1; eauto. i. des; ss.
+      inv x. congr.
+    - econs; ss.
+      + exploit VOLUME; try exact GET1; eauto. i. des; ss. inv x. congr.
+      + left. ss.
+  Qed.
+
+  Lemma get_same_from
+        l f t1 t2 m msg1 msg2
+        (GET1: Memory.get l t1 m = Some (f, msg1))
+        (GET2: Memory.get l t2 m = Some (f, msg2))
+        (T1: t1 <> Time.bot)
+        (T2: t2 <> Time.bot):
+    t1 = t2 /\ msg1 = msg2.
+  Proof.
+    destruct (Time.le_lt_dec t1 t2).
+    - eapply get_same_from_aux; eauto.
+    - exploit get_same_from_aux; (try by left; eauto); eauto. i. des. ss.
+  Qed.
+
+  Lemma write_not_bot
+        pm1 mem1 loc from to val released pm2 mem2 kind
+        (WRITE: Memory.write pm1 mem1 loc from to val released pm2 mem2 kind):
+    to <> Time.bot.
+  Proof.
+    ii. subst. inv WRITE. inv PROMISE.
+    - inv MEM. inv ADD. inv TO.
+    - inv MEM. inv SPLIT. inv TS12.
+    - inv MEM. inv LOWER. inv TS0.
+  Qed.
 End MemoryFacts.

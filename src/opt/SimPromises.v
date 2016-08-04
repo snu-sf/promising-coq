@@ -381,7 +381,7 @@ Module SimPromises.
       <<LE2_TGT: Memory.le promises_tgt mem2_tgt>> /\
       <<SIM2: sim_memory mem2_src mem2_tgt>>.
   Proof.
-    inv FUTURE_SRC.
+    inv FUTURE_SRC. inv OP.
     - exploit (@Memory.add_exists mem1_tgt loc from to val (Some (Memory.max_released mem1_tgt loc to))).
       { eapply covered_disjoint; try apply SIM1; eauto. inv ADD. inv ADD0. auto. }
       { inv ADD. inv ADD0. auto. }
@@ -394,7 +394,10 @@ Module SimPromises.
       i.
       exploit Memory.max_released_closed; eauto. i. des.
       esplits.
-      + econs 2; eauto. econs 1; eauto. econs. eauto.
+      + econs 2; eauto. econs.
+        * econs 1. eauto.
+        * econs. eauto.
+        * eauto.
       + ii. erewrite Memory.add_o; eauto. condtac; ss; eauto.
         des. subst. exploit LE1_TGT; eauto. erewrite Memory.add_get0; eauto. congr.
       + auto.
@@ -429,10 +432,10 @@ Module SimPromises.
     { esplits; eauto. refl. }
     assert (LE_SRC: Memory.le promises_src y).
     { ii. exploit LE1_SRC; eauto. i. destruct msg.
-      exploit Memory.future_get; try exact x0; eauto.
+      exploit Memory.future_get1; try exact x0; eauto.
       { econs 2; [|refl]. eauto. }
       i. des.
-      exploit Memory.future_get; try exact GET; eauto. i. des.
+      exploit Memory.future_get1; try exact GET; eauto. i. des.
       erewrite LE2_SRC in GET0; eauto. inv GET0.
       rewrite GET. f_equal. f_equal.
       - apply TimeFacts.antisym; eauto.

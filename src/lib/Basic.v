@@ -146,6 +146,22 @@ Proof.
   - i. apply lt_le_S in H. inv H; eauto.
 Qed.
 
+Definition option_app {A} (a b: option A) : option A :=
+  if a then a else b.
+
+Lemma strengthen
+      (A B: Prop)
+      (H: A /\ (A -> B)):
+  A /\ B.
+Proof. intuition. Qed.
+
+Lemma option_map_map 
+      A B C (f: B -> C) (g: A -> B) (a: option A):
+  option_map f (option_map g a) = option_map (fun x => f (g x)) a.
+Proof.
+  destruct a; eauto.
+Qed.
+
 Ltac condtac :=
   match goal with
   | [|- context[if ?c then _ else _]] =>

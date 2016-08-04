@@ -56,6 +56,32 @@ Module ThreadEvent.
     | update loc tsr tsw _ valw _ releasedw _ ordw => Some (loc, tsr, tsw, valw, releasedw, ordw)
     | _ => None
     end.
+
+  Inductive le: forall (lhs rhs:t), Prop :=
+  | le_promise
+      loc from to val rel1 rel2
+      (LEREL: View.opt_le rel1 rel2):
+      le (promise loc from to val rel1) (promise loc from to val rel2) 
+  | le_silent:
+      le (silent) (silent)
+  | le_read
+      loc ts val rel1 rel2 ord
+      (LEREL: View.opt_le rel1 rel2):
+      le (read loc ts val rel1 ord) (read loc ts val rel2 ord)
+  | le_write
+      loc from to val rel1 rel2 ord
+      (LEREL: View.opt_le rel1 rel2):
+      le (write loc from to val rel1 ord) (write loc from to val rel2 ord)
+  | le_update
+      loc tsr tsw valr valw relr1 relr2 relw1 relw2 ordr ordw
+      (LEREL: View.opt_le relr1 relr2)
+      (LEREL: View.opt_le relw1 relw2):
+      le (update loc tsr tsw valr valw relr1 relw1 ordr ordw) (update loc tsr tsw valr valw relr2 relw2 ordr ordw)
+  | le_fence ordr ordw:
+      le (fence ordr ordw) (fence ordr ordw)
+  | le_syscall e:
+      le (syscall e) (syscall e)
+  .
 End ThreadEvent.
 
 
@@ -363,6 +389,13 @@ Module Thread.
         (STEP: promise_step e e1 e2)
     | step_program
         (STEP: program_step e e1 e2)
+    .
+
+    Inductive tau_program_step (e1 e2:t): Prop :=
+    | step_program_tau
+        e
+        (STEP: program_step e e1 e2)
+        (TAU: ThreadEvent.get_event e = None)
     .
 
     Inductive tau_step (e1 e2:t): Prop :=

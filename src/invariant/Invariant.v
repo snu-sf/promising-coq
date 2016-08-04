@@ -19,9 +19,7 @@ Require Import Thread.
 Require Import Configuration.
 
 Require Import PromiseConsistent.
-Require Import ReorderThreadStepSame.
-Require Import InvariantBase.
-Require Import Certification.
+Require Import ReorderPromises.
 
 Set Implicit Arguments.
 
@@ -248,47 +246,6 @@ Section Invariant.
     etrans; eauto. econs 2; eauto.
   Qed.
 
-  Lemma add_get1
-        m1 loc from to val released m2
-        l f t v r
-        (ADD: Memory.add m1 loc from to val released m2)
-        (GET: Memory.get l t m1 = Some (f, Message.mk v r)):
-    exists f' r',
-      Memory.get l t m2 = Some (f', Message.mk v r').
-  Proof.
-    erewrite Memory.add_o; eauto. condtac; ss.
-    - des. subst. erewrite Memory.add_get0 in GET; eauto. congr.
-    - esplits; eauto.
-  Qed.
-
-  Lemma split_get1
-        m1 loc ts1 ts2 ts3 val2 val3 released2 released3 m2
-        l f t v r
-        (SPLIT: Memory.split m1 loc ts1 ts2 ts3 val2 val3 released2 released3 m2)
-        (GET: Memory.get l t m1 = Some (f, Message.mk v r)):
-    exists f' r',
-      Memory.get l t m2 = Some (f', Message.mk v r').
-  Proof.
-    erewrite Memory.split_o; eauto. repeat condtac; ss.
-    - des. subst. exploit Memory.split_get0; eauto. i. des. congr.
-    - guardH o. des. subst. exploit Memory.split_get0; eauto. i. des.
-      rewrite GET3 in GET. inv GET. esplits; eauto.
-    - esplits; eauto.
-  Qed.
-
-  Lemma lower_get1
-        m1 loc from to val released1 released2 m2
-        l f t v r
-        (LOWER: Memory.lower m1 loc from to val released1 released2 m2)
-        (GET: Memory.get l t m1 = Some (f, Message.mk v r)):
-    exists f' r',
-      Memory.get l t m2 = Some (f', Message.mk v r').
-  Proof.
-    erewrite Memory.lower_o; eauto. condtac; ss.
-    - des. subst. erewrite Memory.lower_get0 in GET; [|eauto]. inv GET. esplits; eauto.
-    - esplits; eauto.
-  Qed.
-
   Lemma future_sem_memory
         m1 m2
         (FUTURE: Memory.future m1 m2)
@@ -298,38 +255,7 @@ Section Invariant.
     revert SEM. induction FUTURE; ss. i.
     hexploit IHFUTURE; eauto. i.
     ii. apply H0. ii. specialize (PR loc). des.
-    inv H.
-    - exploit add_get1; eauto. i. des. esplits; eauto.
-    - exploit split_get1; eauto. i. des. esplits; eauto.
-    - exploit lower_get1; eauto. i. des. esplits; eauto.
-  Qed.
-
-  Lemma promise_step_evt_bot
-        lang e1 e2
-        (STEP: @promise_step_evt lang e1 e2)
-        (PROMISE: e2.(Thread.local).(Local.promises) = Memory.bot):
-    False.
-  Proof.
-    inv STEP. inv STEP0. inv LOCAL. ss. subst. inv PROMISE0.
-    - exploit (@Memory.add_o Memory.bot lc1.(Local.promises) loc from to val released loc to)
-      ; try exact PROMISES; eauto. condtac; ss; [|des; congr].
-      rewrite Memory.bot_get. congr.
-    - exploit (@Memory.split_o Memory.bot lc1.(Local.promises) loc from to ts3 val val3 released released3 loc to)
-      ; try exact PROMISES; eauto. condtac; ss; [|des; congr].
-      rewrite Memory.bot_get. congr.
-    - exploit (@Memory.lower_o Memory.bot lc1.(Local.promises) loc from to val released0 released loc to)
-      ; try exact PROMISES; eauto. condtac; ss; [|des; congr].
-      rewrite Memory.bot_get. congr.
-  Qed.
-
-  Lemma rtc_promise_step_evt_bot
-        lang e1 e2
-        (STEPS: rtc (@promise_step_evt lang) e1 e2)
-        (PROMISE: e2.(Thread.local).(Local.promises) = Memory.bot):
-    e1 = e2.
-  Proof.
-    exploit rtc_tail; eauto. i. des; ss.
-    exfalso. eapply promise_step_evt_bot; eauto.
+    inv H. exploit Memory.op_get1; eauto. i. des. esplits; eauto.
   Qed.
 
   Lemma configuration_step_sem
@@ -359,7 +285,7 @@ Section Invariant.
       i. des.
       exploit rtc_promise_step_evt_future; eauto. s. i. des.
       subst. eapply rtc_thread_step_sem; try exact STEPS1; eauto; ss; try by inv WF.
-      { inv WF. eapply WF3. eauto. }
+      inv WF. eapply WF3. eauto.
     - inv STEP. ss.
       eapply rtc_implies in STEPS; [|by apply tau_step_step_evt].
       exploit rtc_n1; eauto; i.

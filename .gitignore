@@ -1,5 +1,6 @@
 _CoqProject
 Makefile.coq
+.build
 
 *.vo
 *.vio

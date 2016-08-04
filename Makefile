@@ -1,9 +1,11 @@
 COQMODULE    := cmem
-COQTHEORIES  := src/*/*.v
+COQTHEORIES  := lib/hahn/*.v src/*/*.v
 
 .PHONY: all theories clean
 
-all: sflib paco Makefile.coq
+all: quick
+
+build: sflib paco Makefile.coq
 	$(MAKE) -f Makefile.coq all
 
 quick: sflib-quick paco-quick Makefile.coq
@@ -24,14 +26,15 @@ paco-quick: lib/paco/src
 Makefile.coq: Makefile $(COQTHEORIES)
 	(echo "-R lib/sflib sflib"; \
    echo "-R lib/paco/src Paco"; \
+   echo "-R lib/hahn $(COQMODULE)"; \
    \
    echo "-R src/lib $(COQMODULE)"; \
    echo "-R src/lang $(COQMODULE)"; \
    echo "-R src/while $(COQMODULE)"; \
+   echo "-R src/prop $(COQMODULE)"; \
    echo "-R src/opt $(COQMODULE)"; \
    echo "-R src/drf $(COQMODULE)"; \
    echo "-R src/invariant $(COQMODULE)"; \
-   echo "-R src/hahn $(COQMODULE)"; \
    echo "-R src/axiomatic $(COQMODULE)"; \
    \
    echo $(COQTHEORIES)) > _CoqProject

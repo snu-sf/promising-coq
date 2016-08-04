@@ -206,7 +206,7 @@ Proof.
   - by do 2 apply Time.middle_spec.
   - by eapply TimeFacts.le_lt_lt; eauto; apply Time.middle_spec.
   - by eapply TimeFacts.lt_le_lt; eauto; do 2 apply Time.middle_spec.
-  - destruct (Time.middle_spec from to); ins.
+  - destruct (@Time.middle_spec from to); ins.
     intro X; rewrite <- X in *.
     eapply Time.lt_strorder; eauto using Time.bot_spec, TimeFacts.lt_le_lt.
 Qed.

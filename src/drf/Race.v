@@ -17,7 +17,7 @@ Require Import Thread.
 Require Import Configuration.
 Require Import Progress.
 
-Require Import DRFBase.
+Require Import MemRel.
 Require Import SmallStep.
 
 Set Implicit Arguments.
