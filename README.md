@@ -11,7 +11,6 @@
 ### Model
 
 - `lib` and `src/lib` contains libraries not necessarily related to the relaxed-memory concurrency.
-    + Hahn is a library with many lemmas about relations, transitive closures, etc.
 
 - `src/lang`: Model (Section 2-4)
     + `Language.v`: abstract interface of the programming languages
