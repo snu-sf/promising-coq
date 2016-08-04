@@ -29,6 +29,23 @@ Remove Hints plus_n_O.
 
 Hint Resolve gstep_wf gstep_inc coh_wf.
 
+Tactic Notation "eauto_red" integer(n) "using" constr(lemma) :=
+  let H := fresh in assert (H := lemma); red in H; eauto n.
+
+Tactic Notation "eauto_red" "using" constr(lemma) :=
+  let H := fresh in assert (H := lemma); red in H; eauto.
+
+Lemma no_promises_consistent op_st 
+  (NO_PROMISES: forall i foo local 
+    (TID: IdentMap.find i (Configuration.threads op_st) = Some (foo, local)),
+    local.(Local.promises) = Memory.bot):
+  Configuration.consistent op_st.
+Proof.
+eexists; splits; try econs.
+eby eapply NO_PROMISES.
+Qed.
+
+
 Section Monotone.
 
 Definition monotone (mo : relation event) f :=
@@ -36,7 +53,6 @@ Definition monotone (mo : relation event) f :=
 
 Definition monotone_acts acts (mo : relation event) f :=
   forall a b, mo a b -> In a acts -> In b acts -> Time.lt (f a) (f b).
-
 
 Lemma no_imm_predecessor_simpl 
       (mo : relation event) (IRR: irreflexive mo) (T: transitive mo) acts a
@@ -304,9 +320,10 @@ Qed.
 Lemma monotone_injective a b l f acts mo
   (INa: In a acts) (INb: In b acts) (WRITEa: is_write a) (WRITEb: is_write b)
   (LOCa: loc a = Some l) (LOCb: loc b = Some l) (MON: monotone mo f)
-  (WF_MO: WfMO acts mo) (SAME_F: f a = f b) (NEQ: a <> b): False.
+  (WF_MO: WfMO acts mo) (SAME_F: f a = f b) : a=b.
 Proof.
-eapply WF_MO in NEQ; eauto.
+destruct (classic (a=b)) as [?|NEQ]; try done.
+exfalso; eapply WF_MO in NEQ; eauto.
 desf; apply MON in NEQ; rewrite SAME_F in NEQ; eapply Time.lt_strorder; eauto.
 Qed.
 
@@ -314,6 +331,105 @@ Definition max_value f (INR : event -> Prop) val :=
  << UB: forall a (INa: INR a), Time.le (f a) val >> /\
  << MAX: ((forall a, ~ INR a) /\ val = Time.bot) \/
          (exists a_max, << INam: INR a_max >> /\ <<LB': Time.le val (f a_max)>>) >>.
+
+Lemma max_value_singleton f b t (T: t = f b) : max_value f (eq b) t.
+Proof.
+red; splits; ins; desc; subst.
+by apply Time.le_lteq; eauto.
+right; exists b; splits; try apply Time.le_lteq; eauto.
+Qed.
+
+Lemma max_value_new_f f f' P t 
+  (MAX: max_value f P t) (F: forall x, P x -> f' x = f x): max_value f' P t.
+Proof.
+unfold max_value in *; ins; desf; splits; ins.
+all: try rewrite F; auto.
+right; exists a_max; rewrite F; auto.
+Qed.
+
+Lemma max_value_same_set f P P' t 
+  (MAX: max_value f P t) (SAME: forall x, P' x <-> P x): max_value f P' t.
+Proof.
+  unfold max_value in *; ins; desf; splits; ins.
+  all: try specialize (SAME a); desf; eauto.
+  left; split; eauto; ins; intro;  eapply MAX0; apply SAME; edone.
+  right; exists a_max; specialize (SAME a_max); desf; split; auto.
+Qed.
+
+Lemma max_value_join f P P' P'' t t'
+  (MAX: max_value f P t) (MAX':  max_value f P' t')
+  (SAME: forall x, P'' x <-> P x \/ P' x):
+  max_value f P'' (Time.join t t').
+Proof.
+unfold max_value in *; ins; desf; splits; ins.
+all: try apply SAME in INa; desf.
+all: try by etransitivity; eauto; eauto using Time.join_l, Time.join_r. 
+- left; split; eauto. ins; intro. 
+  specialize (MAX1 a). specialize (MAX0 a).
+  apply SAME in H; desf.
+- right; exists a_max; splits.
+  rewrite SAME; eauto.
+  apply Time.join_spec; eauto; etransitivity; eauto; rewrite Time.le_lteq; eauto.
+  apply Time.le_lteq. apply Time.bot_spec.
+- right; exists a_max; splits.
+  rewrite SAME; eauto.
+  apply Time.join_spec; eauto; etransitivity; eauto; rewrite Time.le_lteq; eauto.
+  apply Time.le_lteq. apply Time.bot_spec.
+- right;
+  destruct (Time.le_lt_dec (f a_max) (f a_max0)); [exists a_max0|exists a_max]; splits.
+  all: try rewrite SAME; eauto.
+  all: try (apply Time.join_spec; eauto;
+       etransitivity; eauto; rewrite Time.le_lteq; eauto). 
+Qed.
+
+Lemma max_value_loc f f' P P' t b
+  (MAX: max_value f P t)
+  (SAME: forall x, P' x <-> P x \/ x = b)
+  (F: forall x, P x -> f' x = f x):
+  max_value f' P'  (Time.join t (f' b)).
+Proof.
+eapply max_value_join with (P':= eq b); eauto.
+eapply max_value_new_f with (f:=f); eauto.
+eapply max_value_singleton; done.
+ins; specialize (SAME x); desf; split; ins.
+apply SAME in H; desf; eauto.
+apply SAME0; desf; eauto.
+Qed.
+
+Lemma max_value_empty f P (SAME: forall x, ~ P x): max_value f P Time.bot.
+Proof.
+red; splits.
+ins; exfalso; eapply SAME; edone.
+left; splits; eauto.
+Qed.
+
+Lemma max_value_le f b c tm l P
+  (LE: Time.le (tm l) (f b))
+  (MAX: max_value f P (LocFun.find l tm))
+  (LT: Time.lt (f b) (f c))
+  (IN: P c) : False.
+Proof.
+unfold LocFun.find in *.
+red in MAX; desf.
+eby eapply MAX0.
+apply UB in IN.
+eapply Time.lt_strorder; eauto using TimeFacts.le_lt_lt.
+Qed.
+
+Lemma max_value_lt f b tm l P t
+  (LT1: Time.lt t (f b))
+  (MAX: max_value f P (LocFun.find l tm))
+  (LT2: Time.lt (tm l) t)
+  (IN: P b) : False.
+Proof.
+unfold LocFun.find in *.
+red in MAX; desf.
+eby eapply MAX0.
+apply UB in IN.
+assert (Time.lt (tm l) (f b)).
+  eapply Time.lt_strorder; eauto.
+eapply Time.lt_strorder; eauto using TimeFacts.le_lt_lt.
+Qed.
 
 End Monotone.
 
@@ -329,7 +445,7 @@ Section Simulation.
 
 Variables f_from f_to : event -> Time.t.
 
-Variable acts : list event.  
+Variable acts : list event.
 Variables sb rmw rf mo sc : relation event.
 
 Definition sim_msg b  rel :=
@@ -389,41 +505,94 @@ Definition sim_tview tview i :=
 
 End Simulation.
 
-Definition sim_time  (op_st: Configuration.t) (ax_st: Machine.configuration) f_from f_to :=
-  << MONOTONE: monotone (mo ax_st) f_to >> /\  
+Definition sim_time (ths: Configuration.Threads.t) sc_map mem G f_from f_to :=
+  << MONOTONE: monotone (mo G) f_to >> /\  
   << SIM_TVIEW: forall i foo local
-        (TID: IdentMap.find i (Configuration.threads op_st) = Some (foo, local)),
-        sim_tview f_to (acts ax_st) (sb ax_st) (rmw ax_st) (rf ax_st) (sc ax_st) 
-                   local.(Local.tview) (Some i) >> /\
-  << SIM_SC_MAP: forall l, max_value f_to (S_tm (acts ax_st) (sb ax_st) (rmw ax_st) 
-                                             (rf ax_st) l) 
-                                     (LocFun.find l (Configuration.sc op_st))  >> /\
-  << SIM_MEM: sim_mem f_from f_to (acts ax_st) (sb ax_st) (rmw ax_st) (rf ax_st) (sc ax_st) 
-                      (Configuration.memory op_st) >>.
+        (TID: IdentMap.find i ths = Some (foo, local)),
+        sim_tview f_to (acts G) (sb G) (rmw G) (rf G) (sc G) local.(Local.tview) (Some i) >> /\
+  << SIM_SC_MAP: forall l, max_value f_to (S_tm (acts G) (sb G) (rmw G) (rf G) l) 
+                                     (LocFun.find l sc_map)  >> /\
+  << SIM_MEM: sim_mem f_from f_to (acts G) (sb G) (rmw G) (rf G) (sc G) mem >>.
+
 
 Definition sim (op_st: Configuration.t) (ax_st: Machine.configuration) :=
-  << COH: Coherent (acts ax_st) (sb ax_st) (rmw ax_st) (rf ax_st) (mo ax_st) (sc ax_st) >> /\
+  << COH: Coherent (acts (exec ax_st)) (sb (exec ax_st)) (rmw (exec ax_st)) 
+    (rf (exec ax_st)) (mo (exec ax_st)) (sc (exec ax_st)) >> /\
   << WF_OP_ST: Configuration.wf op_st >> /\
-  << CONS_OP_ST: Configuration.consistent op_st >> /\
   << NO_PROMISES: forall i foo local 
         (TID: IdentMap.find i (Configuration.threads op_st) = Some (foo, local)),
          local.(Local.promises) = Memory.bot>> /\
-  << STATES: ts ax_st = IdentMap.map fst (Configuration.threads op_st) >> /\
+  << STATES: (ts ax_st) = IdentMap.map fst (Configuration.threads op_st) >>/\
   exists f_from f_to, 
-    << TIME : sim_time op_st ax_st f_from f_to >> /\
-    << SPACE : forall x y (MO: mo ax_st x y) (NRMW: ~ (rf ax_st ;; rmw ax_st) x y),
+    << TIME: sim_time (Configuration.threads op_st)
+     (Configuration.sc op_st) (Configuration.memory op_st) (exec ax_st) f_from f_to >> /\
+    << SPACE : forall x y (MO: mo (exec ax_st) x y) (NRMW: ~ (rf (exec ax_st) ;; rmw (exec ax_st)) x y),
                  f_to x <> f_from y >> /\
-    << BSPACE : forall y (INy: In y (acts ax_st)) (W: is_write y)
-                       (NRMW: ~ exists x, (rf ax_st ;; rmw ax_st) x y),
+    << BSPACE : forall y (INy: In y (acts (exec ax_st))) (W: is_write y)
+                       (NRMW: ~ exists x, (rf (exec ax_st) ;; rmw (exec ax_st)) x y),
                  Time.bot <> f_from y >>.
 
-Lemma find_mapD A B tid (f: A -> B) x y :
-  IdentMap.find tid (IdentMap.map f x) = Some y ->
-  exists z, IdentMap.find tid x = Some z /\ y = f z.
+Lemma sim_mem_get :
+  forall ffrom fto acts sb rmw rf mo sc mem 
+    (MONOTONE: monotone mo fto) (WF: WfMO acts mo)
+    (MEM : sim_mem ffrom fto acts sb rmw rf sc mem) 
+    x l v (INx : In x acts) (WRITEx: is_write x) (LOCx: loc x = Some l)
+(Valx: val x = Some v),
+  exists rel, Memory.get l (fto x) mem = Some (ffrom x, Message.mk v rel) /\
+                  (sim_mem_helper fto acts sb rmw rf sc x (ffrom x) v rel.(View.unwrap)).
 Proof.
-  rewrite IdentMap.Facts.map_o; unfold option_map; ins; desf; eauto.
+  ins; desc.
+  assert (X:= proj1 (MEM l) x).
+  destruct (Memory.get l (fto x) mem) as [[from [v' rel]]|] eqn:Y; cycle 1.
+  by exfalso; apply X.
+  apply (proj2 (MEM l)) in Y; desc.
+  destruct (classic (x=b)); subst.
+  - assert (v'=v); subst; eauto.
+    by unfold sim_mem_helper in *; desc; congruence.
+  - exfalso; eauto using monotone_injective.
 Qed.
 
+Lemma sim_mem_lt ffrom fto acts sb rmw rf mo sc mem
+      (SIM_MEM : sim_mem ffrom fto acts sb rmw rf sc mem)
+      (WF: Wf acts sb rmw rf mo sc)
+      (MON: monotone mo fto)
+      l x (IN : In x acts) (W: is_write x) (L: loc x = Some l) :
+  Time.lt (ffrom x) (fto x).
+Proof.
+assert (exists v, val x = Some v); desc.
+by destruct x as [??[]]; ins; exists v; unfold val; ins.
+exploit sim_mem_get; try edone.
+by eapply WF.
+specialize (SIM_MEM l); desc.
+intro G; desc.
+unfold sim_mem_helper in *; apply SIMCELL in G; desf; congruence.
+Qed.
+
+Lemma sim_mem_disj ffrom fto acts sb rmw rf mo sc mem
+      (SIM_MEM : sim_mem ffrom fto acts sb rmw rf sc mem)
+      (WF: Wf acts sb rmw rf mo sc)
+      (MON: monotone mo fto)
+      l x (INx: In x acts) (W: is_write x) (L: loc x = Some l) 
+        y (NEQ: x <> y) (INy: In y acts) (W': is_write y) (L': loc y = Some l) :
+  Interval.disjoint (ffrom x, fto x) (ffrom y, fto y).
+Proof.
+  ins; desc. cdes WF.
+  assert (exists v_y, val y = Some v_y); desc.
+    by destruct y as [??[]]; unfold val; ins; eauto.
+  assert (exists v_x, val x = Some v_x); desc.
+    by destruct x as [??[]]; unfold val; ins; eauto.
+  assert (Gx := INx); eapply sim_mem_get in Gx; eauto; 
+  assert (Gy := INy); eapply sim_mem_get in Gy; eauto; desc.
+  unfold Memory.get, Cell.get in *; destruct (mem l); ins.
+  eapply WF0; eauto. 
+  intro M.
+  cdes WF; eapply WF_MO in NEQ; des; splits; try eassumption;
+  apply MON in NEQ; rewrite M in *; eapply Time.lt_strorder; eauto.
+Qed.
+
+(******************************************************************************)
+(** * Simple helper Lemmas for timemaps and views         *)
+(******************************************************************************)
 Lemma tm_join a b l :
   TimeMap.join a b l =  Time.join (a l) (b l).
 Proof.  ins. Qed.
@@ -433,7 +602,7 @@ Lemma tm_find_join l a b :
   Time.join (LocFun.find l a) (LocFun.find l b).
 Proof.  done. Qed.
 
-Lemma tm_find_singleton l l' t  :
+Lemma tm_find_singleton l l' t :
   LocFun.find l (TimeMap.singleton l' t) = 
     if (Loc.eq_dec l l') then t else Time.bot.
 Proof.  desf. Qed.
@@ -452,8 +621,7 @@ Qed.
 Lemma tm_find_bot l : LocFun.find l TimeMap.bot = Time.bot.
 Proof. done. Qed.
 
-Lemma tm_join_bot a  :
-  TimeMap.join a TimeMap.bot =  a.
+Lemma tm_join_bot a : TimeMap.join a TimeMap.bot =  a.
 Proof.
 eapply TimeMap.antisym.
 apply TimeMap.join_spec.
@@ -462,8 +630,7 @@ apply TimeMap.bot_spec.
 apply TimeMap.join_l.
 Qed.
 
-Lemma cap_join_bot a  :
-  View.join a View.bot =  a.
+Lemma cap_join_bot a : View.join a View.bot =  a.
 Proof.
 eapply View.antisym.
 apply View.join_spec.
@@ -472,77 +639,3 @@ apply View.bot_spec.
 apply View.join_l.
 Qed.
 
-Lemma max_value_singleton f b t (T: t = f b):
-  max_value f (eq b) t.
-Proof.
-red; splits; ins; desc; subst.
-by apply Time.le_lteq; eauto.
-right; exists b; splits; try apply Time.le_lteq; eauto.
-Qed.
-
-Lemma max_value_new_f f f' P t 
-  (MAX: max_value f P t) (F: forall x, P x -> f' x = f x):
-  max_value f' P t.
-Proof.
-unfold max_value in *; ins; desf; splits; ins.
-all: try rewrite F; auto.
-right; exists a_max; rewrite F; auto.
-Qed.
-
-Lemma max_value_same_set f P P' t 
-  (MAX: max_value f P t) (SAME: forall x, P' x <-> P x):   
-  max_value f P' t.
-Proof.
-  unfold max_value in *; ins; desf; splits; ins.
-  all: try specialize (SAME a); desf; eauto.
-  left; split; eauto; ins; intro;  eapply MAX0; apply SAME; edone.
-  right; exists a_max; specialize (SAME a_max); desf; split; auto.
-Qed.
-
-Lemma max_value_join f P P' P'' t t'
-  (MAX: max_value f P t) (MAX':  max_value f P' t')
-  (SAME: forall x, P'' x <-> P x \/ P' x):
-  max_value f P'' (Time.join t t').
-Proof.
-unfold max_value in *; ins; desf; splits; ins.
-all: try apply SAME in INa; desf.
-all: try by etransitivity; eauto; eauto using Time.join_l, Time.join_r. 
-- left; split; eauto. ins; intro. 
-  specialize (MAX1 a). specialize (MAX0 a).
-  apply SAME in H; desf.
-- right; exists a_max; splits.
-  rewrite SAME; eauto.
-  apply Time.join_spec; eauto; etransitivity; eauto; rewrite Time.le_lteq; eauto.
-  apply Time.le_lteq. apply Time.bot_spec.
-- right; exists a_max; splits.
-  rewrite SAME; eauto.
-  apply Time.join_spec; eauto; etransitivity; eauto; rewrite Time.le_lteq; eauto.
-  apply Time.le_lteq. apply Time.bot_spec.
-- right;
-  destruct (Time.le_lt_dec (f a_max) (f a_max0)); [exists a_max0|exists a_max]; splits.
-  all: try rewrite SAME; eauto.
-  all: try (apply Time.join_spec; eauto;
-       etransitivity; eauto; rewrite Time.le_lteq; eauto). 
-Qed.
-
-Lemma max_value_loc f f' P P' t b
-  (MAX: max_value f P t)
-  (SAME: forall x, P' x <-> P x \/ x = b)
-  (F: forall x, P x -> f' x = f x):
-  max_value f' P'  (Time.join t (f' b)).
-Proof.
-eapply max_value_join with (P':= eq b); eauto.
-eapply max_value_new_f with (f:=f); eauto.
-eapply max_value_singleton; done.
-ins; specialize (SAME x); desf; split; ins.
-apply SAME in H; desf; eauto.
-apply SAME0; desf; eauto.
-Qed.
-
-Lemma max_value_empty f P (SAME: forall x, ~ P x):
-  max_value f P Time.bot.
-Proof.
-red; splits.
-ins; exfalso; eapply SAME; edone.
-left; splits; eauto.
-Qed.

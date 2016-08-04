@@ -144,10 +144,14 @@ Definition rmw_step prev a :=
 Definition gstep prev a :=
   << FRESH: ~ In a acts >> /\
   << ACT_STEP: acts' = a :: acts >> /\
-  << SB_STEP: forall x y, sb' x y <-> sb x y 
+(*   << SB_STEP: forall x y, sb' x y <-> sb x y 
               \/ ((thread x = thread a \/ is_init x) /\ ~(x=a) /\ y = a) >> /\
+ *)  
+  << SB_AT_END: forall x (TIDx: thread x = thread a \/ is_init x) 
+                         (INx: In x acts) (NEQ: x <> a), sb' x a >> /\
   << RMW_STEP: rmw_step prev a >> /\
-  << SC_AT_END: forall (SCa: is_sc a) x (SCa: is_sc x), sc' x a >> /\
+  << SC_AT_END: forall (SCa: is_sc_wf a) x (SCx: is_sc_wf x) (INx: In x acts)
+                  (NEQ: x <> a), sc' x a >> /\
   << INC: graph_inclusion >> /\
   << WF': Wf acts' sb' rmw' rf' mo' sc' >>.
 
@@ -243,8 +247,16 @@ Section GstepLemmas.
   Lemma max_elt_sb : max_elt sb' a.
   Proof.
     red; ins; cdes GSTEP; cdes INC.
-    apply SB_STEP in REL; desf; try edone.
-    cdes COH; cdes WF; cdes WF_SB; apply SB_ACTa in REL; edone.
+    cdes WF'; cdes WF_SB.
+    specialize (SB_ACTb a b REL).
+    specialize (SB_TID a b REL).
+    rewrite ACT_STEP in SB_ACTb.
+    destruct SB_ACTb; try subst; eauto.
+    eapply SB_IRR; eapply SB_T; eauto.
+    eapply SB_AT_END; eauto.
+    unfold init_pair in *; desf; eauto.
+    by exfalso; eauto using gstep_not_init.
+    by intro; subst b; eauto.
   Qed.
 
   Lemma max_elt_rmw : max_elt rmw' a.
@@ -271,7 +283,12 @@ Section GstepLemmas.
   Lemma max_elt_sc : max_elt sc' a.
   Proof.
     red; ins; cdes GSTEP; cdes INC; cdes WF'; cdes WF_SC.
-    by eapply SC_IRR; apply SC_AT_END; eauto.
+    eapply SC_IRR. eapply SC_T; eauto. apply SC_AT_END; eauto.
+    exploit sc_actb; eauto.
+    rewrite ACT_STEP; intro INb. 
+    destruct INb; eauto.
+    by subst; exfalso; eapply SC_IRR; eauto.
+    intro; subst; eapply SC_IRR; eauto.
   Qed.
 
   Hint Resolve wmax_elt_eqv : rel.
@@ -378,7 +395,21 @@ Section GstepLemmas.
       eapply sb_actb with (acts:=acts') in H; eauto.
       rewrite ACT_STEP in H; ins; desf; eauto.
       exfalso; eauto.
-    apply SB_STEP in H; desf; try edone.
+    cdes COH; cdes WF; cdes WF_SB.
+    cdes WF'; cdes WF_SB0.
+    specialize (SB_TID0 x y H).
+    desf; try by exploit SB_INIT; eauto.
+    exploit sb_actb; eauto.
+    exploit sb_acta; eauto.
+    ins; desf; try subst x; try subst y.
+    by exfalso; auto.
+    by exfalso; auto.
+    by exfalso; eapply SB_IRR0; eapply SB_T0; eauto.
+    exploit SB_TOT; eauto.
+    ins; desf; eauto.
+    intro; subst x; eauto.
+    intro; desf; eauto.
+    exfalso; eauto.
   Qed.
 
   Lemma gstep_rmw_a : gstep_a rmw rmw'.
@@ -540,7 +571,7 @@ Proof.
   by intro A; rewrite A in *; edestruct (lab a); ins.
 Qed.
 
-Lemma gstep_sc_nonsc (N: ~ is_sc a) : sc <--> sc'.
+Lemma gstep_sc_nonsc (N: ~ is_sc_wf a) : sc <--> sc'.
 Proof.
   cdes GSTEP; cdes INC; split; ins.
   intros x y H.
@@ -553,7 +584,7 @@ Proof.
 Qed.
 
 Definition sc_ext x y := 
-  In x acts /\ is_sc x /\ is_sc y /\ y = a.
+  In x acts /\ is_sc_wf x /\ is_sc_wf y /\ y = a.
 
 Definition sb_ext :=
   <| fun x => In x acts |> ;; 
@@ -588,6 +619,7 @@ Proof.
     by apply max_elt_sc in H.
   specialize (SC_ACTb _ _ H); ins; des; try subst y; eauto 8.
   left; eapply gstep_sc_a; try edone; intro; subst y; eauto.
+  by eapply SC_AT_END; eauto; intro; subst; eauto.
 Qed.
 
 Lemma inclusion_sb1 : 
@@ -656,23 +688,36 @@ Proof.
   cdes WF'; cdes WF_SB.
   assert (is_proper a).
     eapply gstep_proper.
-  split; red; ins; unfold union, seq, eqv_rel in *.
-  exploit SB_ACTa; try edone; 
-  exploit SB_ACTa; try edone;
-  exploit SB_TID; try edone;
-  rewrite SB_STEP in *; ins.
-  - destruct H0; eauto; desc; subst a.
+  split; red; intros x y H0; unfold union, seq, eqv_rel in *.
+- exploit SB_ACTa; try edone.
+  exploit SB_ACTb; try edone.
+  intros INy INx.
+  rewrite ACT_STEP in INy, INx.
+  destruct INy; try subst y.
+  * destruct INx; try subst x.
+    exfalso; eauto.
     right; exists x; splits; eauto.
-    rewrite ACT_STEP in x1; ins; destruct x1; eauto; subst y.
-    exfalso; auto.
-  - destruct H0; eauto; desc; subst a.
-    subst z z0.
-    destruct H1.
-    * apply SB_STEP.
-      right; splits; eauto.
-      intro; subst x; eauto.
-    * apply WF_SB. done.
-      rewrite ACT_STEP; left; done.
+    exists a; splits; eauto.
+    specialize (SB_TID x a H0).
+    unfold init_pair in *; desf; eauto.
+  * destruct INx; try subst x.
+    eby exfalso; eapply max_elt_sb.
+    left.
+    specialize (SB_TID x y H0).
+    desf.
+  + cdes COH; cdes WF; red in WF_SB0; desc.
+    specialize (SB_TOT0 x y SB_TID H2 H1 SB_TID0 SB_TID1).
+    desf; eauto.
+    exploit SB_TOT0; eauto.
+    intro; subst x; eauto.
+    ins; desf; eauto.
+    exfalso; eapply WF_SB.
+    eapply WF_SB; eauto.
+  + cdes COH; cdes WF; red in WF_SB0; desc.
+    apply SB_INIT0; eauto.
+- desf; eauto; subst z z0 y.
+  apply SB_AT_END; eauto; intro; subst x; eauto.
+  apply WF_SB; red; splits; eauto.
 Qed.
 
 Lemma gstep_rmw :
@@ -949,8 +994,5 @@ intros prev a.
 unfold gstep, rmw_step; unnw.
 rewrite SB, RMW, RF, MO, SC, SB', RMW', RF', MO', SC'.
 split; splits; desc; eauto; try (intros; apply SC'; eauto).
-by intros; eapply iff_trans; [eby apply iff_sym, same_relation_exp|];
-   rewrite H1; split; ins; desf; eauto; left; apply SB.
-by intros; eapply iff_trans; [eby apply same_relation_exp|];
-   rewrite H1; split; ins; desf; eauto; left; apply SB.
+all: ins; apply SB'; apply H1; done.
 Qed.

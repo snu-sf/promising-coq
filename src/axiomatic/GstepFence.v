@@ -178,8 +178,7 @@ Lemma gstep_urr_fence l :
   <| is_acq |>;; <| is_sc_fence |>.
 Proof.
   assert (X : sc_ext acts a ;; <| is_sc_fence |> <--> sc_ext acts a).
-    rewrite seq_eqv_r; unfold sc_ext; split; red; ins; desf.
-    by splits; try done; destruct a as [??[]]; ins.
+    rewrite seq_eqv_r; unfold sc_ext; split; red; ins; desf; eauto 7 with acts.
   unfold urr.
   transitivity (
       rfhbsc_opt acts' sb' rmw' rf' l +++
@@ -251,7 +250,7 @@ Qed.
 
 (** Lemmas about sequentially consistent fences *)
 
-Lemma gstep_S_tmr_scfence_expand (SC: is_sc a) l :
+Lemma gstep_S_tmr_scfence_expand (SC: is_sc_wf a) l :
   S_tmr acts' sb' rmw' rf' l <-->
         S_tmr acts sb rmw rf l +++
         <| fun x => is_write x /\ loc x = Some l |> ;;
@@ -276,7 +275,7 @@ Proof.
   rewrite inclusion_seq_eqv_r at 1; eauto with rel.
 Qed.
 
-Lemma gstep_S_tmr_sscfence_expand (SC: is_sc a) (ACQ: is_acq a) l :
+Lemma gstep_S_tmr_sscfence_expand (SC: is_sc_wf a) (ACQ: is_acq a) l :
   S_tmr acts' sb' rmw' rf' l <-->
         S_tmr acts sb rmw rf l +++
         <| fun x => is_write x /\ loc x = Some l |> ;;
@@ -384,7 +383,7 @@ Qed.
 
 
 
-Lemma gstep_t_rel_urr_scfence (SC: is_sc a) l' l x :
+Lemma gstep_t_rel_urr_scfence (SC: is_sc_wf a) l' l x :
   t_rel urr acts' sb' rmw' rf' sc' (thread a) l' l x <->
   S_tm acts' sb' rmw' rf' l x.
 Proof.
@@ -393,7 +392,7 @@ Proof.
        eauto with rel acts. 
 
   assert (M: ~ is_read a /\ ~ is_write a /\ <<REL: is_rel a >> /\ << FSC: is_sc_fence a >>); desc.
-    by destruct a as [??[]]; intuition; ins; destruct ow; ins.
+    eauto 10 with acts.
 
   unfold t_rel, S_tm, S_tmr, c_rel, urr, rfhbsc_opt.
   rewrite !eqv_join, !seqA, !dom_seq_eqv2; ins.
@@ -401,7 +400,12 @@ Proof.
     intros (z & y & D & <- & K).
     eexists a, y; split; ins; exists a; repeat eexists; eauto.
     destruct (classic (y = a)); subst; vauto.
-    by cdes GSTEP; right; unfold seq, eqv_rel; eauto.
+     cdes GSTEP; right; unfold seq, eqv_rel; eauto.
+     exists a; splits; eauto; apply SC_AT_END; eauto.
+     unfold clos_refl at 1, seq, eqv_rel in D; desf; subst; eauto with acts.
+       by simpls; desf; eauto.
+     eapply hb_actb in D0; eauto.
+     by simpl in D0; desf; eauto; congruence.
   rewrite (crE (sc' ;; _)); relsimp.
   rewrite (crE (_ ;; _)) at 1; relsimp.
   rewrite !dom_union; intro X; desf; revert X. 
@@ -414,18 +418,21 @@ Proof.
     eby exfalso; eapply gstep_not_init.
     all: try eby exfalso; eapply init_not_rel.
     eapply clos_refl_seq_step; eauto using hb_trans.
-    by eapply sb_in_hb; cdes GSTEP; apply SB_STEP; eauto.
-
+    eapply sb_in_hb; cdes GSTEP; apply SB_AT_END; eauto.
+    { destruct D; subst; eauto.
+      by destruct H1; subst; eauto; exfalso; auto.
+      eapply hb_actb in H4; eauto.
+      by destruct H4; subst; eauto; exfalso; auto. }
+    red; eauto with acts.
     rewrite <- 2!seqA, seqA with (r1 := clos_refl rf').
     intros (? & m & A & _).
-       rewrite seq_eqv_r; exists m; split; vauto.
-       by unfold seq, eqv_rel in *; desf; destruct m as [??[]].
-
+    exists m, m; split; vauto.
+    unfold seq, eqv_rel in *; desf; eauto with acts.
     by intros (? & m & A & ? & B & _); eapply sc_doma in B; eauto;
        rewrite seq_eqv_r; red; eauto.
 Qed.
 
-Lemma gstep_S_tm_wscfence (SC: is_sc a) (NRA: ~ is_acq a) l x :
+Lemma gstep_S_tm_wscfence (SC: is_sc_wf a) (NRA: ~ is_acq a) l x :
   S_tm acts' sb' rmw' rf' l x <->
   S_tm acts sb rmw rf l x \/
   t_cur scr acts sb rmw rf sc (thread a) l x.
@@ -440,7 +447,8 @@ Proof.
   assert (M: ~ is_read a /\ ~ is_write a /\ << FSC: is_sc_fence a >>); desc.
     by destruct a as [??[]]; intuition; ins.
 
-  unfold S_tm; rewrite gstep_S_tmr_scfence_expand, dom_union, dom_seq_eqv2; ins.
+  unfold S_tm; rewrite gstep_S_tmr_scfence_expand, dom_union, dom_seq_eqv2; 
+  ins; auto with acts.
   rewrite seq_sb_ext_max; eauto with rel; relsimp.
 
   rewrite (crE rf); relsimp; eauto.
@@ -468,7 +476,7 @@ Proof.
      left; left; splits; ins; exists m; apply seq_eqv_r; split; ins.
 Qed.
 
-Lemma gstep_S_tm_sscfence (SC: is_sc a) (ACQ: is_acq a) l x :
+Lemma gstep_S_tm_sscfence (SC: is_sc_wf a) (ACQ: is_acq a) l x :
   S_tm acts' sb' rmw' rf' l x <->
   S_tm acts sb rmw rf l x \/
   t_acq scr acts sb rmw rf sc (thread a) l x.
@@ -483,7 +491,8 @@ Proof.
   assert (M: ~ is_read a /\ ~ is_write a /\ << FSC: is_sc_fence a >>); desc.
     by destruct a as [??[]]; intuition; ins.
 
-  unfold S_tm; rewrite gstep_S_tmr_sscfence_expand, dom_union, dom_seq_eqv2; ins.
+  unfold S_tm; rewrite gstep_S_tmr_sscfence_expand, dom_union, dom_seq_eqv2; 
+  ins; auto with acts.
 
   rewrite (crE rf); relsimp; eauto.
   rewrite dom_union, <- (dom_seq_eqv2 (fun x => In x acts) (_ ;; _)); ins.
@@ -499,7 +508,7 @@ Proof.
   
   by right; left; left; left; exists y, x; vauto.
   by destruct K as (m & A & B); destruct A as [->|A]; desf; eauto;
-     left; eexists; split; eauto; unfold seq, eqv_rel in A; desf; destruct m as [??[]].
+     left; eexists; split; eauto; unfold seq, eqv_rel in A; desf; auto with acts.
   by destruct K as (m & A & (? & B & _)); eapply sc_doma in B; eauto;
      left; splits; ins; exists m; apply seq_eqv_r; split; ins.
   by destruct K as (m & A & (? & B & _)); eapply sc_doma in B; eauto;
@@ -507,7 +516,7 @@ Proof.
 Qed.
 
 
-Lemma gstep_S_tm_scfence (SC: is_sc a) l x :
+Lemma gstep_S_tm_scfence (SC: is_sc_wf a) l x :
   S_tm acts' sb' rmw' rf' l x <->
   S_tm acts sb rmw rf l x \/
   t_cur scr acts sb rmw rf sc (thread a) l x \/
@@ -520,13 +529,13 @@ Qed.
 
 
 
-Lemma gstep_t_cur_scr_scfence (SC: is_sc a) l x :
+Lemma gstep_t_cur_scr_scfence (SC: is_sc_wf a) l x :
   t_cur scr acts' sb' rmw' rf' sc' (thread a) l x <->
   S_tm acts' sb' rmw' rf' l x.
 Proof.
   split; [|by rewrite <- gstep_t_rel_urr_scfence with (l':=l); ins; eauto with rel_mon].
   unfold S_tm, t_cur.
-  rewrite gstep_cur_scr_scfence_expand, !dom_union, dom_seq_r2; ins; desf.
+  rewrite gstep_cur_scr_scfence_expand, !dom_union, dom_seq_r2; ins; desf; auto with acts.
     by apply gstep_S_tm_scfence; eauto.
     by apply gstep_S_tm_scfence; eauto;
        unfold t_acq, dom_rel, sb_ext, seq, eqv_rel in *; desf; eauto.
@@ -536,13 +545,13 @@ Proof.
     eby eexists; eexists; splits; try apply (rfhbsc_opt_mon GSTEP).
 Qed.
 
-Lemma gstep_t_acq_scr_scfence (SC: is_sc a) (ACQ: is_acq a) l x :
+Lemma gstep_t_acq_scr_scfence (SC: is_sc_wf a) (ACQ: is_acq a) l x :
   t_acq scr acts' sb' rmw' rf' sc' (thread a) l x <->
   S_tm acts' sb' rmw' rf' l x.
 Proof.
   split; [|by rewrite <- gstep_t_rel_urr_scfence with (l':=l); ins; eauto with rel_mon].
   unfold S_tm, t_acq.
-  rewrite gstep_acq_scr_scfence_expand, !dom_union; ins; desf.
+  rewrite gstep_acq_scr_scfence_expand, !dom_union; ins; desf; auto with acts.
     by apply gstep_S_tm_scfence; eauto.
     by apply gstep_S_tm_scfence; eauto;
        unfold t_cur, t_acq, dom_rel, sb_ext, seq, eqv_rel in *; desf; eauto.
@@ -557,7 +566,7 @@ Qed.
 
 Section EasyCases.
 
-  Hypotheses (SC: is_sc a).
+  Hypotheses (SC: is_sc_wf a).
   Variables (l' l : Loc.t) (x : event).
   Ltac local := split; 
     solve [rewrite <- gstep_t_acq_scr_scfence; eauto with rel_mon |
@@ -620,25 +629,29 @@ Lemma gstep_sc_ext_helper_fence l :
   <| is_sc |> ;; sc_ext acts a.
 Proof.
   rewrite !eqv_join, !seq_eqv_l, !seq_eqv_r; unfold sc_ext.
-  split; red; ins; desf; splits; eauto 10.
-  by destruct a as [??[]]; ins; destruct ow; ins.
+  split; red; ins; desf; splits; eauto 10 with acts.
 Qed.
 
 Section NonSCfences.
 
 Hypothesis (NSC: ~ is_sc a).
 
-Let non_sc_fence : ~ is_sc_fence a.
+Let non_sc_wf : ~ is_sc_wf a.
 Proof.
-  by destruct a as [??[]]; ins.
+  auto with acts.
 Qed.
 
-Hint Resolve non_sc_fence.
+Let non_sc_fence : ~ is_sc_fence a.
+Proof.
+  auto with acts.
+Qed.
+
+Hint Resolve non_sc_wf .
 
 Lemma gstep_sc_ext_rafence :
   sc_ext acts a <--> (fun _ _ => False).
 Proof.
-  by unfold sc_ext; split; red; ins; desf.
+  by unfold sc_ext; split; red; ins; desf; auto with acts.
 Qed.
 
 Lemma gstep_c_rel_urr_rafence l l' :
@@ -857,7 +870,7 @@ Proof.
     unfold sb_ext, sc_ext, clos_refl, eqv_rel, dom_rel, seq;
     split; ins; desf; eauto 12.
   exploit c_acq_actb; try eassumption; eauto using urr_actb.
-  exploit c_acq_domb; try eassumption; ins; desc; eauto 15. 
+  exploit c_acq_domb; try eassumption; ins; desc; eauto 15 with acts.
 Qed.
 
 

@@ -97,11 +97,17 @@ Definition is_sc a : Prop :=
 
 Definition is_sc_fence a : Prop :=
   match lab a with
-    | Astore _ _ _ => False
-    | Aload  _ _ _ => False
     | Afence _ o => Ordering.le Ordering.seqcst o
+    | _ => False
   end.
 
+Definition is_sc_write a : Prop :=
+  match lab a with
+    | Astore _ _ o => Ordering.le Ordering.seqcst o
+    | _ => False
+  end.
+
+Definition is_sc_wf a : Prop := is_sc_fence a \/ is_sc_write a.
 
 (** * Basic Lemmas *)
 
@@ -117,7 +123,28 @@ Lemma fence_non_read a (A: is_fence a) : ~ is_read a.
 Proof. destruct a; destruct lb; ins. Qed.
 Lemma fence_non_write a (A: is_fence a) : ~ is_write a.
 Proof. destruct a; destruct lb; ins. Qed.
+Lemma sc_fence_is_sc_wf a (A: is_sc_fence a) : is_sc_wf a.
+Proof. vauto. Qed.
+Lemma sc_write_is_sc_wf a (A: is_sc_write a) : is_sc_wf a.
+Proof. vauto. Qed.
+Lemma sc_wf_is_sc a (A: is_sc_wf a) : is_sc a.
+Proof. unfold is_sc, is_sc_wf in *.
+       destruct a; destruct lb; ins; desf. Qed.
+Lemma sc_write_is_sc_write a (A: is_sc a) (B: is_write a) : is_sc_write a.
+Proof. unfold is_sc, is_sc_wf in *.
+       destruct a; destruct lb; ins; desf. Qed.
+Lemma sc_fence_is_sc_fence a (A: is_sc a) (B: is_fence a) : is_sc_fence a.
+Proof. unfold is_sc, is_sc_wf in *.
+       destruct a; destruct lb; ins; desf. Qed.
 
+Lemma sc_is_rel a (A: is_sc_wf a) : is_rel a.
+Proof. unfold is_sc_wf, is_rel, is_sc_fence, is_sc_write in *.
+       destruct a; destruct lb; ins; desf.
+       destruct o; ins. destruct ow; ins. 
+Qed.
+
+Lemma sc_fence_is_fence a (A: is_sc_fence a) : is_fence a.
+Proof. destruct a; destruct lb; ins. Qed.
 
 Lemma write_has_location a (WRITE: is_write a) : exists l, loc a = Some l.
 Proof. unfold loc; destruct a; destruct lb; ins; eauto. Qed.
@@ -151,12 +178,14 @@ Proof. destruct a; ins; rewrite A; done. Qed.
 Lemma write_sc a l v o (A: lab a = Astore l v o) : Ordering.le Ordering.seqcst o -> is_sc a.
 Proof. destruct a; ins; rewrite A; done. Qed.
 
-
 Hint Resolve  read_non_write read_non_fence write_non_read fence_non_read 
      read_is_read read_rlx read_acq read_sc
      write_is_write write_rlx write_rel write_sc 
      write_non_fence write_non_fence 
-     fence_is_fence fence_non_write: acts.
+     fence_is_fence fence_non_write
+     sc_fence_is_sc_wf sc_write_is_sc_wf sc_wf_is_sc
+     sc_write_is_sc_write sc_fence_is_sc_fence
+     sc_is_rel sc_fence_is_fence : acts.
 
 (******************************************************************************)
 (** ** Initialization *)
@@ -198,5 +227,26 @@ Lemma init_not_sc a (A: is_init a) : ~ is_sc a.
 Proof. unfold is_init, init_event, is_rlx_rw in *; desc. 
 destruct a; destruct lb; ins; desf. Qed.
 
+Lemma same_init a b (A: is_init a) (B: is_init b) (LOC: loc a = loc b) :  a=b.
+Proof. unfold is_init,init_event,loc,lab in *; desf. Qed.
+
 Hint Resolve  init_not_proper proper_non_init init_proper_thread thread_proper 
   init_is_write init_is_rlx init_not_acq init_not_rel init_not_sc : acts.
+
+(******************************************************************************)
+(** ** Decidable equality *)
+(******************************************************************************)
+
+Require Import Omega.
+
+Lemma eq_dec_labels :
+  forall x y : label, {x = y} + {x <> y}.
+Proof.
+decide equality; eauto using Ident.eq_dec, eq_nat_dec; decide equality.
+Qed.
+
+Lemma eq_dec_events :
+  forall x y : event, {x = y} + {x <> y}.
+Proof.
+do 2 (decide equality; eauto using eq_dec_labels, eq_nat_dec, Ident.eq_dec).
+Qed. 
