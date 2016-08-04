@@ -674,7 +674,7 @@ Proof.
   { destruct (Memory.get l t (Configuration.memory cT1)) as [[? []]|] eqn:X; [|congr].
     inv PI_STEP. inv PI_STEP0. exploit small_step_future; eauto.
     { inv WF. auto. }
-    i. des. exploit Memory.future_get; eauto. i. des.
+    i. des. exploit Memory.future_get1; eauto. i. des.
     rewrite GET. congr.
   }
   inv PI_STEP. splits; auto; cycle 1.
@@ -684,31 +684,14 @@ Proof.
     i. des. econs 2; eauto.
     inv PI_STEP0. subst. exploit small_step_write_closed; eauto.
     { inv WF. auto. }
-    i. des. inv PMREL.
-    + econs 1; eauto.
-      * eapply mem_eqrel_closed_opt_view; eauto.
-        unfold lift_view_if. condtac; ss.
-        eapply lift_view_closed_opt_view; eauto.
-        eapply small_step_future; eauto. inv WF. ss.
-      * unfold lift_view_if. condtac; ss.
-        destruct o.(View.unwrap). ss. unfold lift_timemap. condtac; ss.
-        exfalso. apply n. auto.
-    + econs 2; eauto.
-      * eapply mem_eqrel_closed_opt_view; eauto.
-        unfold lift_view_if. condtac; ss.
-        eapply lift_view_closed_opt_view; eauto.
-        eapply small_step_future; eauto. inv WF. ss.
-      * unfold lift_view_if. condtac; ss.
-        destruct o.(View.unwrap). ss. unfold lift_timemap. condtac; ss.
-        exfalso. apply n. auto.
-    + econs 3; eauto.
-      * eapply mem_eqrel_closed_opt_view; eauto.
-        unfold lift_view_if. condtac; ss.
-        eapply lift_view_closed_opt_view; eauto.
-        eapply small_step_future; eauto. inv WF. ss.
-      * unfold lift_view_if. condtac; ss.
-        destruct o.(View.unwrap). ss. unfold lift_timemap. condtac; ss.
-        exfalso. apply n. auto.
+    i. des. econs; eauto.
+    + eapply mem_eqrel_closed_opt_view; eauto.
+      unfold lift_view_if. condtac; ss.
+      eapply lift_view_closed_opt_view; eauto.
+      eapply small_step_future; eauto. inv WF. ss.
+    + unfold lift_view_if. condtac; ss.
+      destruct o.(View.unwrap). ss. unfold lift_timemap. condtac; ss.
+      exfalso. apply n. auto.
   - inv PI_STEP0.
     eapply small_step_future; eauto.
     inv WF. auto.
@@ -806,7 +789,7 @@ Lemma mem_eqlerel_lift_get
 Proof.
   inv LIFT. revert MEMWR. unfold lift_mem.
   destruct (ThreadEvent.is_writing e) as [[[[[[] ?] ?] ?] ?]|] eqn:E; ss.
-  - i. des. exploit Memory.op_get1; eauto. i. des.
+  - i. des. exploit Memory.op_get_inv; eauto. i. des.
     + subst. eauto.
     + exploit mem_eqlerel_get; eauto. i. des.
       right. esplits; eauto. ii. inv H. unguardH x0. des; congr.

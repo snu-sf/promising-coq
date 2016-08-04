@@ -83,7 +83,7 @@ Lemma future_read_step
     <<REL: View.opt_le released' released>> /\
     <<LOCAL: sim_local lc2' lc2>>.
 Proof.
-  inv STEP. exploit Memory.future_get; eauto. i. des.
+  inv STEP. exploit Memory.future_get1; eauto. i. des.
   esplits.
   - econs; eauto. eapply TViewFacts.readable_mon; eauto; refl.
   - auto.
