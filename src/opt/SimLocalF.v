@@ -22,6 +22,7 @@ Require Import Configuration.
 Require Import FulfillStep.
 Require Import SimMemory.
 Require Import SimPromises.
+Require Import SimLocal.
 
 Require Import Syntax.
 Require Import Semantics.
@@ -31,7 +32,8 @@ Set Implicit Arguments.
 
 Inductive sim_localF (none_for:SimPromises.t) (lc_src lc_tgt:Local.t): Prop :=
 | sim_localF_intro
-    (TVIEW: TView.le lc_src.(Local.tview) lc_tgt.(Local.tview))
+    (TVIEW_CUR: View.le lc_src.(Local.tview).(TView.cur) lc_tgt.(Local.tview).(TView.cur))
+    (TVIEW_ACQ: View.le lc_src.(Local.tview).(TView.acq) lc_tgt.(Local.tview).(TView.acq))
     (PROMISES: SimPromises.sem none_for SimPromises.bot lc_src.(Local.promises) lc_tgt.(Local.promises))
 .
 
@@ -118,6 +120,34 @@ Proof.
   - econs; eauto.
 Qed.
 
+Lemma read_tview_mon'
+      tview1 tview2 loc ts released1 released2 ord1 ord2
+      (TVIEW_CUR: View.le tview1.(TView.cur) tview2.(TView.cur))
+      (TVIEW_ACQ: View.le tview1.(TView.acq) tview2.(TView.acq))
+      (REL: View.opt_le released1 released2)
+      (WF2: TView.wf tview2)
+      (WF_REL2: View.opt_wf released2)
+      (ORD: Ordering.le ord1 ord2):
+  <<CUR: View.le
+           (TView.read_tview tview1 loc ts released1 ord1).(TView.cur)
+           (TView.read_tview tview2 loc ts released2 ord2).(TView.cur)>> /\
+  <<ACQ: View.le
+           (TView.read_tview tview1 loc ts released1 ord1).(TView.acq)
+           (TView.read_tview tview2 loc ts released2 ord2).(TView.acq)>>.
+Proof.
+  splits.
+  - unfold TView.read_tview.
+    repeat (condtac; aggrtac);
+      (try by etrans; [apply TVIEW|aggrtac]);
+      (try by rewrite <- ? View.join_r; econs; aggrtac);
+      (try apply WF2).
+  - unfold TView.read_tview.
+    repeat (condtac; aggrtac);
+      (try by etrans; [apply TVIEW|aggrtac]);
+      (try by rewrite <- ? View.join_r; econs; aggrtac);
+      (try apply WF2).
+Qed.
+
 Lemma sim_localF_read
       none_for
       lc1_src mem1_src
@@ -141,9 +171,37 @@ Proof.
   exploit sim_memory_get; try apply MEM1; eauto. i. des.
   esplits; eauto.
   - econs; eauto. eapply TViewFacts.readable_mon; eauto.
-  - econs; eauto. s. apply TViewFacts.read_tview_mon; auto.
-    + apply WF1_TGT.
-    + eapply MEM1_TGT. eauto.
+  - exploit read_tview_mon'; eauto.
+    { apply WF1_TGT. }
+    { eapply MEM1_TGT. eauto. }
+    i. des. econs; eauto.
+Qed.
+
+Lemma write_tview_mon'
+      tview1 tview2 sc1 sc2 loc ts ord1 ord2
+      (TVIEW_CUR: View.le tview1.(TView.cur) tview2.(TView.cur))
+      (TVIEW_ACQ: View.le tview1.(TView.acq) tview2.(TView.acq))
+      (SC: TimeMap.le sc1 sc2)
+      (WF2: TView.wf tview2)
+      (ORD: Ordering.le ord1 ord2):
+  <<CUR: View.le
+           (TView.write_tview tview1 sc1 loc ts ord1).(TView.cur)
+           (TView.write_tview tview2 sc2 loc ts ord2).(TView.cur)>> /\
+  <<ACQ: View.le
+           (TView.write_tview tview1 sc1 loc ts ord1).(TView.acq)
+           (TView.write_tview tview2 sc2 loc ts ord2).(TView.acq)>>.
+Proof.
+  splits.
+  - unfold TView.write_tview.
+    repeat (condtac; aggrtac);
+      (try by etrans; [apply TVIEW|aggrtac]);
+      (try by rewrite <- ? View.join_r; econs; aggrtac);
+      (try apply WF2).
+  - unfold TView.write_tview.
+    repeat (condtac; aggrtac);
+      (try by etrans; [apply TVIEW|aggrtac]);
+      (try by rewrite <- ? View.join_r; econs; aggrtac);
+      (try apply WF2).
 Qed.
 
 Lemma sim_localF_fulfill
@@ -157,7 +215,8 @@ Lemma sim_localF_fulfill
       (RELM_CLOSED: Memory.closed_opt_view releasedm_src mem1_src)
       (WF_RELM_TGT: View.opt_wf releasedm_tgt)
       (ORD: Ordering.le ord_src ord_tgt)
-      (NONEFOR: SimPromises.mem loc to none_for = false \/ Ordering.le ord_tgt Ordering.plain)
+      (NONEFOR: (Ordering.le Ordering.acqrel ord_tgt /\ SimPromises.mem loc to none_for = false) \/
+                Ordering.le ord_tgt Ordering.plain)
       (STEP_TGT: fulfill_step lc1_tgt sc1_tgt loc from to val releasedm_tgt released ord_tgt lc2_tgt sc2_tgt)
       (LOCAL1: sim_localF none_for lc1_src lc1_tgt)
       (SC1: TimeMap.le sc1_src sc1_tgt)
@@ -179,9 +238,22 @@ Proof.
    View.opt_le
      (TView.write_released lc1_src.(Local.tview) sc1_src loc to releasedm_src ord_src)
      (TView.write_released lc1_tgt.(Local.tview) sc1_tgt loc to releasedm_tgt ord_tgt)).
-  { apply TViewFacts.write_released_mon; ss.
-    - apply LOCAL1.
-    - apply WF1_TGT.
+  { unguardH NONEFOR. des.
+    - unfold TView.write_released.
+      condtac; [|by econs].
+      condtac; cycle 1.
+      { by destruct ord_tgt; inv NONEFOR; inv COND0. }
+      econs. unfold TView.write_tview. s. rewrite NONEFOR.
+      repeat (condtac; aggrtac).
+      + rewrite <- View.join_r. rewrite <- ? View.join_l. apply LOCAL1.
+      + rewrite <- View.join_r. rewrite <- ? View.join_l. apply LOCAL1.
+      + apply WF1_TGT.
+      + econs; aggrtac.
+      + rewrite <- View.join_r. rewrite <- ? View.join_l. etrans; [|apply LOCAL1].
+        apply WF1_SRC.
+      + rewrite <- View.join_r. rewrite <- ? View.join_l. etrans; [|apply LOCAL1].
+        apply WF1_SRC.
+    - unfold TView.write_released. repeat (condtac; viewtac). refl.
   }
   assert (RELT_WF:
    View.opt_wf (TView.write_released lc1_src.(Local.tview) sc1_src loc to releasedm_src ord_src)).
@@ -200,9 +272,11 @@ Proof.
       * etrans; eauto.
     + unfold SimPromises.none_if. condtac; viewtac.
     + eapply TViewFacts.writable_mon; try exact WRITABLE; eauto. apply LOCAL1.
-  - econs; eauto. s. apply TViewFacts.write_tview_mon; auto.
-    + apply LOCAL1.
-    + apply WF1_TGT.
+  - exploit write_tview_mon'; eauto.
+    { apply LOCAL1. }
+    { apply LOCAL1. }
+    { apply WF1_TGT. }
+    i. des. econs; eauto.
   - apply TViewFacts.write_sc_mon; auto.
 Qed.
 
@@ -240,10 +314,13 @@ Proof.
   exploit Local.promise_step_future; eauto. i. des.
   exploit sim_localF_promise; eauto. i. des.
   exploit Local.promise_step_future; eauto. i. des.
-  assert (NONEFOR: __guard__ (SimPromises.mem loc to none_for = false \/ Ordering.le ord_tgt Ordering.plain)).
+  assert (NONEFOR: __guard__ ((Ordering.le Ordering.acqrel ord_tgt /\ SimPromises.mem loc to none_for = false) \/
+                              Ordering.le ord_tgt Ordering.plain)).
   { destruct (Ordering.le ord_tgt Ordering.relaxed) eqn:X.
     - right. destruct ord_tgt; inv X; ss. congr.
-    - left. exploit ORD0.
+    - left. splits.
+      { by destruct ord_tgt; inv X. }
+      exploit ORD0.
       { by destruct ord_tgt; inv X. }
       i. des. subst.
       destruct (SimPromises.mem loc to none_for) eqn:Y; ss.
@@ -261,7 +338,7 @@ Proof.
   }
   i. des. esplits; eauto.
   - unguardH NONEFOR. des.
-    + unfold SimPromises.none_if in *. rewrite NONEFOR in *. ss.
+    + unfold SimPromises.none_if in *. rewrite NONEFOR0 in *. ss.
     + subst. unfold TView.write_released at 1. condtac; [|by econs].
       destruct ord_src, ord_tgt; inv ORD; inv NONEFOR; inv COND.
   - etrans; eauto.
@@ -319,7 +396,9 @@ Lemma sim_localF_fence
       (WF1_SRC: Local.wf lc1_src mem1_src)
       (WF1_TGT: Local.wf lc1_tgt mem1_tgt)
       (ORDR: Ordering.le ordr_src ordr_tgt)
-      (ORDW: Ordering.le ordw_src ordw_tgt):
+      (ORDW: Ordering.le ordw_src ordw_tgt)
+      (ORDR_TGT: Ordering.le ordr_tgt Ordering.acqrel)
+      (ORDW_TGT: Ordering.le ordw_tgt Ordering.relaxed):
   exists lc2_src sc2_src,
     <<STEP_SRC: Local.fence_step lc1_src sc1_src ordr_src ordw_src lc2_src sc2_src>> /\
     <<LOCAL2: sim_localF none_for lc2_src lc2_tgt>> /\
@@ -328,14 +407,93 @@ Proof.
   inv STEP_TGT. esplits; eauto.
   - econs; eauto. i. eapply sim_localF_nonsynch; eauto.
     apply RELEASE. etrans; eauto.
-  - econs; try apply LOCAL1. s.
-    apply TViewFacts.write_fence_tview_mon; auto; try refl.
-    apply TViewFacts.read_fence_tview_mon; auto; try refl.
-    + apply LOCAL1.
-    + apply WF1_TGT.
-    + eapply TViewFacts.read_fence_future; apply WF1_SRC.
-  - apply TViewFacts.write_fence_sc_mon; auto; try refl.
-    apply TViewFacts.read_fence_tview_mon; auto; try refl.
-    + apply LOCAL1.
-    + apply WF1_TGT.
+  - econs; try apply LOCAL1.
+    + s. repeat (condtac; aggrtac).
+      * apply LOCAL1.
+      * etrans; [|apply LOCAL1]. apply WF1_SRC.
+      * apply LOCAL1.
+    + s. repeat (condtac; aggrtac).
+      rewrite View.join_comm, View.join_bot_l. apply LOCAL1.
+  - unfold TView.write_fence_sc.
+    repeat (condtac; viewtac).
+Qed.
+
+Lemma sim_localF_introduction
+      lc1_src sc1_src mem1_src
+      lc1_tgt sc1_tgt mem1_tgt
+      (LOCAL1: sim_local lc1_src lc1_tgt)
+      (SC1: TimeMap.le sc1_src sc1_tgt)
+      (MEM1: sim_memory mem1_src mem1_tgt)
+      (WF1_SRC: Local.wf lc1_src mem1_src)
+      (WF1_TGT: Local.wf lc1_tgt mem1_tgt):
+  <<LOCAL2: sim_localF SimPromises.bot lc1_src lc1_tgt>>.
+Proof.
+  esplits. econs; apply LOCAL1.
+Qed.
+
+Lemma sim_localF_nonsynch_src
+      none_for
+      lang st sc
+      lc1_src sc1_src mem1_src
+      lc1_tgt sc1_tgt mem1_tgt
+      (LOCAL1: sim_localF none_for lc1_src lc1_tgt)
+      (SC1: TimeMap.le sc1_src sc1_tgt)
+      (MEM1: sim_memory mem1_src mem1_tgt)
+      (WF1_SRC: Local.wf lc1_src mem1_src)
+      (WF1_TGT: Local.wf lc1_tgt mem1_tgt):
+  exists none_for2 lc2_src mem2_src,
+    <<STEP_SRC: rtc (@Thread.tau_step lang)
+                    (Thread.mk lang st lc1_src sc mem1_src)
+                    (Thread.mk lang st lc2_src sc mem2_src)>> /\
+    <<NONSYNCH2: Memory.nonsynch lc2_src.(Local.promises)>> /\
+    <<LOCAL2: sim_localF none_for2 lc2_src lc1_tgt>> /\
+    <<MEM2: sim_memory mem2_src mem1_tgt>>.
+Proof.
+Admitted.
+
+Lemma sim_localF_fence_src
+      none_for
+      lc1_src sc1_src mem1_src
+      lc1_tgt sc1_tgt mem1_tgt
+      (NONSYNCH: Memory.nonsynch lc1_src.(Local.promises))
+      (LOCAL1: sim_localF none_for lc1_src lc1_tgt)
+      (SC1: TimeMap.le sc1_src sc1_tgt)
+      (MEM1: sim_memory mem1_src mem1_tgt)
+      (WF1_SRC: Local.wf lc1_src mem1_src)
+      (WF1_TGT: Local.wf lc1_tgt mem1_tgt):
+  exists lc2_src sc2_src,
+    <<STEP_SRC: Local.fence_step lc1_src sc1_src Ordering.relaxed Ordering.acqrel lc2_src sc2_src>> /\
+    <<LOCAL2: sim_localF none_for lc2_src lc1_tgt>> /\
+    <<SC2: TimeMap.le sc2_src sc1_tgt>>.
+Proof.
+  esplits; ss. econs; s.
+  - repeat (condtac; aggrtac). apply LOCAL1.
+  - repeat (condtac; aggrtac). apply LOCAL1.
+  - apply LOCAL1.
+Qed.
+
+Lemma sim_localF_elimination
+      none_for
+      lc1_src sc1_src mem1_src
+      lc1_tgt sc1_tgt mem1_tgt
+      lc2_tgt sc2_tgt
+      (STEP_TGT: Local.fence_step lc1_tgt sc1_tgt Ordering.relaxed Ordering.acqrel lc2_tgt sc2_tgt)
+      (LOCAL1: sim_localF none_for lc1_src lc1_tgt)
+      (SC1: TimeMap.le sc1_src sc1_tgt)
+      (MEM1: sim_memory mem1_src mem1_tgt)
+      (WF1_SRC: Local.wf lc1_src mem1_src)
+      (WF1_TGT: Local.wf lc1_tgt mem1_tgt):
+  <<LOCAL2: sim_local lc1_src lc2_tgt>> /\
+  <<SC2: TimeMap.le sc1_src sc2_tgt>>.
+Proof.
+  inv LOCAL1. inv STEP_TGT. esplits; ss.
+  econs; s.
+  - unfold TView.read_fence_tview. condtac; ss.
+    unfold TView.write_fence_tview. econs; repeat (condtac; aggrtac).
+    etrans; [|apply TVIEW_CUR]. apply WF1_SRC.
+  - econs; try by apply PROMISES.
+    + inv PROMISES. ii. exploit LE; eauto.
+      unfold SimPromises.none_if. condtac; ss.
+      exploit RELEASE; eauto. s. i. subst. ss.
+    + i. rewrite SimPromises.bot_spec in *. congr.
 Qed.

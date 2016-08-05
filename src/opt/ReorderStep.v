@@ -231,7 +231,7 @@ Proof.
   - econs; eauto.
     + etrans; eauto. unfold TView.write_released. s.
       condtac; econs. repeat (try condtac; aggrtac; try apply WF0).
-    + eapply TViewFacts.writable_mon; eauto; try refl.
+    + eapply TViewFacts.writable_mon; eauto; try refl. apply TVIEW_FUTURE.
   - econs; eauto.
     s. inv READABLE.
     econs; repeat (try condtac; aggrtac; try apply WF0; eauto; unfold TimeMap.singleton).
@@ -544,53 +544,6 @@ Proof.
   exploit reorder_fulfill_write; try exact STEP4; try exact STEP_SRC; eauto. i. des.
   esplits; eauto.
 Qed.
-
-Lemma reorder_write_fence
-      loc1 from1 to1 val1 releasedm1 released1 ord1 kind1
-      lc0 sc0 mem0
-      lc1 sc1 mem1
-      lc2 sc2
-      (ORD1: Ordering.le ord1 Ordering.plain \/ Ordering.le Ordering.acqrel ord1)
-      (WF0: Local.wf lc0 mem0)
-      (SC0: Memory.closed_timemap sc0 mem0)
-      (MEM0: Memory.closed mem0)
-      (REL_WF: View.opt_wf releasedm1)
-      (REL_CLOSED: Memory.closed_opt_view releasedm1 mem0)
-      (STEP1: Local.write_step lc0 sc0 mem0 loc1 from1 to1 val1 releasedm1 released1 ord1 lc1 sc1 mem1 kind1)
-      (STEP2: Local.fence_step lc1 sc1 Ordering.relaxed Ordering.acqrel lc2 sc2):
-  exists released1 lc1' lc2' sc1',
-    <<STEP1: Local.fence_step lc0 sc0 Ordering.relaxed Ordering.acqrel lc1' sc1'>> /\
-    <<STEP2: Local.write_step lc1' sc1' mem0 loc1 from1 to1 val1 releasedm1 released1 ord1 lc2' sc2 mem1 kind1>> /\
-    <<LOCAL: sim_local lc2' lc2>>.
-Proof.
-  guardH ORD1.
-  exploit Local.write_step_future; eauto. i. des.
-  inv STEP1. inv STEP2.
-  unfold Local.tview at 1 3. unfold Local.promises.
-  assert (REL_EQ: TView.write_released (Local.tview lc0) sc0 loc1 to1 releasedm1 ord1 =
-                  TView.write_released
-                    (TView.write_fence_tview
-                       (TView.read_fence_tview (Local.tview lc0)
-                                               Ordering.relaxed) sc0 Ordering.acqrel)
-                    (TView.write_fence_sc
-                       (TView.read_fence_tview (Local.tview lc0)
-                                               Ordering.relaxed) sc0 Ordering.acqrel)
-                    loc1 to1 releasedm1 ord1).
-  { unfold TView.write_released. condtac; [|auto]. f_equal.
-    unfold TView.write_fence_tview, TView.write_fence_sc.
-    apply View.antisym; repeat (try condtac; aggrtac; try apply WF0).
-    - rewrite <- View.join_r. apply WF0.
-    - unguardH ORD1. des; [|congr]. destruct ord1; inv ORD1; inv COND.
-  }
-  esplits.
-  - econs; eauto.
-    admit.
-  - econs; eauto. ss. inv WRITABLE. econs; eauto.
-  - s. econs; ss.
-    + unfold TView.write_fence_sc, TView.write_fence_tview.
-      econs; repeat (try condtac; aggrtac; try apply WF0).
-    + apply SimPromises.sem_bot.
-Admitted.
 
 Lemma reorder_update_read
       loc1 ts1 val1 released1 ord1

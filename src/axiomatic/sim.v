@@ -191,7 +191,7 @@ Lemma Readable_full acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
   (MSG: max_value f (fun a => msg_rel scr acts sb rmw rf sc l a b) (View.sc rel.(View.unwrap) l))
   (CUR: sim_cur f acts sb rmw rf sc (TView.cur tview) (thread a))
   (RFb: rf' b a): 
-    TView.readable tview l (f b) rel o.
+    TView.readable tview.(TView.cur) l (f b) rel o.
 Proof.
 red in CUR; desc.
 constructor; try intro.
@@ -408,7 +408,7 @@ Lemma Writable_full acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
   tview sc_map
   (SC : forall l : Loc.t, max_value f (S_tm acts sb rmw rf l) (sc_map l))
   (CUR: sim_cur f acts sb rmw rf sc (TView.cur tview) (thread a)):
-  TView.writable tview sc_map l (f' a) o.
+  TView.writable tview.(TView.cur) sc_map l (f' a) o.
 Proof.
 red in CUR; desc.
 constructor; try intro.

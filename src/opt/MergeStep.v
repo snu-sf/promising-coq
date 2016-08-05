@@ -77,6 +77,7 @@ Proof.
   - inv WRITABLE. unfold TView.write_released. s.
     econs; repeat (try condtac; aggrtac); (try by left; eauto).
     + etrans; [|left; eauto]. apply WF0.
+    + etrans; [|left; eauto]. apply WF0.
     + etrans; [|left; apply SC1; auto]. apply WF0.
   - unfold TView.read_tview, TView.write_released, TView.write_tview. s.
     apply TView.antisym; econs;
@@ -107,6 +108,7 @@ Proof.
     hexploit Memory.promise_get2; eauto.
   - inv WRITABLE. unfold TView.write_released. s.
     econs; repeat (try condtac; aggrtac); (try by left; eauto).
+    + etrans; [|left; eauto]. apply WF0.
     + etrans; [|left; eauto]. apply WF0.
     + etrans; [|left; apply SC1; auto]. apply ACQ. etrans; eauto. auto.
     + etrans; [|left; apply SC1; auto]. apply WF0.

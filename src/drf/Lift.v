@@ -818,7 +818,9 @@ Proof.
   exploit mem_eqlerel_lift_get; eauto. i. des.
   - left. esplits; eauto.
   - right. esplits; ss.
-    + econs; eauto. ss. eapply TViewFacts.readable_mon; eauto. refl.
+    + econs; eauto. ss. eapply TViewFacts.readable_mon; eauto.
+      * apply CoMLE.
+      * refl.
     + apply TViewFacts.read_tview_mon; eauto; try refl.
     + auto.
 Qed.
@@ -1031,7 +1033,9 @@ Proof.
   hexploit MemoryMerge.promise_promise_promise; try exact PROMISE1; eauto. i.
   esplits; eauto.
   - econs; eauto.
-    + eapply TViewFacts.writable_mon; eauto. refl.
+    + eapply TViewFacts.writable_mon; eauto.
+      * apply CoMLE.
+      * refl.
     + econs; eauto.
   - apply TViewFacts.write_tview_mon; auto. refl.
   - apply TViewFacts.write_sc_mon; auto. refl.

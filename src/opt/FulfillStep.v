@@ -33,7 +33,7 @@ Inductive fulfill_step (lc1:Local.t) (sc1:TimeMap.t) (loc:Loc.t) (from to:Time.t
     promises2
     (REL_LE: View.opt_le (TView.write_released lc1.(Local.tview) sc1 loc to releasedm ord) released)
     (REL_WF: View.opt_wf released)
-    (WRITABLE: TView.writable lc1.(Local.tview) sc1 loc to ord)
+    (WRITABLE: TView.writable lc1.(Local.tview).(TView.cur) sc1 loc to ord)
     (REMOVE: Memory.remove lc1.(Local.promises) loc from to val released promises2)
     (TIME: Time.lt from to):
     fulfill_step lc1 sc1 loc from to val releasedm released ord
