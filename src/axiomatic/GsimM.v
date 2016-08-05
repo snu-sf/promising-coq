@@ -931,10 +931,16 @@ eapply GMsim_helper with
 * eapply write; eauto.
   unfold get_program_event; eauto.
   eapply new_G_write_coherent; ins; desc; eauto.
-  assert (exists v, val x = Some v); desc.
-    by destruct x as [??[]]; try exists v0; ins; desf.
-  clear MONOTONE'.
+
+  destruct (val x) as [vx|] eqn: VAL.
+  2: by destruct x as [??[]].
+
+  evar (foo : Prop); cut (foo); subst foo; cycle 1; 
+    [eapply sim_mem_get with (mo:=mo G); eauto|].
+
+(*   clear MONOTONE'.
   exploit sim_mem_get; eauto.
+ *)  
   cdes COH; cdes WF; eauto.
   intro M; desc.
   destruct ADD, ADD.
