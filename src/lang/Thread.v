@@ -103,6 +103,7 @@ Module Local.
       (TVIEW_WF: TView.wf lc.(tview))
       (TVIEW_CLOSED: TView.closed lc.(tview) mem)
       (PROMISES: Memory.le lc.(promises) mem)
+      (FINITE: Memory.finite lc.(promises))
   .
 
   Inductive disjoint (lc1 lc2:t): Prop :=

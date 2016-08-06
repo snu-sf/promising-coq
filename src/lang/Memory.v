@@ -883,6 +883,65 @@ Module Memory.
   Qed.
 
 
+  (* finite *)
+
+  Definition finite (mem:t): Prop :=
+    exists dom,
+    forall loc from to msg (GET: get loc to mem = Some (from, msg)),
+      List.In (loc, to) dom.
+
+  Lemma bot_finite: finite bot.
+  Proof.
+    exists []. ii. rewrite bot_get in *. congr.
+  Qed.
+
+  Lemma add_finite
+        mem1 loc from to val released mem2
+        (FINITE: finite mem1)
+        (ADD: add mem1 loc from to val released mem2):
+    finite mem2.
+  Proof.
+    unfold finite in *. des. exists ((loc, to) :: dom). i.
+    revert GET. erewrite add_o; eauto. condtac; ss; eauto.
+    i. des. inv GET. auto.
+  Qed.
+
+  Lemma split_finite
+        mem1 loc ts1 ts2 ts3 val2 val3 released2 released3 mem2
+        (FINITE: finite mem1)
+        (SPLIT: split mem1 loc ts1 ts2 ts3 val2 val3 released2 released3 mem2):
+    finite mem2.
+  Proof.
+    unfold finite in *. des. exists ((loc, ts2) :: dom). i.
+    revert GET. erewrite split_o; eauto. repeat condtac; ss; eauto.
+    - i. des. inv GET. auto.
+    - guardH o. i. des. inv GET. right. eapply FINITE.
+      eapply split_get0. eauto.
+  Qed.
+
+  Lemma lower_finite
+        mem1 loc from to val released1 released2 mem2
+        (FINITE: finite mem1)
+        (LOWER: lower mem1 loc from to val released1 released2 mem2):
+    finite mem2.
+  Proof.
+    unfold finite in *. des. exists dom. i.
+    revert GET. erewrite lower_o; eauto. condtac; ss; eauto.
+    i. des. inv GET. eapply FINITE.
+    eapply lower_get0. eauto.
+  Qed.
+
+  Lemma remove_finite
+        mem1 loc from to val released mem2
+        (FINITE: finite mem1)
+        (REMOVE: remove mem1 loc from to val released mem2):
+    finite mem2.
+  Proof.
+    unfold finite in *. des. exists dom. i.
+    revert GET. erewrite remove_o; eauto. condtac; ss; eauto.
+  Qed.
+
+
   (* Lemmas on promise & remove *)
 
   Lemma promise_get1
@@ -960,9 +1019,11 @@ Module Memory.
   Lemma promise_future0
         promises1 mem1 loc from to val released promises2 mem2 kind
         (LE_PROMISES1: le promises1 mem1)
+        (FINITE1: finite promises1)
         (INHABITED1: inhabited mem1)
         (PROMISE: promise promises1 mem1 loc from to val released promises2 mem2 kind):
     <<LE_PROMISES2: le promises2 mem2>> /\
+    <<FINITE2: finite promises2>> /\
     <<INHABITED2: inhabited mem2>>.
   Proof.
     hexploit op_future0; eauto.
@@ -980,15 +1041,21 @@ Module Memory.
       ii. revert LHS.
       erewrite lower_o; eauto. erewrite (@lower_o mem2); try exact MEM; eauto.
       condtac; ss. auto.
+    - inv PROMISE.
+      + eapply add_finite; eauto.
+      + eapply split_finite; eauto.
+      + eapply lower_finite; eauto.
   Qed.
 
   Lemma promise_future
         promises1 mem1 loc from to val released promises2 mem2 kind
         (LE_PROMISES1: le promises1 mem1)
+        (FINITE1: finite promises1)
         (CLOSED1: closed mem1)
         (CLOSED_REL: closed_opt_view released mem2)
         (PROMISE: promise promises1 mem1 loc from to val released promises2 mem2 kind):
     <<LE_PROMISES2: le promises2 mem2>> /\
+    <<FINITE2: finite promises2>> /\
     <<CLOSED2: closed mem2>> /\
     <<FUTURE: future mem1 mem2>>.
   Proof.
@@ -1002,6 +1069,7 @@ Module Memory.
   Lemma promise_disjoint
         promises1 mem1 loc from to val released promises2 mem2 ctx kind
         (LE_PROMISES1: le promises1 mem1)
+        (FINITE1: finite promises1)
         (CLOSED1: closed mem1)
         (PROMISE: promise promises1 mem1 loc from to val released promises2 mem2 kind)
         (LE_PROMISES: le ctx mem1)
@@ -1071,10 +1139,14 @@ Module Memory.
   Lemma remove_future
         promises1 mem1 loc from to val released promises2
         (LE_PROMISES1: le promises1 mem1)
+        (FINITE1: finite promises1)
         (REMOVE: remove promises1 loc from to val released promises2):
-    <<LE_PROMISES2: le promises2 mem1>>.
+    <<LE_PROMISES2: le promises2 mem1>> /\
+    <<FINITE2: finite promises2>>.
   Proof.
-    ii. revert LHS. erewrite remove_o; eauto. condtac; ss. eauto.
+    splits.
+    - ii. revert LHS. erewrite remove_o; eauto. condtac; ss. eauto.
+    - eapply remove_finite; eauto.
   Qed.
 
   Lemma remove_disjoint
@@ -1092,6 +1164,7 @@ Module Memory.
   Lemma write_get2
         promises1 mem1 loc from to val released promises2 mem2 kind
         (PROMISES: le promises1 mem1)
+        (FINITE: finite promises1)
         (MEM: inhabited mem1)
         (WRITE: write promises1 mem1 loc from to val released promises2 mem2 kind):
     get loc to mem2 = Some (from, Message.mk val released).
@@ -1104,34 +1177,41 @@ Module Memory.
   Lemma write_future0
         promises1 mem1 loc from to val released promises2 mem2 kind
         (LE_PROMISES1: le promises1 mem1)
+        (FINITE1: finite promises1)
         (INHABITED1: inhabited mem1)
         (PROMISE: write promises1 mem1 loc from to val released promises2 mem2 kind):
     <<LE_PROMISES2: le promises2 mem2>> /\
+    <<FINITE2: finite promises2>> /\
     <<INHABITED2: inhabited mem2>>.
   Proof.
     inv PROMISE.
     hexploit promise_future0; eauto. i. des.
-    hexploit remove_future; eauto.
+    hexploit remove_future; eauto. i. des.
+    splits; ss.
   Qed.
 
   Lemma write_future
         promises1 mem1 loc from to val released promises2 mem2 kind
         (LE_PROMISES1: le promises1 mem1)
+        (FINITE1: finite promises1)
         (CLOSED1: closed mem1)
         (CLOSED2: closed_opt_view released mem2)
         (PROMISE: write promises1 mem1 loc from to val released promises2 mem2 kind):
     <<LE_PROMISES2: le promises2 mem2>> /\
+    <<FINITE2: finite promises2>> /\
     <<CLOSED2: closed mem2>> /\
     <<FUTURE: future mem1 mem2>>.
   Proof.
     inv PROMISE.
     hexploit promise_future; eauto. i. des.
-    hexploit remove_future; eauto.
+    hexploit remove_future; eauto. i. des.
+    splits; ss.
   Qed.
 
   Lemma write_disjoint
         promises1 mem1 loc from to val released promises2 mem2 ctx kind
         (LE_PROMISES1: le promises1 mem1)
+        (FINITE1: finite promises1)
         (CLOSED1: closed mem1)
         (PROMISE: write promises1 mem1 loc from to val released promises2 mem2 kind)
         (LE_PROMISES: le ctx mem1)
@@ -1502,55 +1582,4 @@ Module Memory.
 
   Lemma bot_nonsynch: nonsynch Memory.bot.
   Proof. ii. eapply bot_nonsynch_loc. eauto. Qed.
-
-  Definition finite (mem:t): Prop :=
-    exists dom,
-    forall loc from to msg (GET: get loc to mem = Some (from, msg)),
-      List.In (loc, to) dom.
-
-  Lemma add_finite
-        mem1 loc from to val released mem2
-        (FINITE: finite mem1)
-        (ADD: add mem1 loc from to val released mem2):
-    finite mem2.
-  Proof.
-    unfold finite in *. des. exists ((loc, to) :: dom). i.
-    revert GET. erewrite add_o; eauto. condtac; ss; eauto.
-    i. des. inv GET. auto.
-  Qed.
-
-  Lemma split_finite
-        mem1 loc ts1 ts2 ts3 val2 val3 released2 released3 mem2
-        (FINITE: finite mem1)
-        (SPLIT: split mem1 loc ts1 ts2 ts3 val2 val3 released2 released3 mem2):
-    finite mem2.
-  Proof.
-    unfold finite in *. des. exists ((loc, ts2) :: dom). i.
-    revert GET. erewrite split_o; eauto. repeat condtac; ss; eauto.
-    - i. des. inv GET. auto.
-    - guardH o. i. des. inv GET. right. eapply FINITE.
-      eapply split_get0. eauto.
-  Qed.
-
-  Lemma lower_finite
-        mem1 loc from to val released1 released2 mem2
-        (FINITE: finite mem1)
-        (LOWER: lower mem1 loc from to val released1 released2 mem2):
-    finite mem2.
-  Proof.
-    unfold finite in *. des. exists dom. i.
-    revert GET. erewrite lower_o; eauto. condtac; ss; eauto.
-    i. des. inv GET. eapply FINITE.
-    eapply lower_get0. eauto.
-  Qed.
-
-  Lemma remove_finite
-        mem1 loc from to val released mem2
-        (FINITE: finite mem1)
-        (REMOVE: remove mem1 loc from to val released mem2):
-    finite mem2.
-  Proof.
-    unfold finite in *. des. exists dom. i.
-    revert GET. erewrite remove_o; eauto. condtac; ss; eauto.
-  Qed.
 End Memory.

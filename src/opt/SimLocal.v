@@ -98,6 +98,7 @@ Proof.
   exploit sim_memory_closed_opt_view; eauto. i.
   exploit Memory.promise_future; try apply PROMISE_SRC; eauto.
   { apply WF1_SRC. }
+  { apply WF1_SRC. }
   i. des.
   esplits; eauto.
   - econs; eauto.
@@ -173,6 +174,7 @@ Proof.
   exploit SimPromises.remove_bot; try exact REMOVE;
     try exact MEM1; try apply LOCAL1; eauto.
   { apply WF1_SRC. }
+  { apply WF1_TGT. }
   { apply WF1_TGT. }
   i. des. esplits.
   - econs; eauto.

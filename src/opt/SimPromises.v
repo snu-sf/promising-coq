@@ -364,7 +364,8 @@ Module SimPromises.
         (INV1: sem none_for inv promises1_src promises1_tgt)
         (SIM1: sim_memory mem1_src mem1_tgt)
         (LE1_SRC: Memory.le promises1_src mem1_src)
-        (LE1_TGT: Memory.le promises1_tgt mem1_tgt):
+        (LE1_TGT: Memory.le promises1_tgt mem1_tgt)
+        (FINITE1_TGT: Memory.finite promises1_tgt):
       <<INV2: sem (unset loc to none_for) (set loc to inv) promises1_src promises2_tgt>> /\
       <<INV2': mem loc to inv = false>>.
   Proof.
@@ -441,7 +442,8 @@ Module SimPromises.
         (INV1: sem none_for inv promises1_src promises1_tgt)
         (SIM1: sim_memory mem1_src mem1_tgt)
         (LE1_SRC: Memory.le promises1_src mem1_src)
-        (LE1_TGT: Memory.le promises1_tgt mem1_tgt):
+        (LE1_TGT: Memory.le promises1_tgt mem1_tgt)
+        (FINITE1_TGT: Memory.finite promises1_tgt):
     exists promises2_src,
       <<REMOVE_SRC: Memory.remove promises1_src loc from to val (none_if loc to none_for released) promises2_src>> /\
       <<INV2: sem (unset loc to none_for) inv promises2_src promises2_tgt>>.
@@ -466,7 +468,8 @@ Module SimPromises.
         (INV1: sem bot inv promises1_src promises1_tgt)
         (SIM1: sim_memory mem1_src mem1_tgt)
         (LE1_SRC: Memory.le promises1_src mem1_src)
-        (LE1_TGT: Memory.le promises1_tgt mem1_tgt):
+        (LE1_TGT: Memory.le promises1_tgt mem1_tgt)
+        (FINITE1_TGT: Memory.finite promises1_tgt):
     exists promises2_src,
       <<REMOVE_SRC: Memory.remove promises1_src loc from to val released promises2_src>> /\
       <<INV2: sem bot inv promises2_src promises2_tgt>>.
@@ -590,9 +593,10 @@ Module SimPromises.
     { apply WF2_SRC. }
     i. des.
     esplits; eauto.
-    econs; eauto.
-    - apply WF1_TGT.
-    - eapply TView.future_closed; eauto. apply WF1_TGT.
+    - econs; eauto.
+      + apply WF1_TGT.
+      + eapply TView.future_closed; eauto. apply WF1_TGT.
+      + apply WF1_TGT.
     - eapply Memory.future_closed; eauto.
   Qed.
 

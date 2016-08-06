@@ -614,6 +614,7 @@ rewrite ACT_STEP in H; ins; desf; subst.
   subst.
   apply Memory.write_get2 in ADD; eauto using Memory.bot_le.
   intro; desf.
+  apply Memory.bot_finite.
   destruct CLOSED; done.
 - rewrite F; eauto.
   assert (N: Memory.get l0 (f b) mem <> None).
@@ -677,6 +678,7 @@ destruct (classic (l=l0 /\ f' a = to /\ ffrom' a = from0)).
   by red in GSTEP; desc; rewrite ACT_STEP; vauto.
   by unfold loc; destruct (lab a); ins; desf.
   apply Memory.write_get2 in ADD; eauto using Memory.bot_le.
+  2: apply Memory.bot_finite.
   2: destruct CLOSED; done. 
 
 

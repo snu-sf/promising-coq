@@ -998,6 +998,7 @@ Lemma lift_write
       com1 com2 com2' sc1 sc2 sc2' m1 m2 m2' prm prm' l t k e loc from to val relr1 relr2 relw2 ord kind
       (LOCAL: Local.write_step (Local.mk com2 prm) sc2 m2 loc from to val relr2 relw2 ord (Local.mk com2' prm') sc2' m2' kind)
       (PRM1: Memory.le prm m1)
+      (FINITE1: Memory.finite prm)
       (M1: Memory.closed m1)
       (RELR1: View.opt_wf relr1)
       (RELR2: View.opt_wf relr2)

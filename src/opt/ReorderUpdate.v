@@ -122,6 +122,7 @@ Proof.
     - apply WF2.
     - eapply TView.future_closed; eauto. apply WF2.
     - inv READ. apply WF_SRC.
+    - apply WF2.
   }
   i. des.
   econs; eauto.
@@ -166,6 +167,7 @@ Proof.
     - apply WF2.
     - eapply TView.future_closed; eauto. apply WF2.
     - inv READ. apply WF_SRC.
+    - apply WF2.
   }
   i. des.
   exploit sim_local_fulfill; try exact x0; try exact LOCAL0; try refl; eauto.
@@ -173,6 +175,7 @@ Proof.
     - apply WF2.
     - eapply TView.future_closed; eauto. apply WF2.
     - inv READ. apply WF_SRC.
+    - apply WF2.
   }
   i. des.
   exploit fulfill_step_future; eauto. i. des.

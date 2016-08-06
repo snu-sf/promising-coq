@@ -128,6 +128,7 @@ Proof.
       { eapply WF_TGT. }
       { eapply TView.future_closed; eauto. apply WF_TGT. }
       { apply WF2_TGT. }
+      { apply WF2_TGT. }
     + apply Memory.max_timemap_closed. viewtac.
     + auto.
   - i. inv PR.
