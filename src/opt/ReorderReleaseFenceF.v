@@ -170,7 +170,7 @@ Proof.
     - econs 2. econs 1; eauto. econs; eauto.
   }
   exploit sim_localF_introduction; eauto. i. des.
-  exploit sim_localF_nonsynch_src; eauto. i. des.
+  exploit sim_localF_nonsynch_src; try exact SC_SRC; eauto. i. des.
   exploit Thread.rtc_step_future; eauto. s. i. des.
   exploit sim_localF_fence_src; eauto. i. des.
   exploit Local.fence_step_future; eauto. i. des.
