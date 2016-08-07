@@ -18,6 +18,7 @@ Require Import TView.
 Require Import Thread.
 Require Import Configuration.
 
+Require Import PFStep.
 Require Import PromiseConsistent.
 Require Import ReorderPromises.
 
@@ -139,7 +140,7 @@ Section Invariant.
       rewrite LocFun.add_spec. condtac; subst; ss.
     - ii. rewrite LocFun.add_spec. condtac.
       { inv CLOSED. specialize (INHABITED loc). esplits; eauto. }
-      specialize (SEM loc0). des. revert SEM. 
+      specialize (SEM loc0). des. revert SEM.
       inv STEP. inv WRITE0. inv PROMISE.
       + erewrite Memory.add_o; eauto. condtac; ss.
         * i. des. inv SEM. congr.
@@ -170,7 +171,7 @@ Section Invariant.
       + i. esplits; eauto.
     - erewrite Memory.split_o; eauto. condtac; ss.
       { i. des. inv SEM. congr. }
-      condtac; ss. 
+      condtac; ss.
       { guardH o. i. des. inv SEM.
         exploit Memory.split_get0; eauto. i. des.
         esplits; eauto.
@@ -190,11 +191,17 @@ Section Invariant.
         (WF1: Local.wf lc1 mem1)
         (SC1: Memory.closed_timemap sc1 mem1)
         (CLOSED1: Memory.closed mem1)
-        (STEP: Thread.program_step e (Thread.mk lang st1 lc1 sc1 mem1) (Thread.mk lang st2 lc2 sc2 mem2)):
+        (STEP: pf_step e (Thread.mk lang st1 lc1 sc1 mem1) (Thread.mk lang st2 lc2 sc2 mem2)):
     <<TH2: S tid lang st2>> /\
     <<MEM2: sem_memory mem2>>.
   Proof.
     inv STEP.
+    { splits; ss. inv LOCAL. inv PROMISE; inv KIND.
+      ii. apply MEM1. ii. specialize (PR loc0). des.
+      revert PR. erewrite Memory.lower_o; eauto. condtac; eauto.
+      ss. i. des. inv PR. exploit Memory.lower_get0; eauto.
+    }
+    inv STEP0.
     - esplits; eauto.
     - exploit sem_memory_read_step; eauto. i. des.
       exploit READ; eauto.
@@ -215,7 +222,7 @@ Section Invariant.
       { hexploit sem_memory_write_step_neq; eauto. }
     - exploit FENCE; eauto.
     - exploit SYSCALL; eauto.
-  Qed.
+  Admitted.
 
   Lemma rtc_thread_step_sem
         tid lang
@@ -225,13 +232,13 @@ Section Invariant.
         (WF1: Local.wf th1.(Thread.local) th1.(Thread.memory))
         (SC1: Memory.closed_timemap th1.(Thread.sc) th1.(Thread.memory))
         (CLOSED1: Memory.closed th1.(Thread.memory))
-        (STEP: rtc (@program_step_evt lang) th1 th2):
+        (STEP: rtc (@pf_step_evt lang) th1 th2):
     <<TH2: S tid lang th2.(Thread.state)>> /\
     <<MEM2: sem_memory th2.(Thread.memory)>>.
   Proof.
     move STEP after TH1. revert_until STEP. induction STEP; ss.
     i. inv H.
-    exploit Thread.program_step_future; eauto. i. des.
+    exploit pf_step_future; eauto. i. des.
     destruct x, y. ss.
     exploit thread_step_sem; eauto. i. des.
     eapply IHSTEP; eauto.
@@ -279,11 +286,11 @@ Section Invariant.
       { hexploit consistent_promise_consistent; eauto. }
       { inv WF. eapply WF0. eauto. }
       i. des.
-      exploit rtc_implies; (try by apply program_step_evt_step_evt); eauto. i.
+      exploit rtc_implies; (try by apply pf_step_evt_step_evt); eauto. i.
       exploit rtc_step_evt_future; eauto; ss; try by inv WF.
       { inv WF. eapply WF0. eauto. }
       i. des.
-      exploit rtc_promise_step_evt_future; eauto. s. i. des.
+      exploit rtc_nonpf_step_evt_future; eauto. s. i. des.
       subst. eapply rtc_thread_step_sem; try exact STEPS1; eauto; ss; try by inv WF.
       inv WF. eapply WF3. eauto.
     - inv STEP. ss.
@@ -300,7 +307,7 @@ Section Invariant.
       { ii. rewrite PROMISES, Memory.bot_get in *. congr. }
       { inv WF. eapply WF0. eauto. }
       i. des.
-      exploit rtc_promise_step_evt_bot; eauto. i. subst.
+      exploit rtc_nonpf_step_evt_bot; eauto. i. subst.
       exploit rtc_thread_step_sem; try exact STEPS1; eauto; ss; try by inv WF.
       { inv WF. eapply WF0. eauto. }
       i. des.

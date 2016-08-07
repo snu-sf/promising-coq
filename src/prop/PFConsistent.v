@@ -48,6 +48,6 @@ Proof.
   exploit tau_steps_pf_tau_steps; eauto.
   { ii. rewrite PROMISES, Memory.bot_get in *.  congr. }
   i. des.
-  exploit rtc_promise_step_evt_bot; eauto. i. subst.
+  exploit rtc_nonpf_step_evt_bot; eauto. i. subst.
   esplits; eauto.
 Qed.
