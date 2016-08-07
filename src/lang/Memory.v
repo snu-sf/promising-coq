@@ -258,6 +258,12 @@ Module Memory.
         (op_kind_lower r2)
   .
 
+  Definition op_kind_is_lower (kind:op_kind): bool :=
+    match kind with
+    | op_kind_lower rel => true
+    | _ => false
+    end.
+
   Inductive op mem1 loc from to val rel mem2: forall (kind:op_kind), Prop :=
   | op_add
       (ADD: add mem1 loc from to val rel mem2):
@@ -413,6 +419,51 @@ Module Memory.
     inv REMOVE. eapply Cell.remove_get0; eauto.
   Qed.
 
+  Lemma add_get1
+        m1 loc from to val released m2
+        l f t v r
+        (ADD: add m1 loc from to val released m2)
+        (GET1: get l t m1 = Some (f, Message.mk v r)):
+    get l t m2 = Some (f, Message.mk v r).
+  Proof.
+    erewrite add_o; eauto. condtac; ss.
+    des. subst. erewrite add_get0 in GET1; eauto. congr.
+  Qed.
+
+  Lemma split_get1
+        m1 loc ts1 ts2 ts3 val2 val3 released2 released3 m2
+        l f t v r
+        (SPLIT: split m1 loc ts1 ts2 ts3 val2 val3 released2 released3 m2)
+        (GET1: get l t m1 = Some (f, Message.mk v r)):
+    exists f',
+      <<GET2: get l t m2 = Some (f', Message.mk v r)>> /\
+      <<FROM: Time.le f f'>>.
+  Proof.
+    erewrite split_o; eauto. repeat condtac; ss.
+    - des. subst. exploit split_get0; eauto. i. des. congr.
+    - guardH o. des. subst. exploit split_get0; eauto. i. des.
+      rewrite GET3 in GET1. inv GET1. esplits; eauto.
+      inv SPLIT. inv SPLIT0. left. ss.
+    - esplits; eauto.
+      refl.
+  Qed.
+
+  Lemma lower_get1
+        m1 loc from to val released1 released2 m2
+        l f t v r
+        (LOWER: lower m1 loc from to val released1 released2 m2)
+        (GET1: get l t m1 = Some (f, Message.mk v r)):
+    exists r',
+      <<GET2: get l t m2 = Some (f, Message.mk v r')>> /\
+      <<RELEASED: View.opt_le r' r>>.
+  Proof.
+    erewrite lower_o; eauto. condtac; ss.
+    - des. subst. erewrite lower_get0 in GET1; [|eauto]. inv GET1. esplits; eauto.
+      inv LOWER. inv LOWER0. ss.
+    - esplits; eauto.
+      refl.
+  Qed.
+
   Lemma add_inhabited
         mem1 mem2 loc from to val released
         (ADD: add mem1 loc from to val released mem2)
@@ -468,27 +519,9 @@ Module Memory.
       <<RELEASED: View.opt_le r' r>>.
   Proof.
     inv OP.
-    - erewrite add_o; eauto. condtac; ss.
-      + des. subst. erewrite add_get0 in GET; eauto. congr.
-      + esplits; eauto.
-        * refl.
-        * refl.
-    - erewrite split_o; eauto. repeat condtac; ss.
-      + des. subst. exploit split_get0; eauto. i. des. congr.
-      + guardH o. des. subst. exploit split_get0; eauto. i. des.
-        rewrite GET3 in GET. inv GET. esplits; eauto.
-        * inv SPLIT. inv SPLIT0. left. ss.
-        * refl.
-      + esplits; eauto.
-        * refl.
-        * refl.
-    - erewrite lower_o; eauto. condtac; ss.
-      + des. subst. erewrite lower_get0 in GET; [|eauto]. inv GET. esplits; eauto.
-        * refl.
-        * inv LOWER. inv LOWER0. ss.
-      + esplits; eauto.
-        * refl.
-        * refl.
+    - exploit add_get1; eauto. i. des. esplits; eauto; refl.
+    - exploit split_get1; eauto. i. des. esplits; eauto; refl.
+    - exploit lower_get1; eauto. i. des. esplits; eauto; refl.
   Qed.
 
   Lemma op_get2

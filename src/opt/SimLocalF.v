@@ -15,6 +15,7 @@ Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
+Require Import MemoryFacts.
 Require Import TView.
 Require Import Thread.
 Require Import Configuration.
@@ -420,20 +421,6 @@ Proof.
   esplits. econs; apply LOCAL1.
 Qed.
 
-  Lemma promise_exists_None
-        promises1 mem1 loc from to val released
-        (LE: Memory.le promises1 mem1)
-        (GET: Memory.get loc to promises1 = Some (from, Message.mk val released))
-        (LT: Time.lt from to):
-    exists promises2 mem2,
-      Memory.promise promises1 mem1 loc from to val None promises2 mem2 (Memory.op_kind_lower released).
-  Proof.
-    exploit Memory.lower_exists; eauto; try by econs. i. des.
-    exploit LE; eauto. i.
-    exploit Memory.lower_exists; eauto; try by econs. i. des.
-    esplits. econs; eauto. viewtac.
-  Qed.
-
 Lemma sim_localF_lower_src
       none_for1
       lc1_src sc1_src mem1_src
@@ -531,19 +518,8 @@ Proof.
   { eapply IHdom; eauto. i. exploit FINITE'; eauto. i. inv x; ss.
     inv H1. rewrite H in X. inv X. ss. congr.
   }
-
-  Lemma some_released_time_lt
-  mem loc from to val released
-  (CLOSED: Memory.closed mem)
-  (GET: Memory.get loc to mem = Some (from, Message.mk val (Some released))):
-    Time.lt from to.
-  Proof.
-    destruct (mem loc).(Cell.WF). exploit VOLUME; eauto. i. des; ss. inv x.
-    inv CLOSED. rewrite INHABITED in GET. inv GET.
-  Qed.
-
-  exploit promise_exists_None; eauto.
-  { eapply some_released_time_lt; [by apply MEM1_SRC|]. apply LOCAL1_SRC. eauto. }
+  exploit MemoryFacts.promise_exists_None; eauto.
+  { eapply MemoryFacts.some_released_time_lt; [by apply MEM1_SRC|]. apply LOCAL1_SRC. eauto. }
   i. des.
   exploit Memory.promise_future; try apply LOCAL1_SRC; eauto; try by econs. i. des.
   exploit sim_localF_lower_src; eauto.

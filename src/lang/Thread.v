@@ -438,11 +438,12 @@ Module Thread.
       <<SC2: Memory.closed_timemap e2.(sc) e2.(memory)>> /\
       <<CLOSED2: Memory.closed e2.(memory)>> /\
       <<TVIEW_FUTURE: TView.le e1.(Thread.local).(Local.tview) e2.(Thread.local).(Local.tview)>> /\
-      <<FUTURE: Memory.future e1.(memory) e2.(memory)>>.
+      <<SC_FUTURE: TimeMap.le e1.(sc) e2.(sc)>> /\
+      <<MEM_FUTURE: Memory.future e1.(memory) e2.(memory)>>.
     Proof.
       inv STEP. ss.
       exploit Local.promise_step_future; eauto. i. des.
-      splits; eauto.
+      splits; eauto. refl.
     Qed.
 
     Lemma program_step_future e e1 e2
@@ -481,8 +482,7 @@ Module Thread.
       <<MEM_FUTURE: Memory.future e1.(memory) e2.(memory)>>.
     Proof.
       inv STEP.
-      - exploit promise_step_future; eauto. i. des. splits; ss.
-        inv STEP0. ss. refl.
+      - eapply promise_step_future; eauto.
       - eapply program_step_future; eauto.
     Qed.
 
