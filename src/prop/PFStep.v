@@ -93,3 +93,138 @@ Proof.
     left. econs; eauto.
   - left. econs 2. ss.
 Qed.
+
+Inductive step_evt lang (e1 e2:Thread.t lang): Prop :=
+| step_evt_intro
+    e
+    (STEP: Thread.step e e1 e2)
+.
+
+Inductive nonpf_step_evt lang (e1 e2:Thread.t lang): Prop :=
+| nonpf_step_evt_intro
+    e
+    (STEP: nonpf_step e e1 e2)
+.
+
+Inductive pf_step_evt lang (e1 e2:Thread.t lang): Prop :=
+| pf_step_evt_intro
+    e
+    (STEP: pf_step e e1 e2)
+.
+
+Inductive tau_pf_step lang (e1 e2:Thread.t lang): Prop :=
+| tau_pf_step_intro
+    e
+    (STEP: pf_step e e1 e2)
+    (EVENT: ThreadEvent.get_event e = None)
+.
+
+Lemma tau_pf_step_pf_step_evt:
+  tau_pf_step <3= pf_step_evt.
+Proof.
+  i. inv PR. econs. eauto.
+Qed.
+
+Lemma tau_step_step_evt:
+  Thread.tau_step <3= step_evt.
+Proof.
+  i. inv PR. econs. eauto.
+Qed.
+
+Lemma pf_step_evt_step_evt:
+  pf_step_evt <3= step_evt.
+Proof.
+  i. inv PR. inv STEP.
+  - econs. econs 1. econs. eauto.
+  - econs. econs 2. eauto.
+Qed.
+
+Lemma tau_pf_step_tau_step:
+  tau_pf_step <3= Thread.tau_step.
+Proof.
+  i. inv PR. inv STEP.
+  - econs.
+    + econs 1. econs. eauto.
+    + ss.
+  - econs.
+    + econs 2. eauto.
+    + ss.
+Qed.
+
+Lemma nonpf_step_evt_step_evt:
+  nonpf_step_evt <3= step_evt.
+Proof.
+  i. inv PR. inv STEP. econs. econs 1. econs. eauto.
+Qed.
+
+Lemma step_evt_future lang (e1 e2:Thread.t lang)
+      (STEP: step_evt e1 e2)
+      (WF1: Local.wf e1.(Thread.local) e1.(Thread.memory))
+      (SC1: Memory.closed_timemap e1.(Thread.sc) e1.(Thread.memory))
+      (CLOSED1: Memory.closed e1.(Thread.memory)):
+  <<WF2: Local.wf e2.(Thread.local) e2.(Thread.memory)>> /\
+  <<SC2: Memory.closed_timemap e2.(Thread.sc) e2.(Thread.memory)>> /\
+  <<CLOSED2: Memory.closed e2.(Thread.memory)>> /\
+  <<TVIEW_FUTURE: TView.le e1.(Thread.local).(Local.tview) e2.(Thread.local).(Local.tview)>> /\
+  <<SC_FUTURE: TimeMap.le e1.(Thread.sc) e2.(Thread.sc)>> /\
+  <<MEM_FUTURE: Memory.future e1.(Thread.memory) e2.(Thread.memory)>>.
+Proof.
+  inv STEP. eapply Thread.step_future; eauto.
+Qed.
+
+Lemma rtc_step_evt_future lang (e1 e2:Thread.t lang)
+      (STEP: rtc (@step_evt lang) e1 e2)
+      (WF1: Local.wf e1.(Thread.local) e1.(Thread.memory))
+      (SC1: Memory.closed_timemap e1.(Thread.sc) e1.(Thread.memory))
+      (CLOSED1: Memory.closed e1.(Thread.memory)):
+  <<WF2: Local.wf e2.(Thread.local) e2.(Thread.memory)>> /\
+  <<SC2: Memory.closed_timemap e2.(Thread.sc) e2.(Thread.memory)>> /\
+  <<CLOSED2: Memory.closed e2.(Thread.memory)>> /\
+  <<TVIEW_FUTURE: TView.le e1.(Thread.local).(Local.tview) e2.(Thread.local).(Local.tview)>> /\
+  <<SC_FUTURE: TimeMap.le e1.(Thread.sc) e2.(Thread.sc)>> /\
+  <<MEM_FUTURE: Memory.future e1.(Thread.memory) e2.(Thread.memory)>>.
+Proof.
+  revert WF1. induction STEP.
+  - i. splits; ss; refl.
+  - i. exploit step_evt_future; eauto. i. des.
+    exploit IHSTEP; eauto. i. des.
+    splits; ss; etrans; eauto.
+Qed.
+
+Lemma nonpf_step_evt_future lang (e1 e2:Thread.t lang)
+      (STEP: nonpf_step_evt e1 e2)
+      (WF1: Local.wf e1.(Thread.local) e1.(Thread.memory))
+      (SC1: Memory.closed_timemap e1.(Thread.sc) e1.(Thread.memory))
+      (CLOSED1: Memory.closed e1.(Thread.memory)):
+  <<WF2: Local.wf e2.(Thread.local) e2.(Thread.memory)>> /\
+  <<SC2: Memory.closed_timemap e2.(Thread.sc) e2.(Thread.memory)>> /\
+  <<CLOSED2: Memory.closed e2.(Thread.memory)>> /\
+  <<TVIEW_FUTURE: TView.le e1.(Thread.local).(Local.tview) e2.(Thread.local).(Local.tview)>> /\
+  <<SC_FUTURE: TimeMap.le e1.(Thread.sc) e2.(Thread.sc)>> /\
+  <<MEM_FUTURE: Memory.future e1.(Thread.memory) e2.(Thread.memory)>> /\
+  <<STATE: e1.(Thread.state) = e2.(Thread.state)>>.
+Proof.
+  inv STEP. inv STEP0. ss. guardH NONPF.
+  exploit Local.promise_step_future; eauto. i. des.
+  esplits; ss. refl.
+Qed.
+
+Lemma rtc_nonpf_step_evt_future lang (e1 e2:Thread.t lang)
+      (STEP: rtc (@nonpf_step_evt lang) e1 e2)
+      (WF1: Local.wf e1.(Thread.local) e1.(Thread.memory))
+      (SC1: Memory.closed_timemap e1.(Thread.sc) e1.(Thread.memory))
+      (CLOSED1: Memory.closed e1.(Thread.memory)):
+  <<WF2: Local.wf e2.(Thread.local) e2.(Thread.memory)>> /\
+  <<SC2: Memory.closed_timemap e2.(Thread.sc) e2.(Thread.memory)>> /\
+  <<CLOSED2: Memory.closed e2.(Thread.memory)>> /\
+  <<TVIEW_FUTURE: TView.le e1.(Thread.local).(Local.tview) e2.(Thread.local).(Local.tview)>> /\
+  <<SC_FUTURE: TimeMap.le e1.(Thread.sc) e2.(Thread.sc)>> /\
+  <<MEM_FUTURE: Memory.future e1.(Thread.memory) e2.(Thread.memory)>> /\
+  <<STATE: e1.(Thread.state) = e2.(Thread.state)>>.
+Proof.
+  revert WF1. induction STEP.
+  - i. splits; ss; refl.
+  - i. exploit nonpf_step_evt_future; eauto. i. des.
+    exploit IHSTEP; eauto. i. des.
+    splits; ss; etrans; eauto.
+Qed.

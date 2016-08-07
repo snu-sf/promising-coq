@@ -222,7 +222,7 @@ Section Invariant.
       { hexploit sem_memory_write_step_neq; eauto. }
     - exploit FENCE; eauto.
     - exploit SYSCALL; eauto.
-  Admitted.
+  Qed.
 
   Lemma rtc_thread_step_sem
         tid lang
