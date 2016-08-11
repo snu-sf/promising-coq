@@ -416,7 +416,7 @@ Proof.
         
         inv STEPS3'.
         hexploit rtc_pi_step_future; swap 1 3; swap 2 3.
-        { eapply rtc_implies, with_pre_rtc_step_union, PSTEPS. eauto. }
+        { eapply rtc_implies, with_pre_rtc_union, PSTEPS. eauto. }
         { eauto. }
         { eauto. }
         s; intros [PIWF0 _]. inv PIWF0.
@@ -439,7 +439,7 @@ Proof.
         { eapply rtc_implies, STEPS3. eauto. } 
         s; intro EQA; des.
         exploit rtc_pi_step_except_find.
-        { eapply rtc_implies, with_pre_rtc_step_union, STEPS4. eauto. }
+        { eapply rtc_implies, with_pre_rtc_union, STEPS4. eauto. }
         s; intro EQB; des.
 
         inv PRM4. rewrite <-EQB0 in TID0. inv STEP3_4.
@@ -483,7 +483,7 @@ Proof.
         { eapply rtc_implies, STEPS3. eauto. } 
         s; intro EQA; des.
         hexploit rtc_pi_step_except_find.
-        { eapply rtc_implies, with_pre_rtc_step_union, STEPS4. eauto. }
+        { eapply rtc_implies, with_pre_rtc_union, STEPS4. eauto. }
         s; intro EQB; des.
 
         inv PRM2. rewrite <-EQB0 in TID. inv STEP3_4.
@@ -524,7 +524,7 @@ Proof.
           
           inv STEPS3'.
           hexploit rtc_pi_step_future; swap 1 3; swap 2 3.
-          { eapply rtc_implies, with_pre_rtc_step_union, PSTEPS. eauto. }
+          { eapply rtc_implies, with_pre_rtc_union, PSTEPS. eauto. }
           { eauto. }
           { eauto. }
           s; intros [PIWF0 _]. inv PIWF0.
@@ -547,7 +547,7 @@ Proof.
           { eapply rtc_implies, STEPS3. eauto. } 
           s; intro EQA; des.
           exploit rtc_pi_step_except_find.
-          { eapply rtc_implies, with_pre_rtc_step_union, STEPS4. eauto. }
+          { eapply rtc_implies, with_pre_rtc_union, STEPS4. eauto. }
           s; intro EQB; des.
 
           inv PRM4. rewrite <-EQB0 in TID0. inv STEP3_4.
@@ -566,7 +566,7 @@ Proof.
         { eapply rtc_implies, STEPS3. eauto. } 
         s; intro EQA; des.
         hexploit rtc_pi_step_except_find.
-        { eapply rtc_implies, with_pre_rtc_step_union, STEPS4. eauto. }
+        { eapply rtc_implies, with_pre_rtc_union, STEPS4. eauto. }
         s; intro EQB; des.
 
         inv PRM'. rewrite <-EQB0 in TID. inv STEP3_4.
@@ -757,7 +757,7 @@ Proof.
   intro WF4'.
 
   hexploit rtc_small_step_future; swap 1 2.
-  { eapply rtc_implies, with_pre_rtc_step_union, PI_STEPS. eauto. }
+  { eapply rtc_implies, with_pre_rtc_union, PI_STEPS. eauto. }
   { inv WF4'. eauto. }
   intros [WF4'' _].
   
@@ -777,7 +777,7 @@ Proof.
   intros [SEMI_WF3 _]. des.
 
   exploit rtc_pi_step_future; swap 1 3; swap 2 3.
-  { eapply rtc_implies, with_pre_rtc_step_union, STEPS4. eauto. }
+  { eapply rtc_implies, with_pre_rtc_union, STEPS4. eauto. }
   { eauto. }
   { eauto. }
   intros [SEMI_WF4 _]. des.
@@ -803,7 +803,7 @@ Proof.
 
   exploit pi_steps_small_steps_snd; try apply STEPS3.
   intros STEPS3'.
-  eapply rtc_step_union_with_pre in STEPS3'. des.
+  eapply rtc_union_with_pre in STEPS3'. des.
 
   exploit (@MAIN (Configuration.mk (IdentMap.add tid (existT _ _ stx, lcx) cM3'.(Configuration.threads)) scx mx)); s; swap 1 3; swap 2 3.
   { rewrite IdentMap.gss. eauto. }
@@ -852,7 +852,7 @@ Proof.
 
   intro NOTIN.
   split.
-  { esplits; [by eapply with_pre_rtc_step_union, STEPS0|..]; eauto.
+  { esplits; [by eapply with_pre_rtc_union, STEPS0|..]; eauto.
     { i. destruct (Ident.eq_dec tid1 tid) eqn: TEQ.
       - subst. ii. s in THREAD. rewrite IdentMap.gss in THREAD. depdes THREAD.
         s. s in PROMISE. 
@@ -960,7 +960,7 @@ Proof.
   exploit key_lemma; eauto.
   s; i; des.
   
-  exploit rtc_step_union_with_pre; [by apply STEPS0|].
+  exploit rtc_union_with_pre; [by apply STEPS0|].
   intro STEPS'. des.
 
   exploit (MAIN c0); eauto.
@@ -979,7 +979,7 @@ Proof.
   exploit small_step_to_program_step_writing; eauto.
   i; des.
 
-  apply with_pre_rtc_step_union in STEPS2.
+  apply with_pre_rtc_union in STEPS2.
   exists cS4; esplits; eauto using (pi_steps_small_steps_fst false STEPS2).
 
   exploit rtc_pi_step_future; [apply WF3|..].

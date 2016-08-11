@@ -155,12 +155,19 @@ Lemma strengthen
   A /\ B.
 Proof. intuition. Qed.
 
-Lemma option_map_map 
+Lemma option_map_map
       A B C (f: B -> C) (g: A -> B) (a: option A):
   option_map f (option_map g a) = option_map (fun x => f (g x)) a.
 Proof.
   destruct a; eauto.
 Qed.
+
+Definition is_some {A} (o:option A): bool :=
+  match o with
+  | Some _ => true
+  | None => false
+  end.
+Coercion is_some: option >-> bool.
 
 Ltac condtac :=
   match goal with

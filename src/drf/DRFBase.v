@@ -49,11 +49,11 @@ Proof. destruct ord; auto. Qed.
 
 
 
-Inductive step_union {A} {E} (step: E -> A -> A -> Prop) (c1 c2: A) : Prop :=
+Inductive union {A} {E} (step: E -> A -> A -> Prop) (c1 c2: A) : Prop :=
 | step_evt_intro e
     (USTEP: step e c1 c2)
 .
-Hint Constructors step_union.
+Hint Constructors union.
 
 Inductive with_pre {A} {E} (step: E -> A -> A -> Prop) bs : option (A*E) ->  A -> Prop :=
 | swp_base:
@@ -66,19 +66,19 @@ Inductive with_pre {A} {E} (step: E -> A -> A -> Prop) bs : option (A*E) ->  A -
 .
 Hint Constructors with_pre.
 
-Lemma with_pre_rtc_step_union
+Lemma with_pre_rtc_union
       A E (step: E -> A -> A -> Prop) c1 c2 pre
       (STEPS: with_pre step c1 pre c2):
-  rtc (step_union step) c1 c2.
+  rtc (union step) c1 c2.
 Proof.
   ginduction STEPS; s; i; subst; eauto.
   i. etrans; eauto.
   econs 2; [|reflexivity]. eauto.
 Qed.
 
-Lemma rtc_step_union_with_pre
+Lemma rtc_union_with_pre
       A E (step: E -> A -> A -> Prop) c1 c2
-      (STEPS: rtc (step_union step) c1 c2):
+      (STEPS: rtc (union step) c1 c2):
   exists pre,
   with_pre step c1 pre c2.
 Proof.

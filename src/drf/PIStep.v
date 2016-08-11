@@ -46,11 +46,11 @@ Inductive pi_step withprm: Ident.t -> ThreadEvent.t -> Configuration.t*Configura
 Hint Constructors pi_step.
 
 Definition pi_step_evt withprm tid cST1 cST2: Prop :=
-  step_union (pi_step withprm tid) cST1 cST2.
+  union (pi_step withprm tid) cST1 cST2.
 Hint Unfold pi_step_evt.
 
 Definition pi_step_all withprm cST1 cST2: Prop :=
-  step_union (pi_step_evt withprm) cST1 cST2.
+  union (pi_step_evt withprm) cST1 cST2.
 Hint Unfold pi_step_all.
 
 Inductive pi_step_except withprm (tid_except:Ident.t) cST1 cST2: Prop :=

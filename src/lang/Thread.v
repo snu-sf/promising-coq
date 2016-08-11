@@ -1,4 +1,5 @@
 Require Import Omega.
+Require Import Bool.
 Require Import RelationClasses.
 
 Require Import sflib.
@@ -61,7 +62,7 @@ Module ThreadEvent.
   | le_promise
       loc from to val rel1 rel2
       (LEREL: View.opt_le rel1 rel2):
-      le (promise loc from to val rel1) (promise loc from to val rel2) 
+      le (promise loc from to val rel1) (promise loc from to val rel2)
   | le_silent:
       le (silent) (silent)
   | le_read
@@ -323,6 +324,42 @@ Module Local.
   Qed.
 End Local.
 
+
+Inductive tau T (step: forall (e:ThreadEvent.t) (e1 e2:T), Prop) (e1 e2:T): Prop :=
+| tau_intro
+    e
+    (TSTEP: step e e1 e2)
+    (EVENT: ThreadEvent.get_event e = None)
+.
+Hint Constructors tau.
+
+Inductive union E T (step: forall (e:E) (e1 e2:T), Prop) (e1 e2:T): Prop :=
+| union_intro
+    e
+    (USTEP: step e e1 e2)
+.
+Hint Constructors union.
+
+Lemma tau_mon T (step1 step2: forall (e:ThreadEvent.t) (e1 e2:T), Prop)
+      (STEP: step1 <3= step2):
+  tau step1 <2= tau step2.
+Proof.
+  i. inv PR. econs; eauto.
+Qed.
+
+Lemma union_mon E T (step1 step2: forall (e:E) (e1 e2:T), Prop)
+      (STEP: step1 <3= step2):
+  union step1 <2= union step2.
+Proof.
+  i. inv PR. econs; eauto.
+Qed.
+
+Lemma tau_union: tau <4= (@union ThreadEvent.t).
+Proof.
+  ii. inv PR. econs. eauto.
+Qed.
+
+
 Module Thread.
   Section Thread.
     Variable (lang:Language.t).
@@ -334,13 +371,14 @@ Module Thread.
       memory: Memory.t;
     }.
 
-    Inductive promise_step: forall (e:ThreadEvent.t) (e1 e2:t), Prop :=
+    Inductive promise_step (pf:bool): forall (e:ThreadEvent.t) (e1 e2:t), Prop :=
     | promise_step_intro
         st lc1 sc1 mem1
         loc from to val released kind
         lc2 mem2
-        (LOCAL: Local.promise_step lc1 mem1 loc from to val released lc2 mem2 kind):
-        promise_step (ThreadEvent.promise loc from to val released) (mk st lc1 sc1 mem1) (mk st lc2 sc1 mem2)
+        (LOCAL: Local.promise_step lc1 mem1 loc from to val released lc2 mem2 kind)
+        (PF: pf = andb (Memory.op_kind_is_lower kind) (negb released)):
+        promise_step pf (ThreadEvent.promise loc from to val released) (mk st lc1 sc1 mem1) (mk st lc2 sc1 mem2)
     .
 
     (* NOTE: Syscalls act like an SC fence.
@@ -385,37 +423,51 @@ Module Thread.
         (LOCAL: Local.fence_step lc1 sc1 Ordering.seqcst Ordering.seqcst lc2 sc2):
         program_step (ThreadEvent.syscall e) (mk st1 lc1 sc1 mem1) (mk st2 lc2 sc2 mem1)
     .
+    Hint Constructors program_step.
 
-    Inductive step (e:ThreadEvent.t) (e1 e2:t): Prop :=
+    Inductive step: forall (pf:bool) (e:ThreadEvent.t) (e1 e2:t), Prop :=
     | step_promise
-        (STEP: promise_step e e1 e2)
+        pf e e1 e2
+        (STEP: promise_step pf e e1 e2):
+        step pf e e1 e2
     | step_program
-        (STEP: program_step e e1 e2)
+        e e1 e2
+        (STEP: program_step e e1 e2):
+        step true e e1 e2
     .
+    Hint Constructors step.
 
-    Inductive tau_program_step (e1 e2:t): Prop :=
-    | step_program_tau
-        e
-        (STEP: program_step e e1 e2)
-        (TAU: ThreadEvent.get_event e = None)
+    Inductive step_allpf (e:ThreadEvent.t) (e1 e2:t): Prop :=
+    | step_nopf_intro
+        pf
+        (STEP: step pf e e1 e2)
     .
+    Hint Constructors step_allpf.
 
-    Inductive tau_step (e1 e2:t): Prop :=
-    | step_tau
-        e
-        (STEP: step e e1 e2)
-        (TAU: ThreadEvent.get_event e = None)
-    .
+    Lemma allpf pf: step pf <3= step_allpf.
+    Proof.
+      i. econs. eauto.
+    Qed.
+
+    Definition pf_tau_step := tau (step true).
+    Hint Unfold pf_tau_step.
+
+    Definition tau_step := tau step_allpf.
+    Hint Unfold tau_step.
+
+    Definition all_step := union step_allpf.
+    Hint Unfold all_step.
 
     Inductive opt_step: forall (e:ThreadEvent.t) (e1 e2:t), Prop :=
     | step_none
         e:
         opt_step ThreadEvent.silent e e
     | step_some
-        e e1 e2
-        (STEP: step e e1 e2):
+        pf e e1 e2
+        (STEP: step pf e e1 e2):
         opt_step e e1 e2
     .
+    Hint Constructors opt_step.
 
     Definition consistent (e:t): Prop :=
       forall sc1 mem1
@@ -429,8 +481,8 @@ Module Thread.
         <<PROMISES: e2.(local).(Local.promises) = Memory.bot>>.
 
     Lemma promise_step_future
-          e e1 e2
-          (STEP: promise_step e e1 e2)
+          pf e e1 e2
+          (STEP: promise_step pf e e1 e2)
           (WF1: Local.wf e1.(local) e1.(memory))
           (SC1: Memory.closed_timemap e1.(sc) e1.(memory))
           (CLOSED1: Memory.closed e1.(memory)):
@@ -469,8 +521,8 @@ Module Thread.
       - exploit Local.fence_step_future; eauto. i. des. splits; ss. refl.
     Qed.
 
-    Lemma step_future e e1 e2
-          (STEP: step e e1 e2)
+    Lemma step_future pf e e1 e2
+          (STEP: step pf e e1 e2)
           (WF1: Local.wf e1.(local) e1.(memory))
           (SC1: Memory.closed_timemap e1.(sc) e1.(memory))
           (CLOSED1: Memory.closed e1.(memory)):
@@ -484,6 +536,24 @@ Module Thread.
       inv STEP.
       - eapply promise_step_future; eauto.
       - eapply program_step_future; eauto.
+    Qed.
+
+    Lemma step_nonpf_future e e1 e2
+          (STEP: step false e e1 e2)
+          (WF1: Local.wf e1.(local) e1.(memory))
+          (SC1: Memory.closed_timemap e1.(sc) e1.(memory))
+          (CLOSED1: Memory.closed e1.(memory)):
+      <<WF2: Local.wf e2.(local) e2.(memory)>> /\
+      <<SC2: Memory.closed_timemap e2.(sc) e2.(memory)>> /\
+      <<CLOSED2: Memory.closed e2.(memory)>> /\
+      <<TVIEW_FUTURE: TView.le e1.(local).(Local.tview) e2.(local).(Local.tview)>> /\
+      <<SC_FUTURE: TimeMap.le e1.(sc) e2.(sc)>> /\
+      <<MEM_FUTURE: Memory.future e1.(memory) e2.(memory)>> /\
+      <<STATE: e1.(state) = e2.(state)>>.
+    Proof.
+      inv STEP. inv STEP0. ss.
+      exploit Local.promise_step_future; eauto. i. des.
+      esplits; ss. refl.
     Qed.
 
     Lemma opt_step_future e e1 e2
@@ -503,8 +573,8 @@ Module Thread.
       - eapply step_future; eauto.
     Qed.
 
-    Lemma rtc_step_future e1 e2
-          (STEP: rtc tau_step e1 e2)
+    Lemma rtc_all_step_future e1 e2
+          (STEP: rtc all_step e1 e2)
           (WF1: Local.wf e1.(local) e1.(memory))
           (SC1: Memory.closed_timemap e1.(sc) e1.(memory))
           (CLOSED1: Memory.closed e1.(memory)):
@@ -517,15 +587,52 @@ Module Thread.
     Proof.
       revert WF1. induction STEP.
       - i. splits; ss; refl.
-      - i. inv H.
+      - i. inv H. inv USTEP.
         exploit step_future; eauto. i. des.
         exploit IHSTEP; eauto. i. des.
         splits; ss; etrans; eauto.
     Qed.
 
+    Lemma rtc_tau_step_future e1 e2
+          (STEP: rtc tau_step e1 e2)
+          (WF1: Local.wf e1.(local) e1.(memory))
+          (SC1: Memory.closed_timemap e1.(sc) e1.(memory))
+          (CLOSED1: Memory.closed e1.(memory)):
+      <<WF2: Local.wf e2.(local) e2.(memory)>> /\
+      <<SC2: Memory.closed_timemap e2.(sc) e2.(memory)>> /\
+      <<CLOSED2: Memory.closed e2.(memory)>> /\
+      <<TVIEW_FUTURE: TView.le e1.(Thread.local).(Local.tview) e2.(Thread.local).(Local.tview)>> /\
+      <<SC_FUTURE: TimeMap.le e1.(sc) e2.(sc)>> /\
+      <<MEM_FUTURE: Memory.future e1.(memory) e2.(memory)>>.
+    Proof.
+      apply rtc_all_step_future; auto.
+      eapply rtc_implies; [|eauto].
+      apply tau_union.
+    Qed.
+
+    Lemma rtc_step_nonpf_future e1 e2
+          (STEP: rtc (union (step false)) e1 e2)
+          (WF1: Local.wf e1.(local) e1.(memory))
+          (SC1: Memory.closed_timemap e1.(sc) e1.(memory))
+          (CLOSED1: Memory.closed e1.(memory)):
+      <<WF2: Local.wf e2.(local) e2.(memory)>> /\
+      <<SC2: Memory.closed_timemap e2.(sc) e2.(memory)>> /\
+      <<CLOSED2: Memory.closed e2.(memory)>> /\
+      <<TVIEW_FUTURE: TView.le e1.(local).(Local.tview) e2.(local).(Local.tview)>> /\
+      <<SC_FUTURE: TimeMap.le e1.(sc) e2.(sc)>> /\
+      <<MEM_FUTURE: Memory.future e1.(memory) e2.(memory)>> /\
+      <<STATE: e1.(state) = e2.(state)>>.
+    Proof.
+      revert WF1. induction STEP.
+      - i. splits; ss; refl.
+      - inv H. i. exploit step_nonpf_future; eauto. i. des.
+        exploit IHSTEP; eauto. i. des.
+        splits; ss; etrans; eauto.
+    Qed.
+
     Lemma promise_step_disjoint
-          e e1 e2 lc
-        (STEP: promise_step e e1 e2)
+          pf e e1 e2 lc
+        (STEP: promise_step pf e e1 e2)
         (WF1: Local.wf e1.(local) e1.(memory))
         (SC1: Memory.closed_timemap e1.(sc) e1.(memory))
         (CLOSED1: Memory.closed e1.(memory))
@@ -565,8 +672,8 @@ Module Thread.
         exploit Local.fence_step_disjoint; eauto.
     Qed.
 
-    Lemma step_disjoint e e1 e2 lc
-        (STEP: step e e1 e2)
+    Lemma step_disjoint pf e e1 e2 lc
+        (STEP: step pf e e1 e2)
         (WF1: Local.wf e1.(local) e1.(memory))
         (SC1: Memory.closed_timemap e1.(sc) e1.(memory))
         (CLOSED1: Memory.closed e1.(memory))
@@ -595,7 +702,24 @@ Module Thread.
       - eapply step_disjoint; eauto.
     Qed.
 
-    Lemma rtc_step_disjoint e1 e2 lc
+    Lemma rtc_all_step_disjoint e1 e2 lc
+        (STEP: rtc all_step e1 e2)
+        (WF1: Local.wf e1.(local) e1.(memory))
+        (SC1: Memory.closed_timemap e1.(sc) e1.(memory))
+        (CLOSED1: Memory.closed e1.(memory))
+        (DISJOINT1: Local.disjoint e1.(local) lc)
+        (WF: Local.wf lc e1.(memory)):
+      <<DISJOINT2: Local.disjoint e2.(local) lc>> /\
+      <<WF: Local.wf lc e2.(memory)>>.
+    Proof.
+      revert WF1 DISJOINT1 WF. induction STEP; eauto. i.
+      inv H. inv USTEP.
+      exploit step_future; eauto. i. des.
+      exploit step_disjoint; eauto. i. des.
+      exploit IHSTEP; eauto.
+    Qed.
+
+    Lemma rtc_tau_step_disjoint e1 e2 lc
         (STEP: rtc tau_step e1 e2)
         (WF1: Local.wf e1.(local) e1.(memory))
         (SC1: Memory.closed_timemap e1.(sc) e1.(memory))
@@ -605,10 +729,21 @@ Module Thread.
       <<DISJOINT2: Local.disjoint e2.(local) lc>> /\
       <<WF: Local.wf lc e2.(memory)>>.
     Proof.
-      revert WF1 DISJOINT1 WF. induction STEP; eauto. i. inv H.
-      exploit step_future; eauto. i. des.
-      exploit step_disjoint; eauto. i. des.
-      exploit IHSTEP; eauto.
+      eapply rtc_all_step_disjoint; cycle 1; eauto.
+      eapply rtc_implies; [|eauto].
+      apply tau_union.
     Qed.
   End Thread.
 End Thread.
+
+Lemma promise_pf_inv
+      (kind:Memory.op_kind)
+      (released:option View.t)
+      (PF: (Memory.op_kind_is_lower kind) && (negb released)):
+  exists released0, kind = Memory.op_kind_lower released0 /\
+               released = None.
+Proof.
+  apply andb_true_iff in PF. des.
+  destruct kind; inv PF. destruct released; inv PF0.
+  esplits; eauto.
+Qed.

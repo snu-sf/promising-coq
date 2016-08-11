@@ -1,5 +1,6 @@
 Require Import Omega.
 Require Import RelationClasses.
+Require Import Bool.
 
 Require Import sflib.
 Require Import paco.
@@ -23,7 +24,6 @@ Require Import SimLocal.
 Require Import FulfillStep.
 Require Import MemoryReorder.
 
-Require Import PFStep.
 Require Import PromiseConsistent.
 
 Set Implicit Arguments.
@@ -516,10 +516,24 @@ Proof.
     + guardH o. des; congr.
 Qed.
 
+Hint Constructors Thread.program_step.
+Hint Constructors Thread.step.
+
+(* TODO *)
+Lemma promise_pf_false_inv
+      (kind:Memory.op_kind)
+      (released:option View.t)
+      (PF: false = (Memory.op_kind_is_lower kind) && (negb released)):
+  Memory.op_kind_is_lower kind = false \/ released <> None.
+Proof.
+  symmetry in PF. apply andb_false_iff in PF. des; auto.
+  destruct released; ss. right. ss.
+Qed.
+
 Lemma reorder_nonpf_program
       lang
       e1 e2 th0 th1 th2
-      (STEP1: @nonpf_step lang e1 th0 th1)
+      (STEP1: @Thread.step lang false e1 th0 th1)
       (STEP2: Thread.program_step e2 th1 th2)
       (CONS2: promise_consistent th2.(Thread.local))
       (LOCAL: Local.wf th0.(Thread.local) th0.(Thread.memory))
@@ -527,10 +541,10 @@ Lemma reorder_nonpf_program
       (MEMORY: Memory.closed th0.(Thread.memory)):
   exists th1',
      <<STEP1: Thread.program_step e2 th0 th1'>> /\
-     <<STEP2: __guard__ (th2 = th1' \/ exists e2', Thread.promise_step e2' th1' th2)>>.
+     <<STEP2: __guard__ (th2 = th1' \/ exists pf2' e2', Thread.promise_step pf2' e2' th1' th2)>>.
 Proof.
-  exploit nonpf_step_future; eauto. i. des.
-  inv STEP1. guardH NONPF. inv STEP2; ss.
+  exploit Thread.step_future; eauto. i. des.
+  inv STEP1. inv STEP. ss. inv STEP2; ss.
   - (* silent *)
     esplits; eauto.
     right. esplits. econs; eauto.
@@ -545,7 +559,9 @@ Proof.
     + econs 2; eauto.
     + right. esplits. econs; eauto.
   - (* write *)
-    exploit reorder_promise_write'; try exact LOCAL0; eauto; try by viewtac. i. des.
+    exploit reorder_promise_write'; try exact LOCAL0; eauto; try by viewtac.
+    { apply promise_pf_false_inv. ss. }
+    i. des.
     { subst. inv LOCAL0. exploit Memory.promise_get2; eauto. i.
       exploit promise_consistent_promise_write; eauto. i.
       exfalso. eapply Time.lt_strorder. eapply TimeFacts.le_lt_lt; eauto.
@@ -565,7 +581,9 @@ Proof.
     }
     i. des.
     exploit Local.read_step_future; eauto. i. des.
-    exploit reorder_promise_write'; try exact LOCAL2; eauto; try by viewtac. i. des.
+    exploit reorder_promise_write'; try exact LOCAL2; eauto; try by viewtac.
+    { apply promise_pf_false_inv. ss. }
+    i. des.
     { subst. inv STEP2. exploit Memory.promise_get2; eauto. i.
       exploit promise_consistent_promise_write; eauto. i.
       exfalso. eapply Time.lt_strorder. eapply TimeFacts.le_lt_lt; eauto.
@@ -580,46 +598,49 @@ Proof.
     + econs 5; eauto. econs; eauto. ss.
       intros ORDW l. eapply promise_step_nonsynch_loc_inv; eauto.
       * econs; eauto.
+      * apply promise_pf_false_inv. ss.
       * apply RELEASE. ss.
-    + right. esplits. econs. econs; eauto.
+    + right. esplits. econs; eauto. econs; eauto.
   - inv LOCAL0. inv LOCAL1.
     esplits; eauto.
     + econs 6; eauto. econs; eauto.
       intros ORDW l. eapply promise_step_nonsynch_loc_inv; eauto.
       * econs; eauto.
+      * apply promise_pf_false_inv. ss.
       * apply RELEASE. ss.
-    + right. esplits. econs. econs; eauto.
+    + right. esplits. econs; eauto. econs; eauto.
 Qed.
 
 Lemma reorder_nonpf_pf
       lang
       e1 e2 th0 th1 th2
-      (STEP1: @nonpf_step lang e1 th0 th1)
-      (STEP2: pf_step e2 th1 th2)
+      (STEP1: @Thread.step lang false e1 th0 th1)
+      (STEP2: Thread.step true e2 th1 th2)
       (CONS2: promise_consistent th2.(Thread.local))
       (LOCAL: Local.wf th0.(Thread.local) th0.(Thread.memory))
       (SC: Memory.closed_timemap th0.(Thread.sc) th0.(Thread.memory))
       (MEMORY: Memory.closed th0.(Thread.memory)):
-  (exists e2',
-      <<STEP: Thread.step e2' th0 th2>> /\
+  (exists pf2' e2',
+      <<STEP: Thread.step pf2' e2' th0 th2>> /\
       <<EVENT: ThreadEvent.get_event e2' = ThreadEvent.get_event e2>>) \/
-  (exists e1' e2' th1',
-      <<STEP1: pf_step e1' th0 th1'>> /\
-      <<STEP2: Thread.promise_step e2' th1' th2>> /\
+  (exists e1' pf2' e2' th1',
+      <<STEP1: Thread.step true e1' th0 th1'>> /\
+      <<STEP2: Thread.promise_step pf2' e2' th1' th2>> /\
       <<EVENT: ThreadEvent.get_event e1' = ThreadEvent.get_event e2>>).
 Proof.
   inv STEP2; ss.
-  - inv STEP1. ss. guardH NONPF.
+  - inv STEP. ss. symmetry in PF. apply promise_pf_inv in PF. des. subst.
+    inv STEP1. inv STEP. ss.
     exploit reorder_promise_promise_lower_None; eauto. i. des.
     + subst. left. esplits.
-      * econs 1. econs. eauto.
+      * econs 1. econs; eauto.
       * ss.
     + right. esplits.
-      * econs 1; eauto.
-      * econs. eauto.
+      * econs 1. econs; eauto.
+      * econs; eauto.
       * ss.
   - exploit reorder_nonpf_program; eauto. i. des.
     unguardH STEP2. des.
     + subst. left. esplits; eauto.
-    + right. esplits; eauto. econs 2. ss.
+    + right. esplits; eauto.
 Qed.

@@ -154,10 +154,10 @@ Module Configuration.
 
   Inductive step: forall (e:option Event.t) (tid:Ident.t) (c1 c2:t), Prop :=
   | step_intro
-      e tid c1 lang st1 lc1 e2 st3 lc3 sc3 memory3
+      pf e tid c1 lang st1 lc1 e2 st3 lc3 sc3 memory3
       (TID: IdentMap.find tid c1.(threads) = Some (existT _ lang st1, lc1))
       (STEPS: rtc (@Thread.tau_step _) (Thread.mk _ st1 lc1 c1.(sc) c1.(memory)) e2)
-      (STEP: Thread.step e e2 (Thread.mk _ st3 lc3 sc3 memory3))
+      (STEP: Thread.step pf e e2 (Thread.mk _ st3 lc3 sc3 memory3))
       (CONSISTENT: Thread.consistent (Thread.mk lang st3 lc3 sc3 memory3)):
       step (ThreadEvent.get_event e) tid c1 (mk (IdentMap.add tid (existT _ _ st3, lc3) c1.(threads)) sc3 memory3)
   .
@@ -208,24 +208,24 @@ Module Configuration.
   Proof.
     inv WF1. inv WF. inv STEP. s.
     exploit THREADS; ss; eauto. i.
-    exploit Thread.rtc_step_future; eauto. s. i. des.
+    exploit Thread.rtc_tau_step_future; eauto. s. i. des.
     exploit Thread.step_future; eauto. s. i. des.
     splits; [| |by etrans; eauto|by etrans; eauto].
     - econs; ss. econs.
       + i. simplify.
         * congr.
         * exploit THREADS; try apply TH1; eauto. i. des.
-          exploit Thread.rtc_step_disjoint; eauto. i. des.
+          exploit Thread.rtc_tau_step_disjoint; eauto. i. des.
           exploit Thread.step_disjoint; eauto. s. i. des.
           symmetry. auto.
         * exploit THREADS; try apply TH2; eauto. i. des.
-          exploit Thread.rtc_step_disjoint; eauto. i. des.
+          exploit Thread.rtc_tau_step_disjoint; eauto. i. des.
           exploit Thread.step_disjoint; eauto. i. des.
           auto.
         * eapply DISJOINT; [|eauto|eauto]. auto.
       + i. simplify.
         exploit THREADS; try apply TH; eauto. i.
-        exploit Thread.rtc_step_disjoint; eauto. i. des.
+        exploit Thread.rtc_tau_step_disjoint; eauto. i. des.
         exploit Thread.step_disjoint; eauto. s. i. des.
         auto.
     - ii. simplify; eauto.
@@ -247,7 +247,7 @@ Module Configuration.
       <<CONSISTENT: consistent (mk ths c2.(sc) c2.(memory))>>.
   Proof.
     inv STEP. ss.
-    exploit Thread.rtc_step_future; eauto.
+    exploit Thread.rtc_tau_step_future; eauto.
     { econs; eapply WF1; eauto. }
     { apply WF1. }
     { apply WF1. }
@@ -257,7 +257,7 @@ Module Configuration.
     - econs; s; ii; simplify.
       + inv DISJOINT. eapply THREAD; eauto.
       + inv DISJOINT. eapply THREAD; eauto.
-      + exploit Thread.rtc_step_disjoint; eauto; s.
+      + exploit Thread.rtc_tau_step_disjoint; eauto; s.
         { econs; eapply WF1; eauto. }
         { apply WF1. }
         { apply WF1. }
@@ -271,7 +271,7 @@ Module Configuration.
       + econs.
         * i. eapply WF; eauto.
         * i.
-          exploit Thread.rtc_step_disjoint; eauto.
+          exploit Thread.rtc_tau_step_disjoint; eauto.
           { econs; eapply WF1; eauto. }
           { apply WF1. }
           { apply WF1. }
@@ -281,7 +281,7 @@ Module Configuration.
           exploit Thread.step_disjoint; eauto. s. i. des.
           splits; ss.
     - ii. ss.
-      exploit Thread.rtc_step_disjoint; eauto.
+      exploit Thread.rtc_tau_step_disjoint; eauto.
       { econs; eapply WF1; eauto. }
       { apply WF1. }
       { apply WF1. }

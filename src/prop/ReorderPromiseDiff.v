@@ -131,7 +131,7 @@ Proof.
       + econs.
         * econs; eauto.
         * eapply Memory.split_closed_opt_view; eauto.
-    - exploit MemoryReorder.split_lower; try exact MEM; try exact MEM0; eauto.
+    - exploit MemoryReorder.split_lower_diff; try exact MEM; try exact MEM0; eauto.
       { ii. inv H. exfalso. eapply Memory.disjoint_get; try apply DISJ.
         - eapply Memory.split_get0. eauto.
         - eapply Memory.lower_get0. eauto.

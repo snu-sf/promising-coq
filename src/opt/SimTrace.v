@@ -82,7 +82,7 @@ Proof.
   induction STEP.
   - econs 1.
   - econs 2; eauto. econs.
-    + econs 2. econs 1. ss.
+    + econs. econs 2. econs 1. ss.
     + ss.
 Qed.
 

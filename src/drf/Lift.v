@@ -219,7 +219,7 @@ Inductive pi_step_lift_except_aux l t (tid_except:Ident.t) e: (Configuration.t*C
 .
 Hint Constructors pi_step_lift_except_aux.
 
-Definition pi_step_lift_except l t tid_except := step_union (pi_step_lift_except_aux l t tid_except).
+Definition pi_step_lift_except l t tid_except := union (pi_step_lift_except_aux l t tid_except).
 Hint Unfold pi_step_lift_except.
 
 Definition lift_view_le l t (msgs: list (Loc.t*Time.t)) loc ts cap1 cap2 : Prop :=

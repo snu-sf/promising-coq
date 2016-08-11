@@ -36,7 +36,8 @@ Lemma writing_small_step_fulfilled_forward
     (NP: fulfilled c1 l f t msg),
     fulfilled c2 l f t msg.
 Proof.
-  inv STEP. inv STEP0; inv STEP; inv WRITING.
+  inv STEP. guardH PFREE.
+  inv STEP0; inv STEP; inv WRITING.
   - inv LOCAL. inv WRITE. inv PROMISE.
     { i. inv NP. econs; s.
       - erewrite Memory.add_o; eauto. condtac; ss.
@@ -125,7 +126,8 @@ Lemma writing_small_step_fulfilled_new
       (WRITING: ThreadEvent.is_writing e = Some (loc, from, to, val, released, ord)):
   fulfilled c2 loc from to (Message.mk val released).
 Proof.
-  inv STEP. inv STEP0; inv STEP; inv WRITING.
+  inv STEP. guardH PFREE.
+  inv STEP0; inv STEP; inv WRITING.
   - inv LOCAL. inv WRITE. inv PROMISE.
     { econs; s.
       - erewrite Memory.add_o; eauto. condtac; ss. des; congr.
@@ -204,7 +206,8 @@ Lemma writing_small_step_fulfilled_backward
     (NP: fulfilled c2 l f t msg),
     fulfilled c1 l f t msg \/ (l, f, t, msg) = (loc, from, to, Message.mk val released).
 Proof.
-  inv STEP. inv STEP0; inv STEP; inv WRITING.
+  inv STEP. guardH PFREE.
+  inv STEP0; inv STEP; inv WRITING.
   - inv LOCAL. inv WRITE. inv PROMISE.
     { i. inv NP. ss. revert GET. erewrite Memory.add_o; eauto. condtac; ss.
       { i. des. inv GET. auto. }
@@ -326,7 +329,23 @@ Lemma nonwriting_small_step_fulfilled_forward
     (NP: fulfilled c1 l f t msg),
     fulfilled c2 l f t msg.
 Proof.
-  inv STEP. inv STEP0; inv STEP; inv PFREE; inv NONWRITING.
+  inv STEP. guardH PFREE.
+  inv STEP0; inv STEP; inv NONWRITING.
+  - unguardH PFREE. des; [done|].
+    apply promise_pf_inv in PFREE. des. subst.
+    inv LOCAL. inv PROMISE.
+    i. inv NP. econs; ss.
+    + erewrite Memory.lower_o; eauto. condtac; ss. des. subst.
+      exfalso. eapply FULFILLED. econs; eauto. eapply Memory.lower_get0. eauto.
+    + ii. inv H.
+      revert TID0. rewrite IdentMap.gsspec. condtac; ss; i.
+      * inv TID0. ss. eapply FULFILLED.
+        destruct msg0. hexploit Memory.op_get_inv; eauto.
+        { econs 3. eauto. }
+        i. des.
+        { subst. econs; eauto. eapply Memory.lower_get0. eauto. }
+        { econs; eauto. }
+      * eapply FULFILLED. econs; eauto.
   - i. inv NP. econs; eauto. ii. inv H. ss.
     revert TID0. rewrite IdentMap.gsspec. condtac; ss; i.
     + inv TID0. eapply FULFILLED. econs; eauto.

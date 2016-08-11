@@ -536,7 +536,7 @@ Proof.
   }
   i. des. esplits; try exact NONSYNCH2; eauto.
   econs 2; eauto. econs.
-  - econs 1. econs. econs; eauto. econs.
+  - econs. econs 1. econs; eauto. econs; eauto. econs.
   - ss.
 Qed.
 

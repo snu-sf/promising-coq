@@ -640,7 +640,7 @@ Lemma memory_step_write_rmw acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0
   exists m : Message.t, Memory.get l0 (f' c) mem' = Some (f' b, m).
 Proof.
   eapply gstep_rf_rmw with (rf:=rf) in RF_RMW; eauto.
-  unfold union in RF_RMW; unfold seq at 2 in RF_RMW; desf; try congruence.
+  unfold Relation_Operators.union in RF_RMW; unfold seq at 2 in RF_RMW; desf; try congruence.
   specialize (UPDATES b c RF_RMW LOC).
   desc.
   exists m.

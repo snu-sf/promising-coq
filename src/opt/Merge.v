@@ -60,7 +60,7 @@ Proof.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
     esplits; try apply SC; eauto.
-    + econs 2. econs 1. econs. eauto.
+    + econs 2. econs 1. econs; eauto.
     + auto.
   - (* load *)
     esplits; try apply SC; eauto.
@@ -99,14 +99,14 @@ Proof.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
     esplits; try apply SC; eauto.
-    + econs 2. econs 1. econs. eauto.
+    + econs 2. econs 1. econs; eauto.
     + auto.
   - (* load *)
     exploit sim_local_read; try exact LOCAL0; eauto; try refl. i. des.
     exploit merge_read_read; try exact STEP_SRC; eauto. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
-      * econs 2. econs 2; eauto. econs. econs.
+      * econs. econs 2. econs 2; eauto. econs. econs.
       * eauto.
     + econs 2. econs 2. econs 2; eauto. econs. econs.
     + auto.
@@ -146,14 +146,14 @@ Proof.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
     esplits; try apply SC; eauto.
-    + econs 2. econs 1. econs. eauto.
+    + econs 2. econs 1. econs; eauto.
     + auto.
   - (* store *)
     hexploit sim_local_write; try exact LOCAL0; try exact SC; eauto; try refl; try by viewtac. i. des.
     exploit merge_write_read1; try exact STEP_SRC; eauto. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
-      * econs 2. econs 3; eauto. econs. econs.
+      * econs. econs 2. econs 3; eauto. econs. econs.
       * eauto.
     + econs 2. econs 2. econs 2; eauto. econs. econs.
     + auto.
@@ -201,8 +201,11 @@ Proof.
     exploit merge_write_write_None; try exact STEP_SRC; eauto; try by viewtac. i. des.
     + esplits.
       * econs 2; [|econs 2; eauto].
-        { econs. econs 1. econs; eauto. auto. }
-        { econs. econs 2. econs 3; eauto.
+        { econs.
+          - econs. econs 1. econs; eauto.
+          - auto.
+        }
+        { econs. econs. econs 2. econs 3; eauto.
           - econs. econs.
           - auto.
         }
@@ -215,7 +218,7 @@ Proof.
         { ii. inv PR. }
     + inv STEP1.
       esplits.
-      * econs 2; eauto. econs. econs 2. econs 3; try exact STEP2; eauto.
+      * econs 2; eauto. econs. econs. econs 2. econs 3; try exact STEP2; eauto.
         { econs. econs. }
         { auto. }
       * econs 2. econs 2. econs 3; eauto. econs. econs.
@@ -267,8 +270,11 @@ Proof.
     exploit Local.write_step_future; try apply STEP2; eauto; try by viewtac. i. des.
     + esplits.
       * econs 2; [|econs 2; eauto].
-        { econs. econs 1. econs; eauto. auto. }
-        { econs. econs 2. econs 3; eauto.
+        { econs.
+          - econs. econs 1. econs; eauto.
+          - auto.
+        }
+        { econs. econs. econs 2. econs 3; eauto.
           - econs. econs.
           - auto.
         }
@@ -283,7 +289,7 @@ Proof.
         { i. inv PR. }
     + inv STEP1.
       esplits.
-      * econs 2; eauto. econs. econs 2. econs 3; try exact STEP2; eauto.
+      * econs 2; eauto. econs. econs. econs 2. econs 3; try exact STEP2; eauto.
         { econs. econs. }
         { auto. }
       * econs 2. econs 2. econs 4; eauto.
@@ -349,7 +355,7 @@ Proof.
     exploit sim_local_read; try exact x0; eauto; try refl. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
-      * econs 2. econs 4; eauto. econs. econs. eauto.
+      * econs. econs 2. econs 4; eauto. econs. econs. eauto.
       * eauto.
     + econs 2. econs 2. econs 2; eauto. econs. econs.
     + auto.
@@ -414,8 +420,11 @@ Proof.
       i. des.
       esplits.
       * econs 2; [|econs 2; eauto].
-        { econs. econs 1. econs; eauto. auto. }
-        { econs. econs 2. econs 4; try exact STEP4; try exact STEP_SRC0; eauto.
+        { econs.
+          - econs. econs 1. econs; eauto.
+          - auto.
+        }
+        { econs. econs. econs 2. econs 4; try exact STEP4; try exact STEP_SRC0; eauto.
           - econs. econs. s. eauto.
           - auto.
         }
@@ -440,7 +449,7 @@ Proof.
       exploit Local.write_step_future; try apply STEP2; eauto; try by viewtac. i. des.
       esplits.
       * econs 2; eauto.
-        econs. econs 2. econs 4; try exact STEP_SRC; try exact STEP2; eauto.
+        econs. econs. econs 2. econs 4; try exact STEP_SRC; try exact STEP2; eauto.
         { econs. econs. s. eauto. }
         { auto. }
       * econs 2. econs 2. econs 4; eauto.
@@ -494,7 +503,7 @@ Proof.
     exploit merge_fence_fence; try exact STEP_SRC; eauto. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
-      * econs 2. econs 5; eauto. econs. econs.
+      * econs. econs 2. econs 5; eauto. econs. econs.
       * eauto.
     + econs 2. econs 2. econs 5; eauto. econs. econs.
     + auto.

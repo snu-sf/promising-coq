@@ -92,7 +92,7 @@ Proof.
     exploit sim_localF_promise; eauto. i. des.
     esplits.
     + eauto.
-    + econs 2. econs 1. econs. eauto.
+    + econs 2. econs 1. econs; eauto.
     + auto.
     + auto.
     + auto.
@@ -171,7 +171,7 @@ Proof.
   }
   exploit sim_localF_introduction; eauto. i. des.
   exploit sim_localF_nonsynch_src; try exact SC_SRC; eauto. i. des.
-  exploit Thread.rtc_step_future; eauto. s. i. des.
+  exploit Thread.rtc_tau_step_future; eauto. s. i. des.
   exploit sim_localF_fence_src; eauto. i. des.
   exploit Local.fence_step_future; eauto. i. des.
   inv STEP; inv STATE; inv INSTR; inv REORDER.
@@ -179,7 +179,7 @@ Proof.
     exploit sim_localF_read; eauto; try refl. i. des.
     esplits.
     + etrans; [eauto|]. econs 2; [|refl]. econs.
-      * econs 2. econs 5; eauto. econs. econs.
+      * econs. econs 2. econs 5; eauto. econs. econs.
       * ss.
     + econs 2. econs 2. econs 2; eauto. econs. econs.
     + auto.
@@ -192,7 +192,7 @@ Proof.
       (try refl); (try by econs). i. des.
     esplits.
     + etrans; [eauto|]. econs 2; [|refl]. econs.
-      * econs 2. econs 5; eauto. econs. econs.
+      * econs. econs 2. econs 5; eauto. econs. econs.
       * ss.
     + econs 2. econs 2. econs 3; eauto. econs. econs.
       replace sc2_src with sc1_src; eauto. apply TimeMap.antisym; ss.
@@ -209,7 +209,7 @@ Proof.
       (try refl); (try by econs). i. des.
     esplits.
     + etrans; [eauto|]. econs 2; [|refl]. econs.
-      * econs 2. econs 5; eauto. econs. econs.
+      * econs. econs 2. econs 5; eauto. econs. econs.
       * ss.
     + econs 2. econs 2. econs 4; eauto.
       * econs. econs. eauto.
@@ -223,7 +223,7 @@ Proof.
     exploit sim_localF_fence; try exact SC; eauto; try refl. i. des.
     esplits.
     + etrans; [eauto|]. econs 2; [|refl]. econs.
-      * econs 2. econs 5; eauto. econs. econs.
+      * econs. econs 2. econs 5; eauto. econs. econs.
       * ss.
     + econs 2. econs 2. econs 5; eauto.
       * econs. econs.

@@ -99,7 +99,7 @@ Proof.
     exploit Local.promise_step_future; eauto. i. des.
     esplits.
     + eauto.
-    + econs 2. econs 1. econs. eauto.
+    + econs 2. econs 1. econs; eauto.
     + auto.
     + etrans; eauto.
     + auto.
@@ -120,7 +120,7 @@ Proof.
       try exact WF3; try refl; eauto; try by viewtac. i. des.
     esplits.
     + eauto.
-    + econs 2. econs 1. econs. eauto.
+    + econs 2. econs 1. econs; eauto.
     + auto.
     + etrans; eauto.
     + auto.

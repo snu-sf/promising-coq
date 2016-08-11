@@ -240,7 +240,7 @@ Proof.
     exploit fulfill_write; eauto. i. des.
     esplits.
     + econs 2; eauto. econs.
-      * econs 2. econs 2; eauto. econs. econs.
+      * econs. econs 2. econs 2; eauto. econs. econs.
       * auto.
     + econs 2. econs 2. econs 4; eauto. econs. econs.
       erewrite RegFile.eq_except_rmw; eauto.
@@ -264,7 +264,7 @@ Proof.
     exploit fulfill_write; eauto. i. des.
     esplits.
     + econs 2; eauto. econs.
-      * econs 2. econs 3; eauto. econs.
+      * econs. econs 2. econs 3; eauto. econs.
         erewrite RegFile.eq_except_value; cycle 2.
         { apply RegFile.eq_except_singleton. }
         { econs. }
@@ -294,7 +294,7 @@ Proof.
     exploit fulfill_write; eauto. i. des.
     esplits.
     + econs 2; eauto. econs.
-      * econs 2. econs 4; eauto. econs. econs.
+      * econs. econs 2. econs 4; eauto. econs. econs.
         erewrite RegFile.eq_except_rmw; eauto; cycle 1.
         { symmetry. apply RegFile.eq_except_singleton. }
         { ii. apply RegSet.singleton_spec in LHS. subst. contradict REGS. apply RegSet.add_spec. auto. }
@@ -327,15 +327,17 @@ Proof.
     { rewrite RMW in *. ss. econs 2. eauto. }
     i. des.
     + exploit program_step_promise; eauto. i.
-      exploit Thread.rtc_step_future; eauto. s. i. des.
+      exploit Thread.rtc_tau_step_future; eauto. s. i. des.
       exploit Thread.opt_step_future; eauto. s. i. des.
       exploit Thread.program_step_future; eauto. s. i. des.
       punfold SIM. exploit SIM; try apply SC3; eauto; try refl. s. i. des.
       exploit PROMISES; eauto. i. des.
       esplits; [|eauto].
 	    etrans; eauto. etrans; [|eauto].
-      inv STEP_SRC; eauto. econs 2; eauto. econs; eauto. etrans; eauto.
-      destruct e; by inv STEP; inv STATE; inv INSTR; inv REORDER.
+      inv STEP_SRC; eauto. econs 2; eauto. econs.
+      * econs. eauto.
+      * etrans; eauto.
+        destruct e; by inv STEP; inv STATE; inv INSTR; inv REORDER.
     + inv SIM. inv STEP; inv STATE.
   - exploit sim_update_mon; eauto. i. des.
     exploit sim_update_step; eauto. i. des.

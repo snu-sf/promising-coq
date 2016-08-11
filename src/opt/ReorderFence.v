@@ -114,7 +114,7 @@ Proof.
     { inv REORDER; ss. }
     i. des.
     esplits; try apply SC; eauto.
-    + econs 2. econs 1. econs. eauto.
+    + econs 2. econs 1. econs; eauto.
     + eauto.
     + right. econs; eauto.
   - (* load *)
@@ -125,7 +125,7 @@ Proof.
     exploit reorder_fence_read; try apply x0; try apply STEP_SRC; eauto; try by viewtac. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
-      * econs 2. econs 2; eauto. econs. econs.
+      * econs. econs 2. econs 2; eauto. econs. econs.
       * eauto.
     + econs 2. econs 2. econs 5; eauto. econs. econs.
     + auto.
@@ -140,7 +140,7 @@ Proof.
     exploit reorder_fence_write; try apply x0; try apply STEP_SRC; eauto; try by viewtac. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
-      * econs 2. econs 3; eauto. econs. econs.
+      * econs. econs 2. econs 3; eauto. econs. econs.
       * eauto.
     + econs 2. econs 2. econs 5; eauto. econs. econs.
     + auto.
@@ -163,7 +163,7 @@ Proof.
     exploit reorder_fence_write; try apply STEP2; try apply STEP_SRC0; eauto; try by viewtac. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
-      * econs 2. econs 4; eauto. econs. econs. eauto.
+      * econs. econs 2. econs 4; eauto. econs. econs. eauto.
       * eauto.
     + econs 2. econs 2. econs 5; eauto. econs. econs.
     + auto.

@@ -18,7 +18,6 @@ Require Import TView.
 Require Import Thread.
 Require Import Configuration.
 
-Require Import PFStep.
 Require Import PromiseConsistent.
 Require Import ReorderPromises.
 
@@ -191,12 +190,13 @@ Section Invariant.
         (WF1: Local.wf lc1 mem1)
         (SC1: Memory.closed_timemap sc1 mem1)
         (CLOSED1: Memory.closed mem1)
-        (STEP: pf_step e (Thread.mk lang st1 lc1 sc1 mem1) (Thread.mk lang st2 lc2 sc2 mem2)):
+        (STEP: Thread.step true e (Thread.mk lang st1 lc1 sc1 mem1) (Thread.mk lang st2 lc2 sc2 mem2)):
     <<TH2: S tid lang st2>> /\
     <<MEM2: sem_memory mem2>>.
   Proof.
     inv STEP.
-    { splits; ss. inv LOCAL. inv PROMISE; inv KIND.
+    { inv STEP0. symmetry in PF. apply promise_pf_inv in PF. des. subst.
+      splits; ss. inv LOCAL. inv PROMISE.
       ii. apply MEM1. ii. specialize (PR loc0). des.
       revert PR. erewrite Memory.lower_o; eauto. condtac; eauto.
       ss. i. des. inv PR. exploit Memory.lower_get0; eauto.
@@ -232,18 +232,19 @@ Section Invariant.
         (WF1: Local.wf th1.(Thread.local) th1.(Thread.memory))
         (SC1: Memory.closed_timemap th1.(Thread.sc) th1.(Thread.memory))
         (CLOSED1: Memory.closed th1.(Thread.memory))
-        (STEP: rtc (@pf_step_evt lang) th1 th2):
+        (STEP: rtc (union (Thread.step true)) th1 th2):
     <<TH2: S tid lang th2.(Thread.state)>> /\
     <<MEM2: sem_memory th2.(Thread.memory)>>.
   Proof.
     move STEP after TH1. revert_until STEP. induction STEP; ss.
     i. inv H.
-    exploit pf_step_future; eauto. i. des.
+    exploit Thread.step_future; eauto. i. des.
     destruct x, y. ss.
     exploit thread_step_sem; eauto. i. des.
     eapply IHSTEP; eauto.
   Qed.
 
+  (* TODO *)
   Lemma rtc_n1
         A R (a b c:A)
         (AB: rtc R a b)
@@ -276,46 +277,47 @@ Section Invariant.
     - inv STEP. ss. ii. revert FIND.
       rewrite IdentMap.gsspec. condtac; ss; [|by apply TH]. subst.
       i. inv FIND. apply inj_pair2 in H1. subst.
-      eapply rtc_implies in STEPS; [|by apply tau_step_step_evt].
+      eapply rtc_implies in STEPS; [|by apply tau_union].
       exploit rtc_n1; eauto; i.
-      { econs. eauto. }
-      exploit rtc_step_evt_future; eauto; ss; try by inv WF.
+      { econs. econs. eauto. }
+      exploit Thread.rtc_all_step_future; eauto; ss; try by inv WF.
       { inv WF. eapply WF0. eauto. }
       i. des.
       exploit steps_pf_steps; eauto; ss; try by inv WF.
       { hexploit consistent_promise_consistent; eauto. }
       { inv WF. eapply WF0. eauto. }
       i. des.
-      exploit rtc_implies; (try by apply pf_step_evt_step_evt); eauto. i.
-      exploit rtc_step_evt_future; eauto; ss; try by inv WF.
+      exploit rtc_implies; [|exact STEPS1|i].
+      { apply union_mon. apply Thread.allpf. }
+      exploit Thread.rtc_all_step_future; eauto; ss; try by inv WF.
       { inv WF. eapply WF0. eauto. }
       i. des.
-      exploit rtc_nonpf_step_evt_future; eauto. s. i. des.
+      exploit Thread.rtc_step_nonpf_future; eauto. s. i. des.
       subst. eapply rtc_thread_step_sem; try exact STEPS1; eauto; ss; try by inv WF.
       inv WF. eapply WF3. eauto.
     - inv STEP. ss.
-      eapply rtc_implies in STEPS; [|by apply tau_step_step_evt].
+      eapply rtc_implies in STEPS; [|by apply tau_union].
       exploit rtc_n1; eauto; i.
-      { econs. eauto. }
-      exploit rtc_step_evt_future; eauto; ss; try by inv WF.
+      { econs. econs. eauto. }
+      exploit Thread.rtc_all_step_future; eauto; ss; try by inv WF.
       { inv WF. eapply WF0. eauto. }
       i. des.
       exploit CONSISTENT; eauto; ss; try refl. i. des.
-      eapply rtc_implies in STEPS0; [|by apply tau_step_step_evt].
+      eapply rtc_implies in STEPS0; [|by apply tau_union].
       rewrite STEPS0 in x0.
       exploit steps_pf_steps; try exact x0; eauto; ss; try by inv WF.
       { ii. rewrite PROMISES, Memory.bot_get in *. congr. }
       { inv WF. eapply WF0. eauto. }
       i. des.
-      exploit rtc_nonpf_step_evt_bot; eauto. i. subst.
+      exploit rtc_union_step_nonpf_bot; eauto. i. subst.
       exploit rtc_thread_step_sem; try exact STEPS1; eauto; ss; try by inv WF.
       { inv WF. eapply WF0. eauto. }
       i. des.
-      exploit rtc_step_evt_future; try exact STEPS; eauto; ss; try by inv WF.
+      exploit Thread.rtc_all_step_future; try exact STEPS; eauto; ss; try by inv WF.
       { inv WF. eapply WF0. eauto. }
       i. des.
       exploit Thread.step_future; try exact STEP0; eauto. s. i. des.
-      exploit rtc_step_evt_future; try exact STEPS0; eauto. s. i. des.
+      exploit Thread.rtc_all_step_future; try exact STEPS0; eauto. s. i. des.
       eapply future_sem_memory; eauto.
   Qed.
 

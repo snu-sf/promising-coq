@@ -120,18 +120,18 @@ Proof.
 Qed.
 
 Lemma step_seq
-      stmts e
+      stmts pf e
       rs1 stmts1 lc1 sc1 mem1
       rs2 stmts2 lc2 sc2 mem2
-      (STEP: Thread.step e
+      (STEP: Thread.step pf e
                          (Thread.mk lang (State.mk rs1 stmts1) lc1 sc1 mem1)
                          (Thread.mk lang (State.mk rs2 stmts2) lc2 sc2 mem2)):
-  Thread.step e
+  Thread.step pf e
               (Thread.mk lang (State.mk rs1 (stmts1 ++ stmts)) lc1 sc1 mem1)
               (Thread.mk lang (State.mk rs2 (stmts2 ++ stmts)) lc2 sc2 mem2).
 Proof.
   inv STEP.
-  - econs 1. inv STEP0. econs. eauto.
+  - econs 1. inv STEP0. econs; eauto.
   - econs 2. apply program_step_seq. eauto.
 Qed.
 
@@ -148,19 +148,19 @@ Lemma opt_step_seq
 Proof.
   inv STEP.
   - econs 1.
-  - econs 2. apply step_seq. auto.
+  - econs 2. apply step_seq. eauto.
 Qed.
 
 Lemma thread_step_deseq
-      stmts e
+      stmts pf e
       rs1 stmt1 stmts1 lc1 sc1 mem1
       rs2 stmts2 lc2 sc2 mem2
-      (STEP: Thread.step e
+      (STEP: Thread.step pf e
                          (Thread.mk lang (State.mk rs1 (stmt1 :: stmts1 ++ stmts)) lc1 sc1 mem1)
                          (Thread.mk lang (State.mk rs2 stmts2) lc2 sc2 mem2)):
   exists stmts2',
     stmts2 = stmts2' ++ stmts /\
-  Thread.step e
+  Thread.step pf e
               (Thread.mk lang (State.mk rs1 (stmt1 :: stmts1)) lc1 sc1 mem1)
               (Thread.mk lang (State.mk rs2 stmts2') lc2 sc2 mem2).
 Proof.
@@ -168,7 +168,7 @@ Proof.
   - inv STEP0.
     rewrite app_comm_cons.
     esplits; eauto.
-    econs 1. econs. eauto.
+    econs 1. econs; eauto.
   - inv STEP0; ss.
     + apply lang_step_deseq in STATE. des. subst.
       esplits; eauto.
@@ -230,10 +230,10 @@ Lemma rtc_internal_step_seq
       (Thread.mk lang (State.mk rs2 (stmts2 ++ stmts)) lc2 sc2 mem2).
 Proof.
   exploit (sim_rtc (sim_seq stmts)); eauto.
-  - i. inv SIM1. destruct a2. destruct state. destruct local. inv RA.
+  - i. inv SIM1. destruct a2. destruct state. destruct local. inv RA. inv TSTEP.
     generalize (step_seq stmts STEP0). i.
     esplits; [|econs; eauto].
-    eapply Thread.step_tau; eauto.
+    eapply tau_intro; eauto. eapply Thread.step_nopf_intro. eauto.
   - econs; ss.
   - i. des. inv x1. auto.
 Qed.
@@ -337,7 +337,7 @@ Proof.
     exploit sim_local_promise; eauto. i. des.
     esplits.
     + eauto.
-    + econs 2. econs 1. econs. eauto.
+    + econs 2. econs 1. econs; eauto.
     + eauto.
     + eauto.
     + eauto.
@@ -351,7 +351,7 @@ Proof.
       inversion LOCAL. exploit SimPromises.sem_bot_inv; eauto. i.
       destruct lc2_src. ss. subst.
       destruct st2_src. inv TERMINAL_SRC. ss. subst.
-      exploit Thread.rtc_step_future; eauto. s. i. des.
+      exploit Thread.rtc_tau_step_future; eauto. s. i. des.
       inv TERMINAL0. ss. subst.
       exploit SIM2; eauto. intro LC2.
       exploit GF; try apply LC2; try apply SC0; eauto. s. i. des.
@@ -373,7 +373,7 @@ Proof.
     + exploit TERMINAL; try by econs. i. des.
       inversion LOCAL. exploit SimPromises.sem_bot_inv; eauto. i. subst.
       destruct st2_src, lc2_src. inv TERMINAL_SRC. ss. subst.
-      exploit Thread.rtc_step_future; eauto. s. i. des.
+      exploit Thread.rtc_tau_step_future; eauto. s. i. des.
       inv TERMINAL0. ss. subst.
       exploit SIM2; eauto. intro LC2.
       exploit GF; try apply SC0; eauto. i. des.
@@ -416,7 +416,7 @@ Proof.
       inv STEP; ss.
       exploit sim_local_promise; eauto. i. des.
       esplits; try apply SC; eauto.
-      { econs 2. econs 1. econs. s. eauto. }
+      { econs 2. econs 1. econs; eauto. }
       { eauto. }
       { apply rclo9_step. eapply ctx_ite; eauto.
         - eapply _sim_stmts_mon; try apply rclo9_incl; eauto.
@@ -458,7 +458,7 @@ Proof.
       inv STEP; ss.
       exploit sim_local_promise; eauto. i. des.
       esplits; try apply SC; eauto.
-      { econs 2. econs 1. econs. eauto. }
+      { econs 2. econs 1. econs; eauto. }
       { eauto. }
       { apply rclo9_step. apply ctx_dowhile; auto.
         - eapply _sim_stmts_mon; try apply rclo9_incl; eauto.
