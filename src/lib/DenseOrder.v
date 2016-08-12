@@ -690,7 +690,6 @@ Module DOMap.
       splits; eauto. i. destruct k'; ss.
       - erewrite raw_max_key_spec1 in FIND'; eauto. congr.
       - apply DOAux.le_xO. auto.
-      - congr.
     }
     i. congr.
   Qed.
@@ -749,7 +748,6 @@ Module DOMap.
     - destruct k'; ss.
       + erewrite raw_max_key_spec1 in FIND'; eauto. congr.
       + erewrite raw_max_key_spec1 in FIND'; eauto. congr.
-      + refl.
   Qed.
 End DOMap.
 

@@ -180,7 +180,6 @@ Proof.
   exploit Thread.step_future; eauto.
   s; i; des. splits; [|by eauto|by eauto]. econs; ss. econs.
   - i. Configuration.simplify.
-    + congr.
     + exploit THREADS; try apply TH1; eauto. i. des.
       exploit Thread.step_disjoint; eauto. s. i. des.
       symmetry. auto.

@@ -570,7 +570,7 @@ Module Cell.
     - left. eapply TimeFacts.le_lt_lt.
       + eapply max_ts_spec. eauto.
       + inv ADD. auto.
-    - eapply max_ts_spec. erewrite add_o; eauto. condtac; ss. congr.
+    - eapply max_ts_spec. erewrite add_o; eauto. condtac; ss.
   Qed.
 
   Lemma remove_singleton

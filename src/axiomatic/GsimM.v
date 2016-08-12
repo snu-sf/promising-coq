@@ -151,7 +151,6 @@ econs; ins; eauto.
 econs; eauto.
 ins; eapply SIM_TVIEW.
 rewrite IdentMap.gsspec in TID0; desf; ins; simpl; eauto.
-by exfalso; auto.
 Qed.
 
 (******************************************************************************)
@@ -533,7 +532,6 @@ eapply GMsim_helper with
   * by rewrite THREAD_ID in *; eapply SIM_TVIEW; eauto.
   * rewrite IdentMap.gsspec in TID0; desf; ins.
     eby rewrite THREAD_ID in *.
-    eby exfalso.
 - ins; eapply max_value_same_set; try edone.
   by ins; rewrite gstep_S_tm_other; eauto with acts.
 - eapply memory_step_nonwrite; eauto.
