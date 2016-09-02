@@ -42,8 +42,7 @@ Lemma reorder_promise_small_step
       (STEP1: small_step true tid1 e1 c0 c1)
       (STEP2: small_step false tid2 e2 c1 c2)
       (E1: ThreadEvent.is_promising e1 = Some (loc, to))
-      (E2: ThreadEvent.is_promising e2 = None)
-      (E12: forall val released ord, ThreadEvent.is_reading e2 <> Some (loc, to, val, released, ord))
+      (E2: forall val released ord, ThreadEvent.is_reading e2 <> Some (loc, to, val, released, ord))
       (PCONS: promise_consistent_th tid1 c2):
   exists c1',
     <<STEP1: small_step false tid2 e2 c0 c1'>> /\
@@ -56,9 +55,13 @@ Proof.
   destruct (Ident.eq_dec tid1 tid2).
   - subst. inv STEP1. inv STEP2. ss.
     rewrite IdentMap.gss in TID0. inv TID0. apply inj_pair2 in H1. subst.
+    clear PFREE. des; [done|]. destruct pf0; ss.
     inv STEP; [|by inv STEP1; inv E1].
-    inv STEP0; [by inv STEP; inv PFREE0|].
-    exploit reorder_promise_program; eauto; s.
+    inv STEP0.
+    { (* promise *)
+      admit.
+    }
+    exploit reorder_nonpf_pf; eauto; s.
     { eapply PCONS. ss. rewrite IdentMap.gss. eauto. }
     { eapply WF. eauto. }
     { eapply WF. }

@@ -23,7 +23,7 @@ Set Implicit Arguments.
 
 Module ThreadEvent.
   Inductive t :=
-  | promise (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:option View.t)
+  | promise (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:option View.t) (kind:Memory.op_kind)
   | silent
   | read (loc:Loc.t) (ts:Time.t) (val:Const.t) (released:option View.t) (ord:Ordering.t)
   | write (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:option View.t) (ord:Ordering.t)
@@ -40,7 +40,7 @@ Module ThreadEvent.
 
   Definition is_promising (e:t) : option (Loc.t * Time.t) :=
     match e with
-    | promise loc from to v rel => Some (loc, to)
+    | promise loc from to v rel kind => Some (loc, to)
     | _ => None
     end.
 
@@ -60,9 +60,9 @@ Module ThreadEvent.
 
   Inductive le: forall (lhs rhs:t), Prop :=
   | le_promise
-      loc from to val rel1 rel2
+      loc from to val rel1 rel2 kind1 kind2
       (LEREL: View.opt_le rel1 rel2):
-      le (promise loc from to val rel1) (promise loc from to val rel2)
+      le (promise loc from to val rel1 kind1) (promise loc from to val rel2 kind2)
   | le_silent:
       le (silent) (silent)
   | le_read
@@ -378,7 +378,7 @@ Module Thread.
         lc2 mem2
         (LOCAL: Local.promise_step lc1 mem1 loc from to val released lc2 mem2 kind)
         (PF: pf = andb (Memory.op_kind_is_lower kind) (negb released)):
-        promise_step pf (ThreadEvent.promise loc from to val released) (mk st lc1 sc1 mem1) (mk st lc2 sc1 mem2)
+        promise_step pf (ThreadEvent.promise loc from to val released kind) (mk st lc1 sc1 mem1) (mk st lc2 sc1 mem2)
     .
 
     (* NOTE: Syscalls act like an SC fence.

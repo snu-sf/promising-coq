@@ -68,7 +68,7 @@ Proof.
   { ss. rewrite FIND1 in FIND2. depdes FIND2.
     by rewrite GET1 in GET2. 
   }
-  inv H. inv USTEP. ss. rewrite FIND1 in TID. depdes TID.
+  inv H. inv USTEP. ss. rewrite FIND1 in TID. depdes TID. des; [done|].
   destruct (Memory.get loc ts lc3.(Local.promises)) eqn: PRM.
   - destruct p as [t m].
     rewrite IdentMap.gss in IHSTEPS.
@@ -78,7 +78,7 @@ Proof.
     etrans; [|apply STEPS0].
     econs; eauto 10.  
   - exploit thread_step_unset_promises; eauto; s; eauto.
-    i; des. econs; eauto 10. 
+    i. des. econs; eauto 20.
 Qed.
 
 Lemma can_fulfill_lt
@@ -115,7 +115,7 @@ Proof.
   { ss. rewrite FIND1 in FIND2. depdes FIND2.
     by rewrite GET1 in GET2. 
   }
-  inv H. inv USTEP. ss. rewrite FIND1 in TID. depdes TID.
+  inv H. inv USTEP. ss. rewrite FIND1 in TID. depdes TID. des; [done|].
   destruct (Memory.get loc ts lc3.(Local.promises)) eqn: PRM.
   - destruct p as [t m].
     rewrite IdentMap.gss in IHSTEPS.
@@ -143,7 +143,7 @@ Proof.
   econs. ii. destruct lst1 as [lang1 st1].
   exploit CONSISTENT; ss; eauto.
   i; des. destruct e2.
-  exploit rtc_tau_program_step_rtc_small_step; swap 1 2; eauto.
+  exploit rtc_tau_pf_step_rtc_small_step; swap 1 2; eauto.
   intro STEPS1. ss.
   match goal with [STEPS1: rtc _ _ ?cfg|-_] => set (c2 := cfg) in * end.
   exploit (@rtc_small_step_unset_fulfill tid loc ts (Configuration.mk ths sc1 mem1)); cycle 1.
@@ -244,7 +244,7 @@ Proof.
 Qed.
 
 Lemma key_lemma_rw_race
-  cS1 cT1 cS2 cT2 cS3 cT3 M3 cS4 cT4 M4 tid loc ts k e e0 pre cS3' cM3' cS4' cM4' cM5'
+  cS1 cT1 cS2 cT2 cS3 cT3 M3 cS4 cT4 M4 tid loc ts e e0 pre cS3' cM3' cS4' cM4' cM5'
   (RACEFREE: pf_racefree cS1)
   (STEPS: rtc (pi_step_evt true tid) (cS1, cT1) (cS2, cT2))
   (STEPS_LIFT: rtc (pi_step_lift_except loc ts tid) (cS2, cT2, Configuration.memory cT2) (cS3, cT3, M3))
@@ -264,7 +264,7 @@ Lemma key_lemma_rw_race
   lst lc3 lc4 prm
   (THS3: IdentMap.find tid (Configuration.threads cM3') = Some (lst, lc3))
   (THS4: IdentMap.find tid (Configuration.threads cM4') = Some (lst, lc4))
-  (MEMLE: mem_eqlerel_lift loc ts prm k e (Configuration.memory cM3') (Configuration.memory cM4'))
+  (MEMLE: mem_eqlerel_lift loc ts prm e (Configuration.memory cM3') (Configuration.memory cM4'))
 
   lst5 lc5
   (THS5: IdentMap.find tid (Configuration.threads cM5') = Some (lst5, lc5))
@@ -334,7 +334,7 @@ Proof.
     - destruct ordw; inv ORDW; inv o.
   }
 
-  inv PSTEP0. ss. rewrite IdentMap.gss in THS5. depdes THS5.
+  inv PSTEP0. ss. rewrite IdentMap.gss in THS5. depdes THS5. des; [done|]. destruct pf; ss.
 
   inv STEP; inv STEP0; inv EVTR.
   - inv LOCAL. erewrite Memory.op_get2 in GET; eauto. inv GET.
@@ -383,12 +383,13 @@ Lemma key_lemma_core
 Proof.
   inv STEP4. ss. 
   rewrite THS4 in TID. symmetry in TID. depdes TID.
-  rewrite IdentMap.gss in THS4'. depdes THS4'.
+  rewrite IdentMap.gss in THS4'. depdes THS4'. des; [done|]. destruct pf; ss.
 
   inv STEP; inv STEP0.
 
   (* Promise step *)
-  { by inv PFREE. }
+  (* { by inv PFREE. } *)
+  { admit. }
 
   (* Silent step *)
   { esplits; [eapply with_pre_trans; [by apply STEPS4|]|].
@@ -421,7 +422,7 @@ Proof.
         { eauto. }
         s; intros [PIWF0 _]. inv PIWF0.
 
-        ss. des. subst. inv EVT. inv PSTEP. inv STEPS. inv STEP; inv STEP0. inv LOCAL. ss.
+        ss. des. subst. inv EVT. inv PSTEP. inv STEPS. inv STEP; inv STEP0. inv LOCAL. ss. des; [done|].
         exploit LR0; eauto. i; des.
 
         hexploit RL; [by eauto|..]; cycle 1.
@@ -529,7 +530,7 @@ Proof.
           { eauto. }
           s; intros [PIWF0 _]. inv PIWF0.
 
-          ss. des. subst. inv EVT. inv PSTEP. inv STEPS. inv STEP; inv STEP0. inv LOCAL1. ss.
+          ss. des. subst. inv EVT. inv PSTEP. inv STEPS. inv STEP; inv STEP0. inv LOCAL1. ss. des; [done|].
           exploit LR0; eauto. i; des.
 
           hexploit RL; [by eauto|..]; cycle 1.
@@ -607,7 +608,7 @@ Proof.
     }
     eauto.
   }
-Qed.
+Admitted.
 
 Lemma key_lemma
       cS1 cT1 cS2 cT2 tid
@@ -707,7 +708,7 @@ Proof.
       (exists cS3' cM3' lst3' com3' com4' prm3',
        <<STEPS3: rtc (pi_step_evt false tid) (cS3, conf_update_memory cT3 M3) (cS3',cM3')>> /\
        <<PRCONSIS3: forall tid0, promise_consistent_th tid0 cM3'>> /\
-       <<MEMLE: mem_eqlerel_lift loc ts prm3' k e cM3'.(Configuration.memory) cM4'.(Configuration.memory)>> /\
+       <<MEMLE: mem_eqlerel_lift loc ts prm3' e cM3'.(Configuration.memory) cM4'.(Configuration.memory)>> /\
        <<SCLE: TimeMap.le cM3'.(Configuration.sc) cM4'.(Configuration.sc)>> /\
        <<THS3: IdentMap.find tid cM3'.(Configuration.threads) = Some (lst3', Local.mk com3' prm3') >> /\
        <<THS4: IdentMap.find tid cM4'.(Configuration.threads) = Some (lst3', Local.mk com4' prm3') >> /\
@@ -728,7 +729,7 @@ Proof.
       inv WF3; eauto. } 
     { econs; eauto.
       by split; ii; esplits; eauto; reflexivity. }
-    { s. inv PI_STEP. inv STEPT. ss.
+    { s. inv PI_STEP. inv STEPT. ss. des; [done|].
       inv WF3. inv WFT. inv WF0. ss.
       exploit THREADS; eauto. i.
       exploit Thread.step_future; eauto. s. i. des. auto.
@@ -743,7 +744,7 @@ Proof.
   rename ms into cM4', es into cM5'.
 
   assert (STEP2 := PSTEP0). inv PSTEP0. ss.
-  rewrite IdentMap.gss in THREAD4. depdes THREAD4.
+  rewrite IdentMap.gss in THREAD4. depdes THREAD4. des; [done|]. destruct pf; ss.
 
   assert (MGET: Memory.get loc ts (Configuration.memory cT2) <> None).
   { inv WF2. inv WFT. inv WF0. destruct lst.
@@ -797,7 +798,8 @@ Proof.
 
   (* Simulation exists *)  
   assert (NOPRMEVT: ThreadEvent.is_promising eS = None).
-  { destruct e0; inv PFREE; inv EVT; eauto. }
+  (* { destruct e0; inv PFREE; inv EVT; eauto. } *)
+  { admit. }
 
   subst. destruct thS2 as [stx lcx scx mx]. ss. subst.
 
@@ -873,7 +875,7 @@ Proof.
   eapply key_lemma_core; eauto.
   { s. rewrite IdentMap.gss. eauto. }
   { s. rewrite IdentMap.gss. eauto. }
-Qed.
+Admitted.
 
 Theorem pi_consistent_pi_step_pi_consistent
       cST1 cST2 tid
