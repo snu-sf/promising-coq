@@ -233,7 +233,7 @@ Proof.
     + i.
       apply IdentMap.singleton_find_inv in TH1.
       apply IdentMap.singleton_find_inv in TH2.
-      des. Configuration.simplify. congr.
+      des. Configuration.simplify.
     + i. apply IdentMap.singleton_find_inv in TH. des.
       Configuration.simplify.
   - ii. apply IdentMap.singleton_find_inv in TH. des.

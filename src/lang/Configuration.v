@@ -212,7 +212,6 @@ Module Configuration.
     splits; [| |by etrans; eauto|by etrans; eauto].
     - econs; ss. econs.
       + i. simplify.
-        * congr.
         * exploit THREADS; try apply TH1; eauto. i. des.
           exploit Thread.rtc_step_disjoint; eauto. i. des.
           exploit Thread.step_disjoint; eauto. s. i. des.
