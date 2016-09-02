@@ -867,6 +867,19 @@ Qed.
 (** ** Basic properties of initialization *)
 (******************************************************************************)
 
+Lemma no_rmw_from_init a b (RMW: rmw a b) : is_proper a.
+Proof.
+cdes COH; cdes WF; cdes WF_SB; cdes WF_RMW.
+assert (RMW' := RMW).
+apply RMW_SB in RMW.
+apply SB_TID in RMW.
+desf.
+red in RMW; desc.
+unfold is_init, init_event in *; desc.
+apply RMW_DOMa in RMW'.
+destruct a as [??[]]; desf.
+Qed.
+
 Lemma no_mo_to_init a b (MO: mo a b) : is_proper b.
 Proof.
 apply init_events_wf1; eauto.

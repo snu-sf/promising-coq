@@ -617,9 +617,12 @@ eby exfalso; apply FRESH; eapply mo_acta.
 eby exfalso; apply FRESH; eapply mo_actb.
 Qed.
 
-Definition new_G_write G a f_to to :=
-{| acts:=(a :: acts G); sb:=(sb G +++ sb_ext (acts G) a);
-           rmw:=(rmw G) ; rf:=(rf G); mo:= (mo G) +++ new_mo (acts G) f_to a to;
+Definition new_rmw (a_r a_w: event) := fun x y => a_r <> a_w /\ x= a_r /\ y = a_w.
+
+Definition new_G_write G a_r a f_to to :=
+  {| acts:=(a :: acts G); sb:=(sb G +++ sb_ext (acts G) a);
+           rmw:= (rmw G +++ new_rmw a_r a) ; rf:=(rf G); 
+           mo:= (mo G) +++ new_mo (acts G) f_to a to;
            sc:=(Machine.sc G +++ sc_ext (acts G) a) |}.
 
 Lemma exists_gstep_write acts sb rmw rf mo sc a 
@@ -645,7 +648,7 @@ Qed.
 
 Lemma new_G_non_read_NoPromises acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
   (COH: Coherent acts sb rmw rf mo sc)  
-  a (GSTEP: gstep acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc' a a):
+  prev a (GSTEP: gstep acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc' prev a):
   NoPromises sb' rf sc'.
 Proof.
 cdes GSTEP; cdes COH.
@@ -666,7 +669,7 @@ apply acyclic_decomp_u_1; try done.
   unfold sb_ext, singl_rel, sc_ext, seq, eqv_rel, union in R'; desf; auto.
 Qed.
 
-Lemma new_G_write_coherent 
+Lemma new_G_update_coherent 
   acts sb rmw rf mo sc sc_map memory tview a
   (COH: Coherent acts sb rmw rf mo sc)
   f_from f_to (MONOTONE: monotone mo f_to)
@@ -681,9 +684,12 @@ Lemma new_G_write_coherent
   (FRESH: ~ In a acts)
   acts' sb' rmw' rf' mo' sc' 
   (NEW_MO: mo' = mo +++ new_mo acts f_to a to)
+  a_r
   (NEW_G: new_G_write {| acts:=acts; sb:=sb; rmw:=rmw; rf:=rf; mo:=mo; sc:=sc |}
-   a f_to to = {| acts:=acts'; sb:=sb'; rmw:=rmw'; rf:=rf'; mo:=mo'; sc:=sc' |})
-  (GSTEP: gstep acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc' a a):
+   a_r a f_to to = {| acts:=acts'; sb:=sb'; rmw:=rmw'; rf:=rf'; mo:=mo'; sc:=sc' |})
+  (GSTEP: gstep acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc' a_r a)
+  (UPDATE: forall x a0, In x acts /\ is_write x /\ loc x = Some l /\ 
+    a_r <> a /\ rf a0 a_r /\ Time.lt (f_to x) to /\ Time.lt (f_to a0) (f_to x) -> False):
   Coherent acts' sb' rmw' rf' mo' sc'.
 Proof.
 unfold new_G_write in *; ins; desf.
@@ -699,8 +705,7 @@ specialize (CUR_UR l); specialize (CUR_RW l); specialize (CUR_SC l).
 clear SC1. (* this assumption is redundant *)
 cdes COH.
 red; splits; eauto.
-- red; ins. destruct MO as [MO1|[MO2|MO3]]; eauto 3.
-  eby red in MO3; desf; eapply FRESH; [eapply rf_acta|eapply rmw_actb].
+- admit. (* follows from other conditions?!*)
 - red; ins; destruct MO as [MO1|MO2].
   eapply gstep_hb_a in HB0; eauto 2.
   eby intro; subst; eapply FRESH; eapply mo_acta.
@@ -750,37 +755,34 @@ red; splits; eauto.
   all: eby unfold sb_ext, seq, eqv_rel in *; desc; subst e z0; 
     eapply FRESH; eapply rf_actb.
 - red; ins.
-unfold union, new_mo in *; desf; eauto 2.
+unfold union, new_mo, singl_rel, new_rmw in *; desf; eauto 2.
 all: try eby eapply FRESH; eapply rf_acta.
 all: try eby eapply FRESH; eapply rmw_actb.
 all: try eby eapply FRESH; eapply mo_actb.
 all: try eby eapply FRESH; eapply mo_acta.
+all: try by eapply UPDATE; splits; eauto 2.
+{ assert (loc a = Some l).
+    by destruct a as [??[]]; ins; desf.
+  assert(loc c = Some l /\ loc d = Some l /\ loc a0 = Some l); desc.
+    red in WF; desc.
+    red in WF_RMW; desc.
+    splits; by apply RMW_LOC in RMW; desc; congruence.
+  assert (exists m, Memory.get l (f_to c) memory = Some (f_to a0, m)); desc.
+    eapply SIM_MEM; eauto.
+    red; eauto.
+  assert (TF: f_to a0 = f_from c).
+    specialize (SIM_MEM l); desc.
+    destruct m.
+    exploit (SIMCELL (f_to c) (f_to a0)); try edone.
+    ins; desc.
+    assert (b=c); subst.
+      eby cdes COH; cdes WF; eapply monotone_injective.
+    done.
 
-assert (loc a = Some l).
-by destruct a as [??[]]; ins; desf.
-
-assert(loc c = Some l /\ loc d = Some l /\ loc a0 = Some l); desc.
-red in WF; desc.
-red in WF_RMW; desc.
-splits; by apply RMW_LOC in RMW; desc; congruence.
-
-assert (exists m, Memory.get l (f_to c) memory = Some (f_to a0, m)); desc.
-eapply SIM_MEM; eauto.
-red; eauto.
-
-assert (TF: f_to a0 = f_from c).
-specialize (SIM_MEM l); desc.
-destruct m.
-exploit (SIMCELL (f_to c) (f_to a0)); try edone.
-ins; desc.
-assert (b=c); subst.
-eby cdes COH; cdes WF; eapply monotone_injective.
-done.
-
-eapply NEW_TO; splits; eauto.
-by rewrite <- TF; done.
-by eapply Time.le_lteq; eauto.
-
+  eapply NEW_TO; splits; eauto.
+  by rewrite <- TF; done.
+  by eapply Time.le_lteq; eauto.
+}
 - red; ins.
   eapply gstep_hb_a in HB0; try edone; cycle 1.
   eby intro; subst; eapply FRESH; eapply rf_actb.
@@ -789,7 +791,7 @@ by eapply Time.le_lteq; eauto.
   assert (a <> d).
     eby intro; subst; eapply FRESH; eapply sc_acta.
   assert (RFHBF_: b = d \/
-          (exists c, clos_refl rf' b c /\ hb acts sb rmw' rf' c d /\ is_sc_fence d)).
+          (exists c, clos_refl rf' b c /\ hb acts sb rmw rf' c d /\ is_sc_fence d)).
     destruct RFHBF as [X|[c [RF' [HB' F]]]]; auto.
     right; exists c; splits; try edone.
     eapply gstep_hb_a in HB'; eauto.
@@ -805,7 +807,7 @@ by eapply Time.le_lteq; eauto.
     eby eapply sc_acta.
 
   assert (RFHBF_: b = d \/
-          (exists c, clos_refl rf' b c /\ hb acts sb rmw' rf' c d /\ is_sc_fence d)).
+          (exists c, clos_refl rf' b c /\ hb acts sb rmw rf' c d /\ is_sc_fence d)).
     destruct RFHBF as [X|[c [RF' [HB' F]]]]; auto.
     right; exists c; splits; try edone.
     eapply gstep_hb_a in HB'; eauto.
@@ -829,7 +831,7 @@ by eapply Time.le_lteq; eauto.
     by destruct a as [??[]]; ins.
     destruct MO' as [?|MO]; desc.
     eby eapply FRESH; eapply mo_acta.
-    assert (rfhbsc_opt acts sb rmw' rf' l b d).
+    assert (rfhbsc_opt acts sb rmw rf' l b d).
      by red; unfold clos_refl, eqv_rel, seq; desf; eauto 15.
     eapply max_value_lt with (tm:= sc_map); eauto.
     by eapply SC2; destruct a as [??[]]; unfold is_sc_wf in *; ins; desf.
@@ -856,6 +858,68 @@ by eapply Time.le_lteq; eauto.
       left; unfold c_cur, rwr, urr, rfhbsc_opt, clos_refl, eqv_rel, seq in *; desf; eauto 30.
       splits; try eexists; eauto.
 - eby eapply new_G_non_read_NoPromises.
+Admitted.
+
+Lemma fresh_to acts sb rmw rf sc tid lang st1 lc1 threads mem f_from f_to
+  (NO_PROMISES : forall i foo local, IdentMap.find i threads = Some (foo, local) ->
+              Local.promises local = Memory.bot)
+  (SIM_MEM : sim_mem f_from f_to acts sb rmw rf sc mem)
+  (TID : IdentMap.find tid threads = Some (existT (fun lang => Language.state lang) lang st1, lc1))
+  l from to v o a (LABEL : lab a = Astore l v o)
+  promises2 mem2 kind released
+  (WRITE : Memory.write (Local.promises lc1) mem l from to v released promises2 mem2 kind):
+  forall b : event, In b acts /\ is_write b /\ loc b = loc a -> f_to b <> to.
+Proof.
+red; ins; desf.
+specialize (SIM_MEM l); desc.
+eapply (DOM b); splits; eauto 2 with acts.
+by destruct a as [??[]]; ins; desf.
+destruct WRITE, PROMISE.
+- eapply Memory.add_get0; eauto.
+- eapply Memory.split_get0; eauto.
+- erewrite NO_PROMISES in PROMISES; try edone.
+  eapply Memory.lower_get0 in PROMISES.
+  by rewrite Memory.bot_get in *. 
+Qed.
+
+Lemma memory_helper tid lang st1 lc1 threads mem  
+  (NO_PROMISES : forall i foo local, IdentMap.find i threads = Some (foo, local) ->
+              Local.promises local = Memory.bot)
+  (TID : IdentMap.find tid threads = Some (existT (fun lang => Language.state lang) lang st1, lc1))l from to v 
+  promises2 mem2 kind released
+  (WRITE : Memory.write (Local.promises lc1) mem l from to v released promises2 mem2 kind):
+  kind = Memory.op_kind_add /\ promises2 = Memory.bot /\ exists promises0, 
+ << ADD: Memory.add mem l from to v released mem2 >> /\
+ << REMOVE: Memory.remove promises0 l from to v released promises2 >>.
+Proof.
+destruct WRITE, PROMISE; splits; eauto. 
+all: erewrite NO_PROMISES in PROMISES; try edone.
+all: try apply Memory.split_get0 in PROMISES.
+all: try apply Memory.lower_get0 in PROMISES.
+all: try by desc; rewrite Memory.bot_get in *.
+apply Memory.ext; ins.
+by rewrite (Memory.remove_o _ _ REMOVE), (Memory.add_o _ _ PROMISES), Memory.bot_get;
+desf; ins; desf.
+Qed.
+
+Lemma disjoint_to acts sb rmw rf mo sc mem
+  (COH : Coherent acts sb rmw rf mo sc)
+  f_from f_to (MONOTONE : monotone mo f_to)
+  (SIM_MEM : sim_mem f_from f_to acts sb rmw rf sc mem)
+  l from to v o a (LABEL : lab a = Astore l v o)
+  mem2 released (ADD : Memory.add mem l from to v released mem2)
+  x (IN: In x acts) (WRITEx: is_write x) (LOC: loc x = Some l)
+  (TIMElt: Time.lt (f_from x) to) (TIMEto: Time.le to (f_to x)) : False.
+Proof.
+  assert (exists v, val x = Some v); desc.
+    by destruct x as [??[]]; try exists v0; ins; desf.
+  exploit sim_mem_get; eauto.
+  cdes COH; cdes WF; eauto.
+  intro M; desc.
+  destruct ADD, ADD.
+  eapply DISJOINT; try edone.
+  econs; ins; eauto.
+  by eapply Time.le_lteq; eauto.
 Qed.
 
 Lemma GMsim_write ts G tid lang st1 st2 lc1 lc2 threads sc_map mem sc_map' mem'
@@ -879,31 +943,10 @@ destruct LOCAL'; ins; subst.
 assert (is_proper a).
 by red; eauto.
 
-assert (forall b : event, In b (acts G) /\ is_write b /\ loc b = loc a -> f_to b <> to).
-{ red; ins; desf.
-specialize (SIM_MEM l); desc.
-eapply (DOM b); splits; eauto 2 with acts.
-by destruct a as [??[]]; ins; desf.
- destruct WRITE, PROMISE.
-* eapply Memory.add_get0; eauto.
-* eapply Memory.split_get0; eauto.
-* erewrite NO_PROMISES in PROMISES; try edone.
-eapply Memory.lower_get0 in PROMISES.
-by rewrite Memory.bot_get in *. }
-
 assert (kind = Memory.op_kind_add /\ promises2 = Memory.bot /\ exists promises0, 
  << ADD: Memory.add mem l from to v (TView.write_released (Local.tview lc1) sc_map l to None o) mem2 >> /\
  << REMOVE: Memory.remove promises0 l from to v (TView.write_released (Local.tview lc1) sc_map l to None o) promises2 >>).
-{  destruct WRITE, PROMISE; splits; eauto. 
-all: erewrite NO_PROMISES in PROMISES; try edone.
-all: try apply Memory.split_get0 in PROMISES.
-all: try apply Memory.lower_get0 in PROMISES.
-all: try by desc; rewrite Memory.bot_get in *.
-apply Memory.ext; ins.
-by rewrite (Memory.remove_o _ _ REMOVE), (Memory.add_o _ _ PROMISES), Memory.bot_get;
-desf; ins; desf.
-}
-
+eby eapply memory_helper.
 desc; subst promises2.
 
 assert (forall b : event, In b (acts G) -> upd f_to a to b = f_to b).
@@ -912,44 +955,39 @@ assert (forall b : event, In b (acts G) -> upd f_to a to b = f_to b).
 assert (forall b : event, In b (acts G) -> upd f_from a from b = f_from b).
   by unfold upd; desf; ins; desf.
 
-assert (MONOTONE': monotone (mo (new_G_write G a f_to to)) (upd f_to a to)).
-  by eapply new_f_to_monotone; eauto 2 with acts.
+assert (MONOTONE': monotone (mo (new_G_write G a a f_to to)) (upd f_to a to)).
+  by eapply new_f_to_monotone; eauto 2 using fresh_to with acts.
 
 assert (sim_tview f_to (acts G) (sb G) (rmw G) (rf G) (sc G) (Local.tview lc1) (thread a)).
   by rewrite THREAD_ID in *; eapply SIM_TVIEW; eauto.
 
+assert (NEW_RMW: rmw G +++ new_rmw a a <--> rmw G).
+unfold union, new_rmw.
+split; unfold inclusion; ins; desf; eauto; try edone.
+
 exploit exists_gstep_write; eauto with acts.
-by eapply wf_new_mo_write with (to:=to); eauto 2 with acts.
+by eapply wf_new_mo_write with (to:=to); eauto 2 using fresh_to with acts.
 intro GSTEP.
+rewrite <- NEW_RMW in GSTEP at 2.
 eapply GMsim_helper with 
     (e:=ThreadEvent.write l from to v 
       (TView.write_released (Local.tview lc1) sc_map l to None o) o) 
     (tid:=tid) (f_to:=f_to) (f_to':=upd f_to a to) 
     (f_from:=f_from) (f_from':=upd f_from a from)
-    (G':= new_G_write G a f_to to); eauto.
+    (G':= new_G_write G a a f_to to); eauto.
 * red; splits; eauto.
 * eapply write; eauto.
   unfold get_program_event; eauto.
-  eapply new_G_write_coherent; ins; desc; eauto.
-  assert (exists v, val x = Some v); desc.
-    by destruct x as [??[]]; try exists v0; ins; desf.
-  clear MONOTONE'.
-  exploit sim_mem_get; eauto.
-  cdes COH; cdes WF; eauto.
-  intro M; desc.
-  destruct ADD, ADD.
-  eapply DISJOINT; try edone.
-  econs; ins; eauto.
-  by eapply Time.le_lteq; eauto.
+  eapply new_G_update_coherent with (a_r:=a); eauto.
+  eby ins; desc; eapply disjoint_to.
+  eby ins; desc.
 * ins.
   rewrite IdentMap.gsspec in TID0; desf; ins; try edone.
   pattern to at 2; erewrite <- upds with (b:=to).
   rewrite <- THREAD_ID; eapply tview_step_write; eauto.
-* unfold new_G_write; ins.
-  pattern to at 2; erewrite <- upds with (b:=to).
+* ins; pattern to at 2; erewrite <- upds with (b:=to).
   eapply sc_map_step_write; eauto.
-* unfold new_G_write; ins.
-  eapply memory_step_write; eauto.
+* ins; eapply memory_step_write; eauto.
   eapply WF_OP_ST.
   rewrite !upds.
   eby eapply MemoryFacts.MemoryFacts.write_time_lt.
@@ -961,30 +999,261 @@ Qed.
 (** * Lemmas for update step  *)
 (******************************************************************************)
 
-(* Lemma exists_gstep_update acts sb rmw rf mo sc a_r a_w 
-  (WF: Wf acts sb rmw rf mo sc)
-  (FRESH: ~ In a_w acts) (PROPER: is_proper a_w) (WRITE: is_write a_w)
-  (IN: In a_r acts) (TID: thread a_r = thread a_w)
-(READ: is_read a_r) (LAST: forall b, ~ sb a_r b)
-l (LOCar: loc a_r = Some l) (LOCaw: loc a_w = Some l)
-  f_to to (WF_MO': WfMO (a_w :: acts) (mo +++ new_mo acts f_to a_w to)):
-  gstep acts sb rmw rf mo sc 
-      (a_w :: acts) (sb +++ sb_ext acts a_w)
-      (rmw +++ singl_rel a_r a_w) rf (mo +++ new_mo acts f_to a_w to) (sc +++ sc_ext acts a_w) a_r a_w.
+Lemma exists_gstep_update acts sb rmw rf mo sc a_r a_w 
+  (COH: Coherent acts sb rmw rf mo sc)
+  (FRESHr: ~ In a_r acts) (PROPERr: is_proper a_r) (READ: is_read a_r)
+  acts_m sb_m rmw_m rf_m mo_m sc_m       
+  (GSTEPr: gstep acts sb rmw rf mo sc acts_m sb_m rmw_m rf_m mo_m sc_m a_r a_r)
+  (COHm: Coherent acts_m sb_m rmw_m rf_m mo_m sc_m)
+  (FRESHw: ~ In a_w acts_m) (PROPERw: is_proper a_w) (WRITE: is_write a_w)
+  l (LOCr: loc a_r = Some l) (LOCw: loc a_w = Some l) (TID: thread a_r = thread a_w)
+  f_to to (WF_MO': WfMO (a_w :: acts_m) (mo_m +++ new_mo acts_m f_to a_w to)):
+  gstep acts_m sb_m rmw_m rf_m mo_m sc_m
+      (a_w :: acts_m) (sb_m +++ sb_ext acts_m a_w)
+      (rmw_m +++ singl_rel a_r a_w) rf_m (mo_m +++ new_mo acts_m f_to a_w to) 
+(sc_m +++ sc_ext acts_m a_w) a_r a_w.
 Proof.
 red; splits; eauto.
 by unfold sb_ext, union, eqv_rel, seq; eauto 8.
-by right; splits; eauto; intro; subst.
+by right; splits; eauto; intro; subst; destruct a_w as [??[]]; ins.
 by unfold sc_ext, union; eauto.
 by red; unfold inclusion, union; splits; ins; eauto.
+cdes GSTEPr; desc; cdes WF'; cdes WF_RMW.
 red; splits; try done.
 - eby eapply wf_new_acts.
 - eby eapply wf_new_sb.
-- cdes WF; cdes WF_RMW.
-red; splits; unfold inclusion, union, singl_rel, sb_ext, seq, eqv_rel; splits; ins; desf; eauto 20.
-exfalso; apply FRESH; eapply sb_actb; eauto.
+- red; splits; try by unfold union, singl_rel; ins; desf; eauto.
+  * unfold union, singl_rel, sb_ext, eqv_rel, seq; ins; desf; eauto.
+    right; exists a_r; splits; eauto.
+    by left.
+  * unfold union; ins; desf.
+    + by left; eapply RMW_SBI; edone.
+    + unfold singl_rel in *; desf.
+       eby exfalso; apply FRESHw; eapply sb_actb.
+    + unfold singl_rel, sb_ext, eqv_rel, seq in *; desf; eauto.
+       eby exfalso; apply FRESHw; eapply rmw_actb.
+       red in WF_SB; desc.
+       left. eapply SB_INIT.
+       red; splits; eauto.
+       eby eapply no_rmw_from_init.
+       eby eapply rmw_acta.
+    + unfold singl_rel, sb_ext, eqv_rel, seq in *; desf; eauto; subst z0 z b a; left.
+       eapply SB_AT_END; eauto.
+       by left; congr.
+       eby destruct SB3; subst.
+       red in WF_SB; desc.
+       eapply SB_INIT.
+       red; splits; eauto.
+       by left.
+  * unfold union, singl_rel, sb_ext, eqv_rel, seq; ins; desf; eauto; try by edone.
+    eby exfalso; eapply max_elt_sb with (acts:=acts).
+    right.
+    exists b; splits; eauto.
+    eby eapply rmw_actb.
+    exists c.
+    splits; eauto.
+    apply RMW_SB in RMW.
+    red in WF_SB; desc.
+    eapply SB_TID in RMW; desf. 
+    left; congr.
+    exfalso.
+    eapply  init_proper_thread.
+    red in RMW; desc; eauto. edone.
+    done.
+    exfalso; eapply proper_non_init.
+    eby eapply no_rmw_from_init.
+    exfalso; eapply proper_non_init.
+    eby eapply no_rmw_from_init.
+    done.
+- eapply wf_new_rf; eauto 2 with acts.
+- eby eapply wf_new_sc.
+Qed.
 
-Qed. *)
+Lemma GMsim_update ts G tid lang st1 st2 lc1 lc2 lc3 threads sc_map mem sc_map' mem'
+  (SIM: GMsim (Configuration.mk threads sc_map mem) {| ts:= ts; exec:= G |})
+  (TID: IdentMap.find tid threads =
+        Some (existT (fun lang : Language.t => Language.state lang) lang st1, lc1))
+  l to_r to_w v_r v_w released_r released_w o_r o_w kind
+  (STATE: Language.step lang (Some (ProgramEvent.update l v_r v_w o_r o_w)) st1 st2)
+  (LOCAL1: Local.read_step lc1 mem l to_r v_r released_r o_r lc3) 
+  (LOCAL2: Local.write_step lc3 sc_map mem l
+          to_r to_w v_w released_r released_w o_w lc2 sc_map' mem' kind):
+  exists ax_st', step {| ts:= ts; exec:= G |} ax_st' /\
+    GMsim (Configuration.mk 
+        (IdentMap.add tid (existT Language.state lang st2, lc2) threads) sc_map' mem')
+     ax_st'.
+Proof.
+generalize (fresh_id (acts G) (Some tid) (Aload l v_r o_r)); intro; desc.
+unfold GMsim, sim_time in *; desc; ins.
+assert (LOCAL1':=LOCAL1).
+destruct LOCAL1'; ins; subst.
+assert (SIM_MEM':= SIM_MEM).
+specialize (SIM_MEM' l); desc.
+assert (SIMCELL':= SIMCELL).
+specialize (SIMCELL' to_r from v_r released_r GET); desc.
+cdes SIMCELL'4; desc.
+
+assert (LAB: exists o_b, lab b = Astore l v_r o_b); desc.
+by unfold loc, is_write, val, lab in *; destruct b as [??[]]; ins; desf; eauto 2.
+
+assert (is_proper a).
+by red; eauto.
+
+generalize (fresh_id (a :: acts G) (Some tid) (Astore l v_w o_w)); intro; desc.
+
+assert (LOCAL2':=LOCAL2).
+destruct LOCAL2'; ins; subst.
+
+assert (is_proper a0).
+by red; eauto.
+
+assert (kind = Memory.op_kind_add /\ promises2 = Memory.bot /\ exists promises0, 
+ << ADD: Memory.add mem l (f_to b) to_w v_w 
+(TView.write_released
+             (TView.read_tview (Local.tview lc1) l (f_to b) released_r o_r) sc_map
+             l to_w released_r o_w) mem2 >> /\
+ << REMOVE: Memory.remove promises0 l (f_to b) to_w v_w 
+(TView.write_released
+             (TView.read_tview (Local.tview lc1) l (f_to b) released_r o_r) sc_map
+             l to_w released_r o_w) promises2 >>).
+ eby eapply memory_helper.
+desc; subst promises2.
+
+ assert (forall b : event, In b (a :: acts G) -> upd f_to a0 to_w b = f_to b).
+  by unfold upd; desf; ins; desf; exfalso; apply FRESH0; eauto.
+ 
+assert (forall b : event, In b (acts G) -> upd f_to a0 to_w b = f_to b).
+  by unfold upd; desf; ins; desf; exfalso; apply FRESH0; eauto.
+
+ assert (forall c : event, In c (a :: acts G) -> upd f_from a0 (f_to b) c = f_from c).
+  by unfold upd; desf; ins; desf; exfalso; apply FRESH0; eauto.
+ 
+assert (forall c : event, In c (acts G) -> upd f_from a0 (f_to b) c = f_from c).
+  by unfold upd; desf; ins; desf; exfalso; apply FRESH0; eauto.
+
+assert (gstep (acts G) (sb G) (rmw G) (rf G) (mo G) (sc G) (a :: acts G)
+  (sb G +++ sb_ext (acts G) a) (rmw G) (rf G +++ singl_rel b a) 
+  (mo G) (sc G +++ sc_ext (acts G) a) a a).
+{ eapply exists_gstep_read; eauto with acts.
+  by exists l; splits; eauto with acts; unfold loc; desf.
+  rewrite <- VAL; unfold val; desf. }
+
+assert (COHr: Coherent (a :: acts G) (sb G +++ sb_ext (acts G) a) (rmw G)
+  (rf G +++ singl_rel b a) (mo G) (sc G +++ sc_ext (acts G) a)).
+{ eapply new_G_read_coherent; eauto.
+  by rewrite THREAD_ID in *; eauto. }
+
+assert (sim_mem f_from f_to (a :: acts G) (sb G +++ sb_ext (acts G) a) 
+  (rmw G) (rf G +++ singl_rel b a) (sc G +++ sc_ext (acts G) a) mem).
+{ eapply memory_step_nonwrite with (acts:=acts G); eauto.
+  by destruct a as [??[]]; ins; desf. }
+
+assert (MONOTONE': monotone (mo (new_G_write (new_G_read G a b) a a0 f_to to_w))
+ (upd f_to a0 to_w)).
+{ eapply new_f_to_monotone; eauto 2 with acts.
+  eby eapply fresh_to. }
+
+assert (sim_tview f_to (acts G) (sb G) (rmw G) (rf G) (sc G) (Local.tview lc1) (thread a)).
+  by rewrite THREAD_ID in *; eapply SIM_TVIEW; eauto.
+
+assert (forall l0, max_value f_to
+    (S_tm (a :: acts G) (sb G +++ sb_ext (acts G) a) (rmw G) 
+     (rf G +++ singl_rel b a) l0) (LocFun.find l0 sc_map)).
+{ ins; eapply max_value_same_set; try edone.
+  by ins; rewrite gstep_S_tm_other; eauto 3 with acts. }
+
+assert (sim_tview f_to (a :: acts G) (sb G +++ sb_ext (acts G) a) 
+  (rmw G) (rf G +++ singl_rel b a) (sc G +++ sc_ext (acts G) a)
+  (TView.read_tview (Local.tview lc1) l (f_to b) released_r o_r) (thread a0)).
+{ rewrite THREAD_ID0, <- THREAD_ID.
+  eapply tview_step_read with (acts:= acts G); eauto.
+  by right; red; eauto. }
+
+assert (SIM_MEMr: sim_mem f_from f_to 
+ (a :: acts G) (sb G +++ sb_ext (acts G) a) 
+  (rmw G) (rf G +++ singl_rel b a) (sc G +++ sc_ext (acts G) a) mem).
+eby eapply memory_step_nonwrite with (acts:= acts G); eauto 3 with acts.
+
+
+assert (NEW_RMW: new_rmw a a0 <--> singl_rel a a0).
+by unfold new_rmw, singl_rel; split; unfold inclusion; ins; desf; splits; eauto.
+
+exploit (@exists_gstep_update (acts G)); 
+eauto 2 with acts.
+
+destruct a as [??[]]; ins; desf.
+destruct a0 as [??[]]; ins; desf.
+congr.
+eapply wf_new_mo_write; try edone.
+by apply COHr.
+by eauto with acts.
+by eapply fresh_to; eauto.
+
+intro GSTEP.
+
+ rewrite <- NEW_RMW in GSTEP.
+
+eapply GMsim_helper with 
+    (e:=ThreadEvent.update l (f_to b) to_w v_r v_w released_r 
+    (TView.write_released
+              (TView.read_tview (Local.tview lc1) l (f_to b) released_r o_r) sc_map l
+              to_w released_r o_w) o_r o_w)
+    (tid:=tid) (f_to:=f_to) (f_to':=upd f_to a0 to_w) 
+    (f_from:=f_from) (f_from':=upd f_from a0 (f_to b))
+    (G':= new_G_write (new_G_read G a b) a a0 f_to to_w); eauto.
+* red; splits; eauto.
+* eapply update with (a_r:=a) (a_w:=a0) (G_mid:= new_G_read G a b) ; try done.
+  admit.
+  eapply new_G_update_coherent with (a_r:=a) (acts:= a:: acts G); try edone.
+  eby ins; desc; eapply disjoint_to.
+
+unfold union, singl_rel; ins; desc.
+destruct H15; try by  apply FRESH; eapply rf_actb; eauto.
+desc; subst.
+
+  assert (exists v, val x = Some v); desc.
+    by destruct x as [??[]]; try exists v; ins; desf.
+
+assert (exists rel : option View.t,
+  Memory.get l (f_to x) mem =
+  Some (f_from x, {| Message.val := v; Message.released := rel |}) /\
+  sim_mem_helper f_to 
+(a :: acts G) (sb G +++ sb_ext (acts G) a) 
+          (rmw G) (rf G +++ singl_rel b a) (sc G +++ sc_ext (acts G) a) x (f_from x) v (View.unwrap rel)).
+by eapply sim_mem_get;   cdes COHr; cdes WF; eauto.
+
+
+desc.
+  destruct ADD, ADD.
+  eapply DISJOINT with (to2:=f_to x); try edone.
+  econs; ins; eauto.
+  by eapply Time.le_lteq; eauto.
+econs; ins; vauto.
+specialize (SIMCELL (f_to x) (f_from x) v rel H15); desc.
+red in SIMCELL4; desc.
+rewrite <- SIMCELL3; done.
+
+* ins; rewrite IdentMap.gsspec in TID0; desf; ins; try edone.
+  pattern to_w at 2; erewrite <- upds with (a:=a0) (b:=to_w). 
+  rewrite <- THREAD_ID0.
+  eapply tview_step_write; eauto.
+* ins; pattern to_w at 2; erewrite <- upds with (b:=to_w).
+  eapply sc_map_step_write with (acts:=a:: acts G); eauto.
+* eapply memory_step_update with (prev:=a); try edone.
+  by right.
+  eapply WF_OP_ST.
+  eby rewrite !upds; eapply MemoryFacts.MemoryFacts.write_time_lt.
+  erewrite NO_PROMISES in WRITE; try edone.
+  rewrite !upds; desf.
+  red in SIM_MEMr; desc.
+  specialize (SIM_MEMr l); desc.
+  specialize (SIMCELL0 (f_to b) (f_from b) v_r released_r GET); desc.
+  red in SIMCELL5; desc.
+  assert (b=b0); subst; try done.
+  eapply monotone_injective with (acts:= (a :: acts G)) (f:= f_to); try edone.
+  by right.
+  eby eapply COHr.
+Admitted.
 
 (******************************************************************************)
 (** * Lemmas for fence step  *)
@@ -1134,7 +1403,7 @@ inv STEP.
 - eapply GMsim_silent; edone.
 - destruct op_st; eapply GMsim_read; edone.
 - destruct op_st; eapply GMsim_write; edone.
-- admit.
+- destruct op_st; eapply GMsim_update; edone.
 - destruct op_st; eapply GMsim_fence; edone.
 - admit.
 Admitted.
