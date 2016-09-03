@@ -23,7 +23,6 @@ Require Import SimLocal.
 Require Import FulfillStep.
 Require Import MemoryReorder.
 
-Require Import SmallStep.
 Require Import PromiseConsistent.
 Require Import ReorderPromises.
 
@@ -38,7 +37,7 @@ Definition pf_consistent lang (e:Thread.t lang): Prop :=
     (SC: Memory.closed_timemap sc1 mem1)
     (MEM: Memory.closed mem1),
   exists e2,
-    <<STEPS: rtc (@Thread.tau_program_step lang) (Thread.mk lang e.(Thread.state) e.(Thread.local) sc1 mem1) e2>> /\
+    <<STEPS: rtc (tau (Thread.step true)) (Thread.mk lang e.(Thread.state) e.(Thread.local) sc1 mem1) e2>> /\
     <<PROMISES: e2.(Thread.local).(Local.promises) = Memory.bot>>.
 
 Lemma consistent_pf_consistent:
@@ -48,6 +47,7 @@ Proof.
   exploit tau_steps_pf_tau_steps; eauto.
   { ii. rewrite PROMISES, Memory.bot_get in *.  congr. }
   i. des.
-  exploit rtc_promise_step_evt_bot; eauto. i. subst.
-  esplits; eauto.
+  exploit rtc_union_step_nonpf_bot; [|eauto|].
+  { eapply rtc_implies; [|eauto]. apply tau_union. }
+  i. subst. esplits; eauto.
 Qed.

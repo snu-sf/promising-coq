@@ -32,7 +32,7 @@ Set Implicit Arguments.
 Inductive sim_local (lc_src lc_tgt:Local.t): Prop :=
 | sim_local_intro
     (TVIEW: TView.le lc_src.(Local.tview) lc_tgt.(Local.tview))
-    (PROMISES: SimPromises.sem SimPromises.bot lc_src.(Local.promises) lc_tgt.(Local.promises))
+    (PROMISES: SimPromises.sem SimPromises.bot SimPromises.bot lc_src.(Local.promises) lc_tgt.(Local.promises))
 .
 
 Program Instance sim_local_PreOrder: PreOrder sim_local.
@@ -46,13 +46,22 @@ Next Obligation.
   rewrite PROMISES, PROMISES0. apply SimPromises.sem_bot.
 Qed.
 
-Lemma sim_local_cell_bot
+Lemma sim_local_nonsynch_loc
       loc lc_src lc_tgt
       (SIM: sim_local lc_src lc_tgt)
-      (BOT: lc_tgt.(Local.promises) loc = Cell.bot):
-  lc_src.(Local.promises) loc = Cell.bot.
+      (NONSYNCH: Memory.nonsynch_loc loc lc_tgt.(Local.promises)):
+  Memory.nonsynch_loc loc lc_src.(Local.promises).
 Proof.
   inv SIM. eapply SimPromises.sem_bot_inv in PROMISES; auto. rewrite PROMISES. auto.
+Qed.
+
+Lemma sim_local_nonsynch
+      lc_src lc_tgt
+      (SIM: sim_local lc_src lc_tgt)
+      (NONSYNCH: Memory.nonsynch lc_tgt.(Local.promises)):
+  Memory.nonsynch lc_src.(Local.promises).
+Proof.
+  ii. eapply sim_local_nonsynch_loc; eauto.
 Qed.
 
 Lemma sim_local_memory_bot
@@ -62,36 +71,6 @@ Lemma sim_local_memory_bot
   lc_src.(Local.promises) = Memory.bot.
 Proof.
   inv SIM. eapply SimPromises.sem_bot_inv in PROMISES; auto. rewrite PROMISES. auto.
-Qed.
-
-Lemma sim_local_future
-      inv
-      lc_src mem1_src mem2_src
-      lc_tgt mem1_tgt
-      (INV1: SimPromises.sem inv lc_src.(Local.promises) lc_tgt.(Local.promises))
-      (MEM1: sim_memory mem1_src mem1_tgt)
-      (FUTURE_SRC: Memory.future mem1_src mem2_src)
-      (WF1_SRC: Local.wf lc_src mem1_src)
-      (WF1_TGT: Local.wf lc_tgt mem1_tgt)
-      (WF2_SRC: Local.wf lc_src mem2_src)
-      (MEM1_SRC: Memory.closed mem1_src)
-      (MEM1_TGT: Memory.closed mem1_tgt):
-  exists mem2_tgt,
-    <<MEM2: sim_memory mem2_src mem2_tgt>> /\
-    <<FUTURE_TGT: Memory.future mem1_tgt mem2_tgt>> /\
-    <<WF2_TGT: Local.wf lc_tgt mem2_tgt>> /\
-    <<MEM2_TGT: Memory.closed mem2_tgt>>.
-Proof.
-  exploit SimPromises.future; eauto.
-  { apply WF1_SRC. }
-  { apply WF1_TGT. }
-  { apply WF2_SRC. }
-  i. des.
-  esplits; eauto.
-  econs; eauto.
-  - apply WF1_TGT.
-  - eapply TView.future_closed; eauto. apply WF1_TGT.
-  - eapply Memory.future_closed; eauto.
 Qed.
 
 Lemma sim_local_promise
@@ -112,12 +91,13 @@ Lemma sim_local_promise
     <<MEM2: sim_memory mem2_src mem2_tgt>>.
 Proof.
   inv LOCAL1. inv STEP_TGT.
-  exploit SimPromises.promise; eauto.
+  exploit SimPromises.promise_bot; eauto.
   { apply WF1_SRC. }
   { apply WF1_TGT. }
   i. des.
   exploit sim_memory_closed_opt_view; eauto. i.
   exploit Memory.promise_future; try apply PROMISE_SRC; eauto.
+  { apply WF1_SRC. }
   { apply WF1_SRC. }
   i. des.
   esplits; eauto.
@@ -146,7 +126,7 @@ Proof.
   inv LOCAL1. inv STEP_TGT.
   exploit sim_memory_get; try apply MEM1; eauto. i. des.
   esplits; eauto.
-  - econs; eauto. eapply TViewFacts.readable_mon; eauto.
+  - econs; eauto. eapply TViewFacts.readable_mon; eauto. apply TVIEW.
   - econs; eauto. s. apply TViewFacts.read_tview_mon; auto.
     + apply WF1_TGT.
     + eapply MEM1_TGT. eauto.
@@ -191,9 +171,10 @@ Proof.
   { unfold TView.write_released. condtac; econs.
     repeat (try condtac; viewtac; try apply WF1_SRC).
   }
-  exploit SimPromises.remove; try exact REMOVE;
+  exploit SimPromises.remove_bot; try exact REMOVE;
     try exact MEM1; try apply LOCAL1; eauto.
   { apply WF1_SRC. }
+  { apply WF1_TGT. }
   { apply WF1_TGT. }
   i. des. esplits.
   - econs; eauto.
@@ -244,7 +225,7 @@ Proof.
   exploit promise_fulfill_write; try exact STEP_SRC; try exact STEP_SRC0; eauto.
   { i. exploit ORD0; eauto.
     - etrans; eauto.
-    - i. des. splits; auto. eapply sim_local_cell_bot; eauto.
+    - i. des. splits; auto. eapply sim_local_nonsynch_loc; eauto.
   }
   i. des. esplits; eauto. etrans; eauto.
 Qed.
@@ -305,7 +286,8 @@ Lemma sim_local_fence
     <<SC2: TimeMap.le sc2_src sc2_tgt>>.
 Proof.
   inv STEP_TGT. esplits; eauto.
-  - econs; eauto.
+  - econs; eauto. i. eapply sim_local_nonsynch; eauto.
+    apply RELEASE. etrans; eauto.
   - econs; try apply LOCAL1. s.
     apply TViewFacts.write_fence_tview_mon; auto; try refl.
     apply TViewFacts.read_fence_tview_mon; auto; try refl.

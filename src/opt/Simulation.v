@@ -36,8 +36,8 @@ Section SimulationLocal.
              st1_src lc1_src sc1_src mem1_src
              st1_tgt lc1_tgt sc1_tgt mem1_tgt
     :=
-    forall e_tgt st3_tgt lc3_tgt sc3_tgt mem3_tgt
-      (STEP_TGT: Thread.step e_tgt
+    forall pf_tgt e_tgt st3_tgt lc3_tgt sc3_tgt mem3_tgt
+      (STEP_TGT: Thread.step pf_tgt e_tgt
                              (Thread.mk _ st1_tgt lc1_tgt sc1_tgt mem1_tgt)
                              (Thread.mk _ st3_tgt lc3_tgt sc3_tgt mem3_tgt)),
     exists e_src st2_src lc2_src sc2_src mem2_src st3_src lc3_src sc3_src mem3_src,
@@ -271,11 +271,11 @@ Qed.
 Lemma sim_step
       lang_src lang_tgt
       sim_terminal
-      e_tgt
+      pf_tgt e_tgt
       st1_src lc1_src sc1_src mem1_src
       st1_tgt lc1_tgt sc1_tgt mem1_tgt
       st3_tgt lc3_tgt sc3_tgt mem3_tgt
-      (STEP: @Thread.step lang_tgt e_tgt
+      (STEP: @Thread.step lang_tgt pf_tgt e_tgt
                           (Thread.mk _ st1_tgt lc1_tgt sc1_tgt mem1_tgt)
                           (Thread.mk _ st3_tgt lc3_tgt sc3_tgt mem3_tgt))
       (SC: TimeMap.le sc1_src sc1_tgt)
@@ -308,7 +308,7 @@ Proof.
   punfold SIM. exploit SIM; eauto; try refl. i. des.
   exploit Thread.step_future; eauto. s. i. des.
   exploit STEP0; eauto. i. des. inv SIM0; [|done].
-  exploit Thread.rtc_step_future; eauto. s. i. des.
+  exploit Thread.rtc_tau_step_future; eauto. s. i. des.
   exploit Thread.opt_step_future; eauto. s. i. des.
   esplits; eauto.
 Qed.
@@ -388,13 +388,15 @@ Proof.
   revert st1_src lc1_src sc1_src mem1_src.
   induction STEPS; i.
   { esplits; eauto. }
-  inv H. destruct x, y. ss.
+  inv H. inv TSTEP. destruct x, y. ss.
   exploit sim_step; eauto. i. des.
   exploit IHSTEPS; eauto. i. des.
   destruct z. ss.
   esplits; try apply MEMORY1; eauto.
   etrans; [eauto|]. etrans; [|eauto]. inv STEP0; eauto.
-  econs 2; eauto. econs; eauto. etrans; eauto.
+  econs 2; eauto. econs.
+  - econs. eauto.
+  - etrans; eauto.
 Qed.
 
 Lemma sim_thread_consistent
@@ -450,8 +452,8 @@ Proof.
     exploit TERMINAL; eauto. i. des.
     esplits; [|eauto|eauto|].
     + generalize (rtc_tail STEPS). intro X. des.
-      * inv X0. destruct a2. econs 2; [|econs 1].
-        econs. rewrite <- TAU. econs; ss; eauto.
+      * inv X0. inv TSTEP. destruct a2. econs 2; [|econs 1].
+        econs. rewrite <- EVENT. econs; ss; eauto.
         { eapply IdentMap.singleton_eq. }
         { ii. eexists. splits; eauto. ss.
           eapply SimPromises.sem_bot_inv.
@@ -473,8 +475,8 @@ Proof.
     { econs 2. eauto. }
     i. des. rewrite STEPS1 in STEPS0. inv STEP0.
     { generalize (rtc_tail STEPS0). intro X. des.
-      - inv X0. esplits; eauto.
-        + rewrite <- EVENT. s. rewrite <- TAU.
+      - inv X0. inv TSTEP. esplits; eauto.
+        + rewrite <- EVENT. s. rewrite <- EVENT0.
           econs 2. econs; s.
           * apply IdentMap.singleton_eq.
           * etrans; eauto.

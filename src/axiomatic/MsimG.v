@@ -128,11 +128,11 @@ Lemma Readable_full acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
   (COH: Coherent acts sb rmw rf mo sc) 
   (COH': Coherent acts' sb' rmw' rf' mo' sc') 
   f (MON: monotone mo f) l v o b (LABa: lab a = Aload l v o)
-  tview rel
+  view rel
   (MSG: max_value f (fun a => msg_rel scr acts sb rmw rf sc l a b) (View.sc rel.(View.unwrap) l))
-  (CUR: sim_cur f acts sb rmw rf sc (TView.cur tview) (thread a))
+  (CUR: sim_cur f acts sb rmw rf sc view (thread a))
   (RFb: rf' b a): 
-    TView.readable tview l (f b) rel o.
+    TView.readable view l (f b) rel o.
 Proof.
 red in CUR; desc.
 constructor; try intro.
@@ -255,10 +255,10 @@ Lemma Writable_full acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
   f f' (F : forall b, In b acts -> f' b = f b)
   (MON: monotone mo' f') (N_ZERO: Time.lt Time.bot (f' a))
   l v o (LABa: lab a = Astore l v o)
-  tview sc_map
+  view sc_map
   (SC : forall l : Loc.t, max_value f (S_tm acts sb rmw rf l) (sc_map l))
-  (CUR: sim_cur f acts sb rmw rf sc (TView.cur tview) (thread a)):
-  TView.writable tview sc_map l (f' a) o.
+  (CUR: sim_cur f acts sb rmw rf sc view (thread a)):
+  TView.writable view sc_map l (f' a) o.
 Proof.
 red in CUR; desc.
 constructor; try intro.
@@ -447,7 +447,7 @@ Proof.
       exfalso; eapply (Coherent_rwr_sb COH'); eauto. 
         by eapply rwr_mon; eauto.
       eapply gstep_sb; eauto.
-      unfold sb_ext, union, seq, eqv_rel; eauto.
+      unfold sb_ext, Relation_Operators.union, seq, eqv_rel; eauto.
       eauto_red 10 using rwr_actb.
     }
     {
@@ -462,8 +462,9 @@ Proof.
   desc; eexists _,_,_,mem',_,_,_; splits; eauto.
   - eapply Thread.step_write; eauto.
     econstructor; eauto.
-    cdes GSTEP; desf; red in TVIEW; desc; eapply Writable_full; 
-    eauto using TimeFacts.le_lt_lt, Time.bot_spec, in_eq.
+    + cdes GSTEP; desf; red in TVIEW; desc; eapply Writable_full; 
+      eauto using TimeFacts.le_lt_lt, Time.bot_spec, in_eq.
+    + esplits; ss. apply Memory.bot_nonsynch_loc.
   - exists f_from', f_to'; splits; try done.
     * eapply tview_step_write; eauto.
     * eapply sc_map_step_write; eauto.
@@ -519,6 +520,7 @@ Proof.
   eexists _,_,_,_,_,_,_; splits; eauto.
   eapply Thread.step_fence; eauto.
   econstructor; eauto.
+  { i. apply Memory.bot_nonsynch. }
   exists ffrom, fto; splits; eauto.
   * rewrite <- gstep_non_write_mo; eauto with acts.
   * destruct (classic (is_sc a)); 

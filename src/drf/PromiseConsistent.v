@@ -110,8 +110,8 @@ Lemma ordering_relaxed_dec
 Proof. destruct ord; auto. Qed.
 
 Lemma step_promise_consistent
-      lang e th1 th2
-      (STEP: @Thread.step lang e th1 th2)
+      lang pf e th1 th2
+      (STEP: @Thread.step lang pf e th1 th2)
       (CONS: promise_consistent th2.(Thread.local))
       (WF1: Local.wf th1.(Thread.local) th1.(Thread.memory))
       (SC1: Memory.closed_timemap th1.(Thread.sc) th1.(Thread.memory))
@@ -128,6 +128,20 @@ Proof.
   - eapply fence_step_promise_consistent; eauto.
 Qed.
 
+Lemma rtc_all_step_promise_consistent
+      lang th1 th2
+      (STEP: rtc (@Thread.all_step lang) th1 th2)
+      (CONS: promise_consistent th2.(Thread.local))
+      (WF1: Local.wf th1.(Thread.local) th1.(Thread.memory))
+      (SC1: Memory.closed_timemap th1.(Thread.sc) th1.(Thread.memory))
+      (MEM1: Memory.closed th1.(Thread.memory)):
+  promise_consistent th1.(Thread.local).
+Proof.
+  revert_until STEP. induction STEP; auto. i.
+  inv H. inv USTEP. exploit Thread.step_future; eauto. i. des.
+  eapply step_promise_consistent; eauto.
+Qed.
+
 Lemma rtc_tau_step_promise_consistent
       lang th1 th2
       (STEP: rtc (@Thread.tau_step lang) th1 th2)
@@ -137,9 +151,9 @@ Lemma rtc_tau_step_promise_consistent
       (MEM1: Memory.closed th1.(Thread.memory)):
   promise_consistent th1.(Thread.local).
 Proof.
-  revert_until STEP. induction STEP; auto. i.
-  inv H. exploit Thread.step_future; eauto. i. des.
-  eapply step_promise_consistent; eauto.
+  eapply rtc_all_step_promise_consistent; cycle 1; eauto.
+  eapply rtc_implies; [|eauto].
+  apply tau_union.
 Qed.
 
 Lemma consistent_promise_consistent
@@ -189,8 +203,8 @@ Proof.
 Qed.  
 
 Lemma thread_step_unset_promises
-      lang loc e from ts msg (th1 th2:Thread.t lang)
-      (STEP: Thread.step e th1 th2)
+      lang loc pf e from ts msg (th1 th2:Thread.t lang)
+      (STEP: Thread.step pf e th1 th2)
       (TH1: Memory.get loc ts th1.(Thread.local).(Local.promises) = Some (from, msg))
       (TH2: Memory.get loc ts th2.(Thread.local).(Local.promises) = None):
   exists ord from val rel,
@@ -211,7 +225,10 @@ Proof.
     unfold Memory.get in *.
     esplits; s; eauto.
     + edestruct ordering_relaxed_dec; eauto.
-      apply RELEASE in H. des. ss. by rewrite H, Cell.bot_get in TH1.
+      apply RELEASE in H. des. subst. ss.
+      exploit H; eauto. s. i. subst. inv RELEASED. inv x4.
+      revert H1. unfold TView.write_released. condtac; ss.
+      destruct ord; inv COND. ss.
     + inv WRITABLE. eauto.
   - inv LOCAL1. inv LOCAL2. inv WRITE.
     exploit Memory.promise_promises_get1; eauto. i. des.
@@ -219,7 +236,10 @@ Proof.
     unfold Memory.get in *.
     esplits; s; eauto.
     + edestruct ordering_relaxed_dec; eauto.
-      apply RELEASE in H. des. ss. by rewrite H, Cell.bot_get in TH1.
+      apply RELEASE in H. des. subst. ss.
+      exploit H; eauto. s. i. subst. inv RELEASED. inv x4.
+      revert H1. unfold TView.write_released. condtac; ss.
+      destruct ordw; inv COND. ss.
     + inv WRITABLE. inv READABLE. ss. move TS at bottom.
       eapply TimeFacts.le_lt_lt; eauto.
       repeat (etrans; [|apply Time.join_l]). refl.
@@ -250,7 +270,8 @@ Proof.
     inv WF. exploit thread_step_tview_le; try exact STEP; eauto. 
     { eapply WF0. rewrite FIND1. eauto. }
     s. i. apply x1.
-  - eapply thread_step_unset_promises in STEP; eauto. des.
+  - guardH PFREE.
+    eapply thread_step_unset_promises in STEP; eauto. des.
     eauto using small_step_write_lt.
 Qed.
 
@@ -302,9 +323,9 @@ Lemma consistent_promise_consistent_th
 Proof.
   ii. assert (X:= WF). inv X. inv WF0. destruct lst as [lang st].
   exploit CONSISTENT; eauto; try reflexivity.
-  i; des. destruct e2.
+  i. des. destruct e2.
   exploit rtc_thread_step_rtc_small_step; [eauto|..].
-  { ss. eapply rtc_implies, STEPS. i; inv PR; eauto. }
+  { ss. eapply rtc_implies, STEPS. apply tau_union. }
   intro STEPS2. 
   eapply rtc_small_step_unset_promises in STEPS2; eauto.
   - destruct c. eapply rtc_small_step_future; eauto.

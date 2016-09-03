@@ -120,6 +120,7 @@ Lemma inter_thread_reorder_read_backward
       e1 tid1 c1 e2 tid2 c2 lang2 st2 lc2 th
       (WF: Configuration.wf c1)
       (STEP1: small_step false tid1 e1 c1 c2)
+      (NOPRM: ThreadEvent.is_promising e1 = None)
       (TID2: IdentMap.find tid2 c1.(Configuration.threads) = Some (existT _ lang2 st2, lc2))
       (STEP2: Thread.program_step e2 (Thread.mk _ st2 lc2 c2.(Configuration.sc) c2.(Configuration.memory)) th)
       (TNEQ: tid1 <> tid2)
@@ -147,6 +148,8 @@ Lemma inter_thread_reorder_nowrite_all
       (STEP2: small_step false tid2 e2 c2 c3)
       (TNEQ: tid1 <> tid2)
       (EVTW: ThreadEvent.is_writing e1 = None)
+      (NOPRM1: ThreadEvent.is_promising e1 = None)
+      (NOPRM2: ThreadEvent.is_promising e2 = None)
       (LSYNC: ThreadEvent_is_locally_sync e1 \/ ThreadEvent_is_locally_sync e2)
       (NORDPRM: forall loc ts val rel ord lang2 st2 lc2
                   (RD: ThreadEvent.is_reading e1 = Some (loc, ts, val, rel, ord))
@@ -181,6 +184,7 @@ Lemma inter_thread_reorder_write_nowrite
       (TNEQ: tid1 <> tid2)
       (EVTW1: ThreadEvent.is_writing e1 <> None)
       (EVTW2: ThreadEvent.is_writing e2 = None)
+      (NOPRM: ThreadEvent.is_promising e2 = None)
       (LSYNC: ThreadEvent_is_locally_sync e1 \/ ThreadEvent_is_locally_sync e2)
       (NORDPRM: forall loc ts val rel ord lang2 st2 lc2
                   (RD: ThreadEvent.is_reading e1 = Some (loc, ts, val, rel, ord))
@@ -218,6 +222,8 @@ Lemma inter_thread_reorder
                   (TID2: IdentMap.find tid2 c2.(Configuration.threads) = Some (existT _ lang2 st2, lc2)),
                 Memory.get loc ts lc2.(Local.promises) = None)
       (LSYNC: ThreadEvent_is_locally_sync e1 \/ ThreadEvent_is_locally_sync e2)
+      (NOPRM1: ThreadEvent.is_promising e1 = None)
+      (NOPRM2: ThreadEvent.is_promising e2 = None)
       (NORW: forall loc ts from1 val1 rel1 ord1 val2 rel2 ord2
                (RD: ThreadEvent.is_reading e2 = Some (loc, ts, val2, rel2, ord2)),
              ~ ThreadEvent.is_writing e1 = Some (loc, from1, ts, val1, rel1, ord1)):

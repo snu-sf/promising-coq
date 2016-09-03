@@ -139,12 +139,12 @@ Module TView <: JoinableType.
   Qed.
 
   Inductive readable
-            (tview1:t) (loc:Loc.t) (ts:Time.t) (released:option View.t) (ord:Ordering.t): Prop :=
+            (view1:View.t) (loc:Loc.t) (ts:Time.t) (released:option View.t) (ord:Ordering.t): Prop :=
   | readable_intro
-      (UR: Time.le (tview1.(cur).(View.pln) loc) ts)
+      (UR: Time.le (view1.(View.pln) loc) ts)
       (RW: Ordering.le Ordering.relaxed ord ->
-           Time.le (tview1.(cur).(View.rlx) loc) ts)
-      (SC1: Ordering.le Ordering.seqcst ord -> Time.le (tview1.(cur).(View.sc) loc) ts)
+           Time.le (view1.(View.rlx) loc) ts)
+      (SC1: Ordering.le Ordering.seqcst ord -> Time.le (view1.(View.sc) loc) ts)
       (SC2: Ordering.le Ordering.seqcst ord -> Time.le (released.(View.unwrap).(View.sc) loc) ts)
   .
 
@@ -163,10 +163,10 @@ Module TView <: JoinableType.
           (if Ordering.le Ordering.relaxed ord then released.(View.unwrap) else View.bot)).
 
   Inductive writable
-            (tview1:t) (sc1:TimeMap.t) (loc:Loc.t) (ts:Time.t) (ord:Ordering.t): Prop :=
+            (view1:View.t) (sc1:TimeMap.t) (loc:Loc.t) (ts:Time.t) (ord:Ordering.t): Prop :=
   | writable_intro
-      (TS: Time.lt (tview1.(cur).(View.rlx) loc) ts)
-      (SC1: Ordering.le Ordering.seqcst ord -> Time.lt (tview1.(cur).(View.sc) loc) ts)
+      (TS: Time.lt (view1.(View.rlx) loc) ts)
+      (SC1: Ordering.le Ordering.seqcst ord -> Time.lt (view1.(View.sc) loc) ts)
       (SC2: Ordering.le Ordering.seqcst ord -> Time.lt (sc1 loc) ts)
   .
 
@@ -489,31 +489,31 @@ Module TViewFacts.
   Qed.
 
   Lemma readable_mon
-        tview1 tview2 loc ts released1 released2 ord1 ord2
-        (TVIEW: TView.le tview1 tview2)
+        view1 view2 loc ts released1 released2 ord1 ord2
+        (VIEW: View.le view1 view2)
         (REL: View.opt_le released1 released2)
         (ORD: Ordering.le ord1 ord2)
-        (READABLE: TView.readable tview2 loc ts released2 ord2):
-    TView.readable tview1 loc ts released1 ord1.
+        (READABLE: TView.readable view2 loc ts released2 ord2):
+    TView.readable view1 loc ts released1 ord1.
   Proof.
     inv READABLE. econs; eauto.
-    - etrans; try apply TVIEW; auto.
-    - etrans; [apply TVIEW|]. apply RW. etrans; eauto.
-    - etrans; [apply TVIEW|]. apply SC1. etrans; eauto.
+    - etrans; try apply VIEW; auto.
+    - etrans; [apply VIEW|]. apply RW. etrans; eauto.
+    - etrans; [apply VIEW|]. apply SC1. etrans; eauto.
     - i. etrans; [|apply SC2; etrans; eauto]. apply View.unwrap_opt_le. ss.
   Qed.
 
   Lemma writable_mon
-        tview1 tview2 sc1 sc2 loc ts ord1 ord2
-        (TVIEW: TView.le tview1 tview2)
+        view1 view2 sc1 sc2 loc ts ord1 ord2
+        (VIEW: View.le view1 view2)
         (SC: TimeMap.le sc1 sc2)
         (ORD: Ordering.le ord1 ord2)
-        (WRITABLE: TView.writable tview2 sc2 loc ts ord2):
-    TView.writable tview1 sc1 loc ts ord1.
+        (WRITABLE: TView.writable view2 sc2 loc ts ord2):
+    TView.writable view1 sc1 loc ts ord1.
   Proof.
     inv WRITABLE. econs; eauto.
-    - eapply TimeFacts.le_lt_lt; try apply TVIEW; auto.
-    - i. eapply TimeFacts.le_lt_lt; [apply TVIEW|]. apply SC1. etrans; eauto.
+    - eapply TimeFacts.le_lt_lt; try apply VIEW; auto.
+    - i. eapply TimeFacts.le_lt_lt; [apply VIEW|]. apply SC1. etrans; eauto.
     - i. eapply TimeFacts.le_lt_lt; eauto. apply SC2. etrans; eauto.
   Qed.
 

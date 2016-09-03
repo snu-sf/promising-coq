@@ -136,7 +136,7 @@ Proof.
   exploit future_fulfill_step; try exact FULFILL; eauto; try refl; try by viewtac.
   { by inv REORDER. }
   i. des.
-  exploit sim_local_future; try exact MEM1; eauto.
+  exploit SimPromises.future; try exact MEM1; eauto.
   { inv LOCAL. apply SimPromises.sem_bot_inv in PROMISES; auto. rewrite <- PROMISES.
     apply SimPromises.sem_bot.
   }
@@ -187,7 +187,7 @@ Proof.
     exploit fulfill_write; eauto; try by viewtac. i. des.
     esplits.
     + econs 2; eauto. econs.
-      * econs 2. econs 2; eauto. econs. econs.
+      * econs. econs 2. econs 2; eauto. econs. econs.
       * auto.
     + econs 2. econs 2. econs 3; eauto. econs.
       erewrite <- RegFile.eq_except_value; eauto.
@@ -205,7 +205,7 @@ Proof.
     exploit fulfill_write; eauto; try by viewtac. i. des.
     esplits.
     + econs 2; eauto. econs.
-      * econs 2. econs 3; eauto. econs. econs.
+      * econs. econs 2. econs 3; eauto. econs. econs.
       * auto.
     + econs 2. econs 2. econs 3; eauto. econs. econs.
     + auto.
@@ -225,7 +225,7 @@ Proof.
     exploit fulfill_write; eauto; try exact STEP3; try by viewtac. i. des.
     esplits.
     + econs 2; eauto. econs.
-      * econs 2. econs 4; eauto. econs. econs. eauto.
+      * econs. econs 2. econs 4; eauto. econs. econs. eauto.
       * auto.
     + econs 2. econs 2. econs 3; eauto. econs.
       erewrite <- RegFile.eq_except_value; eauto.
@@ -254,15 +254,17 @@ Proof.
     { econs 2. eauto. }
     i. des.
     + exploit program_step_promise; eauto. i.
-      exploit Thread.rtc_step_future; eauto. s. i. des.
+      exploit Thread.rtc_tau_step_future; eauto. s. i. des.
       exploit Thread.opt_step_future; eauto. s. i. des.
       exploit Thread.program_step_future; eauto. s. i. des.
       punfold SIM. exploit SIM; try apply SC3; eauto; try refl. s. i. des.
       exploit PROMISES; eauto. i. des.
       esplits; [|eauto].
 	    etrans; eauto. etrans; [|eauto].
-      inv STEP_SRC; eauto. econs 2; eauto. econs; eauto. etrans; eauto.
-      destruct e; by inv STEP; inv STATE; inv INSTR; inv REORDER.
+      inv STEP_SRC; eauto. econs 2; eauto. econs; eauto.
+      * econs. eauto.
+      * etrans; eauto.
+        destruct e; by inv STEP; inv STATE; inv INSTR; inv REORDER.
     + inv SIM. inv STEP; inv STATE.
   - exploit sim_store_mon; eauto. i. des.
     exploit sim_store_step; eauto. i. des.

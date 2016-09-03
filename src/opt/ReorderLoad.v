@@ -136,7 +136,7 @@ Lemma sim_load_future
 Proof.
   inv SIM1.
   exploit future_read_step; try exact READ; eauto. i. des.
-  exploit sim_local_future; try apply MEM1; eauto.
+  exploit SimPromises.future; try apply MEM1; eauto.
   { inv LOCAL. apply SimPromises.sem_bot_inv in PROMISES; auto. rewrite <- PROMISES.
     inv READ. ss. apply SimPromises.sem_bot.
   }
@@ -174,7 +174,7 @@ Proof.
     exploit reorder_read_promise; try exact READ; try exact STEP_SRC; eauto. i. des.
     exploit Local.promise_step_future; eauto. i. des.
     esplits; try apply SC; eauto.
-    + econs 2. econs. econs. eauto.
+    + econs 2. econs. econs; eauto.
     + eauto.
     + right. econs; eauto. etrans; eauto.
   - (* load *)
@@ -182,7 +182,7 @@ Proof.
     exploit reorder_read_read; try exact READ; try exact STEP_SRC; eauto. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
-      * econs 2. econs 2; eauto. econs. econs.
+      * econs. econs 2. econs 2; eauto. econs. econs.
       * eauto.
     + econs 2. econs 2. econs 2; eauto. econs. econs.
     + eauto.
@@ -199,7 +199,7 @@ Proof.
     exploit reorder_read_write; try exact READ; try exact STEP_SRC; eauto; try by viewtac. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
-      * econs 2. econs 3; eauto. econs.
+      * econs. econs 2. econs 3; eauto. econs.
         erewrite RegFile.eq_except_value; eauto.
         { econs. }
         { apply RegFile.eq_except_singleton. }
@@ -220,7 +220,7 @@ Proof.
     exploit reorder_read_write; try exact STEP2; try exact STEP_SRC0; eauto; try congr. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
-      * econs 2. econs 4; eauto. econs. econs.
+      * econs. econs 2. econs 4; eauto. econs. econs.
         erewrite <- RegFile.eq_except_rmw; eauto; try apply RegFile.eq_except_singleton.
         ii. eapply REGS; eauto.
         apply RegSet.singleton_spec in LHS. subst.
@@ -240,7 +240,7 @@ Proof.
     exploit reorder_read_fence; try exact READ; try exact STEP_SRC; eauto. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
-      * econs 2. econs 5; eauto. econs. econs.
+      * econs. econs 2. econs 5; eauto. econs. econs.
       * eauto.
     + econs 2. econs 2. econs 2; eauto. econs. econs.
     + eauto.
