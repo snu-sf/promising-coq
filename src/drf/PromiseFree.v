@@ -68,7 +68,7 @@ Proof.
   { ss. rewrite FIND1 in FIND2. depdes FIND2.
     by rewrite GET1 in GET2. 
   }
-  inv H. inv USTEP. ss. rewrite FIND1 in TID. depdes TID. des; [done|].
+  inv H. inv USTEP. ss. rewrite FIND1 in TID. depdes TID.
   destruct (Memory.get loc ts lc3.(Local.promises)) eqn: PRM.
   - destruct p as [t m].
     rewrite IdentMap.gss in IHSTEPS.
@@ -115,7 +115,7 @@ Proof.
   { ss. rewrite FIND1 in FIND2. depdes FIND2.
     by rewrite GET1 in GET2. 
   }
-  inv H. inv USTEP. ss. rewrite FIND1 in TID. depdes TID. des; [done|].
+  inv H. inv USTEP. ss. rewrite FIND1 in TID. depdes TID.
   destruct (Memory.get loc ts lc3.(Local.promises)) eqn: PRM.
   - destruct p as [t m].
     rewrite IdentMap.gss in IHSTEPS.
@@ -334,7 +334,7 @@ Proof.
     - destruct ordw; inv ORDW; inv o.
   }
 
-  inv PSTEP0. ss. rewrite IdentMap.gss in THS5. depdes THS5. des; [done|]. destruct pf; ss.
+  inv PSTEP0. ss. rewrite IdentMap.gss in THS5. depdes THS5. destruct pf; ss.
 
   inv STEP; inv STEP0; inv EVTR.
   - inv LOCAL. erewrite Memory.op_get2 in GET; eauto. inv GET.
@@ -383,7 +383,7 @@ Lemma key_lemma_core
 Proof.
   inv STEP4. ss. 
   rewrite THS4 in TID. symmetry in TID. depdes TID.
-  rewrite IdentMap.gss in THS4'. depdes THS4'. des; [done|]. destruct pf; ss.
+  rewrite IdentMap.gss in THS4'. depdes THS4'. destruct pf; ss.
 
   inv STEP; inv STEP0.
 
@@ -422,7 +422,7 @@ Proof.
         { eauto. }
         s; intros [PIWF0 _]. inv PIWF0.
 
-        ss. des. subst. inv EVT. inv PSTEP. inv STEPS. inv STEP; inv STEP0. inv LOCAL. ss. des; [done|].
+        ss. des. subst. inv EVT. inv PSTEP. inv STEPS. inv STEP; inv STEP0. inv LOCAL. ss.
         exploit LR0; eauto. i; des.
 
         hexploit RL; [by eauto|..]; cycle 1.
@@ -530,7 +530,7 @@ Proof.
           { eauto. }
           s; intros [PIWF0 _]. inv PIWF0.
 
-          ss. des. subst. inv EVT. inv PSTEP. inv STEPS. inv STEP; inv STEP0. inv LOCAL1. ss. des; [done|].
+          ss. des. subst. inv EVT. inv PSTEP. inv STEPS. inv STEP; inv STEP0. inv LOCAL1. ss.
           exploit LR0; eauto. i; des.
 
           hexploit RL; [by eauto|..]; cycle 1.
@@ -729,7 +729,7 @@ Proof.
       inv WF3; eauto. } 
     { econs; eauto.
       by split; ii; esplits; eauto; reflexivity. }
-    { s. inv PI_STEP. inv STEPT. ss. des; [done|].
+    { s. inv PI_STEP. inv STEPT. ss.
       inv WF3. inv WFT. inv WF0. ss.
       exploit THREADS; eauto. i.
       exploit Thread.step_future; eauto. s. i. des. auto.
@@ -744,7 +744,7 @@ Proof.
   rename ms into cM4', es into cM5'.
 
   assert (STEP2 := PSTEP0). inv PSTEP0. ss.
-  rewrite IdentMap.gss in THREAD4. depdes THREAD4. des; [done|]. destruct pf; ss.
+  rewrite IdentMap.gss in THREAD4. depdes THREAD4. destruct pf; ss.
 
   assert (MGET: Memory.get loc ts (Configuration.memory cT2) <> None).
   { inv WF2. inv WFT. inv WF0. destruct lst.

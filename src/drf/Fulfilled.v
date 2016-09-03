@@ -331,7 +331,7 @@ Lemma nonwriting_small_step_fulfilled_forward
 Proof.
   inv STEP. guardH PFREE.
   inv STEP0; inv STEP; inv NONWRITING.
-  - unguardH PFREE. des; [done|].
+  - unguardH PFREE.
     apply promise_pf_inv in PFREE. des. subst.
     inv LOCAL. inv PROMISE.
     i. inv NP. econs; ss.

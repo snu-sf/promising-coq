@@ -622,17 +622,17 @@ Lemma reorder_nonpf_pf
       (MEMORY: Memory.closed th0.(Thread.memory)):
   (exists pf2' e2',
       <<STEP: Thread.step pf2' e2' th0 th2>> /\
-      <<EVENT: ThreadEvent.get_event e2' = ThreadEvent.get_event e2>>) \/
-  (exists e1' pf2' e2' th1',
-      <<STEP1: Thread.step true e1' th0 th1'>> /\
-      <<STEP2: Thread.promise_step pf2' e2' th1' th2>> /\
-      <<EVENT: ThreadEvent.get_event e1' = ThreadEvent.get_event e2>>).
+      <<EVENT: ThreadEvent.get_non_promise e2' = ThreadEvent.get_non_promise e2>>) \/
+  (exists e2' pf1' e1' th1',
+      <<STEP1: Thread.step true e2' th0 th1'>> /\
+      <<STEP2: Thread.promise_step pf1' e1' th1' th2>> /\
+      <<EVENT: ThreadEvent.get_non_promise e2' = ThreadEvent.get_non_promise e2>>).
 Proof.
   inv STEP2; ss.
   - inv STEP. ss. symmetry in PF. apply promise_pf_inv in PF. des. subst.
     inv STEP1. inv STEP. ss.
-    exploit reorder_promise_promise_lower_None; eauto. i. des.
-    + subst. left. esplits.
+    exploit reorder_promise_promise_lower_None; eauto. i. des; subst.
+    + left. esplits.
       * econs 1. econs; eauto.
       * ss.
     + right. esplits.

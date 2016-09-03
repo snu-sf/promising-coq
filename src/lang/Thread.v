@@ -38,10 +38,23 @@ Module ThreadEvent.
     | _ => None
     end.
 
+  Definition get_non_promise (e:t): option t:=
+    match e with
+    | promise _ _ _ _ _ _ => None
+    | _ => Some e
+    end.
+
+
   Definition is_promising (e:t) : option (Loc.t * Time.t) :=
     match e with
     | promise loc from to v rel kind => Some (loc, to)
     | _ => None
+    end.
+
+  Definition is_lower_none (e:t) : bool :=
+    match e with
+    | promise loc from to v rel kind => Memory.op_kind_is_lower kind && negb rel
+    | _ => false
     end.
 
   Definition is_reading (e:t): option (Loc.t * Time.t * Const.t * option View.t * Ordering.t) :=

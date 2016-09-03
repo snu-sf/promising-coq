@@ -140,7 +140,7 @@ Inductive small_step (withprm: bool) (tid:Ident.t) (e:ThreadEvent.t) (c1:Configu
     (TID: IdentMap.find tid c1.(Configuration.threads) = Some (existT _ lang st1, lc1))
     (STEP: Thread.step pf e (Thread.mk _ st1 lc1 c1.(Configuration.sc) c1.(Configuration.memory)) (Thread.mk _ st2 lc2 sc2 memory2))
     (THS2: ths2 = IdentMap.add tid (existT _ _ st2, lc2) c1.(Configuration.threads))
-    (PFREE: withprm \/ pf)
+    (PFREE: orb withprm pf)
   :
   small_step withprm tid e c1 (Configuration.mk ths2 sc2 memory2)
 .
@@ -153,7 +153,6 @@ Hint Unfold small_step_evt.
 Definition small_step_all withprm (c1 c2:Configuration.t) : Prop :=
   union (small_step_evt withprm) c1 c2.
 Hint Unfold small_step_all.
-
 
 Lemma small_step_future
       e tid c1 c2 withprm
@@ -418,12 +417,12 @@ Lemma small_step_promise_decr
   <<FIND1: IdentMap.find tid' c1.(Configuration.threads) = Some (lst1,lc1)>> /\
   <<PROMISES: Memory.get loc ts lc1.(Local.promises) = Some (from1, msg1)>>.
 Proof.
-  inv STEPT; ss. des; [done|].
+  inv STEPT; ss.
   revert FIND2. rewrite IdentMap.gsspec. condtac.
   - i. inv FIND2.
     inv STEP; inv STEP0; try inv LOCAL;
       (try by esplits; eauto).
-    + ss. apply promise_pf_inv in PFREE. des. subst. inv PROMISE.
+    + ss. apply promise_pf_inv in PFREE; eauto. des. subst. inv PROMISE.
       destruct msg2. exploit Memory.op_get_inv; eauto.
       { econs 3. eauto. }
       i. des.

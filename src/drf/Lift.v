@@ -357,7 +357,7 @@ Proof.
   inv PISTEP. inv PI_STEP. assert (X:= USTEP). inv X.
   destruct (IdentMap.find tid cT2.(Configuration.threads)) as [[]|]eqn: EQ; [|by exfalso; eauto].
   inv STEPT. inv STEP; inv STEP0; try by esplits; s; eauto; econs; econs; eauto; ss.
-  { des; [done|]. apply promise_pf_inv in PFREE. des. inversion WF. subst. ss.
+  { apply promise_pf_inv in PFREE. des. inversion WF. subst. ss.
     generalize EQ. i. rewrite IdentMap.gso in EQ0; eauto. destruct s.
     exploit Local.promise_step_future; try eapply WFT; eauto. i. des.
     exploit Local.promise_step_disjoint; try exact LOCAL; try eapply WFT; eauto. i. des.
@@ -523,7 +523,7 @@ Lemma small_step_false_promising
   Memory.op c1.(Configuration.memory) loc from to val released c2.(Configuration.memory) kind.
 Proof.
   inv STEP. inv STEP0; inv STEP; inv PFREE; ss.
-  apply promise_pf_inv in H. des. subst. inv LOCAL.
+  apply promise_pf_inv in H0. des. subst. inv LOCAL.
   eapply Memory.promise_op. eauto.
 Qed.
 
@@ -696,7 +696,7 @@ Proof.
         destruct e; subst; ss.
       - destruct e; inv Y. ss.
         inv PI_STEP0; ss. subst.
-        inv STEPT; ss. des; [done|]. destruct pf; ss.
+        inv STEPT; ss. destruct pf; ss.
         inv STEP; [|by inv STEP0]. inv STEP0.
         symmetry in PF. apply promise_pf_inv in PF. des. subst. des.
         inv LOCAL. inv PROMISE. ss.

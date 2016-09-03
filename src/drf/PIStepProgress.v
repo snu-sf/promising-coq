@@ -70,7 +70,7 @@ Proof.
   clear CONSIS. i. des.
   exploit (PI_RACEFREE cS3 ord ord0).
   { etrans. 
-    - eapply rtc_implies; [by i; eapply step_evt_intro, PR|].
+    - eapply rtc_implies; [by i; econs; eapply PR|].
       by eapply pi_steps_small_steps_fst in PI_STEPS; eauto.
     - eapply rtc_implies, STEPS. by econs; eauto.
   }

@@ -181,7 +181,7 @@ Proof.
   i. des.
   - assert (STEPS: rtcn (@Thread.tau_step lang) (S n) e1 e2).
     { econs 2.
-      - econs. econs; eauto. etrans; eauto.
+      - econs. econs; eauto. by destruct e2', e0; inv EVENT1.
       - eapply rtcn_imply; [|exact A0]. apply tau_mon. apply Thread.allpf.
     }
     exploit IH; try exact STEPS; eauto.
@@ -200,7 +200,7 @@ Proof.
     exploit IH; try exact STEPS; eauto.
     { omega. }
     i. des. esplits; cycle 1.
-    + econs 2; eauto. econs; eauto. etrans; eauto.
+    + econs 2; eauto. econs; eauto. by destruct e2', e0; inv EVENT1.
     + etrans; eauto.
     + omega.
 Qed.
