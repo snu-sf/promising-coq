@@ -374,39 +374,46 @@ Qed.
 Lemma memory_step_write_rmw acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0
   (COH : Coherent acts sb rmw rf mo sc)
   f f' (F : forall b, In b acts -> f' b = f b) (MON: monotone mo0 f')
-  a l v o (LABa: lab a = Astore l v o)
-  (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a a)
-  mem mem' 
+  a l v o (LABa: lab a = Astore l v o) prev (LOCprev: loc prev = Some l)
+  (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 prev a)
+  mem mem' (CLOSED: Memory.closed mem)
   from rel 
   (ADD: Memory.write Memory.bot mem l from (f' a) v rel Memory.bot mem' 
                      Memory.op_kind_add)
   l0 b c (RF_RMW: (rf0;; rmw0) b c) (LOC: loc b = Some l0)
   (UPDATES: forall a b (RF_RMW: (rf ;; rmw) a b) (LOC: loc a = Some l0),
-                exists m, Memory.get l0 (f b) mem = Some ((f a), m)):
+                exists m, Memory.get l0 (f b) mem = Some ((f a), m))
+  (RMW: forall c, prev <> a -> rf c prev -> f c = from) :
   exists m : Message.t, Memory.get l0 (f' c) mem' = Some (f' b, m).
 Proof.
   eapply gstep_rf_rmw with (rf:=rf) in RF_RMW; eauto.
-  unfold union in RF_RMW; unfold seq at 2 in RF_RMW; desf; try congruence.
-  specialize (UPDATES b c RF_RMW LOC).
+  unfold union in RF_RMW; unfold seq at 2 in RF_RMW; desf.
+  - specialize (UPDATES b c RF_RMW LOC).
   desc.
   exists m.
   rewrite !F; eauto.
   eapply memory_write0 in UPDATES; eauto.
   unfold seq in RF_RMW; desc; eapply rf_acta; eauto.
   unfold seq in RF_RMW; desc; eapply rmw_actb; eauto.
+- eapply RMW in RF_RMW2; try edone.
+  rewrite <- F in RF_RMW2; try by eapply rf_acta; eauto.
+  rewrite RF_RMW2.
+  assert (l = l0).
+    eapply loceq_rf in RF_RMW; eauto; congr.
+  subst l0.
+  apply Memory.write_get2 in ADD; eauto using Memory.bot_le.
+  by destruct CLOSED.
 Qed.
 
-
-
-Lemma memory_step_write_cell acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 
+Lemma memory_step_write_cell_eq acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 
   (COH : Coherent acts sb rmw rf mo sc) 
-  a l v o (LABa: lab a = Astore l v o)
+   a l v o (LABa: lab a = Astore l v o) 
   (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a a)
   ffrom ffrom' (F_FROM : forall b, In b acts -> ffrom' b = ffrom b)
   f f' (F : forall b, In b acts -> f' b = f b) (MON: monotone mo0 f')
-  l0 to from0 v0 rel0 mem (CLOSED: Memory.closed mem)
-  (SIMCELL : forall to from v rel, Memory.get l0 to mem = Some (from, Message.mk v rel) ->
-          exists b, In b acts /\ is_write b /\ loc b = Some l0 /\ ffrom b = from 
+  v0 rel mem (CLOSED: Memory.closed mem)
+  (SIMCELL : forall to from v rel, Memory.get l to mem = Some (from, Message.mk v rel) ->
+          exists b, In b acts /\ is_write b /\ loc b = Some l /\ ffrom b = from 
                     /\ f b = to /\ sim_mem_helper f acts sb rmw rf sc b from v rel.(View.unwrap))
   sc_map (SIM_SC_MAP : forall l, max_value f (S_tm acts sb rmw rf l) (LocFun.find l sc_map))
   tview (SIM_TVIEW : sim_tview f acts sb rmw rf sc tview (thread a))
@@ -414,52 +421,34 @@ Lemma memory_step_write_cell acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0
   mem' (ADD: Memory.write Memory.bot mem l (ffrom' a) (f' a) v 
           (TView.write_released tview sc_map l (f' a) None o)
      Memory.bot mem' Memory.op_kind_add)
-  (GET: Memory.get l0 to mem' = Some (from0, Message.mk v0 rel0)):
-  exists b, In b acts0 /\ is_write b /\ loc b = Some l0 /\
-    ffrom' b = from0 /\ f' b = to /\ sim_mem_helper f' acts0 sb0 rmw0 rf0 sc0 b from0 v0 rel0.(View.unwrap).
+  (GET: Memory.get l (f' a) mem' = Some (ffrom' a, Message.mk v0 rel)):
+  exists b, In b acts0 /\ is_write b /\ loc b = Some l /\
+    ffrom' b = ffrom' a /\ f' b = f' a /\ sim_mem_helper f' acts0 sb0 rmw0 rf0 sc0 b (ffrom' a) v0 rel.(View.unwrap).
 Proof.
-destruct (classic (l=l0 /\ f' a = to /\ ffrom' a = from0)).
-- desc; subst.
+desc; subst.
   exists a; splits; eauto with acts.
   by red in GSTEP; desc; rewrite ACT_STEP; vauto.
   by unfold loc; destruct (lab a); ins; desf.
   apply Memory.write_get2 in ADD; eauto using Memory.bot_le.
-  2: destruct CLOSED; done. 
+  2: by destruct CLOSED. 
 
 
 ins.
 
-assert(LocFun.add l0 (if Ordering.le Ordering.acqrel o
-then View.join (View.join (TView.cur tview)
- (View.singleton_ur l0 (f' a)))
-(if Ordering.le Ordering.seqcst o
-then
-{|
-View.pln := TimeMap.bot;
-View.rlx := TimeMap.bot;
-View.sc := sc_map |}
-else View.bot)
-else TView.rel tview l0) 
-(TView.rel tview) l0=
-LocFun.find l0 (LocFun.add l0
-(if Ordering.le Ordering.acqrel o
-then
-View.join
-(View.join (TView.cur tview)
- (View.singleton_ur l0 (f' a)))
-(if Ordering.le Ordering.seqcst o
-then
-{|
-View.pln := TimeMap.bot;
-View.rlx := TimeMap.bot;
-View.sc := sc_map |}
-else View.bot)
-else TView.rel tview l0) 
-(TView.rel tview))).  done.
+assert(LocFun.add l (if Ordering.le Ordering.acqrel o
+then View.join (View.join (TView.cur tview) (View.singleton_ur l (f' a)))
+(if Ordering.le Ordering.seqcst o then
+{| View.pln := TimeMap.bot; View.rlx := TimeMap.bot; View.sc := sc_map |}
+else View.bot) else TView.rel tview l) 
+(TView.rel tview) l= LocFun.find l (LocFun.add l
+(if Ordering.le Ordering.acqrel o then
+View.join (View.join (TView.cur tview) (View.singleton_ur l (f' a)))
+(if Ordering.le Ordering.seqcst o then
+{| View.pln := TimeMap.bot; View.rlx := TimeMap.bot; View.sc := sc_map |}
+else View.bot) else TView.rel tview l) (TView.rel tview))).  done.
 unfold TView.write_released, TView.write_tview in ADD. simpl in ADD.
 rewrite H in ADD. clear H.
 
-unfold TView.write_tview in ADD; ins.
 rewrite View.join_bot_l in ADD.
 destruct tview; simpl.
 red in SIM_TVIEW; desc; red in CUR; red in ACQ; red in REL; desc.
@@ -473,15 +462,15 @@ assert (RAa: Ordering.le Ordering.acqrel o <-> is_rel a).
   by destruct a; ins; desf.
 assert (RLXa: Ordering.le Ordering.relaxed o <-> is_rlx_rw a).
   by destruct a; ins; desf.
-assert (LOC_A: Gevents.loc a = Some l0). 
-  by unfold Gevents.loc; destruct (lab a); ins; desf.
+assert (LOC_A: loc a = Some l). 
+  by unfold loc; destruct (lab a); ins; desf.
 assert (W: is_write a). 
   by destruct a as [??[]]; ins.
 
-desf; clear ADD; red; splits; eauto.
-all: try by unfold val, lab in *; destruct a; destruct lb; desf.
-all: unfold sim_msg; splits; ins.
+red; splits; try done.
+by unfold val, lab in *; destruct a; destruct lb; desf.
 
+desf; red; splits; eauto; ins.
 
 all: try rewrite LocFun.add_spec; desf.
 all: ins.
@@ -490,8 +479,8 @@ all: try rewrite !tm_find_join.
 all: try rewrite !tm_find_singleton; desf.
 all: try rewrite !time_join_bot.
 all: try rewrite tm_find_bot.
-all: do 2 (try match goal with
-| [|- max_value _ _ (Time.join _ _)] => eapply max_value_join  end).
+all: do 2 (try match goal with 
+  | [|- max_value _ _ (Time.join _ _)] => eapply max_value_join end).
 all: try match goal with
          | [|- max_value _ _ (LocFun.find _ _)] => eapply max_value_same_set;
            try eapply max_value_new_f with (f':=f'); eauto with acts
@@ -516,8 +505,28 @@ all: try match goal with
              cdes GSTEP; eapply actb_msg_scr in H; try done; eauto
          end.
 all: try by exfalso; congruence.
-all: try by exfalso; destruct o; ins; desf; eauto.
-- assert (OLD: Memory.get l0 to mem = Some (from0, Message.mk v0 rel0)).
+all: try by exfalso; destruct o; ins; desf; eauto 3.
+Qed.
+
+Lemma memory_step_write_cell_neq acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 
+  (COH : Coherent acts sb rmw rf mo sc) 
+   a l v o (LABa: lab a = Astore l v o) prev
+  (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 prev a)
+  ffrom ffrom' (F_FROM : forall b, In b acts -> ffrom' b = ffrom b)
+  f f' (F : forall b, In b acts -> f' b = f b) (MON: monotone mo0 f')
+  l0 to from0 v0 rel0 mem
+  (SIMCELL : forall to from v rel, Memory.get l0 to mem = Some (from, Message.mk v rel) ->
+          exists b, In b acts /\ is_write b /\ loc b = Some l0 /\ ffrom b = from 
+                    /\ f b = to /\ sim_mem_helper f acts sb rmw rf sc b from v rel.(View.unwrap))
+  sc_map tview mem' 
+  (ADD: Memory.write Memory.bot mem l (ffrom' a) (f' a) v 
+          (TView.write_released tview sc_map l (f' a) None o) Memory.bot mem' Memory.op_kind_add)
+  (GET: Memory.get l0 to mem' = Some (from0, Message.mk v0 rel0))
+  (NEQ: ~ ((l=l0 /\ f' a = to /\ ffrom' a = from0))):
+  exists b, In b acts0 /\ is_write b /\ loc b = Some l0 /\
+    ffrom' b = from0 /\ f' b = to /\ sim_mem_helper f' acts0 sb0 rmw0 rf0 sc0 b from0 v0 rel0.(View.unwrap).
+Proof.
+assert (OLD: Memory.get l0 to mem = Some (from0, Message.mk v0 rel0)).
     eapply memory_write1; try edone; tauto.
   assert (LOC_A: Gevents.loc a = Some l). 
     by unfold Gevents.loc; destruct (lab a); ins; desf.
@@ -541,6 +550,79 @@ all: try by exfalso; destruct o; ins; desf; eauto.
      split; ins; desf; eauto.
 Qed.
 
+Lemma memory_step_update_cell_eq acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 
+  (COH : Coherent acts sb rmw rf mo sc) 
+   a l v o (LABa: lab a = Astore l v o) prev c (RF: rf c prev)
+v_r o_r (LABprev: lab prev = Aload l v_r o_r)
+  (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 prev a)
+  ffrom ffrom' (F_FROM : forall b, In b acts -> ffrom' b = ffrom b)
+  f f' (F : forall b, In b acts -> f' b = f b) (MON: monotone mo0 f')
+  rel mem (CLOSED: Memory.closed mem)
+  (SIMCELL : forall to from v rel, Memory.get l to mem = Some (from, Message.mk v rel) ->
+          exists b, In b acts /\ is_write b /\ loc b = Some l /\ ffrom b = from 
+                    /\ f b = to /\ sim_mem_helper f acts sb rmw rf sc b from v rel.(View.unwrap))
+  sc_map (SIM_SC_MAP : forall l, max_value f (S_tm acts sb rmw rf l) (LocFun.find l sc_map))
+  tview released_r
+tview_r
+(TVIEW_R: tview_r = TView.read_tview tview l (f c) released_r o_r)
+  (SIM_TVIEW : sim_tview f acts sb rmw rf sc  tview_r  (thread a))
+  (FROM: Time.lt (ffrom' a) (f' a))
+  v0 mem'
+  (ADD : Memory.write Memory.bot mem l (f c) (f' a) v
+          (TView.write_released tview_r
+             sc_map
+             l (f' a) released_r o) Memory.bot mem' Memory.op_kind_add)
+  (GET: Memory.get l (f' a) mem' = Some (ffrom' a, Message.mk v0 rel))
+  (SIMMSG : sim_msg f acts sb rmw rf sc c (View.unwrap released_r)):
+  exists b, In b acts0 /\ is_write b /\ loc b = Some l /\
+    ffrom' b = ffrom' a /\ f' b = (f' a) /\ sim_mem_helper f' acts0 sb0 rmw0 rf0 sc0 b (ffrom' a) v0 rel.(View.unwrap).
+Proof.
+subst; ins.
+  exists a; splits; eauto with acts.
+  by red in GSTEP; desc; rewrite ACT_STEP; vauto.
+  by unfold loc; destruct (lab a); ins; desf.
+  apply Memory.write_get2 in ADD; eauto using Memory.bot_le.
+  2: by destruct CLOSED. 
+
+assert(
+ LocFun.add l (if Ordering.le Ordering.acqrel o then View.join (View.join (View.join (View.join (TView.cur tview) (View.singleton_rw l (f c))) (if Ordering.le Ordering.acqrel o_r then View.unwrap released_r else View.bot)) (View.singleton_ur l (f' a))) (if Ordering.le Ordering.seqcst o then {| View.pln := TimeMap.bot; View.rlx := TimeMap.bot; View.sc := sc_map |} else View.bot) else TView.rel tview l) (TView.rel tview) l = LocFun.find l (LocFun.add l (if Ordering.le Ordering.acqrel o then View.join (View.join (View.join (View.join (TView.cur tview) (View.singleton_rw l (f c))) (if Ordering.le Ordering.acqrel o_r then View.unwrap released_r else View.bot)) (View.singleton_ur l (f' a))) (if Ordering.le Ordering.seqcst o then {| View.pln := TimeMap.bot; View.rlx := TimeMap.bot; View.sc := sc_map |} else View.bot) else TView.rel tview l) (TView.rel tview) )
+). done.
+unfold TView.write_released, TView.write_tview in ADD. simpl in ADD.
+rewrite H in ADD. clear H.
+
+(* rewrite View.join_bot_l in ADD. *)
+destruct tview; simpl.
+red in SIM_TVIEW; desc; red in CUR; red in ACQ; red in REL; desc.
+unfold sim_tview, sim_acq, sim_cur, sim_rel; splits; ins.
+
+assert (SCa: Ordering.le Ordering.seqcst o <-> is_sc a).
+  by destruct a; ins; desf.
+assert (SCa': Ordering.le Ordering.seqcst o <-> is_sc_wf a).
+  by rewrite SCa; eauto 7 with acts.
+assert (RAa: Ordering.le Ordering.acqrel o <-> is_rel a).
+  by destruct a; ins; desf.
+assert (RLXa: Ordering.le Ordering.relaxed o <-> is_rlx_rw a).
+  by destruct a; ins; desf.
+assert (LOC_A: loc a = Some l). 
+  by unfold Gevents.loc; destruct (lab a); ins; desf.
+assert (W: is_write a). 
+  by destruct a as [??[]]; ins.
+
+red in SIMMSG; desc.
+
+rewrite GET in ADD.
+inversion ADD.
+subst v0 rel.
+
+
+
+
+
+red; splits; try done.
+by unfold val, lab in *; destruct a; destruct lb; desf.
+
+Admitted.
+
 Lemma memory_step_write acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a
   (COH : Coherent acts sb rmw rf mo sc) 
   (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a a)
@@ -559,10 +641,48 @@ Lemma memory_step_write acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a
 Proof.
 red; ins.
 specialize (SIM_MEM l0); desc; splits; ins.
-eapply memory_step_write_dom; eauto.
-eapply memory_step_write_cell; eauto.
-eapply memory_step_write_rmw; eauto.
+- eapply memory_step_write_dom; eauto.
+- destruct (classic (l=l0 /\ fto' a = to /\ ffrom' a = from)); desc; subst.
+  by eapply memory_step_write_cell_eq; eauto.
+  by eapply memory_step_write_cell_neq; eauto.
+- eapply memory_step_write_rmw with (prev:=a); eauto.
+  by unfold loc; ins; desf.
+  eby ins.
 Qed.
+
+Lemma memory_step_update acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 prev a
+  (COH : Coherent acts sb rmw rf mo sc) 
+  b (RF: rf b prev) 
+  (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 prev a)
+  ffrom fto mem (SIM_MEM : sim_mem ffrom fto acts sb rmw rf sc mem) 
+  ffrom' (F_FROM : forall b, In b acts -> ffrom' b = ffrom b)
+  fto' (F_TO : forall b, In b acts -> fto' b = fto b) (MON: monotone mo0 fto')
+  l v o (LABa: lab a = Astore l v o)
+  v_r o_r (LABp: lab prev = Aload l v_r o_r)
+  (CLOSED: Memory.closed mem)
+  (FROM: Time.lt (ffrom' a) (fto' a))  
+  sc_map (SIM_SC_MAP : forall l, max_value fto (S_tm acts sb rmw rf l) (LocFun.find l sc_map))
+  tview released_r
+  (SIM_TVIEW : sim_tview fto acts sb rmw rf sc  (TView.read_tview tview l (fto b) released_r o_r)  (thread a))
+  mem' 
+  (ADD: Memory.write Memory.bot mem l (fto b) (fto' a) v
+          (TView.write_released (TView.read_tview tview l (fto b) released_r o_r) sc_map
+             l (fto' a) released_r o) Memory.bot mem' Memory.op_kind_add)
+  (SIMMSG : sim_msg fto acts sb rmw rf sc b (View.unwrap released_r)):
+  sim_mem ffrom' fto' acts0 sb0 rmw0 rf0 sc0 mem'.
+Proof.
+red; ins.
+specialize (SIM_MEM l0); desc; splits; ins.
+eapply memory_step_write_dom; eauto.
+- destruct (classic (l=l0 /\ fto' a = to /\ ffrom' a = from)); desc; subst.
+  by eapply memory_step_update_cell_eq; eauto.
+  eapply memory_step_write_cell_neq; eauto.
+admit.
+- eapply memory_step_write_rmw with (prev:=prev); try edone.
+  by unfold loc; ins; desf.
+  ins; replace b with c; try done.
+  eby cdes COH; cdes WF; eapply WF_RF.
+Admitted.
 
 (******************************************************************************)
 (** * Lemmas for the fence step   *)
