@@ -83,8 +83,8 @@ Proof.
   { exploit unused_read; eauto. i. des.
     exploit sim_local_read; eauto; try refl. i. des.
     esplits.
-    - econs 2; eauto. econs. econs 2. econs 2; eauto.
-      + econs. econs.
+    - econs 2; eauto. econs.
+      + econs. econs 2. econs 2; eauto. econs. econs.
       + eauto.
     - auto.
     - auto.
@@ -92,7 +92,7 @@ Proof.
     - auto.
     - econs. s. etrans; eauto. apply RegFile.eq_except_singleton.
   }
-  { i. exploit sim_local_future; try apply LOCAL; eauto. i. des.
+  { i. exploit SimPromises.future; try apply LOCAL; eauto. i. des.
     esplits; eauto.
     - etrans.
       + apply Memory.max_timemap_spec; eauto. viewtac.

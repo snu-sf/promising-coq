@@ -33,7 +33,7 @@ Inductive fulfill_step (lc1:Local.t) (sc1:TimeMap.t) (loc:Loc.t) (from to:Time.t
     promises2
     (REL_LE: View.opt_le (TView.write_released lc1.(Local.tview) sc1 loc to releasedm ord) released)
     (REL_WF: View.opt_wf released)
-    (WRITABLE: TView.writable lc1.(Local.tview) sc1 loc to ord)
+    (WRITABLE: TView.writable lc1.(Local.tview).(TView.cur) sc1 loc to ord)
     (REMOVE: Memory.remove lc1.(Local.promises) loc from to val released promises2)
     (TIME: Time.lt from to):
     fulfill_step lc1 sc1 loc from to val releasedm released ord
@@ -76,7 +76,7 @@ Lemma write_promise_fulfill
     <<STEP2: fulfill_step lc1 sc0 loc from to val releasedm released ord lc2 sc2>> /\
     <<REL: released = TView.write_released lc0.(Local.tview) sc0 loc to releasedm ord>> /\
     <<ORD: Ordering.le Ordering.acqrel ord ->
-           Local.promises lc0 loc = Cell.bot /\
+           Memory.nonsynch_loc loc lc0.(Local.promises) /\
            kind = Memory.op_kind_add>>.
 Proof.
   exploit Local.write_step_future; eauto. i. des.
@@ -123,7 +123,7 @@ Lemma promise_fulfill_write
       (FULFILL: fulfill_step lc1 sc0 loc from to val releasedm released ord lc2 sc2)
       (REL_WF: View.opt_wf releasedm)
       (REL_CLOSED: Memory.closed_opt_view releasedm mem0)
-      (ORD: Ordering.le Ordering.acqrel ord -> lc0.(Local.promises) loc = Cell.bot /\
+      (ORD: Ordering.le Ordering.acqrel ord -> Memory.nonsynch_loc loc lc0.(Local.promises) /\
                                               kind = Memory.op_kind_add)
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
@@ -154,7 +154,7 @@ Lemma promise_fulfill_write_exact
       (FULFILL: fulfill_step lc1 sc0 loc from to val releasedm released ord lc2 sc2)
       (REL_WF: View.opt_wf releasedm)
       (REL_CLOSED: Memory.closed_opt_view releasedm mem0)
-      (ORD: Ordering.le Ordering.acqrel ord -> lc0.(Local.promises) loc = Cell.bot /\
+      (ORD: Ordering.le Ordering.acqrel ord -> Memory.nonsynch_loc loc lc0.(Local.promises) /\
                                               kind = Memory.op_kind_add)
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)

@@ -17,7 +17,7 @@ Require Import Thread.
 Require Import Configuration.
 Require Import Progress.
 
-Require Import MemRel.
+Require Import MemoryRel.
 Require Import SmallStep.
 Require Import Fulfilled.
 Require Import ReorderPromise.
@@ -70,7 +70,7 @@ Proof.
   clear CONSIS. i. des.
   exploit (PI_RACEFREE cS3 ord ord0).
   { etrans. 
-    - eapply rtc_implies; [by i; eapply step_evt_intro, PR|].
+    - eapply rtc_implies; [by i; econs; eapply PR|].
       by eapply pi_steps_small_steps_fst in PI_STEPS; eauto.
     - eapply rtc_implies, STEPS. by econs; eauto.
   }
@@ -246,6 +246,7 @@ Proof.
           by rewrite TID.
         + econs 2; econs 5; eauto.
           econs; eauto.
+          s. i. apply Memory.bot_nonsynch.
         + eauto.
         + eauto.
       - s. by rewrite !IdentMap.gss.
@@ -258,6 +259,7 @@ Proof.
           by rewrite TID.
         + econs 2; econs 6; eauto.
           econs; eauto.
+          s. i. apply Memory.bot_nonsynch.
         + eauto.
         + eauto.
       - s. by rewrite !IdentMap.gss.
@@ -304,7 +306,7 @@ Proof.
     { eapply rtc_implies, PI_STEPS. eauto. }
     intros [WF2 _]. inv WF2.
 
-    exploit with_pre_rtc_step_union; eauto.
+    exploit with_pre_rtc_union; eauto.
     i. exploit rtc_small_step_future.
     { eauto. }
     { eapply rtc_implies, x0. eauto. }
@@ -315,12 +317,12 @@ Proof.
   eapply (@pi_consistent_small_step_pi _ _ _ (_,_)) in PSTEP; eauto; cycle 1.
   { etrans; eauto. subst. 
     eapply rtc_implies; [eapply pi_step_evt_to_true|].
-    eapply with_pre_rtc_step_union; eauto. }
+    eapply with_pre_rtc_union; eauto. }
   { eapply (@rtc_promise_consistent_th_small_step_backward true); try apply FULFILL. 
     - etrans.
       + eapply pi_steps_small_steps_snd. eauto.
       + eapply rtc_implies; [eapply small_step_evt_to_true|].
-        eapply with_pre_rtc_step_union; eauto.
+        eapply with_pre_rtc_union; eauto.
     - inv WF. eauto.
   }
   des; esplits; eauto.
@@ -337,8 +339,8 @@ Theorem pi_consistent_step_pi
 Proof.
   exploit step_small_steps; eauto; [by inv WF|].
   i. des.
-  eapply rtc_step_union_with_pre in STEPS. des.
+  eapply rtc_union_with_pre in STEPS. des.
   exploit pi_consistent_rtc_small_step_pi; eauto.
   { i. eapply consistent_promise_consistent_th; eauto. }
-  i; des. eexists. eapply with_pre_rtc_step_union. eauto.
+  i; des. eexists. eapply with_pre_rtc_union. eauto.
 Qed.

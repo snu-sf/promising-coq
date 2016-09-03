@@ -63,10 +63,10 @@ Lemma GMsim_helper tss G ths sc_map mem
          local.(Local.promises) = Memory.bot)
   (STATES: tss = IdentMap.map fst ths)
   f_from f_to (TIME: sim_time ths sc_map mem G f_from f_to)
-  tid e lang st lc st' lc' ths' sc_map' mem' 
+  tid pf e lang st lc st' lc' ths' sc_map' mem' 
   (THS2: ths' = IdentMap.add tid (existT Language.state lang st', lc') ths) 
   (TID: IdentMap.find tid ths = Some (existT Language.state lang st, lc))
-  (STEP: Thread.step e (Thread.mk lang st lc sc_map mem) 
+  (STEP: Thread.step pf e (Thread.mk lang st lc sc_map mem) 
     (Thread.mk lang st' lc' sc_map' mem'))
   (PFREE: ThreadEvent.is_promising e = None)
   G' (MSTEP: mstep G G' (get_program_event e) (Some tid))
@@ -87,18 +87,21 @@ unfold GMsim in *; desc.
 rewrite THS2.
 destruct STEP; try by destruct STEP; ins.
 eexists  {| ts:=  IdentMap.add tid (existT _ _ st') tss; exec:= G' |}; splits.
-- inv STEP. 
-  all: econstructor; ins; try edone.
-  all: try rewrite STATES.
-  all: rewrite IdentMap.Facts.map_o; unfold option_map; ins; desf; eauto.
+- admit.
+  (* inv STEP.  *)
+  (* all: econstructor; ins; try edone. *)
+  (* all: try rewrite STATES. *)
+  (* all: rewrite IdentMap.Facts.map_o; unfold option_map; ins; desf; eauto. *)
 - by destruct MSTEP; subst; eauto.
-- eapply Configuration.step_future; eauto using no_promises_consistent.
-  econs; eauto.
-  eexists; splits; try econs.
-  by eapply Progress.program_step_promise; eauto.
-- intro; simpl; rewrite IdentMap.gsspec; ins; desf; simpl.
-  by eapply Progress.program_step_promise; eauto.
-  by eapply NO_PROMISES; eauto.
+- admit.
+  (* eapply Configuration.step_future; eauto using no_promises_consistent. *)
+  (* econs; eauto. *)
+  (* eexists; splits; try econs. *)
+  (* by eapply Progress.program_step_promise; eauto. *)
+- admit.
+  (* intro; simpl; rewrite IdentMap.gsspec; ins; desf; simpl. *)
+  (* by eapply Progress.program_step_promise; eauto. *)
+  (* by eapply NO_PROMISES; eauto. *)
 - ins; rewrite IdentMap.map_add; simpl; by rewrite STATES.
 - unfold sim_time in *; ins; desc.
   eexists f_from',f_to'; splits; eauto; ins.
@@ -111,7 +114,7 @@ eexists  {| ts:=  IdentMap.add tid (existT _ _ st') tss; exec:= G' |}; splits.
   all: try eapply sim_tview_other_threads; eauto 2.
   all: try intro; subst; eauto.
   all: congruence.
-Qed.
+Admitted.
 
 Require Import Omega.
 
@@ -148,11 +151,12 @@ unfold sim_time in *; desc.
 eapply GMsim_helper with (e:=ThreadEvent.silent) (tid:=tid); eauto.
 
 econs; ins; eauto.
-econs; eauto.
-ins; eapply SIM_TVIEW.
-rewrite IdentMap.gsspec in TID0; desf; ins; simpl; eauto.
-by exfalso; auto.
-Qed.
+econs 2. econs; eauto.
+admit.
+(* ins; eapply SIM_TVIEW. *)
+(* rewrite IdentMap.gsspec in TID0; desf; ins; simpl; eauto. *)
+(* by exfalso; auto. *)
+Admitted.
 
 (******************************************************************************)
 (** * Lemmas about well-formedness of the new graph  *)
@@ -176,11 +180,11 @@ all: try by destruct SB; unfold sb_ext, seq, eqv_rel in *; desc; subst; eauto.
 - destruct SB; eauto. 
   unfold sb_ext, seq, eqv_rel, init_pair in *; desf; subst; eauto.
   left; splits; eauto; eapply thread_proper; eauto.
-- unfold sb_ext, union, seq, eqv_rel, init_pair in *; desf; subst; eauto.
+- unfold sb_ext, Relation_Operators.union, seq, eqv_rel, init_pair in *; desf; subst; eauto.
   unfold WfACTS in *; desc; eauto 10.
 - intros x A; red in A; desf; unfold sb_ext, seq, eqv_rel in *; desf; eauto.
 - intros x y z A B.
-  unfold sb_ext, union, seq, eqv_rel in *; desf; eauto.
+  unfold sb_ext, Relation_Operators.union, seq, eqv_rel in *; desf; eauto.
   by exfalso; apply FRESH; eauto.
   by exfalso; apply FRESH; eauto.
   right; eexists; splits; eauto.
@@ -192,7 +196,7 @@ all: try by destruct SB; unfold sb_ext, seq, eqv_rel in *; desc; subst; eauto.
   apply SB_TID in A; desf.
   eapply init_proper_thread; eauto.
   eapply proper_non_init; red in A; desc; eauto.
-- desf; unfold sb_ext, seq, eqv_rel, union; eauto 10.
+- desf; unfold sb_ext, seq, eqv_rel, Relation_Operators.union; eauto 10.
   exploit SB_TOT; eauto; ins; desf; eauto.
 Qed.
 
@@ -247,7 +251,7 @@ Lemma wf_new_sc acts sb rmw rf mo sc (WF: Wf acts sb rmw rf mo sc)
 Proof.
 cdes WF.
 unfold WfSC in *; desc; splits; ins; eauto.
-all: try unfold union, sc_ext in *; desf; eauto.
+all: try unfold Relation_Operators.union, sc_ext in *; desf; eauto.
 - intros x A; desf; eauto.
 - intros x y z A B; desf; eauto 10.
   exfalso; eapply FRESH; eauto.
@@ -276,16 +280,16 @@ Lemma exists_gstep_read acts sb rmw rf mo sc a
       rmw (rf +++ singl_rel b a) mo (sc +++ sc_ext acts a) a a.
 Proof.
 red; splits; eauto.
-by unfold sb_ext, union, eqv_rel, seq; eauto 8.
+by unfold sb_ext, Relation_Operators.union, eqv_rel, seq; eauto 8.
 by red; eauto.
-by unfold sc_ext, union; eauto.
-by red; unfold inclusion, union; splits; ins; eauto.
+by unfold sc_ext, Relation_Operators.union; eauto.
+by red; unfold inclusion, Relation_Operators.union; splits; ins; eauto.
 red; splits.
 - eby eapply wf_new_acts.
 - eby eapply wf_new_sb.
 - eby eapply wf_new_rmw.
 - cdes WF; unfold WfRF in *; desc; splits; ins.
-  all: try unfold union, singl_rel in *; desf; eauto.
+  all: try unfold Relation_Operators.union, singl_rel in *; desf; eauto.
   all: try by exfalso; apply FRESH; eauto.
   exploit RF_TOT; eauto; ins; desc; eauto.
 - eapply wf_new_mo; eauto 2 with acts.
@@ -305,15 +309,15 @@ intros Usb Usc; rewrite Usb, Usc.
 red; rewrite !unionA, (unionAC _ rf), 2!(unionAC _ sc), <- 2!unionA, unionC.
 assert (MAX: forall x y,
   (sb_ext acts a +++ (singl_rel b a +++ sc_ext acts a)) x y -> y = a).
-  by intros x y R; unfold sb_ext, singl_rel, sc_ext, seq, eqv_rel, union in R; desf.
+  by intros x y R; unfold sb_ext, singl_rel, sc_ext, seq, eqv_rel, Relation_Operators.union in R; desf.
 apply acyclic_decomp_u_1; try done.
 - ins; apply MAX in R; subst.
-  unfold union in R'; desf;
+  unfold Relation_Operators.union in R'; desf;
   eapply FRESH; [eapply sb_acta| eapply rf_acta| eapply sc_acta]; edone.
 - red; red; ins.
   eapply cycle_disj; cycle 1; try edone.
   ins; apply MAX in R; subst.
-  unfold sb_ext, singl_rel, sc_ext, seq, eqv_rel, union in R'; desf; auto.
+  unfold sb_ext, singl_rel, sc_ext, seq, eqv_rel, Relation_Operators.union in R'; desf; auto.
 Qed.
 
 Lemma new_G_read_coherent 
@@ -324,7 +328,7 @@ Lemma new_G_read_coherent
   (SIM_SC_MAP: forall l, max_value f_to (S_tm acts sb rmw rf l) (LocFun.find l sc_map))
   (SIM_MEM: sim_mem f_from f_to acts sb rmw rf sc memory)
   l v released o from b
-  (READABLE: TView.readable tview l (f_to b) released o)
+  (READABLE: TView.readable tview.(TView.cur) l (f_to b) released o)
   (INb: In b acts) (WRITEb: is_write b) (LOCb: loc b = Some l)
   (HELPERb: sim_mem_helper f_to acts sb rmw rf sc b from v (View.unwrap released))
   (LABEL: lab a = Aload l v o)
@@ -381,10 +385,10 @@ cdes COH; red; splits; eauto.
   apply HB in HB0; clear HB.
   destruct RF'; unfold singl_rel in *; desf; destruct HB0 as [?|HB0]; eauto 2.
   by apply FRESH; eapply rf_actb; try edone;
-    unfold union, sb_ext, seq, eqv_rel in *; desf; subst; eauto.
+    unfold Relation_Operators.union, sb_ext, seq, eqv_rel in *; desf; subst; eauto.
   eby apply FRESH; eapply hb_actb.
   destruct HB0 as [d A];
-  unfold union, sb_ext, eqv_rel, seq in *; desc.
+  unfold Relation_Operators.union, sb_ext, eqv_rel, seq in *; desc.
   assert (rwr acts sb rmw' rf sc l b0 d).
     by right; repeat (eexists; splits; eauto).
   destruct A0; desc; subst z z0.
@@ -402,7 +406,7 @@ cdes COH; red; splits; eauto.
     destruct HB1 as [?|HB1].
     eby apply FRESH; eapply hb_actb.
     destruct HB1 as [e A];
-    unfold union, sb_ext, eqv_rel, seq in *; desc.
+    unfold Relation_Operators.union, sb_ext, eqv_rel, seq in *; desc.
     assert (urr acts sb rmw' rf sc l b0 e).
       by clear A0; unfold urr, rfhbsc_opt, seq, eqv_rel, clos_refl in *; desf; eauto 25. 
     destruct A0; desc; subst z z0.
@@ -428,12 +432,12 @@ cdes COH; red; splits; eauto.
   destruct RF; unfold singl_rel in *; desc; subst; eauto 2.
   eby apply FRESH; eapply hb_actb.
   assert (f=a).
-   by unfold union, sb_ext, seq, eqv_rel, singl_rel in *; desf.
+   by unfold Relation_Operators.union, sb_ext, seq, eqv_rel, singl_rel in *; desf.
   subst f.
   destruct RF as [?|RF]; subst.
   by eapply FRESH, rf_actb; eauto.
   red in RF; desc; subst a0.
-  unfold union, sb_ext, seq, eqv_rel, singl_rel in *.
+  unfold Relation_Operators.union, sb_ext, seq, eqv_rel, singl_rel in *.
   assert (rfhbsc_opt acts sb rmw' rf l b0 d).
    by clear HB0; red; unfold seq, eqv_rel, clos_refl in *; desf; eauto 20.
   destruct HB0 as [z HB0].
@@ -477,7 +481,7 @@ cdes COH; red; splits; eauto.
   desc; apply HB in HB0; clear HB.
   destruct HB0 as [|HB0]; eauto 4.
   assert (a0=a); subst.
-    by unfold union, sb_ext, seq, eqv_rel, singl_rel in *; desf; eauto.
+    by unfold Relation_Operators.union, sb_ext, seq, eqv_rel, singl_rel in *; desf; eauto.
   eapply mo_doma in MO; try edone.
   by destruct a as [??[]]; ins.
 - eapply new_G_read_NoPromises; try edone.
@@ -517,6 +521,7 @@ eapply GMsim_helper with
   (tid:=tid)  
   (G':= new_G_read G a b); eauto.
 - by red; eauto.
+- econs 2. econs; eauto.
 - eapply read; eauto.
   unfold get_program_event; eauto.
   eapply new_G_read_coherent; eauto.
@@ -533,7 +538,6 @@ eapply GMsim_helper with
   * by rewrite THREAD_ID in *; eapply SIM_TVIEW; eauto.
   * rewrite IdentMap.gsspec in TID0; desf; ins.
     eby rewrite THREAD_ID in *.
-    eby exfalso.
 - ins; eapply max_value_same_set; try edone.
   by ins; rewrite gstep_S_tm_other; eauto with acts.
 - eapply memory_step_nonwrite; eauto.
@@ -560,7 +564,7 @@ Lemma wf_new_mo_write acts sb rmw rf mo sc (WF: Wf acts sb rmw rf mo sc)
   WfMO (a :: acts) (mo +++ new_mo acts f_to a to).
 Proof.
 cdes WF; cdes WF_MO.
-unfold new_mo, union.
+unfold new_mo, Relation_Operators.union.
 red; splits.
 - ins; desf; eauto_red using mo_acta.
 - ins; desf; eauto_red using mo_actb.
@@ -610,7 +614,7 @@ f_to a to (MON: monotone mo f_to)
   (NEQ: forall b, In b acts /\ is_write b /\ loc b = loc a -> f_to b <> to):
 monotone (mo +++ new_mo acts f_to a to) (upd f_to a to).
 Proof.
-unfold monotone, upd, union, new_mo in *; ins; desf.
+unfold monotone, upd, Relation_Operators.union, new_mo in *; ins; desf.
 eby exfalso; desf; cdes WF; eapply WF_MO.
 all: desf; eauto; try edone.
 eby exfalso; apply FRESH; eapply mo_acta.
@@ -634,10 +638,10 @@ Lemma exists_gstep_write acts sb rmw rf mo sc a
       rmw rf (mo +++ new_mo acts f_to a to) (sc +++ sc_ext acts a) a a.
 Proof.
 red; splits; eauto.
-by unfold sb_ext, union, eqv_rel, seq; eauto 8.
+by unfold sb_ext, Relation_Operators.union, eqv_rel, seq; eauto 8.
 by red; eauto.
-by unfold sc_ext, union; eauto.
-by red; unfold inclusion, union; splits; ins; eauto.
+by unfold sc_ext, Relation_Operators.union; eauto.
+by red; unfold inclusion, Relation_Operators.union; splits; ins; eauto.
 red; splits; try done.
 - eby eapply wf_new_acts.
 - eby eapply wf_new_sb.
@@ -658,15 +662,15 @@ intros Usb Usc; rewrite Usb, Usc.
 red; rewrite !unionA, (unionAC _ rf), (unionAC _ sc), <- 2!unionA, unionC.
 assert (MAX: forall x y,
   (sb_ext acts a +++ sc_ext acts a) x y -> y = a).
-  by intros x y R; unfold sb_ext, singl_rel, sc_ext, seq, eqv_rel, union in R; desf.
+  by intros x y R; unfold sb_ext, singl_rel, sc_ext, seq, eqv_rel, Relation_Operators.union in R; desf.
 apply acyclic_decomp_u_1; try done.
 - ins; apply MAX in R; subst.
-  unfold union in R'; desf;
+  unfold Relation_Operators.union in R'; desf;
   eapply FRESH; [eapply sb_acta| eapply rf_acta| eapply sc_acta]; edone.
 - red; red; ins.
   eapply cycle_disj; cycle 1; try edone.
   ins; apply MAX in R; subst.
-  unfold sb_ext, singl_rel, sc_ext, seq, eqv_rel, union in R'; desf; auto.
+  unfold sb_ext, singl_rel, sc_ext, seq, eqv_rel, Relation_Operators.union in R'; desf; auto.
 Qed.
 
 Lemma new_G_update_coherent 
@@ -679,7 +683,7 @@ Lemma new_G_update_coherent
   l v o to
   (NEW_TO: forall x, In x acts /\ is_write x /\ loc x = Some l /\ 
             Time.lt (f_from x) to /\ Time.le to (f_to x) -> False)
-  (WRITABLE: TView.writable tview sc_map l to o)
+  (WRITABLE: TView.writable tview.(TView.cur) sc_map l to o)
   (LABEL: lab a = Astore l v o)
   (FRESH: ~ In a acts)
   acts' sb' rmw' rf' mo' sc' 
@@ -755,7 +759,7 @@ red; splits; eauto.
   all: eby unfold sb_ext, seq, eqv_rel in *; desc; subst e z0; 
     eapply FRESH; eapply rf_actb.
 - red; ins.
-unfold union, new_mo, singl_rel, new_rmw in *; desf; eauto 2.
+unfold Relation_Operators.union, new_mo, singl_rel, new_rmw in *; desf; eauto 2.
 all: try eby eapply FRESH; eapply rf_acta.
 all: try eby eapply FRESH; eapply rmw_actb.
 all: try eby eapply FRESH; eapply mo_actb.
@@ -962,7 +966,7 @@ assert (sim_tview f_to (acts G) (sb G) (rmw G) (rf G) (sc G) (Local.tview lc1) (
   by rewrite THREAD_ID in *; eapply SIM_TVIEW; eauto.
 
 assert (NEW_RMW: rmw G +++ new_rmw a a <--> rmw G).
-unfold union, new_rmw.
+unfold Relation_Operators.union, new_rmw.
 split; unfold inclusion; ins; desf; eauto; try edone.
 
 exploit exists_gstep_write; eauto with acts.
@@ -976,6 +980,7 @@ eapply GMsim_helper with
     (f_from:=f_from) (f_from':=upd f_from a from)
     (G':= new_G_write G a a f_to to); eauto.
 * red; splits; eauto.
+* econs 2. econs; eauto.
 * eapply write; eauto.
   unfold get_program_event; eauto.
   eapply new_G_update_coherent with (a_r:=a); eauto.
@@ -1014,19 +1019,19 @@ Lemma exists_gstep_update acts sb rmw rf mo sc a_r a_w
 (sc_m +++ sc_ext acts_m a_w) a_r a_w.
 Proof.
 red; splits; eauto.
-by unfold sb_ext, union, eqv_rel, seq; eauto 8.
+by unfold sb_ext, Relation_Operators.union, eqv_rel, seq; eauto 8.
 by right; splits; eauto; intro; subst; destruct a_w as [??[]]; ins.
-by unfold sc_ext, union; eauto.
-by red; unfold inclusion, union; splits; ins; eauto.
+by unfold sc_ext, Relation_Operators.union; eauto.
+by red; unfold inclusion, Relation_Operators.union; splits; ins; eauto.
 cdes GSTEPr; desc; cdes WF'; cdes WF_RMW.
 red; splits; try done.
 - eby eapply wf_new_acts.
 - eby eapply wf_new_sb.
-- red; splits; try by unfold union, singl_rel; ins; desf; eauto.
-  * unfold union, singl_rel, sb_ext, eqv_rel, seq; ins; desf; eauto.
+- red; splits; try by unfold Relation_Operators.union, singl_rel; ins; desf; eauto.
+  * unfold Relation_Operators.union, singl_rel, sb_ext, eqv_rel, seq; ins; desf; eauto.
     right; exists a_r; splits; eauto.
     by left.
-  * unfold union; ins; desf.
+  * unfold Relation_Operators.union; ins; desf.
     + by left; eapply RMW_SBI; edone.
     + unfold singl_rel in *; desf.
        eby exfalso; apply FRESHw; eapply sb_actb.
@@ -1045,7 +1050,7 @@ red; splits; try done.
        eapply SB_INIT.
        red; splits; eauto.
        by left.
-  * unfold union, singl_rel, sb_ext, eqv_rel, seq; ins; desf; eauto; try by edone.
+  * unfold Relation_Operators.union, singl_rel, sb_ext, eqv_rel, seq; ins; desf; eauto; try by edone.
     eby exfalso; eapply max_elt_sb with (acts:=acts).
     right.
     exists b; splits; eauto.
@@ -1202,12 +1207,13 @@ eapply GMsim_helper with
     (f_from:=f_from) (f_from':=upd f_from a0 (f_to b))
     (G':= new_G_write (new_G_read G a b) a a0 f_to to_w); eauto.
 * red; splits; eauto.
+* econs 2. econs; eauto.
 * eapply update with (a_r:=a) (a_w:=a0) (G_mid:= new_G_read G a b) ; try done.
   admit.
   eapply new_G_update_coherent with (a_r:=a) (acts:= a:: acts G); try edone.
   eby ins; desc; eapply disjoint_to.
 
-unfold union, singl_rel; ins; desc.
+unfold Relation_Operators.union, singl_rel; ins; desc.
 destruct H15; try by  apply FRESH; eapply rf_actb; eauto.
 desc; subst.
 
@@ -1234,25 +1240,27 @@ red in SIMCELL4; desc.
 rewrite <- SIMCELL3; done.
 
 * ins; rewrite IdentMap.gsspec in TID0; desf; ins; try edone.
-  pattern to_w at 2; erewrite <- upds with (a:=a0) (b:=to_w). 
-  rewrite <- THREAD_ID0.
-  eapply tview_step_write; eauto.
+  + pattern to_w at 2; erewrite <- upds with (a:=a0) (b:=to_w). 
+    rewrite <- THREAD_ID0.
+    eapply tview_step_write; eauto.
+  + admit.
 * ins; pattern to_w at 2; erewrite <- upds with (b:=to_w).
   eapply sc_map_step_write with (acts:=a:: acts G); eauto.
-* eapply memory_step_update with (prev:=a); try edone.
-  by right.
-  eapply WF_OP_ST.
-  eby rewrite !upds; eapply MemoryFacts.MemoryFacts.write_time_lt.
-  erewrite NO_PROMISES in WRITE; try edone.
-  rewrite !upds; desf.
-  red in SIM_MEMr; desc.
-  specialize (SIM_MEMr l); desc.
-  specialize (SIMCELL0 (f_to b) (f_from b) v_r released_r GET); desc.
-  red in SIMCELL5; desc.
-  assert (b=b0); subst; try done.
-  eapply monotone_injective with (acts:= (a :: acts G)) (f:= f_to); try edone.
-  by right.
-  eby eapply COHr.
+* admit.
+  (* eapply memory_step_update with (prev:=a); try edone. *)
+  (* by right. *)
+  (* eapply WF_OP_ST. *)
+  (* eby rewrite !upds; eapply MemoryFacts.MemoryFacts.write_time_lt. *)
+  (* erewrite NO_PROMISES in WRITE; try edone. *)
+  (* rewrite !upds; desf. *)
+  (* red in SIM_MEMr; desc. *)
+  (* specialize (SIM_MEMr l); desc. *)
+  (* specialize (SIMCELL0 (f_to b) (f_from b) v_r released_r GET); desc. *)
+  (* red in SIMCELL5; desc. *)
+  (* assert (b=b0); subst; try done. *)
+  (* eapply monotone_injective with (acts:= (a :: acts G)) (f:= f_to); try edone. *)
+  (* by right. *)
+  (* eby eapply COHr. *)
 Admitted.
 
 (******************************************************************************)
@@ -1271,10 +1279,10 @@ Lemma exists_gstep_fence acts sb rmw rf mo sc a
       rmw rf mo (sc +++ sc_ext acts a) a a.
 Proof.
 red; splits; eauto.
-by unfold sb_ext, union, eqv_rel, seq; eauto 8.
+by unfold sb_ext, Relation_Operators.union, eqv_rel, seq; eauto 8.
 by red; eauto.
-by unfold sc_ext, union; eauto.
-by red; unfold inclusion, union; splits; ins; eauto.
+by unfold sc_ext, Relation_Operators.union; eauto.
+by red; unfold inclusion, Relation_Operators.union; splits; ins; eauto.
 red; splits; try done.
 - eby eapply wf_new_acts.
 - eby eapply wf_new_sb.
@@ -1368,7 +1376,8 @@ eapply GMsim_helper with
     (f_from:=f_from) (f_from':=f_from)
     (G':= new_G_fence G a); eauto.
 - red; splits; eauto.
--  eapply fence; eauto.
+- econs 2. econs; eauto.
+- eapply fence; eauto.
   unfold get_program_event; eauto.
   eapply new_G_fence_coherent; try edone.
 - ins.
@@ -1396,16 +1405,17 @@ Lemma small_step_sim :
   (OPSTEP: small_step false tid e op_st op_st'),
   exists ax_st', (step ax_st ax_st') /\ GMsim op_st' ax_st'.
 Proof.
-ins; destruct ax_st as [ts G].
-destruct OPSTEP; destruct STEP; ins.
-by destruct STEP; ins; desf.
-inv STEP.
-- eapply GMsim_silent; edone.
-- destruct op_st; eapply GMsim_read; edone.
-- destruct op_st; eapply GMsim_write; edone.
-- destruct op_st; eapply GMsim_update; edone.
-- destruct op_st; eapply GMsim_fence; edone.
-- admit.
+admit.
+(* ins; destruct ax_st as [ts G]. *)
+(* destruct OPSTEP; destruct STEP; ins. *)
+(* by destruct STEP; ins; desf. *)
+(* inv STEP. *)
+(* - eapply GMsim_silent; edone. *)
+(* - destruct op_st; eapply GMsim_read; edone. *)
+(* - destruct op_st; eapply GMsim_write; edone. *)
+(* - destruct op_st; eapply GMsim_update; edone. *)
+(* - destruct op_st; eapply GMsim_fence; edone. *)
+(* - admit. *)
 Admitted.
 
 (* lemma about machine step? *)

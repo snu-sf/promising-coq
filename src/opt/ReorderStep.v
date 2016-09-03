@@ -62,9 +62,13 @@ Proof.
       { apply Time.incr_spec. }
       { inv H. auto. }
       i. des. esplits. econs 4; eauto. econs. econs. apply surjective_pairing.
-    + hexploit progress_fence_step; eauto. i. des.
+    + hexploit progress_fence_step; eauto.
+      { i. rewrite PROMISES1. apply Memory.bot_nonsynch. }
+      i. des.
       esplits. econs 5; eauto. econs. econs.
-    + hexploit progress_fence_step; eauto. i. des.
+    + hexploit progress_fence_step; eauto.
+      { i. rewrite PROMISES1. apply Memory.bot_nonsynch. }
+      i. des.
       esplits. econs 6; eauto. econs. econs.
   - esplits. econs 1; eauto. econs.
   - esplits. econs 1; eauto. econs.
@@ -227,7 +231,7 @@ Proof.
   - econs; eauto.
     + etrans; eauto. unfold TView.write_released. s.
       condtac; econs. repeat (try condtac; aggrtac; try apply WF0).
-    + eapply TViewFacts.writable_mon; eauto; try refl.
+    + eapply TViewFacts.writable_mon; eauto; try refl. apply TVIEW_FUTURE.
   - econs; eauto.
     s. inv READABLE.
     econs; repeat (try condtac; aggrtac; try apply WF0; eauto; unfold TimeMap.singleton).
@@ -495,8 +499,9 @@ Proof.
   exploit fulfill_step_future; try exact STEP5; try exact WF3; eauto; try by viewtac. i. des.
   exploit reorder_fulfill_fulfill; try exact STEP5; try exact STEP3; eauto; try by viewtac. i. des.
   exploit promise_fulfill_write; eauto.
-  { i. exploit ORD; eauto. i. des.
-    splits; auto. erewrite fulfill_step_promises_diff; eauto.
+  { i. exploit ORD; eauto. i. des. splits; ss.
+    ii. unfold Memory.get in GET.
+    erewrite fulfill_step_promises_diff in GET; eauto.
   }
   i. des.
   esplits; eauto.
@@ -538,52 +543,6 @@ Proof.
   exploit sim_local_write; try exact STEP3; try exact LOCAL; try refl; eauto. i. des.
   exploit reorder_fulfill_write; try exact STEP4; try exact STEP_SRC; eauto. i. des.
   esplits; eauto.
-Qed.
-
-Lemma reorder_write_fence
-      loc1 from1 to1 val1 releasedm1 released1 ord1 kind1
-      lc0 sc0 mem0
-      lc1 sc1 mem1
-      lc2 sc2
-      (ORD1: Ordering.le ord1 Ordering.plain \/ Ordering.le Ordering.acqrel ord1)
-      (WF0: Local.wf lc0 mem0)
-      (SC0: Memory.closed_timemap sc0 mem0)
-      (MEM0: Memory.closed mem0)
-      (REL_WF: View.opt_wf releasedm1)
-      (REL_CLOSED: Memory.closed_opt_view releasedm1 mem0)
-      (STEP1: Local.write_step lc0 sc0 mem0 loc1 from1 to1 val1 releasedm1 released1 ord1 lc1 sc1 mem1 kind1)
-      (STEP2: Local.fence_step lc1 sc1 Ordering.relaxed Ordering.acqrel lc2 sc2):
-  exists released1 lc1' lc2' sc1',
-    <<STEP1: Local.fence_step lc0 sc0 Ordering.relaxed Ordering.acqrel lc1' sc1'>> /\
-    <<STEP2: Local.write_step lc1' sc1' mem0 loc1 from1 to1 val1 releasedm1 released1 ord1 lc2' sc2 mem1 kind1>> /\
-    <<LOCAL: sim_local lc2' lc2>>.
-Proof.
-  guardH ORD1.
-  exploit Local.write_step_future; eauto. i. des.
-  inv STEP1. inv STEP2.
-  unfold Local.tview at 1 3. unfold Local.promises.
-  assert (REL_EQ: TView.write_released (Local.tview lc0) sc0 loc1 to1 releasedm1 ord1 =
-                  TView.write_released
-                    (TView.write_fence_tview
-                       (TView.read_fence_tview (Local.tview lc0)
-                                               Ordering.relaxed) sc0 Ordering.acqrel)
-                    (TView.write_fence_sc
-                       (TView.read_fence_tview (Local.tview lc0)
-                                               Ordering.relaxed) sc0 Ordering.acqrel)
-                    loc1 to1 releasedm1 ord1).
-  { unfold TView.write_released. condtac; [|auto]. f_equal.
-    unfold TView.write_fence_tview, TView.write_fence_sc.
-    apply View.antisym; repeat (try condtac; aggrtac; try apply WF0).
-    - rewrite <- View.join_r. apply WF0.
-    - unguardH ORD1. des; [|congr]. destruct ord1; inv ORD1; inv COND.
-  }
-  esplits.
-  - econs; eauto.
-  - econs; eauto. ss. inv WRITABLE. econs; eauto.
-  - s. econs; ss.
-    + unfold TView.write_fence_sc, TView.write_fence_tview.
-      econs; repeat (try condtac; aggrtac; try apply WF0).
-    + apply SimPromises.sem_bot.
 Qed.
 
 Lemma reorder_update_read
@@ -763,7 +722,7 @@ Proof.
   { i. exploit ORD; eauto. i. des.
     splits; auto.
     erewrite Local.read_step_promises; [|eauto].
-    erewrite fulfill_step_promises_diff; eauto.
+    ii. unfold Memory.get in GET. erewrite fulfill_step_promises_diff in GET; eauto.
   }
   i. des.
   inv STEP1.
@@ -871,6 +830,7 @@ Lemma reorder_fence_promise
       lc1 sc1
       lc2 mem2
       kind
+      (ORDW1: Ordering.le ordw1 Ordering.relaxed)
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
       (STEP1: Local.fence_step lc0 sc0 ordr1 ordw1 lc1 sc1)
@@ -882,7 +842,7 @@ Proof.
   inv STEP1. inv STEP2. ss.
   esplits.
   - econs; eauto.
-  - econs; eauto.
+  - econs; eauto. s. i. destruct ordw1; inv ORDW1; inv H.
 Qed.
 
 Lemma reorder_fence_fulfill
@@ -929,7 +889,8 @@ Proof.
           eapply TViewFacts.read_fence_future; apply WF0.
         }
       * apply TViewFacts.write_fence_sc_incr.
-  - econs; eauto.
+  - econs; eauto. ss. ii. revert GET.
+    erewrite Memory.remove_o; eauto. condtac; ss. i. eapply RELEASE; eauto.
   - s. econs; s.
     + etrans; [|etrans].
       * apply TViewFacts.write_fence_tview_mon; [|refl|refl|].

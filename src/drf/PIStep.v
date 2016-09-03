@@ -17,7 +17,7 @@ Require Import Thread.
 Require Import Configuration.
 Require Import Progress.
 
-Require Import MemRel.
+Require Import MemoryRel.
 Require Import SmallStep.
 Require Import Fulfilled.
 Require Import ReorderPromise.
@@ -46,11 +46,11 @@ Inductive pi_step withprm: Ident.t -> ThreadEvent.t -> Configuration.t*Configura
 Hint Constructors pi_step.
 
 Definition pi_step_evt withprm tid cST1 cST2: Prop :=
-  step_union (pi_step withprm tid) cST1 cST2.
+  union (pi_step withprm tid) cST1 cST2.
 Hint Unfold pi_step_evt.
 
 Definition pi_step_all withprm cST1 cST2: Prop :=
-  step_union (pi_step_evt withprm) cST1 cST2.
+  union (pi_step_evt withprm) cST1 cST2.
 Hint Unfold pi_step_all.
 
 Inductive pi_step_except withprm (tid_except:Ident.t) cST1 cST2: Prop :=
@@ -122,7 +122,8 @@ Proof.
     assert (STEPS' :=STEPS).
 
     generalize STEPT. intro STEPT'.
-    destruct cS, cT. inv STEPT. inv STEP; inv STEP0; ss.
+    destruct cS, cT. inv STEPT. guardH PFREE.
+    inv STEP; inv STEP0; ss.
     { subst. inv LOCAL. econs; eauto.
       - apply IdentMap.eq_leibniz.
         ii. setoid_rewrite IdentMap.map_add.
@@ -215,7 +216,8 @@ Proof.
               rewrite IdentMap.gso; eauto.
             }
     }
-    { inv STEPS. inv STEP; inv STEP0; try done. econs; eauto; ss.
+    { inv STEPS.
+      inv STEP; inv STEP0; try done. econs; eauto; ss.
       - apply IdentMap.eq_leibniz. ii.
         setoid_rewrite IdentMap.Properties.F.map_o in TID0.
         rewrite TID in TID0. inv TID0. depdes H1.
@@ -238,7 +240,8 @@ Proof.
           rewrite TID in TID1. inv TID1. eauto. }
         econs; eauto. rewrite IdentMap.gso; eauto.
     }
-    { inv STEPS. inv STEP; inv STEP0; try done. econs; eauto; ss.
+    { inv STEPS.
+      inv STEP; inv STEP0; try done. econs; eauto; ss.
       - apply IdentMap.eq_leibniz. ii.
         setoid_rewrite IdentMap.Properties.F.map_o in TID0.
         rewrite TID in TID0. inv TID0. depdes H1.
@@ -266,7 +269,8 @@ Proof.
           - eauto. }
         econs; eauto. rewrite IdentMap.gso; eauto.
     }
-    { inv STEPS. inv STEP; inv STEP0; try done. econs; eauto; ss.
+    { inv STEPS.
+      inv STEP; inv STEP0; try done. econs; eauto; ss.
       - apply IdentMap.eq_leibniz. ii.
         setoid_rewrite IdentMap.Properties.F.map_o in TID0.
         rewrite TID in TID0. inv TID0. depdes H1.
@@ -322,7 +326,8 @@ Proof.
           hexploit writing_small_step_fulfilled_new; try exact STEPS'; ss; eauto.
           i. inv H. esplits; eauto.
     }
-    { inv STEPS. inv STEP; inv STEP0; try done. econs; eauto; ss.
+    { inv STEPS.
+      inv STEP; inv STEP0; try done. econs; eauto; ss.
       - apply IdentMap.eq_leibniz. ii.
         setoid_rewrite IdentMap.Properties.F.map_o in TID0.
         rewrite TID in TID0. inv TID0. depdes H1.
@@ -378,7 +383,8 @@ Proof.
           hexploit writing_small_step_fulfilled_new; try exact STEPS'; ss; eauto.
           i. inv H. esplits; eauto.
     }
-    { inv STEPS. inv STEP; inv STEP0; try done. econs; eauto; ss.
+    { inv STEPS.
+      inv STEP; inv STEP0; try done. econs; eauto; ss.
       - apply IdentMap.eq_leibniz. ii.
         setoid_rewrite IdentMap.Properties.F.map_o in TID0.
         rewrite TID in TID0. inv TID0. depdes H1.
@@ -409,7 +415,8 @@ Proof.
           - eauto. }
         econs; eauto. rewrite IdentMap.gso; eauto.
     }
-    { inv STEPS. inv STEP; inv STEP0; try done. econs; eauto; ss.
+    { inv STEPS.
+      inv STEP; inv STEP0; try done. econs; eauto; ss.
       - apply IdentMap.eq_leibniz. ii.
         setoid_rewrite IdentMap.Properties.F.map_o in TID0.
         rewrite TID in TID0. inv TID0. depdes H1.
@@ -582,7 +589,7 @@ Lemma small_step_is_promised
   Threads.is_promised x l t c2.(Configuration.threads).
 Proof.
   inv PROMISED. destruct msg.
-  inv STEP. ss.
+  inv STEP. guardH PFREE. ss.
   destruct (Ident.eq_dec x tid); cycle 1.
   { econs; eauto. rewrite IdentMap.gso; eauto. }
   subst. rewrite TID in TID0. inv TID0. apply inj_pair2 in H1. subst.
@@ -608,7 +615,8 @@ Proof.
   inv PSTEPS1. inv USTEP. revert STEPS. condtac; cycle 1.
   { i. destruct cST3. esplits; cycle 1.
     - econs 2; eauto. econs; eauto. econs. econs; eauto.
-      + inv STEPS. inv STEPT. econs; eauto.
+      + inv STEPS. destruct pf; ss. inv STEPT. clear PFREE0. econs; eauto.
+        destruct pf; eauto. inv STEP0; ss. inv STEP1; ss.
       + rewrite COND. ss.
     - ss.
     - omega.
@@ -623,15 +631,23 @@ Proof.
     - omega.
   }
   inversion A12. inv PI_STEP. inv USTEP.
-  assert (E0: ThreadEvent.is_promising e0 = None); [by inv STEPT0|].
   destruct p.
+  destruct (ThreadEvent.is_lower_none e) eqn: NOTLN.
+  { destruct cST3. esplits; eauto.
+     econs; eauto.
+     econs; try apply NEQ.
+     econs; econs; rewrite ?COND; eauto. 
+     inv STEPT. destruct pf; eauto.
+     inv STEP. inv STEP0. ss. by rewrite NOTLN in PF.
+  }
+
   exploit reorder_promise_small_step; try exact STEPT; eauto.
   { inv WF. auto. }
-  { rewrite E0 in *. ii.
-    hexploit pi_wf_small_step_is_reading; try exact WF2; eauto. i.
-    hexploit pi_wf_small_step_is_promising; eauto.
+  { ii. destruct (ThreadEvent.is_promising e0) eqn:E0; [by destruct e0|].
+    ii; hexploit pi_wf_small_step_is_reading; try exact WF2; eauto.
+    i. hexploit pi_wf_small_step_is_promising; eauto.
   }
-  { apply rtcn_rtc in A23.
+  { apply rtcn_rtc in A23. inv A12.
     exploit pi_step_except_small_step; eauto. i. destruct cST3. ss.
     exploit pi_step_future; try exact WF2; eauto. i. des. inv WF0.
     clear -CONSIS WFT x0.
@@ -640,37 +656,60 @@ Proof.
     { eapply small_step_future; eauto. }
     i. eapply promise_consistent_th_small_step; eauto.
   }
-  i. des. unguardH STEP2. des.
-  { destruct cST3. inv STEP2. esplits; cycle 1.
-    - econs 2; eauto. econs; eauto. econs. econs; eauto.
-      ii. eapply NOWR0; eauto.
-      eapply small_step_is_promised; eauto.
-    - ss.
-    - omega.
+  i. destruct cST3. subst. des.
+  { destruct (ThreadEvent.is_promising e0) eqn:E0; subst.
+    - exploit IH; try exact A23; eauto.
+      { econs; econs; eauto; ii; by destruct e2', e0. }
+      i. des. esplits; try exact STEPS; eauto.
+    - assert (EQ: e2' = e0). 
+      { by destruct e2', e0; inv EVENT. }
+      subst. esplits; [|econs; try exact A23|]; eauto.
+      econs; eauto. econs; econs.
+      + inv STEP. inv STEP0; [by inv STEP|by eauto]. 
+      + rewrite E0. eauto.
+      + eauto.
+      + ii. eapply NOWR0; eauto.
+        inv H. econs; eauto. rewrite <- TID0.
+        symmetry; eapply small_step_find; eauto.
   }
-  assert (STEP1': pi_step_evt false tid0 (cS2, cT1) (cS0, c1')).
-  { econs; eauto. econs; eauto.
-    - etrans; eauto. inv STEP0. s. rewrite IdentMap.Facts.add_o. condtac; ss.
-      subst. inv STEP; [|by inv STEP0; inv PROMISING]. inv STEP0. ss. inv PROMISING.
-      rewrite TID0. eauto.
-    - ii. eapply NOWR0; eauto.
-      eapply small_step_is_promised; eauto.
+  assert (STEP0': pi_step_except false tidex (cS2, cT1) (cS0,c1')).
+  { econs; eauto. econs; econs.
+    + eauto.
+    + by destruct e2', e0; ss; inv EVENT.
+    + rewrite LANGMATCH0. 
+      inv STEP2. inv STEP; [|by inv STEP0].
+      s. inv STEP0. destruct (Ident.eq_dec tid0 tid).
+      * subst. by rewrite IdentMap.gss, TID0.
+      * rewrite IdentMap.gso; eauto.
+    + ii. eapply NOWR0; eauto.
+      * by destruct e2'; inv WRITE; destruct e0; inv EVENT.
+      * eapply small_step_is_promised; eauto.
   }
   assert (STEP2': pi_step_evt true tid (cS0, c1') (cS0, cT3)).
   { econs. econs; eauto.
     - rewrite PROMISING. ss.
     - destruct (Ident.eq_dec tid0 tid); subst; ss.
-      rewrite E0 in *.
-      inv STEPS. s. rewrite IdentMap.gso; auto.
-      inv STEPT0. s. rewrite IdentMap.gso; auto.
-    - ii. destruct e1'; ss.
+      rewrite <-(small_step_find STEPT0); eauto.
+      rewrite <-LANGMATCH.
+      destruct (ThreadEvent.is_promising e0); subst; eauto.
+      rewrite (small_step_find STEPS); eauto.
+    - ii. by destruct e1'.
   }
+  assert (STEP1': pi_step_evt false tid0 (cS2, cT1) (cS0, c1')).
+  { econs. econs; eauto.
+    - by destruct e2', e0; inv EVENT.
+    - etrans; eauto. destruct (Ident.eq_dec tid tid0). 
+      + subst. inv STEP2. s. rewrite IdentMap.gss. 
+        inv STEP; [by inv STEP0; rewrite TID0|by inv STEP0; inv PROMISING].
+      + rewrite (small_step_find STEP2); eauto.
+    - ii. eapply NOWR0; eauto.
+      + by destruct e2'; inv WRITE; destruct e0; inv EVENT.
+      + eapply small_step_is_promised; eauto.
+  }
+
   exploit IH; try exact STEP2'; eauto.
   { eapply pi_step_future; eauto. }
-  i. des. esplits; cycle 1.
-  - econs; eauto.
-  - ss.
-  - omega.
+  i. des. esplits; [|econs; try exact STEPS0|]; eauto; omega.
 Qed.
 
 Lemma rtc_pi_step_remove_promises_aux

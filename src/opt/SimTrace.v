@@ -82,7 +82,7 @@ Proof.
   induction STEP.
   - econs 1.
   - econs 2; eauto. econs.
-    + econs 2. econs 1. ss.
+    + econs. econs 2. econs 1. ss.
     + ss.
 Qed.
 
@@ -103,7 +103,7 @@ Proof.
   - i. exploit TERMINAL; eauto. i. des.
     exploit rtc_lang_tau_step_rtc_thread_tau_step; eauto. i.
     esplits; eauto. econs. ss.
-  - i. exploit sim_local_future; (try by apply LOCAL); eauto. i. des.
+  - i. exploit SimPromises.future; (try by apply LOCAL); eauto. i. des.
     esplits; eauto.
     + etrans.
       * apply Memory.max_timemap_spec; eauto. viewtac.

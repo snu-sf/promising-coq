@@ -361,6 +361,7 @@ rewrite ACT_STEP in H; ins; desf; subst.
   subst.
   apply Memory.write_get2 in ADD; eauto using Memory.bot_le.
   intro; desf.
+  apply Memory.bot_finite.
   destruct CLOSED; done.
 - rewrite F; eauto.
   assert (N: Memory.get l0 (f b) mem <> None).
@@ -386,7 +387,7 @@ Lemma memory_step_write_rmw acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0
   exists m : Message.t, Memory.get l0 (f' c) mem' = Some (f' b, m).
 Proof.
   eapply gstep_rf_rmw with (rf:=rf) in RF_RMW; eauto.
-  unfold union in RF_RMW; unfold seq at 2 in RF_RMW; desf; try congruence.
+  unfold Relation_Operators.union in RF_RMW; unfold seq at 2 in RF_RMW; desf; try congruence.
   specialize (UPDATES b c RF_RMW LOC).
   desc.
   exists m.
@@ -424,6 +425,7 @@ destruct (classic (l=l0 /\ f' a = to /\ ffrom' a = from0)).
   by red in GSTEP; desc; rewrite ACT_STEP; vauto.
   by unfold loc; destruct (lab a); ins; desf.
   apply Memory.write_get2 in ADD; eauto using Memory.bot_le.
+  2: apply Memory.bot_finite.
   2: destruct CLOSED; done. 
 
 

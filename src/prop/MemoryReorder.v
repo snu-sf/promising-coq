@@ -323,7 +323,7 @@ Module MemoryReorder.
       + guardH o1. guardH o2. des. repeat subst. unguardH o0. des; congr.
   Qed.
 
-  Lemma split_lower
+  Lemma split_lower_diff
         mem0 loc1 ts11 ts12 ts13 val12 val13 released12 released13
         mem1 loc2 from2 to2 val2 released2 released2'
         mem2
@@ -367,6 +367,63 @@ Module MemoryReorder.
       repeat (condtac; ss).
       + des. repeat subst. congr.
       + guardH o1. des. repeat subst. congr.
+  Qed.
+
+  Lemma split_lower_same
+        loc
+        mem0 ts11 ts12 ts13 val12 val13 released12 released13
+        mem1 from2 val2 released2 released2'
+        mem2
+        (SPLIT1: Memory.split mem0 loc ts11 ts12 ts13 val12 val13 released12 released13 mem1)
+        (LOWER2: Memory.lower mem1 loc from2 ts13 val2 released2 released2' mem2):
+    from2 = ts12 /\ released13 = released2 /\
+    exists mem1',
+      <<LOWER1: Memory.lower mem0 loc ts11 ts13 val2 released2 released2' mem1'>> /\
+      <<SPLIT2: Memory.split mem1' loc ts11 ts12 ts13 val12 val13 released12 released2' mem2>>.
+  Proof.
+    exploit Memory.lower_get0; eauto. erewrite Memory.split_o; eauto. repeat condtac; ss; cycle 2.
+    { clear -o0. des; congr. }
+    { des. subst. inv SPLIT1. inv SPLIT. exfalso. eapply Time.lt_strorder. eauto. }
+    clear o a COND COND0. i. inv x0. splits; ss.
+    exploit Memory.split_get0; eauto. i. des.
+    exploit (@Memory.lower_exists mem0 loc ts11 ts13);
+      try by inv LOWER2; inv LOWER; eauto.
+    { inv SPLIT1. inv SPLIT. etrans; eauto. }
+    i. des.
+    exploit (@Memory.split_exists mem3 loc ts11 from2 ts13);
+      try by inv SPLIT1; inv SPLIT; eauto.
+    { erewrite Memory.lower_o; eauto. condtac; ss. des; congr. }
+    i. des.
+    cut (mem4 = mem2); [by i; subst; esplits; eauto|].
+    apply Memory.ext. i.
+    erewrite Memory.split_o; eauto. erewrite Memory.lower_o; eauto.
+    erewrite (@Memory.lower_o mem2); eauto. erewrite (@Memory.split_o mem1); eauto.
+    repeat (condtac; ss).
+    des. repeat subst. congr.
+  Qed.
+
+  Lemma split_lower
+        mem0 loc1 ts11 ts12 ts13 val12 val13 released12 released13
+        mem1 loc2 from2 to2 val2 released2 released2'
+        mem2
+        (SPLIT1: Memory.split mem0 loc1 ts11 ts12 ts13 val12 val13 released12 released13 mem1)
+        (LOWER2: Memory.lower mem1 loc2 from2 to2 val2 released2 released2' mem2):
+    (loc1 = loc2 /\ ts11 = from2 /\ ts12 = to2 /\ val12 = val2 /\ released12 = released2 /\
+     Memory.split mem0 loc1 ts11 ts12 ts13 val12 val13 released2' released13 mem2) \/
+    ((loc1, ts12) <> (loc2, to2) /\
+     exists from2' released13' mem1',
+        <<LOWER1: Memory.lower mem0 loc2 from2' to2 val2 released2 released2' mem1'>> /\
+        <<SPLIT2: Memory.split mem1' loc1 ts11 ts12 ts13 val12 val13 released12 released13' mem2>>).
+  Proof.
+    destruct (classic ((loc1, ts13) = (loc2, to2))).
+    { inv H. exploit split_lower_same; eauto. i. des. subst.
+      right. esplits; eauto. ii. inv H.
+      inv SPLIT1. inv SPLIT. exfalso. eapply Time.lt_strorder. eauto.
+    }
+    { exploit split_lower_diff; eauto. i. des.
+      - left. ss.
+      - right. splits; ss. esplits; eauto.
+    }
   Qed.
 
   Lemma split_remove
