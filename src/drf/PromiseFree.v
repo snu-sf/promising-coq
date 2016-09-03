@@ -388,8 +388,17 @@ Proof.
   inv STEP; inv STEP0.
 
   (* Promise step *)
-  (* { by inv PFREE. } *)
-  { admit. }
+  { destruct kind, released; inv PF.
+    esplits; [eapply with_pre_trans; [by apply STEPS4|]|].
+    { econs 2; [econs 1|]. econs.
+      - econs; eauto. econs; eauto. econs; eauto.
+      - s. eauto.
+      - s. rewrite !IdentMap.gss. ss. 
+        inv WF4. by rewrite THS; setoid_rewrite IdentMap.Properties.F.map_o; rewrite THS4.
+      - i. done.
+    }
+    eauto.
+  }
 
   (* Silent step *)
   { esplits; [eapply with_pre_trans; [by apply STEPS4|]|].
@@ -608,7 +617,7 @@ Proof.
     }
     eauto.
   }
-Admitted.
+Qed.
 
 Lemma key_lemma
       cS1 cT1 cS2 cT2 tid
@@ -797,10 +806,6 @@ Proof.
     s. rewrite IdentMap.gss. eauto. }
 
   (* Simulation exists *)  
-  assert (NOPRMEVT: ThreadEvent.is_promising eS = None).
-  (* { destruct e0; inv PFREE; inv EVT; eauto. } *)
-  { admit. }
-
   subst. destruct thS2 as [stx lcx scx mx]. ss. subst.
 
   exploit pi_steps_small_steps_snd; try apply STEPS3.
@@ -875,7 +880,7 @@ Proof.
   eapply key_lemma_core; eauto.
   { s. rewrite IdentMap.gss. eauto. }
   { s. rewrite IdentMap.gss. eauto. }
-Admitted.
+Qed.
 
 Theorem pi_consistent_pi_step_pi_consistent
       cST1 cST2 tid
