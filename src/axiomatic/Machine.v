@@ -36,9 +36,6 @@ Record execution :=
     mo : event -> event -> Prop ; 
     sc : event -> event -> Prop }.
 
-(* Definition Coherent_exec G :=
-  Coherent (acts G) (sb G) (rmw G) (rf G) (mo G) (sc G).
- *)
 Record configuration := 
   { ts : IdentMap.t {lang:Language.t & lang.(Language.state)};
     exec : execution }.
@@ -91,6 +88,21 @@ Inductive step mc mc' : Prop :=
     (STATE: lang.(Language.step) e st st')
     (MTS: ts mc' = IdentMap.add i (existT _ lang st') (ts mc))
     (MSTEP: mstep (exec mc) (exec mc') e (Some i)).
+
+Inductive initial_exec G : Prop :=
+| init_exec_intro
+    (ACTS: forall a, is_init a <-> In a (acts G))
+    (SB: forall a b, ~ (sb G) a b)
+    (RMW: forall a b, ~ (rmw G) a b)
+    (RF: forall a b, ~ (rf G) a b)
+    (MO: forall a b, ~ (mo G) a b)
+    (SC: forall a b, ~ (sc G) a b).
+
+Inductive initial (c:configuration) (s:Threads.syntax) : Prop :=
+| init_intro
+  (STATES: (ts c) = IdentMap.map
+      (fun s0 => existT _ _ (s0.(projT1).(Language.init) s0.(projT2))) s)
+  (EXEC: initial_exec (exec c)).
 
 End Operational.
 

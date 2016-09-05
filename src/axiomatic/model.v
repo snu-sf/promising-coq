@@ -574,9 +574,9 @@ End WellFormedResults.
 (** ** Coherence *)
 (******************************************************************************)
 
-Definition BasicRMW :=
+(* Definition BasicRMW :=
   forall a b (MO: a=b \/ mo a b) c (RF: rf b c) (RMW: rmw c a), False.
-
+ *)
 (*Definition CoherentRW1 :=
   forall a b (RF: rf a b) (HB: hb b a), False.*)
 
@@ -617,7 +617,7 @@ Definition NoPromises :=
 
 Definition Coherent :=
   << WF : Wf >> /\
-  << Crmw : BasicRMW >> /\
+(*   << Crmw : BasicRMW >> /\ *)
 (*  << Crw1 : CoherentRW1 >> /\*)
   << Crw2 : CoherentRW2 >> /\
   << Cww : CoherentWW >> /\
@@ -764,6 +764,17 @@ apply wf_sc_tot; eauto.
 eby intro; subst; eapply MO_IRR.
 Qed.
 
+Lemma BasicRMW : forall a b (MO: a=b \/ mo a b) c (RF: rf b c) (RMW: rmw c a), False.
+Proof.
+ins.
+cdes COH; cdes WF; cdes WF_RMW.
+destruct MO.
+- subst.
+  eapply Cnp with (x:=b).
+  by eapply t_trans; eapply t_step; unfold union; eauto.
+- by eapply Crw2; try edone; eapply sb_in_hb; eauto.
+Qed.
+
 Lemma rf_rmw_mo : inclusion (rf ;; rmw) mo.
 Proof.
 intros a b A; cdes COH.
@@ -774,7 +785,7 @@ specialize (RF_DOMa a z A).
 specialize (RF_LOC a z A).
 specialize (RMW_DOMb z b A0).
 specialize (RMW_LOC z b A0).
-desf; eapply wf_mo_tot; eauto.
+desf; eapply wf_mo_tot; eauto using BasicRMW.
 Qed.
 
 Lemma useq_mo : inclusion useq mo.
@@ -1451,12 +1462,12 @@ Proof.
   rewrite H, H0, H1, H2, H3; reflexivity.
 Qed.
 
-Add Parametric Morphism : (BasicRMW) with signature 
+(* Add Parametric Morphism : (BasicRMW) with signature 
   same_relation ==> same_relation ==> same_relation ==> iff as BasicRMW_more.
 Proof.
   intros; unfold BasicRMW; unnw; red in H,H0,H1; intuition; eapply H1; eauto.
 Qed.
-
+ *)
 Add Parametric Morphism : (CoherentRW2) with signature 
   eq ==> same_relation ==> same_relation ==> same_relation ==> same_relation ==> iff as CoherentRW2_more.
 Proof.
@@ -1506,30 +1517,21 @@ Qed.
 Add Parametric Morphism : (CoherentSC) with signature 
   eq ==> same_relation ==> same_relation ==> same_relation ==> same_relation ==> same_relation ==> iff as CoherentSC_more.
 Proof.
-  intros; unfold CoherentSC, same_relation, clos_refl in *; split; ins; desc. 
-Admitted.
-(* 
-    apply (H4 a b d e f); eauto.
-    by clear HBF FHB RF'; desf; eauto.
-    by clear RF FHB RF'; desf; eauto;
-    right; splits; eauto; eapply hb_more; try eassumption; try edone.
-    by clear RF HBF RF'; desf; eauto;
-    right; splits; eauto; eapply hb_more; try eassumption; try edone.
-    by clear RF HBF FHB; desf; eauto.
-  apply (H4 a b c d e f); eauto. 
-    by clear HBF FHB RF'; desf; eauto.
-    by clear RF FHB RF'; desf; eauto;
-    right; splits; eauto; eapply hb_more; try eassumption; try edone.
-    by clear RF HBF RF'; desf; eauto;
-    right; splits; eauto; eapply hb_more; try eassumption; try edone.
-    by clear RF HBF FHB; desf; eauto.
+  intros; unfold CoherentSC, same_relation, clos_refl, inclusion in *; split; ins; desc.
+  all: apply H4 with (a:=a) (b:=b) (d:=d) (e:=e); desf; eauto.
+  all: try by right; exists c; splits; eauto; eapply hb_more; try eassumption; try edone.
+  all: try by right; splits; eauto; eapply hb_more; try eassumption; try edone.
 Qed.
- *)
 
 Add Parametric Morphism : (CoherentSCR) with signature 
   eq ==> same_relation ==> same_relation ==> same_relation ==> same_relation ==> same_relation ==> iff as CoherentSCR_more.
 Proof.
-Admitted.
+  intros; unfold CoherentSCR, same_relation, clos_refl, inclusion in *; split; ins; desc.
+  all: apply H4 with (a:=a) (b:=b) (d:=d) (e:=e) (f:=f); desf; eauto.
+  all: try by right; exists c; splits; eauto; eapply hb_more; try eassumption; try edone.
+  all: eapply hb_more; try eassumption; try edone.
+Qed.
+
 Add Parametric Morphism : (NoPromises) with signature 
   same_relation ==> same_relation ==> same_relation ==> iff as NoPromises_more.
 Proof.

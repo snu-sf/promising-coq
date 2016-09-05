@@ -34,17 +34,6 @@ Require Import Setoid Permutation.
 
 Hint Resolve gstep_wf gstep_inc coh_wf.
 
-Definition GMsim op_st ax_st :=
-  << COH: Coherent (acts (exec ax_st)) (sb (exec ax_st)) (rmw (exec ax_st)) 
-    (rf (exec ax_st)) (mo (exec ax_st)) (sc (exec ax_st)) >> /\
-  << WF_OP_ST: Configuration.wf op_st >> /\
-  << NO_PROMISES: forall i foo local 
-        (TID: IdentMap.find i (Configuration.threads op_st) = Some (foo, local)),
-         local.(Local.promises) = Memory.bot>> /\
-  << STATES: (ts ax_st) = IdentMap.map fst (Configuration.threads op_st) >>/\
-  << TIME: exists f_from f_to, sim_time (Configuration.threads op_st)
-     (Configuration.sc op_st) (Configuration.memory op_st) (exec ax_st) f_from f_to >>.
-
 Definition get_program_event (e:ThreadEvent.t) : option ProgramEvent.t :=
   match e with
   |ThreadEvent.read loc _ val _ ord => Some (ProgramEvent.read loc val ord)
@@ -63,10 +52,10 @@ Lemma GMsim_helper tss G ths sc_map mem
          local.(Local.promises) = Memory.bot)
   (STATES: tss = IdentMap.map fst ths)
   f_from f_to (TIME: sim_time ths sc_map mem G f_from f_to)
-  tid pf e lang st lc st' lc' ths' sc_map' mem' 
+  tid e lang st lc st' lc' ths' sc_map' mem' 
   (THS2: ths' = IdentMap.add tid (existT Language.state lang st', lc') ths) 
   (TID: IdentMap.find tid ths = Some (existT Language.state lang st, lc))
-  (STEP: Thread.step pf e (Thread.mk lang st lc sc_map mem) 
+  pf (STEP: Thread.step pf e (Thread.mk lang st lc sc_map mem) 
     (Thread.mk lang st' lc' sc_map' mem'))
   (PFREE: ThreadEvent.is_promising e = None)
   G' (MSTEP: mstep G G' (get_program_event e) (Some tid))
@@ -85,36 +74,37 @@ Lemma GMsim_helper tss G ths sc_map mem
 Proof.
 unfold GMsim in *; desc.
 rewrite THS2.
-destruct STEP; try by destruct STEP; ins.
-eexists  {| ts:=  IdentMap.add tid (existT _ _ st') tss; exec:= G' |}; splits.
-- admit.
-  (* inv STEP.  *)
-  (* all: econstructor; ins; try edone. *)
-  (* all: try rewrite STATES. *)
-  (* all: rewrite IdentMap.Facts.map_o; unfold option_map; ins; desf; eauto. *)
+inv STEP.
+by destruct STEP0; ins.
+eexists  {| ts:=  IdentMap.add tid (existT _ _ st') (IdentMap.map fst ths); exec:= G' |}; splits.
+-  inv STEP0.
+   all: econstructor; ins; try edone. 
+  all: try rewrite STATES. 
+   all: rewrite IdentMap.Facts.map_o; unfold option_map; ins; desf; eauto. 
 - by destruct MSTEP; subst; eauto.
-- admit.
-  (* eapply Configuration.step_future; eauto using no_promises_consistent. *)
-  (* econs; eauto. *)
-  (* eexists; splits; try econs. *)
-  (* by eapply Progress.program_step_promise; eauto. *)
-- admit.
-  (* intro; simpl; rewrite IdentMap.gsspec; ins; desf; simpl. *)
-  (* by eapply Progress.program_step_promise; eauto. *)
-  (* by eapply NO_PROMISES; eauto. *)
-- ins; rewrite IdentMap.map_add; simpl; by rewrite STATES.
+- eapply Configuration.step_future.
+  all: try by eauto using no_promises_consistent.
+  econs; eauto.
+  by eapply Thread.step_program; eauto.
+  econs; splits.
+  by econs.
+  by eapply Progress.program_step_promise; eauto. 
+- intro; simpl; rewrite IdentMap.gsspec; ins; desf; simpl. 
+  by eapply Progress.program_step_promise; eauto. 
+  by eapply NO_PROMISES; eauto. 
+- by ins; rewrite IdentMap.map_add; simpl.
 - unfold sim_time in *; ins; desc.
   eexists f_from',f_to'; splits; eauto; ins.
   rewrite IdentMap.gsspec in TID0; desf; ins; simpl.
   eapply SIM_TVIEW; eauto using UsualFMapPositive.UsualPositiveMap'.gss.
   apply SIM_TVIEW0 in TID0.
-  inv STEP; inv MSTEP; try by unfold get_program_event in *; ins; desf.
+  inv STEP0; inv MSTEP; try by unfold get_program_event in *; ins; desf.
   by eapply sim_tview_other_threads_silent; eauto.
   all: eapply sim_tview_other_threads; eauto 2.
   all: try eapply sim_tview_other_threads; eauto 2.
   all: try intro; subst; eauto.
   all: congruence.
-Admitted.
+Qed.
 
 Require Import Omega.
 
@@ -149,14 +139,12 @@ destruct op_st; ins.
 unfold GMsim in *; desc; ins.
 unfold sim_time in *; desc.
 eapply GMsim_helper with (e:=ThreadEvent.silent) (tid:=tid); eauto.
-
-econs; ins; eauto.
-econs 2. econs; eauto.
-admit.
-(* ins; eapply SIM_TVIEW. *)
-(* rewrite IdentMap.gsspec in TID0; desf; ins; simpl; eauto. *)
-(* by exfalso; auto. *)
-Admitted.
+by econs; ins; eauto.
+by econs 2; econs; eauto.
+by ins; econs; eauto.
+by ins; eapply SIM_TVIEW; 
+  rewrite IdentMap.gsspec in TID0; desf; ins; simpl; eauto. 
+Qed.
 
 (******************************************************************************)
 (** * Lemmas about well-formedness of the new graph  *)
@@ -364,9 +352,6 @@ specialize (CUR_RW l).
 specialize (CUR_SC l).
 
 cdes COH; red; splits; eauto.
-- red; ins; destruct RF as [RF1|RF2].
-  by eapply Crmw; eauto.
-  by red in RF2; desc; desf; eapply rmw_acta in RMW; eauto.
 - red; ins; eapply gstep_hb_a in HB0; try edone.
   destruct RF; unfold singl_rel in *; desf; eauto 2.
   eby apply FRESH; eapply hb_acta.
@@ -709,7 +694,6 @@ specialize (CUR_UR l); specialize (CUR_RW l); specialize (CUR_SC l).
 clear SC1. (* this assumption is redundant *)
 cdes COH.
 red; splits; eauto.
-- admit. (* follows from other conditions?!*)
 - red; ins; destruct MO as [MO1|MO2].
   eapply gstep_hb_a in HB0; eauto 2.
   eby intro; subst; eapply FRESH; eapply mo_acta.
@@ -862,7 +846,7 @@ all: try by eapply UPDATE; splits; eauto 2.
       left; unfold c_cur, rwr, urr, rfhbsc_opt, clos_refl, eqv_rel, seq in *; desf; eauto 30.
       splits; try eexists; eauto.
 - eby eapply new_G_non_read_NoPromises.
-Admitted.
+Qed.
 
 Lemma fresh_to acts sb rmw rf sc tid lang st1 lc1 threads mem f_from f_to
   (NO_PROMISES : forall i foo local, IdentMap.find i threads = Some (foo, local) ->
@@ -1240,27 +1224,25 @@ red in SIMCELL4; desc.
 rewrite <- SIMCELL3; done.
 
 * ins; rewrite IdentMap.gsspec in TID0; desf; ins; try edone.
-  + pattern to_w at 2; erewrite <- upds with (a:=a0) (b:=to_w). 
-    rewrite <- THREAD_ID0.
-    eapply tview_step_write; eauto.
-  + admit.
+  all: pattern to_w at 2; erewrite <- upds with (a:=a0) (b:=to_w). 
+  all: rewrite <- THREAD_ID0.
+  all: eapply tview_step_write; eauto.
 * ins; pattern to_w at 2; erewrite <- upds with (b:=to_w).
   eapply sc_map_step_write with (acts:=a:: acts G); eauto.
-* admit.
-  (* eapply memory_step_update with (prev:=a); try edone. *)
-  (* by right. *)
-  (* eapply WF_OP_ST. *)
-  (* eby rewrite !upds; eapply MemoryFacts.MemoryFacts.write_time_lt. *)
-  (* erewrite NO_PROMISES in WRITE; try edone. *)
-  (* rewrite !upds; desf. *)
-  (* red in SIM_MEMr; desc. *)
-  (* specialize (SIM_MEMr l); desc. *)
-  (* specialize (SIMCELL0 (f_to b) (f_from b) v_r released_r GET); desc. *)
-  (* red in SIMCELL5; desc. *)
-  (* assert (b=b0); subst; try done. *)
-  (* eapply monotone_injective with (acts:= (a :: acts G)) (f:= f_to); try edone. *)
-  (* by right. *)
-  (* eby eapply COHr. *)
+* eapply memory_step_update with (prev:=a); try edone. 
+  by right.
+  by eapply WF_OP_ST. 
+  eby rewrite !upds; eapply MemoryFacts.MemoryFacts.write_time_lt. 
+  erewrite NO_PROMISES in WRITE; try edone. 
+  rewrite !upds; desf.
+  red in SIM_MEMr; desc.
+  specialize (SIM_MEMr l); desc.
+  specialize (SIMCELL0 (f_to b) (f_from b) v_r released_r GET); desc.
+  red in SIMCELL5; desc.
+  assert (b=b0); subst; try done.
+  eapply monotone_injective with (acts:= (a :: acts G)) (f:= f_to); try edone.
+  by right.
+  eby eapply COHr.
 Admitted.
 
 (******************************************************************************)
@@ -1405,17 +1387,27 @@ Lemma small_step_sim :
   (OPSTEP: small_step false tid e op_st op_st'),
   exists ax_st', (step ax_st ax_st') /\ GMsim op_st' ax_st'.
 Proof.
-admit.
-(* ins; destruct ax_st as [ts G]. *)
-(* destruct OPSTEP; destruct STEP; ins. *)
-(* by destruct STEP; ins; desf. *)
-(* inv STEP. *)
-(* - eapply GMsim_silent; edone. *)
-(* - destruct op_st; eapply GMsim_read; edone. *)
-(* - destruct op_st; eapply GMsim_write; edone. *)
-(* - destruct op_st; eapply GMsim_update; edone. *)
-(* - destruct op_st; eapply GMsim_fence; edone. *)
-(* - admit. *)
+ins; destruct ax_st as [ts G].
+inv OPSTEP; ins.
+inv STEP.
+- inv STEP0.
+  apply promise_pf_inv in PFREE; desc; subst.
+  red in SIM; desc.
+  inv LOCAL.
+  apply NO_PROMISES in TID.
+  rewrite TID in *.
+  inv PROMISE.
+  inv PROMISES.
+  inv LOWER.
+  rewrite UsualFMapPositive.UsualPositiveMap'.gempty in GET2.
+  ins.
+- inv STEP0.
+  * eapply GMsim_silent; edone.
+  * destruct op_st; eapply GMsim_read; edone.
+  * destruct op_st; eapply GMsim_write; edone.
+  * destruct op_st; eapply GMsim_update; edone.
+  * destruct op_st; eapply GMsim_fence; edone.
+  * admit. (** SYSTEM_CALL **)
 Admitted.
 
 (* lemma about machine step? *)

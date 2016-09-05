@@ -538,16 +538,9 @@ Proof.
     eapply seq_mori; eauto using rf_mon, rmw_mon.
 Qed.
 
-Lemma find_mapD A B tid (f: A -> B) x y :
-  IdentMap.find tid (IdentMap.map f x) = Some y ->
-  exists z, IdentMap.find tid x = Some z /\ y = f z.
-Proof.
-  rewrite IdentMap.Facts.map_o; unfold option_map; ins; desf; eauto.
-Qed.
-
 Lemma ax_op_sim :
-  forall op_st ax_st (SIM: sim op_st ax_st) ax_st' (AXSTEP: step ax_st ax_st'),
-  exists e tid op_st', Configuration.step e tid op_st op_st' /\ sim op_st' ax_st'.
+  forall op_st ax_st (SIM: MGsim op_st ax_st) ax_st' (AXSTEP: step ax_st ax_st'),
+  exists e tid op_st', Configuration.step e tid op_st op_st' /\ MGsim op_st' ax_st'.
 Proof.
   ins; red in SIM; desc.
   destruct AXSTEP.

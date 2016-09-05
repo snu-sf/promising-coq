@@ -35,6 +35,13 @@ Tactic Notation "eauto_red" integer(n) "using" constr(lemma) :=
 Tactic Notation "eauto_red" "using" constr(lemma) :=
   let H := fresh in assert (H := lemma); red in H; eauto.
 
+Lemma find_mapD A B tid (f: A -> B) x y :
+  IdentMap.find tid (IdentMap.map f x) = Some y ->
+  exists z, IdentMap.find tid x = Some z /\ y = f z.
+Proof.
+  rewrite IdentMap.Facts.map_o; unfold option_map; ins; desf; eauto.
+Qed.
+
 Lemma no_promises_consistent op_st 
   (NO_PROMISES: forall i foo local 
     (TID: IdentMap.find i (Configuration.threads op_st) = Some (foo, local)),
@@ -44,7 +51,6 @@ Proof.
 eexists; splits; try econs.
 eby eapply NO_PROMISES.
 Qed.
-
 
 Section Monotone.
 
@@ -515,7 +521,7 @@ Definition sim_time (ths: Configuration.Threads.t) sc_map mem G f_from f_to :=
   << SIM_MEM: sim_mem f_from f_to (acts G) (sb G) (rmw G) (rf G) (sc G) mem >>.
 
 
-Definition sim (op_st: Configuration.t) (ax_st: Machine.configuration) :=
+Definition MGsim (op_st: Configuration.t) (ax_st: Machine.configuration) :=
   << COH: Coherent (acts (exec ax_st)) (sb (exec ax_st)) (rmw (exec ax_st)) 
     (rf (exec ax_st)) (mo (exec ax_st)) (sc (exec ax_st)) >> /\
   << WF_OP_ST: Configuration.wf op_st >> /\
@@ -531,6 +537,17 @@ Definition sim (op_st: Configuration.t) (ax_st: Machine.configuration) :=
     << BSPACE : forall y (INy: In y (acts (exec ax_st))) (W: is_write y)
                        (NRMW: ~ exists x, (rf (exec ax_st) ;; rmw (exec ax_st)) x y),
                  Time.bot <> f_from y >>.
+
+Definition GMsim op_st ax_st :=
+  << COH: Coherent (acts (exec ax_st)) (sb (exec ax_st)) (rmw (exec ax_st)) 
+    (rf (exec ax_st)) (mo (exec ax_st)) (sc (exec ax_st)) >> /\
+  << WF_OP_ST: Configuration.wf op_st >> /\
+  << NO_PROMISES: forall i foo local 
+        (TID: IdentMap.find i (Configuration.threads op_st) = Some (foo, local)),
+         local.(Local.promises) = Memory.bot>> /\
+  << STATES: (ts ax_st) = IdentMap.map fst (Configuration.threads op_st) >>/\
+  << TIME: exists f_from f_to, sim_time (Configuration.threads op_st)
+     (Configuration.sc op_st) (Configuration.memory op_st) (exec ax_st) f_from f_to >>.
 
 Lemma sim_mem_get :
   forall ffrom fto acts sb rmw rf mo sc mem 
