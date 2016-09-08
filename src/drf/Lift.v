@@ -634,6 +634,41 @@ Proof.
   - apply EQMEM in IN. des. esplits; eauto. apply lift_view_le_incr'; ss.
 Qed.
 
+Lemma memory_lower_None_mem_eqrel
+      m1 m2 m1' m2' released1 released2
+      l t msgs
+      loc from to val
+      (EQMEM: mem_eqrel (lift_view_le l t msgs) m1 m2)
+      (OP1: Memory.lower m1 loc from to val released1 None m1')
+      (OP2: Memory.lower m2 loc from to val released2 None m2'):
+  mem_eqrel (lift_view_le l t msgs) m1' m2'.
+Proof.
+  econs; esplits; ii; revert IN;
+      (repeat
+         match goal with
+         | [X: Memory.add _ _ _ _ _ _ ?m |- context[Memory.get _ _ ?m]] =>
+           erewrite (@Memory.add_o m); [|eexact X]
+         | [X: Memory.split _ _ _ _ _ _ _ _ _ ?m |- context[Memory.get _ _ ?m]] =>
+           erewrite (@Memory.split_o m); [|eexact X]
+         | [X: Memory.lower _ _ _ _ _ _ _ ?m |- context[Memory.get _ _ ?m]] =>
+           erewrite (@Memory.lower_o m); [|eexact X]
+         end);
+      repeat
+        (match goal with
+         | [|- context[if ?c then _ else Memory.get _ _ _]] =>
+           let COND := fresh "COND" in
+           destruct c eqn:COND
+         | [X: _ \/ _ |- _] => guardH X
+         end);
+      ss; i; des;
+        repeat (match goal with
+                | [H: Some _ = Some _ |- _] => inv H
+                end);
+        (try by esplits; eauto; apply lift_view_le_imm).
+  - apply EQMEM in IN. des. esplits; eauto.
+  - apply EQMEM in IN. des. esplits; eauto.
+Qed.
+
 Lemma msg_add_inv
       loc to l e msgs
       (IN: List.In (loc, to) (msg_add l e msgs)):
@@ -700,7 +735,7 @@ Proof.
         inv STEP; [|by inv STEP0]. inv STEP0.
         symmetry in PF. apply promise_pf_inv in PF. des. subst. des.
         inv LOCAL. inv PROMISE. ss.
-        admit. (* mem_eqrel prserved by lower to None *)
+        eapply memory_lower_None_mem_eqrel; eauto.
     }
     des.
     exploit small_step_false_writing;
@@ -750,7 +785,7 @@ Proof.
       des. subst.
       inv WF. inv PI_STEP0. exploit writing_small_step_fulfilled_new; eauto. i.
       esplits; eauto. eapply writing_small_step_not_bot; eauto.
-Admitted.
+Qed.
 
 Lemma rtc_pi_step_lift_except_future
       l t tid cS1 cT1 cSTM2 lst1 lc1
@@ -847,7 +882,7 @@ Proof.
     + i. des. inv GET.
       exploit Memory.lower_get0; eauto. i. apply MEMEQ in x0. des.
       right. esplits; eauto; ss.
-      * admit. (* ? *)
+      * admit. (* TODO: lift: promise; step: read. *)
       * refl.
     + guardH o. i. apply MEMEQ in GET. des.
     right. esplits; eauto; ss. refl.
@@ -894,8 +929,10 @@ Proof.
   destruct (ThreadEvent.is_writing e) as [[[[[[]]]]]|] eqn:X; cycle 1.
   { i. destruct e; try by subst; esplits; eauto.
     destruct released0; try by subst; esplits; eauto.
-    destruct kind; try by subst; esplits; eauto.
-    des. ss. admit.
+    destruct kind; try by subst; esplits; eauto. des. ss.
+    exploit MemoryReorder.lower_add; eauto. i. des.
+    esplits; eauto.
+    erewrite Memory.add_o; eauto. condtac; ss. des. subst. ss.
   }
   i. des. inv PMREL.
   - exploit MemoryReorder.add_add; try exact MEM; eauto. i. des.
@@ -915,7 +952,7 @@ Proof.
     + econs 3; eauto.
     + erewrite Memory.add_o; eauto. condtac; ss. des. subst. congr.
     + congr.
-Admitted.
+Qed.
 
 Lemma lift_mem_split
       loc ts1 ts2 ts3 val2 val3 released2 released3
@@ -930,7 +967,18 @@ Lemma lift_mem_split
 Proof.
   revert MEMLE. unfold lift_mem.
   destruct (ThreadEvent.is_writing e) as [[[[[[]]]]]|] eqn:X; cycle 1.
-  { i. subst. admit. }
+  { i. destruct e; try by subst; esplits; eauto.
+    destruct released; try by subst; esplits; eauto.
+    destruct kind; try by subst; esplits; eauto. des. ss.
+    exploit MemoryReorder.lower_split; eauto. i. des.
+    unguardH FROM1. des.
+    - inv FROM1. exploit Memory.split_get0; try exact SPLITP2; eauto. i. des. congr.
+    - inv FROM0. esplits; eauto.
+      erewrite Memory.split_o; eauto. repeat condtac; ss.
+      + des. subst. exploit Memory.lower_get0; try exact PMREL; eauto.
+        exploit Memory.split_get0; try exact PMREL; eauto. i. des. congr.
+      + guardH o. des. subst. congr.
+  }
   i. des. inv PMREL.
   - exploit MemoryReorder.add_split; try exact MEM; eauto. i. des.
     { subst. exploit Memory.split_get0; try exact SPLITP2; eauto.
@@ -972,7 +1020,7 @@ Proof.
         revert GET2. erewrite Memory.lower_o; eauto. condtac; ss.
       * guardH o0. des. subst. congr.
     + congr.
-Admitted.
+Qed.
 
 Lemma lift_mem_lower
       loc from to val released released'
@@ -987,7 +1035,14 @@ Lemma lift_mem_lower
 Proof.
   revert MEMLE. unfold lift_mem.
   destruct (ThreadEvent.is_writing e) as [[[[[[]]]]]|] eqn:X; cycle 1.
-  { i. subst. admit. }
+  { i. destruct e; try by subst; esplits; eauto.
+    destruct released0; try by subst; esplits; eauto.
+    destruct kind; try by subst; esplits; eauto. des. ss.
+    exploit MemoryReorder.lower_lower; eauto. i. des.
+    - subst. exploit Memory.lower_get0; try exact LOWERP2; eauto. congr.
+    - esplits; eauto.
+      erewrite Memory.lower_o; eauto. condtac; ss. des. subst. ss.
+  }
   i. des. inv PMREL.
   - exploit MemoryReorder.add_lower; try exact MEM; eauto. i. des.
     { subst. erewrite Memory.lower_get0 in NOPRM; eauto. congr. }
@@ -1014,7 +1069,7 @@ Proof.
     + econs 3; eauto.
     + erewrite Memory.lower_o; eauto. condtac; ss. des. subst. congr.
     + congr.
-Admitted.
+Qed.
 
 Lemma lift_mem_promise
       loc from to val released kind
@@ -1156,8 +1211,20 @@ Lemma lift_step
    <<MEM: mem_eqlerel_lift l t thT2.(Thread.local).(Local.promises) e thS2.(Thread.memory) thT2.(Thread.memory)>>).
 Proof.
   inv STEP; inv STEP0; ss.
-  - symmetry in PF. apply promise_pf_inv in PF. des. subst.
-    admit.
+  - symmetry in PF. apply promise_pf_inv in PF. des. subst. right.
+    inv LOCAL. exploit mem_eqlerel_lift_promise; eauto.
+    { rewrite <- PRM. apply WFS1. }
+    s. i. des. destruct thS1. ss. esplits.
+    + econs. econs.
+    + econs 1. econs. econs.
+      * rewrite PRM. eauto.
+      * econs.
+      * ss.
+    + ss.
+    + ss.
+    + ss.
+    + ss.
+    + ss.
   - destruct lc1. subst. ss.
     destruct thS1, local. ss. subst.
     right. esplits.
@@ -1244,4 +1311,4 @@ Proof.
     + ss.
     + ss.
     + ss.
-Admitted.
+Qed.

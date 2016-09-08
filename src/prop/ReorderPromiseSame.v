@@ -398,28 +398,27 @@ Proof.
     + econs; ss. econs; ss.
 Qed.
 
-      (* TODO *)
-      Lemma promise_step_nonsynch_loc_inv
-            lc1 mem1 loc from to val released lc2 mem2 kind l
-            (WF1: Local.wf lc1 mem1)
-            (STEP: Local.promise_step lc1 mem1 loc from to val released lc2 mem2 kind)
-            (NONPF: Memory.op_kind_is_lower kind = false \/ released <> None)
-            (NONSYNCH: Memory.nonsynch_loc l lc2.(Local.promises)):
-        Memory.nonsynch_loc l lc1.(Local.promises).
-      Proof.
-        guardH NONPF.
-        ii. destruct msg.
-        inv STEP. inv PROMISE; ss.
-        - exploit Memory.add_get1; try exact GET; eauto. i. des.
-          exploit NONSYNCH; eauto.
-        - exploit Memory.split_get1; try exact GET; eauto. i. des.
-          exploit NONSYNCH; eauto.
-        - exploit Memory.lower_o; try exact PROMISES; eauto.
-          instantiate (1 := t). instantiate (1 := l). condtac; ss.
-          + i. des. subst. exploit NONSYNCH; eauto. s. i. subst.
-            unguardH NONPF. des; congr.
-          + guardH o. rewrite GET. i. exploit NONSYNCH; eauto.
-      Qed.
+Lemma promise_step_nonsynch_loc_inv
+      lc1 mem1 loc from to val released lc2 mem2 kind l
+      (WF1: Local.wf lc1 mem1)
+      (STEP: Local.promise_step lc1 mem1 loc from to val released lc2 mem2 kind)
+      (NONPF: Memory.op_kind_is_lower kind = false \/ released <> None)
+      (NONSYNCH: Memory.nonsynch_loc l lc2.(Local.promises)):
+  Memory.nonsynch_loc l lc1.(Local.promises).
+Proof.
+  guardH NONPF.
+  ii. destruct msg.
+  inv STEP. inv PROMISE; ss.
+  - exploit Memory.add_get1; try exact GET; eauto. i. des.
+    exploit NONSYNCH; eauto.
+  - exploit Memory.split_get1; try exact GET; eauto. i. des.
+    exploit NONSYNCH; eauto.
+  - exploit Memory.lower_o; try exact PROMISES; eauto.
+    instantiate (1 := t). instantiate (1 := l). condtac; ss.
+    + i. des. subst. exploit NONSYNCH; eauto. s. i. subst.
+      unguardH NONPF. des; congr.
+    + guardH o. rewrite GET. i. exploit NONSYNCH; eauto.
+Qed.
 
 Lemma reorder_promise_write
       lc0 sc0 mem0
@@ -518,17 +517,6 @@ Qed.
 
 Hint Constructors Thread.program_step.
 Hint Constructors Thread.step.
-
-(* TODO *)
-Lemma promise_pf_false_inv
-      (kind:Memory.op_kind)
-      (released:option View.t)
-      (PF: false = (Memory.op_kind_is_lower kind) && (negb released)):
-  Memory.op_kind_is_lower kind = false \/ released <> None.
-Proof.
-  symmetry in PF. apply andb_false_iff in PF. des; auto.
-  destruct released; ss. right. ss.
-Qed.
 
 Lemma reorder_nonpf_program
       lang

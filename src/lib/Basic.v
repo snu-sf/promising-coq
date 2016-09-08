@@ -14,6 +14,11 @@ Require Import DataStructure.
 
 Set Implicit Arguments.
 
+
+Ltac refl := reflexivity.
+Ltac etrans := etransitivity.
+Ltac congr := congruence.
+
 Module Ident <: OrderedTypeWithLeibniz.
   Include Pos.
 
@@ -84,7 +89,7 @@ Lemma rtc_implies A (R1 R2: A -> A -> Prop)
   rtc R1 <2= rtc R2.
 Proof.
   i. induction PR; eauto.
-  etransitivity; [|eauto]. econs 2; [|econs 1].
+  etrans; [|eauto]. econs 2; [|econs 1].
   apply IMPL. auto.
 Qed.
 
@@ -93,6 +98,15 @@ Lemma rtc_refl
       (EQ: a = b):
   rtc R a b.
 Proof. subst. econs. Qed.
+
+Lemma rtc_n1
+      A R (a b c:A)
+      (AB: rtc R a b)
+      (BC: R b c):
+  rtc R a c.
+Proof.
+  etrans; eauto. econs 2; eauto.
+Qed.
 
 Lemma fapp A (B:A->Type) (a:A) (P Q:forall (a:A), B a)
       (EQ: P = Q):
@@ -175,7 +189,3 @@ Ltac condtac :=
     let COND := fresh "COND" in
     destruct c eqn:COND
   end.
-
-Ltac refl := reflexivity.
-Ltac etrans := etransitivity.
-Ltac congr := congruence.

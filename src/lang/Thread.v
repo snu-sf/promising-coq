@@ -760,3 +760,13 @@ Proof.
   destruct kind; inv PF. destruct released; inv PF0.
   esplits; eauto.
 Qed.
+
+Lemma promise_pf_false_inv
+      (kind:Memory.op_kind)
+      (released:option View.t)
+      (PF: false = (Memory.op_kind_is_lower kind) && (negb released)):
+  Memory.op_kind_is_lower kind = false \/ released <> None.
+Proof.
+  symmetry in PF. apply andb_false_iff in PF. des; auto.
+  destruct released; ss. right. ss.
+Qed.

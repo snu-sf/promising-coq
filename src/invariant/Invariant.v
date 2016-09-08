@@ -244,16 +244,6 @@ Section Invariant.
     eapply IHSTEP; eauto.
   Qed.
 
-  (* TODO *)
-  Lemma rtc_n1
-        A R (a b c:A)
-        (AB: rtc R a b)
-        (BC: R b c):
-    rtc R a c.
-  Proof.
-    etrans; eauto. econs 2; eauto.
-  Qed.
-
   Lemma future_sem_memory
         m1 m2
         (FUTURE: Memory.future m1 m2)
