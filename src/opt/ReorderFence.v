@@ -105,7 +105,8 @@ Proof.
   inv SIM. ii.
   exploit future_fence_step; try apply FENCE; eauto; i.
   { inv REORDER; etrans; eauto. }
-  inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR; inv REORDER); ss.
+  inv STEP_TGT; [inv STEP|inv STEP; inv LOCAL0];
+    try (inv STATE; inv INSTR; inv REORDER); ss.
   - (* promise *)
     exploit sim_local_promise; eauto.
     { eapply Local.fence_step_future; eauto. }
@@ -125,24 +126,24 @@ Proof.
     exploit reorder_fence_read; try apply x0; try apply STEP_SRC; eauto; try by viewtac. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
-      * econs. econs 2. econs 2; eauto. econs. econs.
+      * econs. econs 2. econs; [|econs 2]; eauto. econs. econs.
       * eauto.
-    + econs 2. econs 2. econs 5; eauto. econs. econs.
+    + econs 2. econs 2. econs; [|econs 5]; eauto. econs. econs.
     + auto.
     + etrans; eauto.
     + auto.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
       etrans; eauto.
   - (* store *)
-    hexploit sim_local_write; try exact LOCAL0; try apply SC; eauto; try refl; viewtac.
+    hexploit sim_local_write; try exact LOCAL1; try apply SC; eauto; try refl; viewtac.
     { eapply Local.fence_step_future; eauto. }
     i. des.
     exploit reorder_fence_write; try apply x0; try apply STEP_SRC; eauto; try by viewtac. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
-      * econs. econs 2. econs 3; eauto. econs. econs.
+      * econs. econs 2. econs; [|econs 3]; eauto. econs. econs.
       * eauto.
-    + econs 2. econs 2. econs 5; eauto. econs. econs.
+    + econs 2. econs 2. econs; [|econs 5]; eauto. econs. econs.
     + auto.
     + etrans; eauto.
     + etrans; eauto.
@@ -163,9 +164,9 @@ Proof.
     exploit reorder_fence_write; try apply STEP2; try apply STEP_SRC0; eauto; try by viewtac. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
-      * econs. econs 2. econs 4; eauto. econs. econs. eauto.
+      * econs. econs 2. econs; [|econs 4]; eauto. econs. econs. eauto.
       * eauto.
-    + econs 2. econs 2. econs 5; eauto. econs. econs.
+    + econs 2. econs 2. econs; [|econs 5]; eauto. econs. econs.
     + auto.
     + etrans; eauto.
     + etrans; eauto.

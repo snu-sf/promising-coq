@@ -56,7 +56,8 @@ Proof.
   { i. esplits; eauto.
     eapply sim_local_memory_bot; eauto.
   }
-  ii. inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR); ss.
+  ii. inv STEP_TGT; [inv STEP|inv STEP; inv LOCAL0];
+        try (inv STATE; inv INSTR); ss.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
     esplits; try apply SC; eauto.
@@ -95,7 +96,8 @@ Proof.
   { i. esplits; eauto.
     eapply sim_local_memory_bot; eauto.
   }
-  ii. inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR); ss.
+  ii. inv STEP_TGT; [inv STEP|inv STEP; inv LOCAL0];
+        try (inv STATE; inv INSTR); ss.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
     esplits; try apply SC; eauto.
@@ -106,9 +108,9 @@ Proof.
     exploit merge_read_read; try exact STEP_SRC; eauto. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
-      * econs. econs 2. econs 2; eauto. econs. econs.
+      * econs. econs 2. econs; [|econs 2]; eauto. econs. econs.
       * eauto.
-    + econs 2. econs 2. econs 2; eauto. econs. econs.
+    + econs 2. econs 2. econs; [|econs 2]; eauto. econs. econs.
     + auto.
     + auto.
     + auto.
@@ -142,20 +144,21 @@ Proof.
   { i. esplits; eauto.
     eapply sim_local_memory_bot; eauto.
   }
-  ii. inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR); ss.
+  ii. inv STEP_TGT; [inv STEP|inv STEP; inv LOCAL0];
+        try (inv STATE; inv INSTR); ss.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
     esplits; try apply SC; eauto.
     + econs 2. econs 1. econs; eauto.
     + auto.
   - (* store *)
-    hexploit sim_local_write; try exact LOCAL0; try exact SC; eauto; try refl; try by viewtac. i. des.
+    hexploit sim_local_write; try exact LOCAL1; try exact SC; eauto; try refl; try by viewtac. i. des.
     exploit merge_write_read1; try exact STEP_SRC; eauto. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
-      * econs. econs 2. econs 3; eauto. econs. econs.
+      * econs. econs 2. econs; [|econs 3]; eauto. econs. econs.
       * eauto.
-    + econs 2. econs 2. econs 2; eauto. econs. econs.
+    + econs 2. econs 2. econs; [|econs 2]; eauto. econs. econs.
     + auto.
     + auto.
     + auto.
@@ -188,14 +191,15 @@ Proof.
   { i. esplits; eauto.
     eapply sim_local_memory_bot; eauto.
   }
-  ii. inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR); ss.
+  ii. inv STEP_TGT; [inv STEP|inv STEP; inv LOCAL0];
+        try (inv STATE; inv INSTR); ss.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
     esplits; try apply SC; eauto.
     econs 2. econs 1; eauto. econs; eauto. eauto.
   - (* store *)
     exploit Time.middle_spec; eauto.
-    { inv LOCAL0. eapply MemoryFacts.write_time_lt. eauto. }
+    { inv LOCAL1. eapply MemoryFacts.write_time_lt. eauto. }
     i. des.
     hexploit sim_local_write; try exact LOCAL0; try exact SC; eauto; try refl; try by viewtac. i. des.
     exploit merge_write_write_None; try exact STEP_SRC; eauto; try by viewtac. i. des.
@@ -205,11 +209,11 @@ Proof.
           - econs. econs 1. econs; eauto.
           - auto.
         }
-        { econs. econs. econs 2. econs 3; eauto.
+        { econs. econs. econs 2. econs; [|econs 3]; eauto.
           - econs. econs.
           - auto.
         }
-      * econs 2. econs 2. econs 3; eauto. econs. econs.
+      * econs 2. econs 2. econs; [|econs 3]; eauto. econs. econs.
       * auto.
       * etrans; eauto.
       * etrans; eauto.
@@ -218,10 +222,11 @@ Proof.
         { ii. inv PR. }
     + inv STEP1.
       esplits.
-      * econs 2; eauto. econs. econs. econs 2. econs 3; try exact STEP2; eauto.
+      * econs 2; eauto. econs. econs. econs 2.
+        econs; [|econs 3]; try exact STEP2; eauto.
         { econs. econs. }
         { auto. }
-      * econs 2. econs 2. econs 3; eauto. econs. econs.
+      * econs 2. econs 2. econs; [|econs 3]; eauto. econs. econs.
       * auto.
       * etrans; eauto.
       * etrans; eauto.
@@ -255,14 +260,15 @@ Proof.
   { i. esplits; eauto.
     eapply sim_local_memory_bot; eauto.
   }
-  ii. inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR); ss.
+  ii. inv STEP_TGT; [inv STEP|inv STEP; inv LOCAL0];
+        try (inv STATE; inv INSTR); ss.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
     esplits; try apply SC; eauto.
     econs 2. econs 1; eauto. econs; eauto. eauto.
   - (* store *)
     exploit Time.middle_spec; eauto.
-    { inv LOCAL0. eapply MemoryFacts.write_time_lt. eauto. }
+    { inv LOCAL1. eapply MemoryFacts.write_time_lt. eauto. }
     i. des.
     hexploit sim_local_write; try exact LOCAL0; try exact SC; eauto; try refl; try by viewtac. i. des.
     exploit merge_write_write; try exact STEP_SRC; eauto; try by viewtac. i. des.
@@ -274,11 +280,11 @@ Proof.
           - econs. econs 1. econs; eauto.
           - auto.
         }
-        { econs. econs. econs 2. econs 3; eauto.
+        { econs. econs. econs 2. econs; [|econs 3]; eauto.
           - econs. econs.
           - auto.
         }
-      * econs 2. econs 2. econs 4; eauto.
+      * econs 2. econs 2. econs; [|econs 4]; eauto.
         { econs. econs. s. rewrite ? Const.add_0_r. eauto. }
         { eapply merge_write_read1; try exact STEP2; eauto. }
       * auto.
@@ -289,10 +295,10 @@ Proof.
         { i. inv PR. }
     + inv STEP1.
       esplits.
-      * econs 2; eauto. econs. econs. econs 2. econs 3; try exact STEP2; eauto.
+      * econs 2; eauto. econs. econs. econs 2. econs; [|econs 3]; try exact STEP2; eauto.
         { econs. econs. }
         { auto. }
-      * econs 2. econs 2. econs 4; eauto.
+      * econs 2. econs 2. econs; [|econs 4]; eauto.
         { econs. econs. s. rewrite ? Const.add_0_r. eauto. }
         { eapply merge_write_read1; try apply STEP_SRC; eauto. }
       * auto.
@@ -329,7 +335,8 @@ Proof.
   { i. esplits; eauto.
     eapply sim_local_memory_bot; eauto.
   }
-  ii. inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR); ss.
+  ii. inv STEP_TGT; [inv STEP|inv STEP; inv LOCAL0];
+        try (inv STATE; inv INSTR); ss.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
     esplits; try apply SC; eauto.
@@ -355,9 +362,9 @@ Proof.
     exploit sim_local_read; try exact x0; eauto; try refl. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
-      * econs. econs 2. econs 4; eauto. econs. econs. eauto.
+      * econs. econs 2. econs; [|econs 4]; eauto. econs. econs. eauto.
       * eauto.
-    + econs 2. econs 2. econs 2; eauto. econs. econs.
+    + econs 2. econs 2. econs; [|econs 2]; eauto. econs. econs.
     + auto.
     + auto.
     + auto.
@@ -392,7 +399,8 @@ Proof.
   { i. esplits; eauto.
     eapply sim_local_memory_bot; eauto.
   }
-  ii. inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR); ss.
+  ii. inv STEP_TGT; [inv STEP|inv STEP; inv LOCAL0];
+        try (inv STATE; inv INSTR); ss.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
     esplits; try apply SC; eauto.
@@ -424,11 +432,11 @@ Proof.
           - econs. econs 1. econs; eauto.
           - auto.
         }
-        { econs. econs. econs 2. econs 4; try exact STEP4; try exact STEP_SRC0; eauto.
+        { econs. econs. econs 2. econs; [|econs 4]; try exact STEP4; try exact STEP_SRC0; eauto.
           - econs. econs. s. eauto.
           - auto.
         }
-      * econs 2. econs 2. econs 4; eauto.
+      * econs 2. econs 2. econs; [|econs 4]; eauto.
         { econs. econs. s. rewrite ? Const.add_0_r. eauto. }
         { inv RMW. eapply merge_write_read2; try exact STEP2; viewtac.
           - inv STEP4. s. repeat (try condtac; aggrtac).
@@ -449,10 +457,10 @@ Proof.
       exploit Local.write_step_future; try apply STEP2; eauto; try by viewtac. i. des.
       esplits.
       * econs 2; eauto.
-        econs. econs. econs 2. econs 4; try exact STEP_SRC; try exact STEP2; eauto.
+        econs. econs. econs 2. econs; [|econs 4]; try exact STEP_SRC; try exact STEP2; eauto.
         { econs. econs. s. eauto. }
         { auto. }
-      * econs 2. econs 2. econs 4; eauto.
+      * econs 2. econs 2. econs; [|econs 4]; eauto.
         { econs. econs. s. rewrite ? Const.add_0_r. eauto. }
         { inv RMW. eapply merge_write_read2; try exact STEP2; viewtac.
           - inv STEP_SRC. s. repeat (try condtac; aggrtac).
@@ -493,7 +501,8 @@ Proof.
   { i. esplits; eauto.
     eapply sim_local_memory_bot; eauto.
   }
-  ii. inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR); ss.
+  ii. inv STEP_TGT; [inv STEP|inv STEP; inv LOCAL0];
+        try (inv STATE; inv INSTR); ss.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
     esplits; try apply SC; eauto.
@@ -503,9 +512,9 @@ Proof.
     exploit merge_fence_fence; try exact STEP_SRC; eauto. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
-      * econs. econs 2. econs 5; eauto. econs. econs.
+      * econs. econs 2. econs; [|econs 5]; eauto. econs. econs.
       * eauto.
-    + econs 2. econs 2. econs 5; eauto. econs. econs.
+    + econs 2. econs 2. econs; [|econs 5]; eauto. econs. econs.
     + auto.
     + etrans; eauto.
     + auto.

@@ -166,7 +166,8 @@ Lemma sim_store_step
 Proof.
   inv SIM. ii.
   exploit fulfill_step_future; eauto; try viewtac. i. des.
-  inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR; inv REORDER); ss.
+  inv STEP_TGT; [inv STEP|inv STEP; inv LOCAL0];
+    try (inv STATE; inv INSTR; inv REORDER); ss.
   - (* promise *)
     exploit Local.promise_step_future; eauto. i. des.
     exploit sim_local_promise; try exact LOCAL0; (try by etrans; eauto); eauto. i. des.
@@ -187,9 +188,9 @@ Proof.
     exploit fulfill_write; eauto; try by viewtac. i. des.
     esplits.
     + econs 2; eauto. econs.
-      * econs. econs 2. econs 2; eauto. econs. econs.
+      * econs. econs 2. econs; [|econs 2]; eauto. econs. econs.
       * auto.
-    + econs 2. econs 2. econs 3; eauto. econs.
+    + econs 2. econs 2. econs; [|econs 3]; eauto. econs.
       erewrite <- RegFile.eq_except_value; eauto.
       * econs.
       * symmetry. eauto.
@@ -199,15 +200,15 @@ Proof.
     + etrans; eauto.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
   - (* store *)
-    hexploit sim_local_write; try exact LOCAL0; eauto; try refl; try by viewtac. i. des.
+    hexploit sim_local_write; try exact LOCAL1; eauto; try refl; try by viewtac. i. des.
     exploit reorder_fulfill_write; try exact FULFILL; try exact STEP_SRC; eauto; try by viewtac. i. des.
     exploit Local.write_step_future; try exact STEP1; eauto; try by viewtac. i. des.
     exploit fulfill_write; eauto; try by viewtac. i. des.
     esplits.
     + econs 2; eauto. econs.
-      * econs. econs 2. econs 3; eauto. econs. econs.
+      * econs. econs 2. econs; [|econs 3]; eauto. econs. econs.
       * auto.
-    + econs 2. econs 2. econs 3; eauto. econs. econs.
+    + econs 2. econs 2. econs; [|econs 3]; eauto. econs. econs.
     + auto.
     + etrans; eauto.
     + etrans; eauto. etrans; eauto.
@@ -225,9 +226,9 @@ Proof.
     exploit fulfill_write; eauto; try exact STEP3; try by viewtac. i. des.
     esplits.
     + econs 2; eauto. econs.
-      * econs. econs 2. econs 4; eauto. econs. econs. eauto.
+      * econs. econs 2. econs; [|econs 4]; eauto. econs. econs. eauto.
       * auto.
-    + econs 2. econs 2. econs 3; eauto. econs.
+    + econs 2. econs 2. econs; [|econs 3]; eauto. econs.
       erewrite <- RegFile.eq_except_value; eauto.
       * econs.
       * symmetry. eauto.

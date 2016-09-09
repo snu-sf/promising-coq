@@ -167,7 +167,8 @@ Lemma sim_load_step
 Proof.
   inv SIM. ii.
   exploit Local.read_step_future; eauto. i. des.
-  inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR; inv REORDER); ss.
+  inv STEP_TGT; [inv STEP|inv STEP; inv LOCAL0];
+    try (inv STATE; inv INSTR; inv REORDER); ss.
   - (* promise *)
     exploit Local.promise_step_future; eauto. i. des.
     exploit sim_local_promise; eauto. i. des.
@@ -182,9 +183,9 @@ Proof.
     exploit reorder_read_read; try exact READ; try exact STEP_SRC; eauto. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
-      * econs. econs 2. econs 2; eauto. econs. econs.
+      * econs. econs 2. econs; [|econs 2]; eauto. econs. econs.
       * eauto.
-    + econs 2. econs 2. econs 2; eauto. econs. econs.
+    + econs 2. econs 2. econs; [|econs 2]; eauto. econs. econs.
     + eauto.
     + eauto.
     + eauto.
@@ -194,17 +195,17 @@ Proof.
       * apply RegSet.singleton_spec. eauto.
   - (* store *)
     guardH ORD.
-    hexploit sim_local_write; try exact LOCAL0; try exact SC;
+    hexploit sim_local_write; try exact LOCAL1; try exact SC;
       try exact WF2; try refl; eauto; try by viewtac. i. des.
     exploit reorder_read_write; try exact READ; try exact STEP_SRC; eauto; try by viewtac. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
-      * econs. econs 2. econs 3; eauto. econs.
+      * econs. econs 2. econs; [|econs 3]; eauto. econs.
         erewrite RegFile.eq_except_value; eauto.
         { econs. }
         { apply RegFile.eq_except_singleton. }
       * eauto.
-    + econs 2. econs 2. econs 2; eauto. econs. econs.
+    + econs 2. econs 2. econs; [|econs 2]; eauto. econs. econs.
     + eauto.
     + eauto.
     + etrans; eauto.
@@ -220,13 +221,13 @@ Proof.
     exploit reorder_read_write; try exact STEP2; try exact STEP_SRC0; eauto; try congr. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
-      * econs. econs 2. econs 4; eauto. econs. econs.
+      * econs. econs 2. econs; [|econs 4]; eauto. econs. econs.
         erewrite <- RegFile.eq_except_rmw; eauto; try apply RegFile.eq_except_singleton.
         ii. eapply REGS; eauto.
         apply RegSet.singleton_spec in LHS. subst.
         apply RegSet.add_spec. auto.
       * eauto.
-    + econs 2. econs 2. econs 2; eauto. econs. econs.
+    + econs 2. econs 2. econs; [|econs 2]; eauto. econs. econs.
     + eauto.
     + eauto.
     + etrans; eauto.
@@ -240,9 +241,9 @@ Proof.
     exploit reorder_read_fence; try exact READ; try exact STEP_SRC; eauto. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
-      * econs. econs 2. econs 5; eauto. econs. econs.
+      * econs. econs 2. econs; [|econs 5]; eauto. econs. econs.
       * eauto.
-    + econs 2. econs 2. econs 2; eauto. econs. econs.
+    + econs 2. econs 2. econs; [|econs 2]; eauto. econs. econs.
     + eauto.
     + etrans; eauto.
     + eauto.

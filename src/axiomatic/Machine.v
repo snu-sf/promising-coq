@@ -41,23 +41,23 @@ Record configuration :=
     exec : execution }.
 
 Inductive mstep G G' e i : Prop :=
-  | silent (SILENT: e = None) (SAME_EXEC: G' = G)
+  | silent (SILENT: e = ProgramEvent.silent) (SAME_EXEC: G' = G)
   | read a l v o 
-      (EVENT: e = Some (ProgramEvent.read l v o)) 
+      (EVENT: e = ProgramEvent.read l v o) 
       (LABa: lab a = Aload l v o) 
       (TIDa: thread a = i) 
       (GSTEP: gstep (acts G) (sb G) (rmw G) (rf G) (mo G) (sc G)
                     (acts G') (sb G') (rmw G') (rf G') (mo G') (sc G') a a)
       (COH': Coherent (acts G') (sb G') (rmw G') (rf G') (mo G') (sc G'))
   | write a l v o 
-      (EVENT: e = Some (ProgramEvent.write l v o)) 
+      (EVENT: e = ProgramEvent.write l v o) 
       (LABa: lab a = Astore l v o) 
       (TIDa: thread a = i) 
       (GSTEP: gstep (acts G) (sb G) (rmw G) (rf G) (mo G) (sc G)
                     (acts G') (sb G') (rmw G') (rf G') (mo G') (sc G') a a)
       (COH': Coherent (acts G') (sb G') (rmw G') (rf G') (mo G') (sc G'))
   | update a_r a_w l v_r v_w o_r o_w 
-      (EVENT: e = Some (ProgramEvent.update l v_r v_w o_r o_w)) 
+      (EVENT: e = ProgramEvent.update l v_r v_w o_r o_w) 
       (LABar: lab a_r = Aload l v_r o_r) (LABaw: lab a_w = Astore l v_w o_w) 
 (*       (SC_IMPL_ACQ: is_sc a_w -> is_acq a_r) *)
       (TIDar: thread a_r = i) (TIDaw: thread a_w = i) 
@@ -68,13 +68,13 @@ Inductive mstep G G' e i : Prop :=
                      (acts G') (sb G') (rmw G') (rf G') (mo G') (sc G') a_r a_w)
       (COH': Coherent (acts G_mid) (sb G_mid) (rmw G_mid) (rf G_mid) (mo G_mid) (sc G_mid))
       (COH': Coherent (acts G') (sb G') (rmw G') (rf G') (mo G') (sc G'))
-  | fence a o_r o_w (EVENT: e = Some (ProgramEvent.fence o_r o_w)) 
+  | fence a o_r o_w (EVENT: e = ProgramEvent.fence o_r o_w) 
       (LABa: lab a = Afence o_r o_w) 
       (TIDa: thread a = i) 
       (GSTEP: gstep (acts G) (sb G) (rmw G) (rf G) (mo G) (sc G)
                     (acts G') (sb G') (rmw G') (rf G') (mo G') (sc G') a a)
       (COH': Coherent (acts G') (sb G') (rmw G') (rf G') (mo G') (sc G'))
-  | syscall a ee (EVENT: e = Some (ProgramEvent.syscall ee)) 
+  | syscall a ee (EVENT: e = ProgramEvent.syscall ee) 
       (LABa: lab a = Afence Ordering.seqcst Ordering.seqcst) 
       (TIDa: thread a = i) 
       (GSTEP: gstep (acts G) (sb G) (rmw G) (rf G) (mo G) (sc G)

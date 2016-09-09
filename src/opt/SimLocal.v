@@ -324,18 +324,19 @@ Lemma sim_local_program_step
     <<MEM: sim_memory th2_src.(Thread.memory) th2_tgt.(Thread.memory)>>.
 Proof.
   destruct th1_src. ss. subst. inv STEP_TGT; ss.
-  - esplits; (try by econs 1; eauto); eauto.
+  inv LOCAL0; ss.
+  - esplits; (try by econs; [|econs 1]; eauto); ss.
   - exploit sim_local_read; eauto; try refl. i. des.
-    esplits; (try by econs 2; eauto); eauto.
+    esplits; (try by econs; [|econs 2]; eauto); ss.
   - hexploit sim_local_write; eauto; try refl; try by viewtac. i. des.
-    esplits; (try by econs 3; eauto); eauto.
+    esplits; (try by econs; [|econs 3]; eauto); ss.
   - exploit Local.read_step_future; eauto. i. des.
     exploit sim_local_read; eauto; try refl. i. des.
     exploit Local.read_step_future; eauto. i. des.
     hexploit sim_local_write; eauto; try refl; try by viewtac. i. des.
-    esplits; (try by econs 4; eauto); eauto.
+    esplits; (try by econs; [|econs 4]; eauto); ss.
   - exploit sim_local_fence; eauto; try refl. i. des.
-    esplits; (try by econs 5; eauto); eauto.
+    esplits; (try by econs; [|econs 5]; eauto); ss.
   - exploit sim_local_fence; eauto; try refl. i. des.
-    esplits; (try by econs 6; eauto); eauto.
+    esplits; (try by econs; [|econs 6]; eauto); ss.
 Qed.

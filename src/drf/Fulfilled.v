@@ -37,8 +37,8 @@ Lemma writing_small_step_fulfilled_forward
     fulfilled c2 l f t msg.
 Proof.
   inv STEP. guardH PFREE.
-  inv STEP0; inv STEP; inv WRITING.
-  - inv LOCAL. inv WRITE. inv PROMISE.
+  inv STEP0; inv STEP; ss. inv LOCAL; inv WRITING; ss.
+  - inv LOCAL0. inv WRITE. inv PROMISE.
     { i. inv NP. econs; s.
       - erewrite Memory.add_o; eauto. condtac; ss.
         des. subst. exploit Memory.add_get0; eauto. congr.
@@ -127,8 +127,8 @@ Lemma writing_small_step_fulfilled_new
   fulfilled c2 loc from to (Message.mk val released).
 Proof.
   inv STEP. guardH PFREE.
-  inv STEP0; inv STEP; inv WRITING.
-  - inv LOCAL. inv WRITE. inv PROMISE.
+  inv STEP0; inv STEP; ss. inv LOCAL; inv WRITING; ss.
+  - inv LOCAL0. inv WRITE. inv PROMISE.
     { econs; s.
       - erewrite Memory.add_o; eauto. condtac; ss. des; congr.
       - ii. inv H. revert TID0. rewrite IdentMap.gsspec. condtac.
@@ -207,8 +207,8 @@ Lemma writing_small_step_fulfilled_backward
     fulfilled c1 l f t msg \/ (l, f, t, msg) = (loc, from, to, Message.mk val released).
 Proof.
   inv STEP. guardH PFREE.
-  inv STEP0; inv STEP; inv WRITING.
-  - inv LOCAL. inv WRITE. inv PROMISE.
+  inv STEP0; inv STEP; ss. inv LOCAL; inv WRITING; ss.
+  - inv LOCAL0. inv WRITE. inv PROMISE.
     { i. inv NP. ss. revert GET. erewrite Memory.add_o; eauto. condtac; ss.
       { i. des. inv GET. auto. }
       { left. econs; eauto. ii. inv H.
@@ -330,10 +330,9 @@ Lemma nonwriting_small_step_fulfilled_forward
     fulfilled c2 l f t msg.
 Proof.
   inv STEP. guardH PFREE.
-  inv STEP0; inv STEP; inv NONWRITING.
+  inv STEP0; inv STEP; inv LOCAL; inv NONWRITING.
   - unguardH PFREE.
-    apply promise_pf_inv in PFREE. des. subst.
-    inv LOCAL. inv PROMISE.
+    apply promise_pf_inv in PFREE. des. subst. inv PROMISE.
     i. inv NP. econs; ss.
     + erewrite Memory.lower_o; eauto. condtac; ss. des. subst.
       exfalso. eapply FULFILLED. econs; eauto. eapply Memory.lower_get0. eauto.
@@ -350,17 +349,17 @@ Proof.
     revert TID0. rewrite IdentMap.gsspec. condtac; ss; i.
     + inv TID0. eapply FULFILLED. econs; eauto.
     + eapply FULFILLED. econs; eauto.
-  - inv LOCAL.
+  - inv LOCAL0.
     i. inv NP. econs; eauto. ii. inv H. ss.
     revert TID0. rewrite IdentMap.gsspec. condtac; ss; i.
     + inv TID0. eapply FULFILLED. econs; eauto.
     + eapply FULFILLED. econs; eauto.
-  - inv LOCAL.
+  - inv LOCAL0.
     i. inv NP. econs; eauto. ii. inv H. ss.
     revert TID0. rewrite IdentMap.gsspec. condtac; ss; i.
     + inv TID0. eapply FULFILLED. econs; eauto.
     + eapply FULFILLED. econs; eauto.
-  - inv LOCAL.
+  - inv LOCAL0.
     i. inv NP. econs; eauto. ii. inv H. ss.
     revert TID0. rewrite IdentMap.gsspec. condtac; ss; i.
     + inv TID0. eapply FULFILLED. econs; eauto.

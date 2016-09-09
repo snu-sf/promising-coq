@@ -40,34 +40,34 @@ Module RegFile.
       else (0, val)
     end.
 
-  Inductive eval_instr: forall (rf1:t) (i:Instr.t) (e:option ProgramEvent.t) (rf2:t), Prop :=
+  Inductive eval_instr: forall (rf1:t) (i:Instr.t) (e:ProgramEvent.t) (rf2:t), Prop :=
   | eval_skip
       rf:
       eval_instr
         rf
         Instr.skip
-        None
+        ProgramEvent.silent
         rf
   | eval_assign
       rf lhs rhs:
       eval_instr
         rf
         (Instr.assign lhs rhs)
-        None
+        ProgramEvent.silent
         (RegFun.add lhs (eval_expr rf rhs) rf)
   | eval_load
       rf lhs rhs ord val:
       eval_instr
         rf
         (Instr.load lhs rhs ord)
-        (Some (ProgramEvent.read rhs val ord))
+        (ProgramEvent.read rhs val ord)
         (RegFun.add lhs val rf)
   | eval_store
       rf lhs rhs ord:
       eval_instr
         rf
         (Instr.store lhs rhs ord)
-        (Some (ProgramEvent.write lhs (eval_value rf rhs) ord))
+        (ProgramEvent.write lhs (eval_value rf rhs) ord)
         rf
   | eval_update
       rf lhs loc rmw ordr ordw valr valret valw
@@ -75,21 +75,21 @@ Module RegFile.
       eval_instr
         rf
         (Instr.update lhs loc rmw ordr ordw)
-        (Some (ProgramEvent.update loc valr valw ordr ordw))
+        (ProgramEvent.update loc valr valw ordr ordw)
         (RegFun.add lhs valret rf)
   | eval_fence
       rf ordr ordw:
       eval_instr
         rf
         (Instr.fence ordr ordw)
-        (Some (ProgramEvent.fence ordr ordw))
+        (ProgramEvent.fence ordr ordw)
         rf
   | eval_syscall
       rf lhs rhses lhs_val:
       eval_instr
         rf
         (Instr.syscall lhs rhses)
-        (Some (ProgramEvent.syscall (Event.mk lhs_val (map (eval_value rf) rhses))))
+        (ProgramEvent.syscall (Event.mk lhs_val (map (eval_value rf) rhses)))
         (RegFun.add lhs lhs_val rf)
   .
 
@@ -247,7 +247,7 @@ Module RegFile.
         (EVAL: RegFile.eval_instr rf1 instr_tgt e_tgt rf2):
     exists e_src,
       <<EVAL: RegFile.eval_instr rf1 instr_src e_src rf2>> /\
-      <<ORD: ProgramEvent.ord_opt e_src e_tgt>>.
+      <<ORD: ProgramEvent.ord e_src e_tgt>>.
   Proof.
     inv ORD; inv EVAL; esplits; repeat (econs; eauto).
   Qed.
@@ -265,7 +265,7 @@ Module State.
   Definition is_terminal (s:t): Prop :=
     stmts s = nil.
 
-  Inductive step: forall (e:option ProgramEvent.t) (s1:t) (s1:t), Prop :=
+  Inductive step: forall (e:ProgramEvent.t) (s1:t) (s1:t), Prop :=
   | step_instr
       rf1 i e rf2 stmts
       (INSTR: RegFile.eval_instr rf1 i e rf2):
@@ -274,14 +274,14 @@ Module State.
            (mk rf2 stmts)
   | step_ite
       rf cond s1 s2 stmts:
-      step None
+      step ProgramEvent.silent
            (mk rf ((Stmt.ite cond s1 s2)::stmts))
            (mk rf ((if RegFile.eval_expr rf cond
                     then s1
                     else s2) ++ stmts))
   | step_dowhile
       rf s cond stmts:
-      step None
+      step ProgramEvent.silent
            (mk rf ((Stmt.dowhile s cond)::stmts))
            (mk rf (s ++ (Stmt.ite cond ((Stmt.dowhile s cond)::nil) nil) :: stmts))
   .

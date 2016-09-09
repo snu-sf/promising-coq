@@ -51,7 +51,7 @@ Lemma program_step_promise
       (PROMISES: lc1.(Local.promises) = Memory.bot):
   lc2.(Local.promises) = Memory.bot.
 Proof.
-  inv STEP; (try by inv LOCAL); eauto.
+  inv STEP. inv LOCAL; ss; try by inv LOCAL0.
   - eapply write_step_promise; eauto.
   - eapply write_step_promise; eauto.
     inv LOCAL1. auto.

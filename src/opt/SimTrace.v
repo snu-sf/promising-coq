@@ -30,10 +30,10 @@ Require Import Semantics.
 Set Implicit Arguments.
 
 
-Inductive opt_lang_step: forall (e:option ProgramEvent.t) (st1 st2:State.t), Prop :=
+Inductive opt_lang_step: forall (e:ProgramEvent.t) (st1 st2:State.t), Prop :=
 | opt_lang_step_none
     st:
-    opt_lang_step None st st
+    opt_lang_step ProgramEvent.silent st st
 | opt_lang_step_some
     e st1 st2
     (STEP: lang.(Language.step) e st1 st2):
@@ -53,15 +53,15 @@ Definition _sim_trace
   <<TERMINAL:
     forall (TERMINAL_TGT: lang.(Language.is_terminal) st1_tgt),
     exists st2_src,
-      <<STEPS: rtc (lang.(Language.step) None) st1_src st2_src>> /\
+      <<STEPS: rtc (lang.(Language.step) ProgramEvent.silent) st1_src st2_src>> /\
       <<TERMINAL_SRC: lang.(Language.is_terminal) st2_src>> /\
       <<TERMINAL: sim_regs st2_src.(State.regs) st1_tgt.(State.regs)>>>> /\
   <<STEP:
     forall e_tgt st3_tgt
       (STEP_TGT: lang.(Language.step) e_tgt st1_tgt st3_tgt),
     exists e_src st2_src st3_src,
-      <<EVT: ProgramEvent.ord_opt e_src e_tgt>> /\
-      <<STEPS: rtc (lang.(Language.step) None) st1_src st2_src>> /\
+      <<EVT: ProgramEvent.ord e_src e_tgt>> /\
+      <<STEPS: rtc (lang.(Language.step) ProgramEvent.silent) st1_src st2_src>> /\
       <<STEP_SRC: opt_lang_step e_src st2_src st3_src>> /\
       <<SIM: sim_trace sim_regs st3_src st3_tgt>>>>.
 
@@ -76,13 +76,13 @@ Definition sim_trace: SIM_TRACE := paco3 _sim_trace bot3.
 
 Lemma rtc_lang_tau_step_rtc_thread_tau_step
       st1 st2 lc sc mem
-      (STEP: rtc (lang.(Language.step) None) st1 st2):
+      (STEP: rtc (lang.(Language.step) ProgramEvent.silent) st1 st2):
   rtc (@Thread.tau_step lang) (Thread.mk lang st1 lc sc mem) (Thread.mk lang st2 lc sc mem).
 Proof.
   induction STEP.
   - econs 1.
   - econs 2; eauto. econs.
-    + econs. econs 2. econs 1. ss.
+    + econs. econs 2. econs; [|econs 1]; eauto.
     + ss.
 Qed.
 
@@ -114,7 +114,7 @@ Proof.
     + apply Memory.max_timemap_closed. viewtac.
   - i. exploit sim_local_memory_bot; eauto. i.
     esplits; eauto.
-  - ii. inv STEP_TGT; inv STEP0.
+  - ii. inv STEP_TGT; inv STEP0; [|inv LOCAL0].
     + exploit sim_local_promise; eauto. i. des.
       esplits; (try exact SC); eauto.
       econs 2. econs 1. econs; eauto.
@@ -130,20 +130,20 @@ Proof.
         (try by apply rtc_lang_tau_step_rtc_thread_tau_step; eauto);
         (try exact SC);
           eauto.
-        econs 2. econs 2. econs 1; eauto.
+        econs 2. econs 2. econs; [|econs 1]; eauto.
       }
-    + exploit STEP; eauto. i. des. inv SIM0; [|done].
-      inv EVT. inv ORD. inv STEP_SRC.
+    + exploit STEP; eauto. i. des. inv SIM0; ss.
+      inv EVT. inv STEP_SRC.
       exploit sim_local_read; eauto. i. des.
       esplits;
         (try by apply rtc_lang_tau_step_rtc_thread_tau_step; eauto);
         (try exact SC).
-      * econs 2. econs 2. econs 2; eauto.
+      * econs 2. econs 2. econs; [|econs 2]; eauto.
       * ss.
       * ss.
       * right. apply CIH; auto.
     + exploit STEP; eauto. i. des. inv SIM0; [|done].
-      inv EVT. inv ORD. inv STEP_SRC.
+      inv EVT. inv STEP_SRC.
       hexploit sim_local_write;
         (try exact LOCAL);
         (try exact SC);
@@ -151,13 +151,13 @@ Proof.
       esplits;
         (try by apply rtc_lang_tau_step_rtc_thread_tau_step; eauto);
         (try exact SC).
-      * econs 2. econs 2. econs 3; eauto.
+      * econs 2. econs 2. econs; [|econs 3]; eauto.
       * ss.
       * ss.
       * ss.
       * right. apply CIH; auto.
     + exploit STEP; eauto. i. des. inv SIM0; [|done].
-      inv EVT. inv ORD. inv STEP_SRC.
+      inv EVT. inv STEP_SRC.
       exploit Local.read_step_future; eauto. i. des.
       exploit sim_local_read; eauto; try refl. i. des.
       exploit Local.read_step_future; eauto. i. des.
@@ -168,13 +168,13 @@ Proof.
       esplits;
         (try by apply rtc_lang_tau_step_rtc_thread_tau_step; eauto);
         (try exact SC).
-      * econs 2. econs 2. econs 4; eauto.
+      * econs 2. econs 2. econs; [|econs 4]; eauto.
       * ss.
       * ss.
       * ss.
       * right. apply CIH; auto.
     + exploit STEP; eauto. i. des. inv SIM0; [|done].
-      inv EVT. inv ORD. inv STEP_SRC.
+      inv EVT. inv STEP_SRC.
       exploit sim_local_fence;
         (try exact LOCAL);
         (try exact SC);
@@ -182,13 +182,13 @@ Proof.
       esplits;
         (try by apply rtc_lang_tau_step_rtc_thread_tau_step; eauto);
         (try exact SC).
-      * econs 2. econs 2. econs 5; eauto.
+      * econs 2. econs 2. econs; [|econs 5]; eauto.
       * ss.
       * ss.
       * ss.
       * right. apply CIH; auto.
     + exploit STEP; eauto. i. des. inv SIM0; [|done].
-      inv EVT. inv ORD. inv STEP_SRC.
+      inv EVT. inv STEP_SRC.
       exploit sim_local_fence;
         (try exact LOCAL);
         (try exact SC);
@@ -196,7 +196,7 @@ Proof.
       esplits;
         (try by apply rtc_lang_tau_step_rtc_thread_tau_step; eauto);
         (try exact SC).
-      * econs 2. econs 2. econs 6; eauto.
+      * econs 2. econs 2. econs; [|econs 6]; eauto.
       * ss.
       * ss.
       * ss.
@@ -258,28 +258,28 @@ Proof.
       erewrite RegFile.eq_except_expr; eauto.
       apply RegFile.eq_except_add. ss.
   - inv ORD. esplits; eauto.
-    + econs. econs. eauto.
+    + econs. eauto.
     + econs 2. econs. econs.
     + left. apply sim_trace_nil.
       apply RegFile.eq_except_add. ss.
   - inv ORD. esplits; eauto.
-    + econs. econs. eauto.
+    + econs. eauto.
     + econs 2. econs.
       erewrite <- RegFile.eq_except_value; eauto. econs.
     + left. apply sim_trace_nil. ss.
   - inv ORD. esplits; eauto.
-    + econs. econs; eauto.
+    + econs; eauto.
     + econs 2. econs. econs.
       ss. symmetry in REGS. apply RegSet.disjoint_add in REGS. des. symmetry in REGS0.
       erewrite <- RegFile.eq_except_rmw; eauto. symmetry. ss.
     + left. apply sim_trace_nil.
       apply RegFile.eq_except_add. ss.
   - inv ORD. esplits; eauto.
-    + econs. econs; eauto.
+    + econs; eauto.
     + econs 2. econs. econs.
     + left. apply sim_trace_nil. ss.
   - inv ORD. esplits; eauto.
-    + econs. econs.
+    + econs.
     + econs 2. econs.
       ss. symmetry in REGS. apply RegSet.disjoint_add in REGS. des. symmetry in REGS0.
       erewrite <- RegFile.eq_except_value_list; eauto. econs.

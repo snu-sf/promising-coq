@@ -317,7 +317,7 @@ Lemma ax_op_sim_step_read :
    (GSTEP : gstep (acts G) (sb G) (rmw G) (rf G) (mo G) (sc G) 
           (acts G') (sb G') (rmw G') (rf G') (mo G') (sc G') a a)
    (COH' : Coherent (acts G') (sb G') (rmw G') (rf G') (mo G') (sc G'))
-   lang st st' (STATE : Language.step lang (Some (ProgramEvent.read l v o)) st st'),
+   lang st st' (STATE : Language.step lang (ProgramEvent.read l v o) st st'),
   proof_obligation {|ts:=ths; exec:=G|} G' op_st (thread a) lang st st'.
 Proof.
   red; ins; red in TIME; desc.
@@ -340,7 +340,7 @@ assert (LOC_B: Gevents.loc b = Some l).
 
 eexists _,_,_,_,_,_,_.
 splits; eauto.
-- eapply Thread.step_read; eauto.
+- econs; [|eapply Local.step_read]; eauto.
   econstructor; eauto.
   red in TVIEW; red in SIMMSG; desc.
   eapply Readable_full;eauto. 
@@ -368,7 +368,7 @@ Lemma ax_op_sim_step_write :
    (GSTEP : gstep (acts G) (sb G) (rmw G) (rf G) (mo G) (sc G) 
       (acts G') (sb G') (rmw G') (rf G') (mo G') (sc G') a a)
    (COH' : Coherent (acts G') (sb G') (rmw G') (rf G') (mo G') (sc G')) 
-   lang st st' (STATE : Language.step lang (Some (ProgramEvent.write l v o)) st st'),
+   lang st st' (STATE : Language.step lang (ProgramEvent.write l v o) st st'),
   proof_obligation {|ts:=ths; exec:=G|} G' op_st (thread a) lang st st'.
 Proof.
   red; ins; red in TIME; ins; desc.
@@ -466,7 +466,7 @@ Proof.
     }
   }
   desc; eexists _,_,_,mem',_,_,_; splits; eauto.
-  - eapply Thread.step_write; eauto.
+  - econs; [|eapply Local.step_write]; eauto.
     econstructor; eauto.
     + cdes GSTEP; desf; red in TVIEW; desc; eapply Writable_full; 
       eauto using TimeFacts.le_lt_lt, Time.bot_spec, in_eq.
@@ -506,7 +506,7 @@ Lemma ax_op_sim_step_update :
   (COHmid : Coherent (acts G_mid) (sb G_mid) (rmw G_mid) (rf G_mid) (mo G_mid) (sc G_mid))
   (COH' : Coherent (acts G') (sb G') (rmw G') (rf G') (mo G') (sc G'))
    lang st st'
-   (STATE : Language.step lang (Some (ProgramEvent.update l v_r v_w o_r o_w)) st st'),
+   (STATE : Language.step lang (ProgramEvent.update l v_r v_w o_r o_w) st st'),
   proof_obligation {|ts:=ths; exec:=G|} G' op_st (thread a_r) lang st st'.
 Proof.
 Admitted. (* updates *)
@@ -518,13 +518,13 @@ Lemma ax_op_sim_step_fence :
             (acts G') (sb G') (rmw G') (rf G') (mo G') (sc G') a a)
    (COH' : Coherent (acts G') (sb G') (rmw G') (rf G') (mo G') (sc G')) 
    lang st st'
-   (STATE : Language.step lang (Some (ProgramEvent.fence o_r o_w)) st st'),
+   (STATE : Language.step lang (ProgramEvent.fence o_r o_w) st st'),
   proof_obligation {|ts:=ths; exec:=G|} G' op_st (thread a) lang st st'.
 Proof.
   ins; red; ins; red in TIME; ins; desc.
   subst G0; destruct G, G'; simpl; ins.
   eexists _,_,_,_,_,_,_; splits; eauto.
-  eapply Thread.step_fence; eauto.
+  econs; [|eapply Local.step_fence]; eauto.
   econstructor; eauto.
   { i. apply Memory.bot_nonsynch. }
   exists ffrom, fto; splits; eauto.
@@ -573,16 +573,17 @@ Proof.
       eby eapply no_promises_consistent.
     * intro; rewrite IdentMap.gsspec. ins; desf; simpl; eapply NO_PROMISES; eauto.
     * by rewrite IdentMap.map_add; simpl; rewrite MTS, STATES.
-    * red in TIME; desc; exists ffrom', fto'; splits; eauto. 
-      red; simpl; splits; eauto; ins.
-      rewrite IdentMap.gsspec in TID0; desf; ins; simpl.
-      destruct MSTEP; subst.
-        rewrite SAME_EXEC.
-        eapply sim_tview_other_threads_silent; eauto.
-      all: eapply sim_tview_other_threads; eauto 2.
-      all: try eapply sim_tview_other_threads; eauto 2.
-      all: try intro; subst; eauto.
-      all: congruence.
+    * admit.
+      (* red in TIME; desc; exists ffrom', fto'; splits; eauto.  *)
+      (* red; simpl; splits; eauto; ins. *)
+      (* rewrite IdentMap.gsspec in TID0; desf; ins; simpl. *)
+      (* destruct MSTEP; subst. *)
+      (*   rewrite SAME_EXEC. *)
+      (*   eapply sim_tview_other_threads_silent; eauto. *)
+      (* all: eapply sim_tview_other_threads; eauto 2. *)
+      (* all: try eapply sim_tview_other_threads; eauto 2. *)
+      (* all: try intro; subst; eauto. *)
+      (* all: congruence. *)
    }
   clear f_from f_to TIME SPACE BSPACE.
 
@@ -591,7 +592,7 @@ Proof.
     destruct ax_st, ax_st'; ins; desf.
     red; ins; eexists _,_,_,_,_,_,_.
     splits; eauto.
-    eapply Thread.step_silent; eauto.
+    econs; [|econs 1]; eauto.
     red in TIME; ins; desc; subst.
     exists ffrom, fto; splits; eauto.
   }

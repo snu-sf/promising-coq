@@ -34,17 +34,6 @@ Require Import Setoid Permutation.
 
 Hint Resolve gstep_wf gstep_inc coh_wf.
 
-Definition get_program_event (e:ThreadEvent.t) : option ProgramEvent.t :=
-  match e with
-  |ThreadEvent.read loc _ val _ ord => Some (ProgramEvent.read loc val ord)
-  |ThreadEvent.write loc _ _ val _ ord => Some (ProgramEvent.write loc val ord)
-  |ThreadEvent.update loc _ _ valr valw _ _ ordr ordw => 
-      Some (ProgramEvent.update loc valr valw ordr ordw)
-  |ThreadEvent.fence ordr ordw => Some (ProgramEvent.fence ordr ordw)
-  |ThreadEvent.syscall ev => Some (ProgramEvent.syscall ev)
-  | _ => None
-  end.
-
 Lemma GMsim_helper tss G ths sc_map mem 
   (COH: Coherent (acts G) (sb G) (rmw G) (rf G) (mo G) (sc G))
   (WF_OP_ST: Configuration.wf (Configuration.mk ths sc_map mem))
@@ -55,10 +44,9 @@ Lemma GMsim_helper tss G ths sc_map mem
   tid e lang st lc st' lc' ths' sc_map' mem' 
   (THS2: ths' = IdentMap.add tid (existT Language.state lang st', lc') ths) 
   (TID: IdentMap.find tid ths = Some (existT Language.state lang st, lc))
-  pf (STEP: Thread.step pf e (Thread.mk lang st lc sc_map mem) 
+  pf (STEP: Thread.step pf (ThreadEvent.program e) (Thread.mk lang st lc sc_map mem) 
     (Thread.mk lang st' lc' sc_map' mem'))
-  (PFREE: ThreadEvent.is_promising e = None)
-  G' (MSTEP: mstep G G' (get_program_event e) (Some tid))
+  G' (MSTEP: mstep G G' (ThreadEvent.get_program_event e) (Some tid))
   f_from' (F_FROM: forall b, In b (acts G) -> f_from' b = f_from b)
   f_to' (F_TO: forall b, In b (acts G) -> f_to' b = f_to b)
   (MONOTONE: monotone (mo G') f_to')
@@ -75,7 +63,7 @@ Proof.
 unfold GMsim in *; desc.
 rewrite THS2.
 inv STEP.
-by destruct STEP0; ins.
+by inv STEP0.
 eexists  {| ts:=  IdentMap.add tid (existT _ _ st') (IdentMap.map fst ths); exec:= G' |}; splits.
 -  inv STEP0.
    all: econstructor; ins; try edone. 
@@ -125,7 +113,7 @@ Qed.
 
 Lemma GMsim_silent ts G op_st tid lang st1 st2 lc2 
   (SIM: GMsim op_st {| ts:= ts; exec:= G |})
-  (STATE: Language.step lang None st1 st2)
+  (STATE: Language.step lang ProgramEvent.silent st1 st2)
   (TID: IdentMap.find tid (Configuration.threads op_st) =
       Some (existT (fun lang : Language.t => Language.state lang) lang st1, lc2)):
   exists ax_st', step {| ts:= ts; exec:= G |} ax_st' /\
@@ -140,7 +128,7 @@ unfold GMsim in *; desc; ins.
 unfold sim_time in *; desc.
 eapply GMsim_helper with (e:=ThreadEvent.silent) (tid:=tid); eauto.
 by econs; ins; eauto.
-by econs 2; econs; eauto.
+by econs 2; econs; [|econs]; eauto.
 by ins; econs; eauto.
 by ins; eapply SIM_TVIEW; 
   rewrite IdentMap.gsspec in TID0; desf; ins; simpl; eauto. 
@@ -478,7 +466,7 @@ Lemma GMsim_read ts G tid lang st1 st2 lc1 lc2 threads sc_map mem
   (TID: IdentMap.find tid threads =
         Some (existT (fun lang : Language.t => Language.state lang) lang st1, lc1))
   l to v released o 
-  (STATE: Language.step lang (Some (ProgramEvent.read l v o)) st1 st2)
+  (STATE: Language.step lang (ProgramEvent.read l v o) st1 st2)
   (LOCAL: Local.read_step lc1 mem l to v released o lc2):
   exists ax_st', step {| ts:= ts; exec:= G |} ax_st' /\
     GMsim (Configuration.mk (IdentMap.add tid (existT Language.state lang st2, lc2)
@@ -506,10 +494,9 @@ eapply GMsim_helper with
   (tid:=tid)  
   (G':= new_G_read G a b); eauto.
 - by red; eauto.
-- econs 2. econs; eauto.
+- econs 2. econs; [|econs]; eauto.
 - eapply read; eauto.
-  unfold get_program_event; eauto.
-  eapply new_G_read_coherent; eauto.
+  ss. eapply new_G_read_coherent; eauto.
   by rewrite THREAD_ID; eauto.
   by rewrite SIMCELL3; eauto.
 - ins.
@@ -915,7 +902,7 @@ Lemma GMsim_write ts G tid lang st1 st2 lc1 lc2 threads sc_map mem sc_map' mem'
   (TID: IdentMap.find tid threads =
         Some (existT (fun lang : Language.t => Language.state lang) lang st1, lc1))
   l from to v released o kind
-  (STATE: Language.step lang (Some (ProgramEvent.write l v o)) st1 st2)
+  (STATE: Language.step lang (ProgramEvent.write l v o) st1 st2)
   (LOCAL: Local.write_step lc1 sc_map mem l
           from to v None released o lc2 sc_map' mem' kind):
   exists ax_st', step {| ts:= ts; exec:= G |} ax_st' /\
@@ -964,10 +951,9 @@ eapply GMsim_helper with
     (f_from:=f_from) (f_from':=upd f_from a from)
     (G':= new_G_write G a a f_to to); eauto.
 * red; splits; eauto.
-* econs 2. econs; eauto.
+* econs 2. econs; [|econs]; eauto.
 * eapply write; eauto.
-  unfold get_program_event; eauto.
-  eapply new_G_update_coherent with (a_r:=a); eauto.
+  ss. eapply new_G_update_coherent with (a_r:=a); eauto.
   eby ins; desc; eapply disjoint_to.
   eby ins; desc.
 * ins.
@@ -1063,7 +1049,7 @@ Lemma GMsim_update ts G tid lang st1 st2 lc1 lc2 lc3 threads sc_map mem sc_map' 
   (TID: IdentMap.find tid threads =
         Some (existT (fun lang : Language.t => Language.state lang) lang st1, lc1))
   l to_r to_w v_r v_w released_r released_w o_r o_w kind
-  (STATE: Language.step lang (Some (ProgramEvent.update l v_r v_w o_r o_w)) st1 st2)
+  (STATE: Language.step lang (ProgramEvent.update l v_r v_w o_r o_w) st1 st2)
   (LOCAL1: Local.read_step lc1 mem l to_r v_r released_r o_r lc3) 
   (LOCAL2: Local.write_step lc3 sc_map mem l
           to_r to_w v_w released_r released_w o_w lc2 sc_map' mem' kind):
@@ -1191,7 +1177,7 @@ eapply GMsim_helper with
     (f_from:=f_from) (f_from':=upd f_from a0 (f_to b))
     (G':= new_G_write (new_G_read G a b) a a0 f_to to_w); eauto.
 * red; splits; eauto.
-* econs 2. econs; eauto.
+* econs 2. econs; [|econs]; eauto.
 * eapply update with (a_r:=a) (a_w:=a0) (G_mid:= new_G_read G a b) ; try done.
   eapply new_G_update_coherent with (a_r:=a) (acts:= a:: acts G); try edone.
   eby ins; desc; eapply disjoint_to.
@@ -1337,7 +1323,7 @@ Lemma GMsim_fence ts G tid lang st1 st2 lc1 lc2 threads sc_map mem sc_map'
   (TID: IdentMap.find tid threads =
         Some (existT (fun lang : Language.t => Language.state lang) lang st1, lc1))
   or ow
-  (STATE: Language.step lang (Some (ProgramEvent.fence or ow)) st1 st2)
+  (STATE: Language.step lang (ProgramEvent.fence or ow) st1 st2)
   (LOCAL: Local.fence_step lc1 sc_map or ow lc2 sc_map'):
   exists ax_st', step {| ts:= ts; exec:= G |} ax_st' /\
     GMsim (Configuration.mk 
@@ -1358,10 +1344,9 @@ eapply GMsim_helper with
     (f_from:=f_from) (f_from':=f_from)
     (G':= new_G_fence G a); eauto.
 - red; splits; eauto.
-- econs 2. econs; eauto.
+- econs 2. econs; [|econs]; eauto.
 - eapply fence; eauto.
-  unfold get_program_event; eauto.
-  eapply new_G_fence_coherent; try edone.
+  ss. eapply new_G_fence_coherent; try edone.
 - ins.
   rewrite IdentMap.gsspec in TID0; desf; ins; try edone.
   rewrite <- THREAD_ID.
@@ -1401,7 +1386,7 @@ inv STEP.
   inv LOWER.
   rewrite UsualFMapPositive.UsualPositiveMap'.gempty in GET2.
   ins.
-- inv STEP0.
+- inv STEP0. inv LOCAL.
   * eapply GMsim_silent; edone.
   * destruct op_st; eapply GMsim_read; edone.
   * destruct op_st; eapply GMsim_write; edone.

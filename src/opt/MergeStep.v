@@ -46,7 +46,7 @@ Lemma merge_read_read
       (STEP1: Local.read_step lc0 mem0 loc ts val released ord lc2):
   Local.read_step lc2 mem0 loc ts val released ord lc2.
 Proof.
-  inv STEP1. refine (Local.step_read _ _ _ _ _); s; eauto.
+  inv STEP1. refine (Local.read_step_intro _ _ _ _ _); s; eauto.
   - econs; repeat (try condtac; aggrtac); try apply READABLE; auto.
     + inv MEM0. exploit CLOSED; eauto. i. des.
       etrans; eauto. apply View.unwrap_opt_wf. ss.
@@ -308,7 +308,7 @@ Proof.
   exploit MemorySplit.commute_promise_add_promise_split_promise_add_promise_add; eauto. i. des.
   esplits.
   - econs; eauto.
-  - refine (Local.step_promise _ _ _); eauto.
+  - refine (Local.promise_step_intro _ _ _); eauto.
     eapply Memory.promise_closed_opt_view; eauto.
 Qed.
 
@@ -336,7 +336,7 @@ Proof.
   exploit MemoryReorder.promise_add_promise_add; try exact PROMISE; eauto. i. des.
   esplits.
   - econs; eauto.
-  - refine (Local.step_promise _ _ _); eauto.
+  - refine (Local.promise_step_intro _ _ _); eauto.
     viewtac.
 Qed.
 

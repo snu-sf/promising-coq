@@ -33,7 +33,7 @@ Set Implicit Arguments.
 Inductive Configuration_program_event c tid e : Prop :=
 | configuration_program_event_intro lang st st' lc
     (TH: IdentMap.find tid c.(Configuration.threads) = Some (existT _ lang st, lc))
-    (STATE: lang.(Language.step) (Some e) st st').
+    (STATE: lang.(Language.step) e st st').
 Hint Constructors Configuration_program_event.
 
 Inductive race_condition e1 e2 ord1 ord2 : Prop :=
@@ -81,7 +81,8 @@ Lemma small_step_to_program_step_writing
   <<EVENT: Configuration_program_event c1 tid pe >> /\
   <<WRITE: ProgramEvent.is_writing pe = Some (loc, ord) >>.
 Proof.
-  inv STEP. inv STEP0; inv STEP; inv EVENT; eauto 10.
+  inv STEP. inv STEP0; inv STEP; ss.
+  inv LOCAL; inv EVENT; eauto 10.
 Qed.
 
 Lemma small_step_to_program_step_reading
@@ -92,5 +93,6 @@ Lemma small_step_to_program_step_reading
   <<EVENT: Configuration_program_event c1 tid pe >> /\
   <<WRITE: ProgramEvent.is_reading pe = Some (loc, ord) >>.
 Proof.
-  inv STEP. inv STEP0; inv STEP; inv EVENT; eauto 10.
+  inv STEP. inv STEP0; inv STEP; ss.
+  inv LOCAL; inv EVENT; eauto 10.
 Qed.

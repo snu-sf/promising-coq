@@ -76,7 +76,7 @@ Proof.
     + exploit MemoryReorder.add_lower; try exact MEM1; try exact MEM; eauto. i. des; [congr|].
       right. esplits.
       * econs; [|by econs]. econs 3; eauto.
-      * refine (Local.step_promise _ _ _); eauto.
+      * refine (Local.promise_step_intro _ _ _); eauto.
         { econs 1; eauto. }
         { eapply Memory.lower_closed_opt_view; eauto. }
   - destruct (classic ((loc1, ts3) = (loc2, to2))).
@@ -85,7 +85,7 @@ Proof.
       exploit MemoryReorder.split_lower_same; try exact MEM1; try exact MEM; eauto. i. des.
       subst. right. esplits.
       - econs; [|by econs]. econs 3; eauto.
-      - refine (Local.step_promise _ _ _); eauto.
+      - refine (Local.promise_step_intro _ _ _); eauto.
         + econs 2; eauto.
         + eapply Memory.lower_closed_opt_view; eauto.
     }
@@ -95,7 +95,7 @@ Proof.
       - exploit MemoryReorder.split_lower_diff; try exact MEM1; try exact MEM; eauto. i. des; [congr|].
         right. esplits; eauto.
         + econs; [|by econs]. econs 3; eauto.
-        + refine (Local.step_promise _ _ _); eauto.
+        + refine (Local.promise_step_intro _ _ _); eauto.
           * econs 2; eauto.
           * eapply Memory.lower_closed_opt_view; eauto.
     }
@@ -107,7 +107,7 @@ Proof.
     + exploit MemoryReorder.lower_lower; try exact MEM1; try exact MEM; eauto. i. des; [congr|].
       right. esplits.
       * econs; [|by econs]. econs 3; eauto.
-      * refine (Local.step_promise _ _ _); eauto.
+      * refine (Local.promise_step_intro _ _ _); eauto.
         { econs 3; eauto. }
         { eapply Memory.lower_closed_opt_view; eauto. }
 Qed.
@@ -151,7 +151,7 @@ Proof.
         * econs; eauto.
         * eapply REL_CLOSED. econs; eauto.
       + right. esplits; eauto.
-        refine (Local.step_promise _ _ _); eauto.
+        refine (Local.promise_step_intro _ _ _); eauto.
         econs; eauto.
         eapply Memory.add_closed_opt_view; eauto.
       + auto.
@@ -163,7 +163,7 @@ Proof.
           { econs; eauto. }
           { eapply REL_CLOSED. econs; eauto. }
         * right. esplits; cycle 2.
-          { refine (Local.step_promise _ _ _); eauto.
+          { refine (Local.promise_step_intro _ _ _); eauto.
             - econs; eauto.
             - eapply Memory.split_closed_opt_view; eauto.
           }
@@ -176,7 +176,7 @@ Proof.
           { econs 2; eauto. }
           { eapply REL_CLOSED. econs 2; eauto. }
         * right. esplits; cycle 2.
-          { refine (Local.step_promise _ _ _); eauto.
+          { refine (Local.promise_step_intro _ _ _); eauto.
             - econs; eauto.
             - eapply Memory.split_closed_opt_view; eauto.
           }
@@ -198,7 +198,7 @@ Proof.
           { econs 3; eauto. }
           { eapply REL_CLOSED. econs 3; eauto. }
         * right. esplits; cycle 2.
-          { refine (Local.step_promise _ _ _); eauto.
+          { refine (Local.promise_step_intro _ _ _); eauto.
             - econs; eauto.
             - eapply Memory.lower_closed_opt_view; eauto.
           }
@@ -214,7 +214,7 @@ Proof.
         * econs; eauto.
         * eapply REL_CLOSED. econs; eauto.
       + right. esplits; eauto; cycle 1.
-        refine (Local.step_promise _ _ _); eauto.
+        refine (Local.promise_step_intro _ _ _); eauto.
         econs 2; eauto.
         eapply Memory.add_closed_opt_view; eauto.
       + auto.
@@ -229,7 +229,7 @@ Proof.
           { econs 2; eauto. }
           { eapply REL_CLOSED. econs 2; eauto. }
         * right. esplits; cycle 2.
-          { refine (Local.step_promise _ _ _); eauto.
+          { refine (Local.promise_step_intro _ _ _); eauto.
             - econs 2; eauto.
             - eapply Memory.split_closed_opt_view; eauto.
           }
@@ -247,7 +247,7 @@ Proof.
           { econs 2; eauto. }
           { eapply REL_CLOSED. econs 2; eauto. }
         * right. esplits; cycle 2.
-          { refine (Local.step_promise _ _ _); eauto.
+          { refine (Local.promise_step_intro _ _ _); eauto.
             - econs 2; eauto.
             - eapply Memory.split_closed_opt_view; eauto.
           }
@@ -282,7 +282,7 @@ Proof.
           { econs 3; eauto. }
           { eapply REL_CLOSED. econs 3; eauto. }
         * right. esplits; cycle 2.
-          { refine (Local.step_promise _ _ _); eauto.
+          { refine (Local.promise_step_intro _ _ _); eauto.
             - econs 2; eauto.
             - eapply Memory.lower_closed_opt_view; eauto.
           }
@@ -301,7 +301,7 @@ Proof.
         * econs; eauto.
         * eapply REL_CLOSED. econs; eauto.
       + right. esplits; eauto.
-        refine (Local.step_promise _ _ _); eauto.
+        refine (Local.promise_step_intro _ _ _); eauto.
         econs; eauto.
         eapply Memory.add_closed_opt_view; eauto.
       + auto.
@@ -314,7 +314,7 @@ Proof.
           { econs 2; eauto. }
           { eapply REL_CLOSED. econs 2; eauto. }
         * right. esplits; cycle 2.
-          { refine (Local.step_promise _ _ _); eauto.
+          { refine (Local.promise_step_intro _ _ _); eauto.
             - econs 3; eauto.
             - eapply Memory.split_closed_opt_view; eauto.
           }
@@ -329,7 +329,7 @@ Proof.
           { econs 2; eauto. }
           { eapply REL_CLOSED. econs 2; eauto. }
         * right. esplits; cycle 2.
-          { refine (Local.step_promise _ _ _); eauto.
+          { refine (Local.promise_step_intro _ _ _); eauto.
             - econs 3; eauto.
             - eapply Memory.split_closed_opt_view; eauto.
           }
@@ -351,7 +351,7 @@ Proof.
           { econs 3; eauto. }
           { eapply REL_CLOSED. econs 3; eauto. }
         * right. esplits; cycle 2.
-          { refine (Local.step_promise _ _ _); eauto.
+          { refine (Local.promise_step_intro _ _ _); eauto.
             - econs 3; eauto.
             - eapply Memory.lower_closed_opt_view; eauto.
           }
@@ -532,10 +532,11 @@ Lemma reorder_nonpf_program
      <<STEP2: __guard__ (th2 = th1' \/ exists pf2' e2', Thread.promise_step pf2' e2' th1' th2)>>.
 Proof.
   exploit Thread.step_future; eauto. i. des.
-  inv STEP1. inv STEP. ss. inv STEP2; ss.
+  inv STEP1. inv STEP. ss. inv STEP2. inv LOCAL1; ss.
   - (* silent *)
     esplits; eauto.
-    right. esplits. econs; eauto.
+    + econs; eauto. econs.
+    + right. esplits. econs; eauto.
   - (* read *)
     exploit reorder_promise_read; try exact LOCAL0; eauto; try by viewtac.
     { ii. inv H.
@@ -544,7 +545,7 @@ Proof.
       eapply Time.lt_strorder. eauto.
     }
     i. des. esplits.
-    + econs 2; eauto.
+    + econs; eauto. econs 2; eauto.
     + right. esplits. econs; eauto.
   - (* write *)
     exploit reorder_promise_write'; try exact LOCAL0; eauto; try by viewtac.
@@ -555,7 +556,7 @@ Proof.
       exfalso. eapply Time.lt_strorder. eapply TimeFacts.le_lt_lt; eauto.
     }
     esplits.
-    + econs 3; eauto.
+    + econs; eauto. econs 3; eauto.
     + unguardH STEP2. des.
       * inv STEP2. left. auto.
       * right. esplits. econs; eauto.
@@ -577,21 +578,21 @@ Proof.
       exfalso. eapply Time.lt_strorder. eapply TimeFacts.le_lt_lt; eauto.
     }
     esplits.
-    + econs 4; eauto.
+    + econs; eauto. econs 4; eauto.
     + unguardH STEP3. des.
       * inv STEP3. left. auto.
       * right. esplits. econs; eauto.
-  - inv LOCAL0. inv LOCAL1.
+  - inv LOCAL0. inv LOCAL2.
     esplits; eauto.
-    + econs 5; eauto. econs; eauto. ss.
+    + econs; eauto. econs 5; eauto. econs; eauto. ss.
       intros ORDW l. eapply promise_step_nonsynch_loc_inv; eauto.
       * econs; eauto.
       * apply promise_pf_false_inv. ss.
       * apply RELEASE. ss.
     + right. esplits. econs; eauto. econs; eauto.
-  - inv LOCAL0. inv LOCAL1.
+  - inv LOCAL0. inv LOCAL2.
     esplits; eauto.
-    + econs 6; eauto. econs; eauto.
+    + econs; eauto. econs 6; eauto. econs; eauto.
       intros ORDW l. eapply promise_step_nonsynch_loc_inv; eauto.
       * econs; eauto.
       * apply promise_pf_false_inv. ss.
@@ -610,11 +611,11 @@ Lemma reorder_nonpf_pf
       (MEMORY: Memory.closed th0.(Thread.memory)):
   (exists pf2' e2',
       <<STEP: Thread.step pf2' e2' th0 th2>> /\
-      <<EVENT: ThreadEvent.get_non_promise e2' = ThreadEvent.get_non_promise e2>>) \/
+      <<EVENT: ThreadEvent.get_program e2' = ThreadEvent.get_program e2>>) \/
   (exists e2' pf1' e1' th1',
       <<STEP1: Thread.step true e2' th0 th1'>> /\
       <<STEP2: Thread.promise_step pf1' e1' th1' th2>> /\
-      <<EVENT: ThreadEvent.get_non_promise e2' = ThreadEvent.get_non_promise e2>>).
+      <<EVENT: ThreadEvent.get_program e2' = ThreadEvent.get_program e2>>).
 Proof.
   inv STEP2; ss.
   - inv STEP. ss. symmetry in PF. apply promise_pf_inv in PF. des. subst.

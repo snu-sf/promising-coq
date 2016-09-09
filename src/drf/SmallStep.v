@@ -400,8 +400,8 @@ Lemma small_step_write_lt
   Time.lt (lc.(Local.tview).(TView.cur).(View.rlx) loc) ts.
 Proof.
   inv STEP. rewrite THREAD in TID. inv TID.
-  inv STEP0; inv STEP; inv EVENT.
-  - inv LOCAL. apply WRITABLE.
+  inv STEP0; inv STEP; ss. inv LOCAL; ss; inv EVENT.
+  - inv LOCAL0. apply WRITABLE.
   - eapply TimeFacts.le_lt_lt; cycle 1.
     + inv LOCAL2. inv WRITABLE. apply TS.
     + inv LOCAL1. s. do 2 (etrans; [|apply TimeMap.join_l]). refl.
@@ -419,7 +419,9 @@ Proof.
   inv STEPT; ss.
   revert FIND2. rewrite IdentMap.gsspec. condtac.
   - i. inv FIND2.
-    inv STEP; inv STEP0; try inv LOCAL;
+    inv STEP; inv STEP0;
+      (try inv LOCAL);
+      (try inv LOCAL0);
       (try by esplits; eauto).
     + ss. apply promise_pf_inv in PFREE; eauto. des. subst. inv PROMISE.
       destruct msg2. exploit Memory.op_get_inv; eauto.

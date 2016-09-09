@@ -123,7 +123,7 @@ Proof.
 
     generalize STEPT. intro STEPT'.
     destruct cS, cT. inv STEPT. guardH PFREE.
-    inv STEP; inv STEP0; ss.
+    inv STEP; [inv STEP0|inv STEP0; inv LOCAL]; ss.
     { subst. inv LOCAL. econs; eauto.
       - apply IdentMap.eq_leibniz.
         ii. setoid_rewrite IdentMap.map_add.
@@ -217,7 +217,7 @@ Proof.
             }
     }
     { inv STEPS.
-      inv STEP; inv STEP0; try done. econs; eauto; ss.
+      inv STEP; [inv STEP0|inv STEP0; inv LOCAL]; ss. econs; eauto; ss.
       - apply IdentMap.eq_leibniz. ii.
         setoid_rewrite IdentMap.Properties.F.map_o in TID0.
         rewrite TID in TID0. inv TID0. depdes H1.
@@ -241,7 +241,7 @@ Proof.
         econs; eauto. rewrite IdentMap.gso; eauto.
     }
     { inv STEPS.
-      inv STEP; inv STEP0; try done. econs; eauto; ss.
+      inv STEP; [inv STEP0|inv STEP0; inv LOCAL]; ss. econs; eauto; ss.
       - apply IdentMap.eq_leibniz. ii.
         setoid_rewrite IdentMap.Properties.F.map_o in TID0.
         rewrite TID in TID0. inv TID0. depdes H1.
@@ -249,9 +249,9 @@ Proof.
         rewrite !IdentMap.gss in LANGMATCH. depdes LANGMATCH.
         destruct (Loc.eq_dec y tid) eqn: TIDEQ.
         + subst. rewrite !IdentMap.gss.
-          inv LOCAL. inv LOCAL0. eauto.
+          inv LOCAL0. inv LOCAL1. eauto.
         + by rewrite !IdentMap.gso.
-      - inv LOCAL. inv LOCAL0.
+      - inv LOCAL0. inv LOCAL1.
         ii. exploit LR; eauto. i; des.
         esplits; eauto.
         ii. eapply (NOT tid0). inv H. 
@@ -259,7 +259,7 @@ Proof.
         { subst. rewrite IdentMap.gss in TID1. inv TID1.
           econs; eauto. }
         rewrite IdentMap.gso in TID1; eauto. econs; eauto.
-      - inv LOCAL. inv LOCAL0.
+      - inv LOCAL0. inv LOCAL1.
         ii. exploit RL; eauto. i; des.
         ii. apply (NOT tid0). inv H.
         destruct (Ident.eq_dec tid0 tid) eqn: EQ.
@@ -270,7 +270,7 @@ Proof.
         econs; eauto. rewrite IdentMap.gso; eauto.
     }
     { inv STEPS.
-      inv STEP; inv STEP0; try done. econs; eauto; ss.
+      inv STEP; [inv STEP0|inv STEP0; inv LOCAL]; ss. econs; eauto; ss.
       - apply IdentMap.eq_leibniz. ii.
         setoid_rewrite IdentMap.Properties.F.map_o in TID0.
         rewrite TID in TID0. inv TID0. depdes H1.
@@ -278,7 +278,7 @@ Proof.
         rewrite !IdentMap.gss in LANGMATCH. depdes LANGMATCH.
         destruct (Loc.eq_dec y tid) eqn: TIDEQ.
         + subst. rewrite !IdentMap.gss.
-          inv LOCAL. inv LOCAL0.
+          inv LOCAL0. inv LOCAL1.
           unfold remove_promise. ss.
           replace promises0 with Memory.bot; eauto.
           exploit (@small_step_promise_decr_bot tid tid); [apply STEPS'|..].
@@ -287,7 +287,7 @@ Proof.
           { s. eauto. }
           eauto.
         + by rewrite !IdentMap.gso.
-      - inv LOCAL. inv LOCAL0. eauto.
+      - inv LOCAL0. inv LOCAL1. eauto.
       - s. i.
         hexploit writing_small_step_fulfilled_backward; try exact STEPS'; ss; eauto.
         { econs; eauto. s. ii. inv H. revert TID1.
@@ -327,7 +327,7 @@ Proof.
           i. inv H. esplits; eauto.
     }
     { inv STEPS.
-      inv STEP; inv STEP0; try done. econs; eauto; ss.
+      inv STEP; [inv STEP0|inv STEP0; inv LOCAL]; ss. econs; eauto; ss.
       - apply IdentMap.eq_leibniz. ii.
         setoid_rewrite IdentMap.Properties.F.map_o in TID0.
         rewrite TID in TID0. inv TID0. depdes H1.
@@ -384,7 +384,7 @@ Proof.
           i. inv H. esplits; eauto.
     }
     { inv STEPS.
-      inv STEP; inv STEP0; try done. econs; eauto; ss.
+      inv STEP; [inv STEP0|inv STEP0; inv LOCAL]; ss. econs; eauto; ss.
       - apply IdentMap.eq_leibniz. ii.
         setoid_rewrite IdentMap.Properties.F.map_o in TID0.
         rewrite TID in TID0. inv TID0. depdes H1.
@@ -392,12 +392,12 @@ Proof.
         rewrite !IdentMap.gss in LANGMATCH. depdes LANGMATCH.
         destruct (Loc.eq_dec y tid) eqn: TIDEQ.
         + subst. rewrite !IdentMap.gss.
-          inv LOCAL. inv LOCAL0. eauto.
+          inv LOCAL0. inv LOCAL1. eauto.
         + by rewrite !IdentMap.gso.
-      - inv LOCAL. inv LOCAL0. ss. 
+      - inv LOCAL0. inv LOCAL1. ss. 
         setoid_rewrite IdentMap.Properties.F.map_o in TID0.
         rewrite TID in TID0. inv TID0. depdes H1. eauto.
-      - inv LOCAL. inv LOCAL0.
+      - inv LOCAL0. inv LOCAL1.
         ii. exploit LR; eauto. i; des.
         esplits; eauto.
         ii. eapply (NOT tid0). inv H. 
@@ -405,7 +405,7 @@ Proof.
         { subst. rewrite IdentMap.gss in TID1. inv TID1.
           econs; eauto. }
         rewrite IdentMap.gso in TID1; eauto. econs; eauto.
-      - inv LOCAL. inv LOCAL0.
+      - inv LOCAL0. inv LOCAL1.
         ii. exploit RL; eauto. i; des.
         ii. apply (NOT tid0). inv H.
         destruct (Ident.eq_dec tid0 tid) eqn: EQ.
@@ -416,7 +416,7 @@ Proof.
         econs; eauto. rewrite IdentMap.gso; eauto.
     }
     { inv STEPS.
-      inv STEP; inv STEP0; try done. econs; eauto; ss.
+      inv STEP; [inv STEP0|inv STEP0; inv LOCAL]; ss. econs; eauto; ss.
       - apply IdentMap.eq_leibniz. ii.
         setoid_rewrite IdentMap.Properties.F.map_o in TID0.
         rewrite TID in TID0. inv TID0. depdes H1.
@@ -424,12 +424,12 @@ Proof.
         rewrite !IdentMap.gss in LANGMATCH. depdes LANGMATCH.
         destruct (Loc.eq_dec y tid) eqn: TIDEQ.
         + subst. rewrite !IdentMap.gss.
-          inv LOCAL. inv LOCAL0. eauto.
+          inv LOCAL0. inv LOCAL1. eauto.
         + by rewrite !IdentMap.gso.
-      - inv LOCAL. inv LOCAL0. ss. 
+      - inv LOCAL0. inv LOCAL1. ss. 
         setoid_rewrite IdentMap.Properties.F.map_o in TID0.
         rewrite TID in TID0. inv TID0. depdes H1. eauto.
-      - inv LOCAL. inv LOCAL0.
+      - inv LOCAL0. inv LOCAL1.
         ii. exploit LR; eauto. i; des.
         esplits; eauto.
         ii. eapply (NOT tid0). inv H. 
@@ -437,7 +437,7 @@ Proof.
         { subst. rewrite IdentMap.gss in TID1. inv TID1.
           econs; eauto. }
         rewrite IdentMap.gso in TID1; eauto. econs; eauto.
-      - inv LOCAL. inv LOCAL0.
+      - inv LOCAL0. inv LOCAL1.
         ii. exploit RL; eauto. i; des.
         ii. apply (NOT tid0). inv H.
         destruct (Ident.eq_dec tid0 tid) eqn: EQ.
@@ -553,8 +553,8 @@ Lemma pi_wf_small_step_is_reading
       (READING: ThreadEvent.is_reading e = Some (l, t, v, r, o)):
   forall tid', ~ Threads.is_promised tid' l t t1.(Configuration.threads).
 Proof.
-  inv STEP. inv STEP0; inv STEP; inv READING.
-  - inv LOCAL. inv PWF. eapply LR; eauto.
+  inv STEP. inv STEP0; [inv STEP|inv STEP; inv LOCAL]; inv READING.
+  - inv LOCAL0. inv PWF. eapply LR; eauto.
   - inv LOCAL1. inv PWF. eapply LR; eauto.
 Qed.
 
@@ -665,7 +665,8 @@ Proof.
       { by destruct e2', e0; inv EVENT. }
       subst. esplits; [|econs; try exact A23|]; eauto.
       econs; eauto. econs; econs.
-      + inv STEP. inv STEP0; [by inv STEP|by eauto]. 
+      + instantiate (1 := e0).
+        inv STEP. inv STEP0; [by inv STEP|]. econs; eauto.
       + rewrite E0. eauto.
       + eauto.
       + ii. eapply NOWR0; eauto.
@@ -682,7 +683,7 @@ Proof.
       * subst. by rewrite IdentMap.gss, TID0.
       * rewrite IdentMap.gso; eauto.
     + ii. eapply NOWR0; eauto.
-      * by destruct e2'; inv WRITE; destruct e0; inv EVENT.
+      * destruct e2'; ss. destruct e0; ss. inv EVENT. destruct event0; eauto.
       * eapply small_step_is_promised; eauto.
   }
   assert (STEP2': pi_step_evt true tid (cS0, c1') (cS0, cT3)).
@@ -703,7 +704,7 @@ Proof.
         inv STEP; [by inv STEP0; rewrite TID0|by inv STEP0; inv PROMISING].
       + rewrite (small_step_find STEP2); eauto.
     - ii. eapply NOWR0; eauto.
-      + by destruct e2'; inv WRITE; destruct e0; inv EVENT.
+      + destruct e2'; ss. destruct e0; ss. inv EVENT. destruct event0; eauto.
       + eapply small_step_is_promised; eauto.
   }
 

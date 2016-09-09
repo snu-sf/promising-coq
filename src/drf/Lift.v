@@ -356,7 +356,9 @@ Lemma pi_step_lifting_aux
 Proof.
   inv PISTEP. inv PI_STEP. assert (X:= USTEP). inv X.
   destruct (IdentMap.find tid cT2.(Configuration.threads)) as [[]|]eqn: EQ; [|by exfalso; eauto].
-  inv STEPT. inv STEP; inv STEP0; try by esplits; s; eauto; econs; econs; eauto; ss.
+  inv STEPT.
+  inv STEP; [inv STEP0|inv STEP0; inv LOCAL];
+    try by esplits; s; eauto; econs; econs; eauto; ss.
   { apply promise_pf_inv in PFREE. des. inversion WF. subst. ss.
     generalize EQ. i. rewrite IdentMap.gso in EQ0; eauto. destruct s.
     exploit Local.promise_step_future; try eapply WFT; eauto. i. des.
@@ -493,7 +495,7 @@ Lemma small_step_write_closed
   <<TS: Time.le (rel.(View.unwrap).(View.rlx) loc) ts>>.
 
 Proof.
-  inv STEP. inv STEP0; inv STEP; inv EVENT.
+  inv STEP. inv STEP0; [inv STEP|inv STEP; inv LOCAL]; inv EVENT.
   - clear PFREE. inv WF.
     exploit Local.write_step_future; eauto; try by viewtac.
     { eapply WF0. eauto. }
@@ -513,7 +515,7 @@ Lemma small_step_false_normal
       (NONWRITING: ThreadEvent.is_writing e = None):
   c1.(Configuration.memory) = c2.(Configuration.memory).
 Proof.
-  inv STEP. inv STEP0; inv STEP; inv PFREE; ss.
+  inv STEP. inv STEP0; [inv STEP|inv STEP; inv LOCAL]; inv PFREE; ss.
 Qed.
 
 Lemma small_step_false_promising
@@ -533,8 +535,8 @@ Lemma small_step_false_writing
       (WRITING: ThreadEvent.is_writing e = Some (loc, from, to, val, released, ord)):
   exists kind, Memory.op c1.(Configuration.memory) loc from to val released c2.(Configuration.memory) kind.
 Proof.
-  inv STEP. inv STEP0; inv STEP; inv PFREE; ss.
-  - inv WRITING. inv LOCAL. inv WRITE. inv PROMISE.
+  inv STEP. inv STEP0; [inv STEP|inv STEP; inv LOCAL]; inv PFREE; ss.
+  - inv WRITING. inv LOCAL0. inv WRITE. inv PROMISE.
     + esplits. econs 1; eauto.
     + esplits. econs 2; eauto.
     + esplits. econs 3; eauto.
@@ -698,8 +700,8 @@ Lemma writing_small_step_not_bot
       (WRITING: ThreadEvent.is_writing e = Some (loc, from, to, val, released, ord)):
   to <> Time.bot.
 Proof.
-  inv STEP. inv STEP0; inv STEP; inv WRITING.
-  - inv LOCAL. eapply MemoryFacts.write_not_bot. eauto.
+  inv STEP. inv STEP0; [inv STEP|inv STEP; inv LOCAL]; inv WRITING.
+  - inv LOCAL0. eapply MemoryFacts.write_not_bot. eauto.
   - inv LOCAL2. eapply MemoryFacts.write_not_bot. eauto.
 Qed.
 
@@ -732,7 +734,7 @@ Proof.
       - destruct e; inv Y. ss.
         inv PI_STEP0; ss. subst.
         inv STEPT; ss. destruct pf; ss.
-        inv STEP; [|by inv STEP0]. inv STEP0.
+        inv STEP. inv STEP0; ss.
         symmetry in PF. apply promise_pf_inv in PF. des. subst. des.
         inv LOCAL. inv PROMISE. ss.
         eapply memory_lower_None_mem_eqrel; eauto.
@@ -1210,7 +1212,7 @@ Lemma lift_step
    <<SC: TimeMap.le thS2.(Thread.sc) thT2.(Thread.sc)>> /\
    <<MEM: mem_eqlerel_lift l t thT2.(Thread.local).(Local.promises) e thS2.(Thread.memory) thT2.(Thread.memory)>>).
 Proof.
-  inv STEP; inv STEP0; ss.
+  inv STEP; [inv STEP0|inv STEP0; inv LOCAL]; ss.
   - symmetry in PF. apply promise_pf_inv in PF. des. subst. right.
     inv LOCAL. exploit mem_eqlerel_lift_promise; eauto.
     { rewrite <- PRM. apply WFS1. }
@@ -1225,17 +1227,16 @@ Proof.
     + ss.
     + ss.
     + ss.
-  - destruct lc1. subst. ss.
-    destruct thS1, local. ss. subst.
+  - subst. destruct thS1, local. ss. subst.
     right. esplits.
     + econs.
-    + econs 2. econs 1. eauto.
+    + econs 2. econs; [|econs 1]; eauto.
     + ss.
     + ss.
     + ss.
     + ss.
     + ss.
-  - destruct lc1. inversion LOCAL. subst. ss.
+  - destruct lc1. inversion LOCAL0. subst. ss.
     exploit lift_read; eauto.
     { apply WFT1. }
     { eapply MEMT1. eauto. }
@@ -1244,19 +1245,19 @@ Proof.
     destruct thS1, local. ss. subst.
     right. esplits.
     + econs. eauto.
-    + econs 2. econs 2; eauto.
+    + econs 2. econs; [|econs 2]; eauto.
     + ss.
     + ss.
     + ss.
     + ss.
     + ss.
-  - destruct lc1. inversion LOCAL. ss. subst.
+  - destruct lc1. inversion LOCAL0. ss. subst.
     hexploit lift_write; try exact MEM; eauto; try refl;
       try apply WFS1; try apply WFT1; try by viewtac. i. des.
     destruct thS1, local. ss. subst.
     right. esplits.
     + econs. eauto.
-    + econs 2. econs 3; eauto.
+    + econs 2. econs; [|econs 3]; eauto.
     + ss.
     + ss.
     + ss.
@@ -1277,13 +1278,13 @@ Proof.
     destruct thS1, local. ss. subst.
     right. esplits.
     + econs; eauto.
-    + econs 2. econs 4; eauto.
+    + econs 2. econs; [|econs 4]; eauto.
     + ss.
     + ss.
     + ss.
     + ss.
     + ss.
-  - destruct lc1. inversion LOCAL. subst. ss.
+  - destruct lc1. inversion LOCAL0. subst. ss.
     exploit lift_fence; eauto.
     { apply WFS1. }
     { apply WFT1. }
@@ -1291,13 +1292,13 @@ Proof.
     destruct thS1, local. ss. subst.
     right. esplits.
     + econs.
-    + econs 2. econs 5; eauto.
+    + econs 2. econs; [|econs 5]; eauto.
     + ss.
     + ss.
     + ss.
     + ss.
     + ss.
-  - destruct lc1. inversion LOCAL. subst. ss.
+  - destruct lc1. inversion LOCAL0. subst. ss.
     exploit lift_fence; eauto.
     { apply WFS1. }
     { apply WFT1. }
@@ -1305,7 +1306,7 @@ Proof.
     destruct thS1, local. ss. subst.
     right. esplits.
     + econs.
-    + econs 2. econs 6; eauto.
+    + econs 2. econs; [|econs 6]; eauto.
     + ss.
     + ss.
     + ss.

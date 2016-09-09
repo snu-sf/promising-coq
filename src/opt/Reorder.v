@@ -78,7 +78,8 @@ Proof.
   { esplits; eauto.
     inv LOCAL. apply SimPromises.sem_bot_inv in PROMISES; auto. rewrite PROMISES. auto.
   }
-  inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR; inv REORDER); ss.
+  inv STEP_TGT; [inv STEP|inv STEP; inv LOCAL0];
+    try (inv STATE; inv INSTR; inv REORDER); ss.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
     esplits; try apply SC; eauto.
@@ -93,7 +94,7 @@ Proof.
       eapply Local.read_step_future; eauto.
   - (* store *)
     exploit Local.write_step_future; eauto; try by viewtac. i. des.
-    hexploit sim_local_write; try exact LOCAL0; try exact SC;
+    hexploit sim_local_write; try exact LOCAL1; try exact SC;
       try exact WF_SRC; try refl; viewtac. i. des.
     exploit write_promise_fulfill; eauto; try by viewtac. i. des.
     exploit Local.promise_step_future; eauto. i. des.

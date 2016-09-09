@@ -166,7 +166,7 @@ Proof.
   inv PROMISE. inv FULFILL.
   exploit MemorySplit.remove_promise_remove;
     try exact REMOVE; eauto; try apply WF2; try refl. i. des.
-  refine (Local.step_write _ _ _ _ _ _); eauto.
+  refine (Local.write_step_intro _ _ _ _ _ _); eauto.
   econs; eauto.
 Qed.
 

@@ -47,31 +47,31 @@ Lemma progress_program_step
 Proof.
   destruct i1.
   - destruct i.
-    + esplits. econs 1. econs. econs.
-    + esplits. econs 1. econs. econs.
+    + esplits. econs; [|econs 1]; eauto. econs. econs.
+    + esplits. econs; [|econs 1]; eauto. econs. econs.
     + hexploit progress_read_step; eauto. i. des.
-      esplits. econs 2; eauto. econs. econs.
+      esplits. econs; [|econs 2]; eauto. econs. econs.
     + hexploit progress_write_step; eauto.
       { apply Time.incr_spec. }
       { econs 2. }
       { econs. }
-      i. des. esplits. econs 3; eauto. econs. econs.
+      i. des. esplits. econs; [|econs 3]; eauto. econs. econs.
     + hexploit progress_read_step; eauto. i. des.
       exploit Local.read_step_future; eauto. i. des.
       hexploit progress_write_step; eauto.
       { apply Time.incr_spec. }
       { inv H. auto. }
-      i. des. esplits. econs 4; eauto. econs. econs. apply surjective_pairing.
+      i. des. esplits. econs; [|econs 4]; eauto. econs. econs. apply surjective_pairing.
     + hexploit progress_fence_step; eauto.
       { i. rewrite PROMISES1. apply Memory.bot_nonsynch. }
       i. des.
-      esplits. econs 5; eauto. econs. econs.
+      esplits. econs; [|econs 5]; eauto. econs. econs.
     + hexploit progress_fence_step; eauto.
       { i. rewrite PROMISES1. apply Memory.bot_nonsynch. }
       i. des.
-      esplits. econs 6; eauto. econs. econs.
-  - esplits. econs 1; eauto. econs.
-  - esplits. econs 1; eauto. econs.
+      esplits. econs; [|econs 6]; eauto. econs. econs.
+  - esplits. econs; [|econs 1]; eauto. econs.
+  - esplits. econs; [|econs 1]; eauto. econs.
 Grab Existential Variables.
   { auto. }
 Qed.
@@ -142,7 +142,7 @@ Proof.
   - econs; eauto.
     eapply TViewFacts.readable_mon; try apply READABLE0; eauto; try refl.
     apply TViewFacts.read_tview_incr.
-  - refine (Local.step_read _ _ _ _ _); eauto.
+  - refine (Local.read_step_intro _ _ _ _ _); eauto.
     + s. unfold TView.read_tview.
       econs; repeat (try condtac; try splits; aggrtac; eauto; try apply READABLE;
                      unfold TimeMap.singleton, LocFun.add in *).
