@@ -77,41 +77,68 @@ Lemma sim_initial :
 Proof.
 ins.
 destruct INIT.
-red; splits.
-- by apply coherent_initial.
-- apply Configuration.init_wf.
-- ins. unfold Threads.init in *.
-  apply find_mapD in TID; desc.
-  desf.
-- admit.
-- eexists _,_.
-red; splits.
-* red; ins; exfalso.
+assert (Coherent (acts (exec ax_st)) (sb (exec ax_st)) (rmw (exec ax_st)) 
+  (rf (exec ax_st)) (mo (exec ax_st)) (sc (exec ax_st))).
+by apply coherent_initial.
 destruct EXEC; desc.
-eapply MO; edone.
-* ins.
-unfold Threads.init in *.
-  apply find_mapD in TID; desf.
-unfold Local.init in *; ins.
-red; splits; red; splits; ins.
-all: eapply max_value_empty.
-all: ins; intro H.
-all: unfold t_cur, t_acq, t_rel, dom_rel, c_cur, c_acq, c_rel, seq, eqv_rel in *; desc.
-(* + 
-eapply urr_actb in H; eauto using coherent_initial.
-
-destruct EXEC.
-apply ACTS in H.
-red in H.
-unfold init_event in *.
-desc; destruct y as [??[]]; ins; desf.
-+ 
-red in H.
-red in H.
-desc.
-red in H.
- *)
-(* 
-unfold  *)
-all: admit.
-Admitted.
+red; splits; try done.
+- by apply Configuration.init_wf.
+- by ins; apply find_mapD in TID; desf.
+- rewrite STATES.
+  unfold Configuration.init, Threads.init.
+  ins; apply IdentMap.eq_leibniz; intro y.
+  rewrite !IdentMap.Facts.map_o; ins.
+  by unfold option_map; desf.
+- eexists (fun x => Time.bot), (fun x => Time.bot).
+  red; splits.
+  * eby red; ins; exfalso; eapply MO.
+  * ins.
+    unfold Threads.init in *.
+    apply find_mapD in TID; desf.
+    unfold Local.init in *; ins.
+    red; splits; red; splits; ins.
+    all:rewrite tm_find_bot in *.
+    all: unfold t_cur, t_acq, t_rel, dom_rel, c_cur, c_acq, c_rel, seq, eqv_rel in *; desc; subst.
+    all: try by eapply max_value_empty; ins; intro X; desc;
+      eapply init_not_rel; try edone; eapply ACTS, scr_actb; eauto.
+    all: try by eapply max_value_empty; ins; intro X; desc;
+      eapply init_not_rel; try edone; eapply ACTS, rwr_actb; eauto.
+    all: try by eapply max_value_empty; ins; intro X; desc;
+      eapply init_not_rel; try edone; eapply ACTS, urr_actb; eauto.
+    all: unfold max_value; splits.
+    all: try by ins; right.
+    all: right.
+    all: repeat (exists (init_event l); splits).
+    all: try match goal with
+         | [|- scr _ _ _ _ _ _ _ _] => left     end.
+    all: try match goal with
+         | [|- rwr _ _ _ _ _ _ _ _] => left     end.
+    all: repeat (exists (init_event l); splits).
+    all: try by econs.
+    all: unfold eqv_rel; splits; eauto.
+    all: try by apply ACTS; red; eauto.
+    all: try by right; red; eauto.
+  * ins; rewrite tm_find_bot in *.
+    eapply max_value_empty; ins; intro X; desc.
+    unfold S_tm, dom_rel, seq, eqv_rel in *; desc; subst.
+    eapply init_not_sc, sc_wf_is_sc; try edone.
+    eapply ACTS, S_tmr_actb; eauto.
+    eby eapply S_tmr_domb.
+  * red; splits; ins.
+    apply UsualFMapPositive.UsualPositiveMap'.singleton_find_inv in CELL; desf.
+    exists (init_event l); splits; eauto.
+    by eapply ACTS; red; eauto.
+    by eapply init_is_write; red; eauto.
+    red; splits.
+    by ins.
+    by right; splits; try red; eauto.
+    2: by exfalso; unfold seq in *; desc;
+      eapply read_non_write; [eapply rf_domb | eapply init_is_write, ACTS, rf_actb]; eauto.
+    red; splits; ins; rewrite tm_find_bot in *.
+    all: eapply max_value_empty; ins; intro X; desc.
+    all: unfold msg_rel, m_rel, rel, seq, eqv_rel  in *; desf.
+    all: eapply init_not_rel; try edone; eapply ACTS.
+    by eapply urr_actb; eauto.
+    by eapply rwr_actb; eauto.
+    by eapply scr_actb; eauto.
+Qed.
