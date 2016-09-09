@@ -48,12 +48,12 @@ Lemma reorder_promise_small_step
   (exists e2',
       <<TEQ: tid1 = tid2>> /\
       <<STEP: small_step true tid2 e2' c0 c2>> /\
-      <<EVENT: ThreadEvent.get_non_promise e2' = ThreadEvent.get_non_promise e2>>) \/
+      <<EVENT: ThreadEvent.get_program e2' = ThreadEvent.get_program e2>>) \/
   (exists e2' c1' e1' l t,
       <<STEP1: small_step false tid2 e2' c0 c1'>> /\
       <<STEP2: small_step true tid1 e1' c1' c2>> /\
       <<PROMISING: ThreadEvent.is_promising e1' = Some (l, t)>> /\
-      <<EVENT: ThreadEvent.get_non_promise e2' = ThreadEvent.get_non_promise e2>>).
+      <<EVENT: ThreadEvent.get_program e2' = ThreadEvent.get_program e2>>).
 Proof.
   destruct (Ident.eq_dec tid1 tid2).
   - subst. inv STEP1. inv STEP2. ss.

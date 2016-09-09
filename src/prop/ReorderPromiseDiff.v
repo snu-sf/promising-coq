@@ -244,16 +244,16 @@ Lemma reorder_promise_program_diff
     <<STEP1: Thread.program_step e2 (Thread.mk lang2 st2 lc2 sc0 mem0) (Thread.mk lang2 st2' lc2' sc2 mem1')>> /\
     <<STEP2: Local.promise_step lc1 mem1' loc from to val released lc1' mem2 kind>>.
 Proof.
-  inv STEP2; ss.
+  inv STEP2. inv LOCAL; ss.
   - (* silent *)
-    esplits; eauto. econs; eauto.
+    esplits; eauto. econs; [|econs 1]; eauto.
   - (* read *)
     exploit reorder_promise_read_diff; eauto.
     { ii. inv H. eapply E2. eauto. }
-    i. des. esplits; eauto. econs 2; eauto.
+    i. des. esplits; eauto. econs; [|econs 2]; eauto.
   - (* write *)
     exploit reorder_promise_write_diff; eauto; try by viewtac. i. des.
-    esplits; eauto. econs 3; eauto.
+    esplits; eauto. econs; [|econs 3]; eauto.
   - (* update *)
     exploit reorder_promise_read_diff; eauto.
     { ii. inv H. eapply E2. eauto. }
@@ -261,9 +261,9 @@ Proof.
     exploit Local.read_step_future; eauto. i. des.
     exploit Local.read_step_disjoint; try symmetry; eauto. i.
     exploit reorder_promise_write_diff; try symmetry; eauto. i. des.
-    esplits; eauto. econs 4; eauto.
-  - inv LOCAL.
-    esplits; eauto. econs 5; eauto. econs; eauto.
-  - inv LOCAL.
-    esplits; eauto. econs 6; eauto. econs; eauto.
+    esplits; eauto. econs; [|econs 4]; eauto.
+  - inv LOCAL0.
+    esplits; eauto. econs; [|econs 5]; eauto. econs; eauto.
+  - inv LOCAL0.
+    esplits; eauto. econs; [|econs 6]; eauto. econs; eauto.
 Qed.

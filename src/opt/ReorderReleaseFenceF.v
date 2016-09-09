@@ -87,7 +87,8 @@ Lemma sim_release_fenceF_step
                      st1_tgt lc1_tgt sc1_tgt mem1_tgt.
 Proof.
   inv SIM; ii.
-  inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR); ss.
+  inv STEP_TGT; [inv STEP|inv STEP; inv LOCAL];
+    try (inv STATE; inv INSTR); ss.
   - (* promise *)
     exploit sim_localF_promise; eauto. i. des.
     esplits.
@@ -174,14 +175,14 @@ Proof.
   exploit Thread.rtc_tau_step_future; eauto. s. i. des.
   exploit sim_localF_fence_src; eauto. i. des.
   exploit Local.fence_step_future; eauto. i. des.
-  inv STEP; inv STATE; inv INSTR; inv REORDER.
+  inv STEP. inv LOCAL1; inv STATE; inv INSTR; inv REORDER.
   - (* load *)
     exploit sim_localF_read; eauto; try refl. i. des.
     esplits.
     + etrans; [eauto|]. econs 2; [|refl]. econs.
-      * econs. econs 2. econs 5; eauto. econs. econs.
+      * econs. econs 2. econs; [|econs 5]; eauto. econs. econs.
       * ss.
-    + econs 2. econs 2. econs 2; eauto. econs. econs.
+    + econs 2. econs 2. econs; [|econs 2]; eauto. econs. econs.
     + auto.
     + etrans; eauto.
     + auto.
@@ -192,9 +193,9 @@ Proof.
       (try refl); (try by econs). i. des.
     esplits.
     + etrans; [eauto|]. econs 2; [|refl]. econs.
-      * econs. econs 2. econs 5; eauto. econs. econs.
+      * econs. econs 2. econs; [|econs 5]; eauto. econs. econs.
       * ss.
-    + econs 2. econs 2. econs 3; eauto. econs. econs.
+    + econs 2. econs 2. econs; [|econs 3]; eauto. econs. econs.
       replace sc2_src with sc1_src; eauto. apply TimeMap.antisym; ss.
     + auto.
     + auto.
@@ -209,9 +210,9 @@ Proof.
       (try refl); (try by econs). i. des.
     esplits.
     + etrans; [eauto|]. econs 2; [|refl]. econs.
-      * econs. econs 2. econs 5; eauto. econs. econs.
+      * econs. econs 2. econs; [|econs 5]; eauto. econs. econs.
       * ss.
-    + econs 2. econs 2. econs 4; eauto.
+    + econs 2. econs 2. econs; [|econs 4]; eauto.
       * econs. econs. eauto.
       * replace sc2_src with sc1_src; eauto. apply TimeMap.antisym; ss.
     + auto.
@@ -223,9 +224,9 @@ Proof.
     exploit sim_localF_fence; try exact SC; eauto; try refl. i. des.
     esplits.
     + etrans; [eauto|]. econs 2; [|refl]. econs.
-      * econs. econs 2. econs 5; eauto. econs. econs.
+      * econs. econs 2. econs; [|econs 5]; eauto. econs. econs.
       * ss.
-    + econs 2. econs 2. econs 5; eauto.
+    + econs 2. econs 2. econs; [|econs 5]; eauto.
       * econs. econs.
       * replace sc2_src with sc1_src; eauto. apply TimeMap.antisym; ss.
     + auto.

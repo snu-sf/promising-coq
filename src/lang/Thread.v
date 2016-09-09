@@ -22,8 +22,7 @@ Set Implicit Arguments.
 
 
 Module ThreadEvent.
-  Inductive t :=
-  | promise (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:option View.t) (kind:Memory.op_kind)
+  Inductive program_t :=
   | silent
   | read (loc:Loc.t) (ts:Time.t) (val:Const.t) (released:option View.t) (ord:Ordering.t)
   | write (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:option View.t) (ord:Ordering.t)
@@ -32,18 +31,33 @@ Module ThreadEvent.
   | syscall (e:Event.t)
   .
 
+  Inductive t :=
+  | promise (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:option View.t) (kind:Memory.op_kind)
+  | program (event:program_t)
+  .
+  Coercion ThreadEvent.program: ThreadEvent.program_t >-> ThreadEvent.t.
+
   Definition get_event (e:t): option Event.t :=
     match e with
     | syscall e => Some e
     | _ => None
     end.
 
-  Definition get_non_promise (e:t): option t:=
+  Definition get_program_event (e:program_t) : ProgramEvent.t :=
     match e with
-    | promise _ _ _ _ _ _ => None
-    | _ => Some e
+    | silent => ProgramEvent.silent
+    | read loc _ val _ ord => ProgramEvent.read loc val ord
+    | write loc _ _ val _ ord => ProgramEvent.write loc val ord
+    | update loc _ _ valr valw _ _ ordr ordw => ProgramEvent.update loc valr valw ordr ordw
+    | fence ordr ordw => ProgramEvent.fence ordr ordw
+    | syscall ev => ProgramEvent.syscall ev
     end.
 
+  Definition get_program (e:t): option program_t :=
+    match e with
+    | promise _ _ _ _ _ _ => None
+    | program e => Some e
+    end.
 
   Definition is_promising (e:t) : option (Loc.t * Time.t) :=
     match e with
@@ -77,7 +91,7 @@ Module ThreadEvent.
       (LEREL: View.opt_le rel1 rel2):
       le (promise loc from to val rel1 kind1) (promise loc from to val rel2 kind2)
   | le_silent:
-      le (silent) (silent)
+      le (program silent) (program silent)
   | le_read
       loc ts val rel1 rel2 ord
       (LEREL: View.opt_le rel1 rel2):
@@ -97,6 +111,41 @@ Module ThreadEvent.
       le (syscall e) (syscall e)
   .
 End ThreadEvent.
+Coercion ThreadEvent.program: ThreadEvent.program_t >-> ThreadEvent.t.
+
+Inductive tau T (step: forall (e:ThreadEvent.t) (e1 e2:T), Prop) (e1 e2:T): Prop :=
+| tau_intro
+    e
+    (TSTEP: step e e1 e2)
+    (EVENT: ThreadEvent.get_event e = None)
+.
+Hint Constructors tau.
+
+Inductive union E T (step: forall (e:E) (e1 e2:T), Prop) (e1 e2:T): Prop :=
+| union_intro
+    e
+    (USTEP: step e e1 e2)
+.
+Hint Constructors union.
+
+Lemma tau_mon T (step1 step2: forall (e:ThreadEvent.t) (e1 e2:T), Prop)
+      (STEP: step1 <3= step2):
+  tau step1 <2= tau step2.
+Proof.
+  i. inv PR. econs; eauto.
+Qed.
+
+Lemma union_mon E T (step1 step2: forall (e:E) (e1 e2:T), Prop)
+      (STEP: step1 <3= step2):
+  union step1 <2= union step2.
+Proof.
+  i. inv PR. econs; eauto.
+Qed.
+
+Lemma tau_union: tau <4= (@union ThreadEvent.t).
+Proof.
+  ii. inv PR. econs. eauto.
+Qed.
 
 
 Module Local.
@@ -131,7 +180,7 @@ Module Local.
   Qed.
 
   Inductive promise_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (released:option View.t): forall (lc2:t) (mem2:Memory.t) (kind:Memory.op_kind), Prop :=
-  | step_promise
+  | promise_step_intro
       promises2 mem2 kind
       (PROMISE: Memory.promise lc1.(promises) mem1 loc from to val released promises2 mem2 kind)
       (CLOSED: Memory.closed_opt_view released mem2):
@@ -139,7 +188,7 @@ Module Local.
   .
 
   Inductive read_step (lc1:t) (mem1:Memory.t) (loc:Loc.t) (to:Time.t) (val:Const.t) (released:option View.t) (ord:Ordering.t): forall (lc2:t), Prop :=
-  | step_read
+  | read_step_intro
       from
       tview2
       (GET: Memory.get loc to mem1 = Some (from, Message.mk val released))
@@ -149,7 +198,7 @@ Module Local.
   .
 
   Inductive write_step (lc1:t) (sc1:TimeMap.t) (mem1:Memory.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (releasedm released:option View.t) (ord:Ordering.t): forall (lc2:t) (sc2:TimeMap.t) (mem2:Memory.t) (kind:Memory.op_kind), Prop :=
-  | step_write
+  | write_step_intro
       promises2 mem2 kind
       (RELEASED: released = TView.write_released lc1.(tview) sc1 loc to releasedm ord)
       (WRITABLE: TView.writable lc1.(tview).(TView.cur) sc1 loc to ord)
@@ -164,11 +213,45 @@ Module Local.
   .
 
   Inductive fence_step (lc1:t) (sc1:TimeMap.t) (ordr ordw:Ordering.t): forall (lc2:t) (sc2:TimeMap.t), Prop :=
-  | step_fence
+  | fence_step_intro
       tview2
       (READ: TView.read_fence_tview lc1.(tview) ordr = tview2)
       (RELEASE: Ordering.le Ordering.acqrel ordw -> Memory.nonsynch lc1.(promises)):
       fence_step lc1 sc1 ordr ordw (mk (TView.write_fence_tview tview2 sc1 ordw) lc1.(promises)) (TView.write_fence_sc tview2 sc1 ordw)
+  .
+
+  Inductive program_step: forall (e:ThreadEvent.t) lc1 sc1 mem1 lc2 sc2 mem2, Prop :=
+  | step_silent
+      lc1 sc1 mem1:
+      program_step ThreadEvent.silent lc1 sc1 mem1 lc1 sc1 mem1
+  | step_read
+      lc1 sc1 mem1
+      loc ts val released ord lc2
+      (LOCAL: Local.read_step lc1 mem1 loc ts val released ord lc2):
+      program_step (ThreadEvent.read loc ts val released ord) lc1 sc1 mem1 lc2 sc1 mem1
+  | step_write
+      lc1 sc1 mem1
+      loc from to val released ord lc2 sc2 mem2 kind
+      (LOCAL: Local.write_step lc1 sc1 mem1 loc from to val None released ord lc2 sc2 mem2 kind):
+      program_step (ThreadEvent.write loc from to val released ord) lc1 sc1 mem1 lc2 sc2 mem2
+  | step_update
+      lc1 sc1 mem1
+      loc ordr ordw
+      tsr valr releasedr releasedw lc2
+      tsw valw lc3 sc3 mem3 kind
+      (LOCAL1: Local.read_step lc1 mem1 loc tsr valr releasedr ordr lc2)
+      (LOCAL2: Local.write_step lc2 sc1 mem1 loc tsr tsw valw releasedr releasedw ordw lc3 sc3 mem3 kind):
+      program_step (ThreadEvent.update loc tsr tsw valr valw releasedr releasedw ordr ordw) lc1 sc1 mem1 lc3 sc3 mem3
+  | step_fence
+      lc1 sc1 mem1
+      ordr ordw lc2 sc2
+      (LOCAL: Local.fence_step lc1 sc1 ordr ordw lc2 sc2):
+      program_step (ThreadEvent.fence ordr ordw) lc1 sc1 mem1 lc2 sc2 mem1
+  | step_syscall
+      lc1 sc1 mem1
+      e lc2 sc2
+      (LOCAL: Local.fence_step lc1 sc1 Ordering.seqcst Ordering.seqcst lc2 sc2):
+      program_step (ThreadEvent.syscall e) lc1 sc1 mem1 lc2 sc2 mem1
   .
 
   Lemma promise_step_future lc1 sc1 mem1 loc from to val released lc2 mem2 kind
@@ -268,6 +351,31 @@ Module Local.
     - apply TViewFacts.write_fence_sc_incr.
   Qed.
 
+  Lemma program_step_future e lc1 sc1 mem1 lc2 sc2 mem2
+        (STEP: program_step e lc1 sc1 mem1 lc2 sc2 mem2)
+        (WF1: wf lc1 mem1)
+        (SC1: Memory.closed_timemap sc1 mem1)
+        (CLOSED1: Memory.closed mem1):
+    <<WF2: wf lc2 mem2>> /\
+    <<SC2: Memory.closed_timemap sc2 mem2>> /\
+    <<CLOSED2: Memory.closed mem2>> /\
+    <<TVIEW_FUTURE: TView.le lc1.(tview) lc2.(tview)>> /\
+    <<SC_FUTURE: TimeMap.le sc1 sc2>> /\
+    <<MEM_FUTURE: Memory.future mem1 mem2>>.
+  Proof.
+    inv STEP.
+    - esplits; eauto; try refl.
+    - exploit read_step_future; eauto. i. des.
+      esplits; eauto; try refl.
+    - exploit write_step_future; eauto; try by econs. i. des.
+      esplits; eauto; try refl.
+    - exploit read_step_future; eauto. i. des.
+      exploit write_step_future; eauto; try by econs. i. des.
+      esplits; eauto. etrans; eauto.
+    - exploit fence_step_future; eauto. i. des. esplits; eauto; try refl.
+    - exploit fence_step_future; eauto. i. des. esplits; eauto; try refl.
+  Qed.
+
   Lemma promise_step_disjoint
         lc1 sc1 mem1 loc from to val released lc2 mem2 lc kind
         (STEP: promise_step lc1 mem1 loc from to val released lc2 mem2 kind)
@@ -335,42 +443,29 @@ Module Local.
   Proof.
     inv READ. auto.
   Qed.
+
+  Lemma program_step_disjoint
+        e lc1 sc1 mem1 lc2 sc2 mem2 lc
+        (STEP: program_step e lc1 sc1 mem1 lc2 sc2 mem2)
+        (WF1: wf lc1 mem1)
+        (SC1: Memory.closed_timemap sc1 mem1)
+        (CLOSED1: Memory.closed mem1)
+        (DISJOINT1: disjoint lc1 lc)
+        (WF: wf lc mem1):
+    <<DISJOINT2: disjoint lc2 lc>> /\
+    <<WF: wf lc mem2>>.
+  Proof.
+    inv STEP.
+    - esplits; eauto.
+    - exploit read_step_disjoint; eauto.
+    - exploit write_step_disjoint; eauto.
+    - exploit read_step_future; eauto. i. des.
+      exploit read_step_disjoint; eauto. i. des.
+      exploit write_step_disjoint; eauto.
+    - exploit fence_step_disjoint; eauto.
+    - exploit fence_step_disjoint; eauto.
+  Qed.
 End Local.
-
-
-Inductive tau T (step: forall (e:ThreadEvent.t) (e1 e2:T), Prop) (e1 e2:T): Prop :=
-| tau_intro
-    e
-    (TSTEP: step e e1 e2)
-    (EVENT: ThreadEvent.get_event e = None)
-.
-Hint Constructors tau.
-
-Inductive union E T (step: forall (e:E) (e1 e2:T), Prop) (e1 e2:T): Prop :=
-| union_intro
-    e
-    (USTEP: step e e1 e2)
-.
-Hint Constructors union.
-
-Lemma tau_mon T (step1 step2: forall (e:ThreadEvent.t) (e1 e2:T), Prop)
-      (STEP: step1 <3= step2):
-  tau step1 <2= tau step2.
-Proof.
-  i. inv PR. econs; eauto.
-Qed.
-
-Lemma union_mon E T (step1 step2: forall (e:E) (e1 e2:T), Prop)
-      (STEP: step1 <3= step2):
-  union step1 <2= union step2.
-Proof.
-  i. inv PR. econs; eauto.
-Qed.
-
-Lemma tau_union: tau <4= (@union ThreadEvent.t).
-Proof.
-  ii. inv PR. econs. eauto.
-Qed.
 
 
 Module Thread.
@@ -396,45 +491,13 @@ Module Thread.
 
     (* NOTE: Syscalls act like an SC fence.
      *)
-    Inductive program_step: forall (e:ThreadEvent.t) (e1 e2:t), Prop :=
-    | step_silent
+    Inductive program_step (e:ThreadEvent.program_t): forall (e1 e2:t), Prop :=
+    | program_step_intro
         st1 lc1 sc1 mem1
-        st2
-        (STATE: lang.(Language.step) None st1 st2):
-        program_step ThreadEvent.silent (mk st1 lc1 sc1 mem1) (mk st2 lc1 sc1 mem1)
-    | step_read
-        st1 lc1 sc1 mem1
-        st2 loc ts val released ord lc2
-        (STATE: lang.(Language.step) (Some (ProgramEvent.read loc val ord)) st1 st2)
-        (LOCAL: Local.read_step lc1 mem1 loc ts val released ord lc2):
-        program_step (ThreadEvent.read loc ts val released ord) (mk st1 lc1 sc1 mem1) (mk st2 lc2 sc1 mem1)
-    | step_write
-        st1 lc1 sc1 mem1
-        st2 loc from to val released ord lc2 sc2 mem2 kind
-        (STATE: lang.(Language.step) (Some (ProgramEvent.write loc val ord)) st1 st2)
-        (LOCAL: Local.write_step lc1 sc1 mem1 loc from to val None released ord lc2 sc2 mem2 kind):
-        program_step (ThreadEvent.write loc from to val released ord) (mk st1 lc1 sc1 mem1) (mk st2 lc2 sc2 mem2)
-    | step_update
-        st1 lc1 sc1 mem1
-        st3 loc ordr ordw
-        tsr valr releasedr releasedw lc2
-        tsw valw lc3 sc3 mem3 kind
-        (STATE: lang.(Language.step) (Some (ProgramEvent.update loc valr valw ordr ordw)) st1 st3)
-        (LOCAL1: Local.read_step lc1 mem1 loc tsr valr releasedr ordr lc2)
-        (LOCAL2: Local.write_step lc2 sc1 mem1 loc tsr tsw valw releasedr releasedw ordw lc3 sc3 mem3 kind):
-        program_step (ThreadEvent.update loc tsr tsw valr valw releasedr releasedw ordr ordw) (mk st1 lc1 sc1 mem1) (mk st3 lc3 sc3 mem3)
-    | step_fence
-        st1 lc1 sc1 mem1
-        st2 ordr ordw lc2 sc2
-        (STATE: lang.(Language.step) (Some (ProgramEvent.fence ordr ordw)) st1 st2)
-        (LOCAL: Local.fence_step lc1 sc1 ordr ordw lc2 sc2):
-        program_step (ThreadEvent.fence ordr ordw) (mk st1 lc1 sc1 mem1) (mk st2 lc2 sc2 mem1)
-    | step_syscall
-        st1 lc1 sc1 mem1
-        st2 e lc2 sc2
-        (STATE: lang.(Language.step) (Some (ProgramEvent.syscall e)) st1 st2)
-        (LOCAL: Local.fence_step lc1 sc1 Ordering.seqcst Ordering.seqcst lc2 sc2):
-        program_step (ThreadEvent.syscall e) (mk st1 lc1 sc1 mem1) (mk st2 lc2 sc2 mem1)
+        st2 lc2 sc2 mem2
+        (STATE: lang.(Language.step) (ThreadEvent.get_program_event e) st1 st2)
+        (LOCAL: Local.program_step e lc1 sc1 mem1 lc2 sc2 mem2):
+        program_step e (mk st1 lc1 sc1 mem1) (mk st2 lc2 sc2 mem2)
     .
     Hint Constructors program_step.
 
@@ -523,15 +586,7 @@ Module Thread.
       <<SC_FUTURE: TimeMap.le e1.(sc) e2.(sc)>> /\
       <<MEM_FUTURE: Memory.future e1.(memory) e2.(memory)>>.
     Proof.
-      inv STEP; ss.
-      - splits; eauto; refl.
-      - exploit Local.read_step_future; eauto. i. des. splits; ss; refl.
-      - exploit Local.write_step_future; eauto; viewtac. i. des. splits; ss.
-      - exploit Local.read_step_future; eauto. i. des.
-        exploit Local.write_step_future; eauto. i. des. splits; ss.
-        etrans; eauto.
-      - exploit Local.fence_step_future; eauto. i. des. splits; ss. refl.
-      - exploit Local.fence_step_future; eauto. i. des. splits; ss. refl.
+      inv STEP. ss. eapply Local.program_step_future; eauto.
     Qed.
 
     Lemma step_future pf e e1 e2
@@ -669,20 +724,7 @@ Module Thread.
       <<DISJOINT2: Local.disjoint e2.(local) lc>> /\
       <<WF: Local.wf lc e2.(memory)>>.
     Proof.
-      inv STEP.
-      - ss.
-      - exploit Local.read_step_future; eauto. i.
-        exploit Local.read_step_disjoint; eauto.
-      - exploit Local.write_step_future; eauto; try by viewtac. i. des.
-        exploit Local.write_step_disjoint; eauto.
-      - exploit Local.read_step_future; eauto. i. des.
-        exploit Local.read_step_disjoint; eauto. i.
-        exploit Local.write_step_future; eauto. i. des.
-        exploit Local.write_step_disjoint; eauto.
-      - exploit Local.fence_step_future; eauto. i.
-        exploit Local.fence_step_disjoint; eauto.
-      - exploit Local.fence_step_future; eauto. i.
-        exploit Local.fence_step_disjoint; eauto.
+      inv STEP. ss. eapply Local.program_step_disjoint; eauto.
     Qed.
 
     Lemma step_disjoint pf e e1 e2 lc

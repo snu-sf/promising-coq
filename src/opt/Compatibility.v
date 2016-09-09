@@ -110,13 +110,13 @@ Lemma program_step_seq
     (Thread.mk lang (State.mk rs1 (stmts1 ++ stmts)) lc1 sc1 mem1)
     (Thread.mk lang (State.mk rs2 (stmts2 ++ stmts)) lc2 sc2 mem2).
 Proof.
-  inv STEP; ss.
-  - econs 1; s; eauto. apply lang_step_seq. auto.
-  - econs 2; s; eauto. apply lang_step_seq. auto.
-  - econs 3; s; eauto. apply lang_step_seq. auto.
-  - econs 4; s; eauto. apply lang_step_seq. auto.
-  - econs 5; s; eauto. apply lang_step_seq. auto.
-  - econs 6; s; eauto. apply lang_step_seq. auto.
+  inv STEP; inv LOCAL; ss.
+  - econs; [|econs 1]; s; eauto. apply lang_step_seq. auto.
+  - econs; [|econs 2]; s; eauto. apply lang_step_seq. auto.
+  - econs; [|econs 3]; s; eauto. apply lang_step_seq. auto.
+  - econs; [|econs 4]; s; eauto. apply lang_step_seq. auto.
+  - econs; [|econs 5]; s; eauto. apply lang_step_seq. auto.
+  - econs; [|econs 6]; s; eauto. apply lang_step_seq. auto.
 Qed.
 
 Lemma step_seq
@@ -170,24 +170,8 @@ Proof.
     esplits; eauto.
     econs 1. econs; eauto.
   - inv STEP0; ss.
-    + apply lang_step_deseq in STATE. des. subst.
-      esplits; eauto.
-      econs 2. econs 1; s; eauto.
-    + apply lang_step_deseq in STATE. des. subst.
-      esplits; eauto.
-      econs 2. econs 2; s; eauto.
-    + apply lang_step_deseq in STATE. des. subst.
-      esplits; eauto.
-      econs 2. econs 3; s; eauto.
-    + apply lang_step_deseq in STATE. des. subst.
-      esplits; eauto.
-      econs 2. econs 4; s; eauto.
-    + apply lang_step_deseq in STATE. des. subst.
-      esplits; eauto.
-      econs 2. econs 5; s; eauto.
-    + apply lang_step_deseq in STATE. des. subst.
-      esplits; eauto.
-      econs 2. econs 6; s; eauto.
+    apply lang_step_deseq in STATE. des. subst.
+    esplits; eauto. econs 2. econs; eauto.
 Qed.
 
 Lemma sim_rtc
@@ -425,10 +409,10 @@ Proof.
           eapply _sim_stmts_mon; try apply LE; eauto.
       }
     + (* ite *)
-      inv STEP; inv STATE; ss.
+      inv STEP. inv LOCAL0; inv STATE; ss.
       inv LOCAL. ss.
       esplits; try apply MEMORY; try apply SC; eauto.
-      { econs 2. econs 2. econs 1. econs; eauto. }
+      { econs 2. econs 2. econs; [|econs 1]; eauto. econs; eauto. }
       { eauto. }
       { s. rewrite ? app_nil_r.
         exploit COND; eauto. intro C. rewrite C.
@@ -465,10 +449,10 @@ Proof.
           eapply _sim_stmts_mon; try apply LE; eauto.
       }
     + (* dowhile *)
-      inv STEP; inv STATE; ss.
+      inv STEP. inv LOCAL0; inv STATE; ss.
       inv LOCAL. ss.
       esplits; try apply SC; eauto.
-      { econs 2. econs 2. econs 1. econs; eauto. }
+      { econs 2. econs 2. econs; [|econs 1]; eauto. econs; eauto. }
       { eauto. }
       { apply rclo9_step. eapply ctx_seq.
         { apply rclo9_incl. apply LE. apply SIM; ss. }

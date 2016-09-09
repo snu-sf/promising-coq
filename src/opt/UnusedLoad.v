@@ -84,7 +84,7 @@ Proof.
     exploit sim_local_read; eauto; try refl. i. des.
     esplits.
     - econs 2; eauto. econs.
-      + econs. econs 2. econs 2; eauto. econs. econs.
+      + econs. econs 2. econs; [|econs 2]; eauto. econs. econs.
       + eauto.
     - auto.
     - auto.

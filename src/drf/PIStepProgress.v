@@ -83,7 +83,7 @@ Proof.
       setoid_rewrite IdentMap.Properties.F.map_o.
       by rewrite TID0. }
 
-    des. inv STEP; inv RW; inv H
+    des. inv STEP; inv LOCAL; inv RW; inv H
     ; econs; eauto; first [by econs 1; ss|by econs 2; ss].
   }
   i. des. destruct ord0; inv ORD; inv ORDW.
@@ -132,24 +132,24 @@ Proof.
       setoid_rewrite IdentMap.Properties.F.map_o.
       by rewrite TID.
     + i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
-  - inv STEP.
+  - inv STEP. inv LOCAL.
     { eexists. econs.
       - eauto.
       - econs.
         + ss. setoid_rewrite IdentMap.Properties.F.map_o.
           by rewrite TID.
-        + econs 2; econs 1; eauto.
+        + econs 2. econs; [|econs 1]; eauto.
         + eauto.
         + eauto.
       - s. by rewrite !IdentMap.gss.
       - i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
     }
-    { inv LOCAL. eexists. econs.
-      - econs; eauto. econs 2. econs 2; eauto. econs; eauto.
+    { inv LOCAL0. eexists. econs.
+      - econs; eauto. econs 2. econs; [|econs 2]; eauto. econs; eauto.
       - econs.
         + ss. setoid_rewrite IdentMap.Properties.F.map_o.
           by rewrite TID.
-        + econs 2; econs 2; eauto.
+        + econs 2. econs; [|econs 2]; eauto.
           econs; eauto.
           s. hexploit RL; [| |by intro X; des; unfold loctmeq in *; subst; apply X]; eauto.
           i. destruct (Ident.eq_dec tid tid0) eqn: EQ; cycle 1.
@@ -169,7 +169,7 @@ Proof.
       - s. by rewrite !IdentMap.gss.
       - i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
     }
-    { destruct lc1, lc2. exploit local_simul_write; [| |by eapply LOCAL|..].
+    { destruct lc1, lc2. exploit local_simul_write; [| |by eapply LOCAL0|..].
       { instantiate (1:= memory). ii. eapply LR in IN.
         des; eauto. }
       { econs. i. destruct msg1. exploit LR; eauto. i. des.
@@ -185,8 +185,9 @@ Proof.
       intro WRITE; des.
       eexists; econs. 
       - eauto.
-      - s. econs; eauto.
-        s. setoid_rewrite IdentMap.Properties.F.map_o. by rewrite TID.
+      - s. econs; s; eauto.
+        + setoid_rewrite IdentMap.Properties.F.map_o. by rewrite TID.
+        + rewrite Bool.orb_true_r. econs 2. econs; [|econs 3]; eauto.
       - s. by rewrite !IdentMap.gss.
       - i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
     }
@@ -207,11 +208,11 @@ Proof.
       intro WRITE; des.
 
       inv LOCAL1. eexists. econs.
-      - econs; eauto. econs 2. econs 4; eauto; econs; eauto.
+      - econs; eauto. econs 2. econs; [|econs 4]; eauto; econs; eauto.
       - s. econs.
         + ss. setoid_rewrite IdentMap.Properties.F.map_o.
           by rewrite TID.
-        + econs 2; econs 4; [by eauto|..].
+        + econs 2. econs; [|econs 4]; [by eauto|..].
           { 
             econs; eauto.
             s. hexploit RL; [| |by intro X; des; unfold loctmeq in *; subst; apply X]; eauto.
@@ -239,12 +240,12 @@ Proof.
       - s. by rewrite !IdentMap.gss.
       - i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
     }
-    { inv LOCAL. eexists. econs.
-      - econs; eauto. econs 2. econs 5; eauto. econs; eauto.
+    { inv LOCAL0. eexists. econs.
+      - econs; eauto. econs 2. econs; [|econs 5]; eauto. econs; eauto.
       - econs.
         + ss. setoid_rewrite IdentMap.Properties.F.map_o.
           by rewrite TID.
-        + econs 2; econs 5; eauto.
+        + econs 2. econs; [|econs 5]; eauto.
           econs; eauto.
           s. i. apply Memory.bot_nonsynch.
         + eauto.
@@ -252,12 +253,12 @@ Proof.
       - s. by rewrite !IdentMap.gss.
       - i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
     }
-    { inv LOCAL. eexists. econs.
-      - econs; eauto. econs 2. econs 6; eauto. econs; eauto.
+    { inv LOCAL0. eexists. econs.
+      - econs; eauto. econs 2. econs; [|econs 6]; eauto. econs; eauto.
       - econs.
         + ss. setoid_rewrite IdentMap.Properties.F.map_o.
           by rewrite TID.
-        + econs 2; econs 6; eauto.
+        + econs 2. econs; [|econs 6]; eauto.
           econs; eauto.
           s. i. apply Memory.bot_nonsynch.
         + eauto.

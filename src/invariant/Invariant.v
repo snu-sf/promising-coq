@@ -43,7 +43,7 @@ Section Invariant.
     (SILENT:
        forall tid lang st1 st2
          (ST1: S tid lang st1)
-         (STEP: lang.(Language.step) None st1 st2),
+         (STEP: lang.(Language.step) ProgramEvent.silent st1 st2),
          S tid lang st2)
     (READ:
        forall tid lang st1 st2
@@ -51,13 +51,13 @@ Section Invariant.
          assign
          (ST1: S tid lang st1)
          (ASSIGN1: J assign /\ LocFun.find loc assign = val)
-         (STEP: lang.(Language.step) (Some (ProgramEvent.read loc val ord)) st1 st2),
+         (STEP: lang.(Language.step) (ProgramEvent.read loc val ord) st1 st2),
          S tid lang st2)
     (WRITE:
        forall tid lang st1 st2
          loc val ord
          (ST1: S tid lang st1)
-         (STEP: lang.(Language.step) (Some (ProgramEvent.write loc val ord)) st1 st2),
+         (STEP: lang.(Language.step) (ProgramEvent.write loc val ord) st1 st2),
          <<ST2: S tid lang st2>> /\
          <<ASSIGN2: forall assign, J assign -> J (LocFun.add loc val assign)>>)
     (UPDATE:
@@ -66,20 +66,20 @@ Section Invariant.
          assign
          (ST1: S tid lang st1)
          (ASSIGN1: J assign /\ LocFun.find loc assign = valr)
-         (STEP: lang.(Language.step) (Some (ProgramEvent.update loc valr valw ordr ordw)) st1 st2),
+         (STEP: lang.(Language.step) (ProgramEvent.update loc valr valw ordr ordw) st1 st2),
          <<ST2: S tid lang st2>> /\
          <<ASSIGN2: forall assign, J assign -> J (LocFun.add loc valw assign)>>)
     (FENCE:
        forall tid lang st1 st2
          ordr ordw
          (ST1: S tid lang st1)
-         (STEP: lang.(Language.step) (Some (ProgramEvent.fence ordr ordw)) st1 st2),
+         (STEP: lang.(Language.step) (ProgramEvent.fence ordr ordw) st1 st2),
          S tid lang st2)
     (SYSCALL:
        forall tid lang st1 st2
          e
          (ST1: S tid lang st1)
-         (STEP: lang.(Language.step) (Some (ProgramEvent.syscall e)) st1 st2),
+         (STEP: lang.(Language.step) (ProgramEvent.syscall e) st1 st2),
          S tid lang st2)
   .
 
@@ -201,7 +201,7 @@ Section Invariant.
       revert PR. erewrite Memory.lower_o; eauto. condtac; eauto.
       ss. i. des. inv PR. exploit Memory.lower_get0; eauto.
     }
-    inv STEP0.
+    inv STEP0. inv LOCAL.
     - esplits; eauto.
     - exploit sem_memory_read_step; eauto. i. des.
       exploit READ; eauto.

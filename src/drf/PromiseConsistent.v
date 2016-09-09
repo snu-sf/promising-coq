@@ -118,7 +118,7 @@ Lemma step_promise_consistent
       (MEM1: Memory.closed th1.(Thread.memory)):
   promise_consistent th1.(Thread.local).
 Proof.
-  inv STEP; inv STEP0; ss.
+  inv STEP; [inv STEP0|inv STEP0; inv LOCAL]; ss.
   - eapply promise_step_promise_consistent; eauto.
   - eapply read_step_promise_consistent; eauto.
   - eapply write_step_promise_consistent; eauto.
@@ -217,9 +217,10 @@ Proof.
     exploit Memory.promise_promises_get1; eauto. i. des. congr.
   }
   destruct msg.
-  inv STEP0; ss; try by inv LOCAL; ss; congr.
-  - by rewrite TH1 in TH2.
-  - inv LOCAL. inv WRITE.
+  inv STEP0; ss; inv LOCAL; ss;
+    (try congr);
+    (try by inv LOCAL0; ss; congr).
+  - inv LOCAL0. inv WRITE.
     exploit Memory.promise_promises_get1; eauto. i. des.
     exploit fulfill_unset_promises; eauto. i. des. subst.
     unfold Memory.get in *.

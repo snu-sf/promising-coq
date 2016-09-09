@@ -92,8 +92,8 @@ Proof.
   destruct FULFILL.
   inv STEP.
   eapply rtc_implies, rtc_small_step_tview_le in STEPS; eauto; cycle 1.
-  inv STEP0; inv STEP; inv EVENT.
-  + inv LOCAL. inv WRITABLE.
+  inv STEP0; [inv STEP|inv STEP; inv LOCAL]; inv EVENT.
+  + inv LOCAL0. inv WRITABLE.
     move STEPS at bottom. move TS at bottom.
     eapply TimeFacts.le_lt_lt; eauto. apply STEPS.
   + inv LOCAL1. inv READABLE. inv LOCAL2. inv WRITABLE.
@@ -336,8 +336,8 @@ Proof.
 
   inv PSTEP0. ss. rewrite IdentMap.gss in THS5. depdes THS5. destruct pf; ss.
 
-  inv STEP; inv STEP0; inv EVTR.
-  - inv LOCAL. erewrite Memory.op_get2 in GET; eauto. inv GET.
+  inv STEP; [inv STEP0|inv STEP0; inv LOCAL]; inv EVTR.
+  - inv LOCAL0. erewrite Memory.op_get2 in GET; eauto. inv GET.
     ss. apply TimeFacts.join_lt_des in TIMELT. des. revert BC.
     rewrite ORDR. unfold lift_view. destruct relw.(View.unwrap). ss.
     unfold lift_timemap. condtac; [|congr]. i.
@@ -385,7 +385,7 @@ Proof.
   rewrite THS4 in TID. symmetry in TID. depdes TID.
   rewrite IdentMap.gss in THS4'. depdes THS4'. destruct pf; ss.
 
-  inv STEP; inv STEP0.
+  inv STEP; [inv STEP0|inv STEP0; inv LOCAL]; ss.
 
   (* Promise step *)
   { destruct kind, released; inv PF.
@@ -403,9 +403,10 @@ Proof.
   (* Silent step *)
   { esplits; [eapply with_pre_trans; [by apply STEPS4|]|].
     { econs 2; [econs 1|]. econs.
-      - eauto.
+      - econs; eauto. econs 2. econs; [|econs 1]; eauto.
       - inv WF4; ss.
         econs; [by rewrite THS; setoid_rewrite IdentMap.Properties.F.map_o; rewrite THS4|..]; eauto.
+        econs 2. econs; eauto. econs; eauto.
       - s. by rewrite !IdentMap.gss.
       - i. done.
     }
@@ -416,13 +417,13 @@ Proof.
   { inv WF4.
     esplits; [eapply with_pre_trans; [by apply STEPS4|]|].
     { econs 2; [econs 1|]. econs.
-      - eauto.
+      - econs; eauto. econs 2. econs; [|econs]; eauto.
       - s. econs; eauto.
         { s. by rewrite THS; setoid_rewrite IdentMap.Properties.F.map_o; rewrite THS4. }
-        s. econs 2. econs 2; [eauto|].
+        s. econs 2. econs; [|econs 2]; [eauto|].
         
-        inv LOCAL. s.
-        eapply Local.step_read; cycle 1; eauto.
+        inv LOCAL0. s.
+        eapply Local.read_step_intro; cycle 1; eauto.
         
         inv STEPS3'.
         hexploit rtc_pi_step_future; swap 1 3; swap 2 3.
@@ -431,7 +432,8 @@ Proof.
         { eauto. }
         s; intros [PIWF0 _]. inv PIWF0.
 
-        ss. des. subst. inv EVT. inv PSTEP. inv STEPS. inv STEP; inv STEP0. inv LOCAL. ss.
+        ss. des. subst. inv EVT. inv PSTEP. inv STEPS. inv STEP; inv STEP0.
+        inv LOCAL. inv LOCAL0. ss.
         exploit LR0; eauto. i; des.
 
         hexploit RL; [by eauto|..]; cycle 1.
@@ -463,7 +465,7 @@ Proof.
   }
 
   (* Write step *)
-  { hexploit (@local_simul_write (lift_view_le l t (msg_add l e msgs))); try apply LOCAL.
+  { hexploit (@local_simul_write (lift_view_le l t (msg_add l e msgs))); try apply LOCAL0.
     { inv WF4. ii. apply LR in IN. des. esplits; eauto. }
     { inv WF4.
       econs. i. destruct msg1. exploit LR; eauto. i. des.
@@ -481,9 +483,9 @@ Proof.
     assert (X:= WF4). inv X. ss.
     esplits; [eapply with_pre_trans; [by apply STEPS4|]|].
     { econs 2; [econs 1|]. econs; s.
-      - econs; eauto.
+      - econs; eauto. econs 2. econs; [|econs]; eauto.
       - econs; [by rewrite THS; setoid_rewrite IdentMap.Properties.F.map_o; rewrite THS4|..]; eauto.
-        s. rewrite SC. econs 2. econs 3; eauto.
+        s. rewrite SC. econs 2. econs; [|econs 3]; eauto.
       - s. by rewrite !IdentMap.gss.
       - i. des. inv WRITE. inv STEPS3'. inv PSTEP. inv EVT.
         hexploit NOWR; s; eauto.
@@ -525,12 +527,12 @@ Proof.
     inv WF4. 
     esplits; [eapply with_pre_trans; [by apply STEPS4|]|].
     { econs 2; [econs 1|]. econs.
-      { eauto. }
+      { econs; eauto. econs 2. econs; [|econs 4]; eauto. }
       { s. econs; eauto.
         { s. by rewrite THS; setoid_rewrite IdentMap.Properties.F.map_o; rewrite THS4. }
-        s. econs 2. econs 4; [eauto|..].
+        s. econs 2. econs; [|econs 4]; [eauto|..].
         { inv LOCAL1. s.
-          eapply Local.step_read; cycle 1; eauto.
+          eapply Local.read_step_intro; cycle 1; eauto.
           
           inv STEPS3'.
           hexploit rtc_pi_step_future; swap 1 3; swap 2 3.
@@ -539,7 +541,8 @@ Proof.
           { eauto. }
           s; intros [PIWF0 _]. inv PIWF0.
 
-          ss. des. subst. inv EVT. inv PSTEP. inv STEPS. inv STEP; inv STEP0. inv LOCAL1. ss.
+          ss. des. subst. inv EVT. inv PSTEP. inv STEPS. inv STEP; inv STEP0.
+          inv LOCAL. inv LOCAL1. ss.
           exploit LR0; eauto. i; des.
 
           hexploit RL; [by eauto|..]; cycle 1.
@@ -592,9 +595,9 @@ Proof.
   { assert (X:= WF4). inv X. ss.
     esplits; [eapply with_pre_trans; [by apply STEPS4|]|].
     { econs 2; [econs 1|]. econs.
-      - econs; eauto.
+      - econs; eauto. econs 2. econs; [|econs 5]; eauto.
       - econs; [by rewrite THS; setoid_rewrite IdentMap.Properties.F.map_o; rewrite THS4|..]; eauto.
-        econs 2. econs 5; eauto.
+        econs 2. econs; [|econs 5]; eauto.
         eapply local_simul_fence.
         s. rewrite SC. eauto.
       - s. by rewrite !IdentMap.gss.
@@ -607,9 +610,9 @@ Proof.
   { assert (X:= WF4). inv X. ss.
     esplits; [eapply with_pre_trans; [by apply STEPS4|]|].
     { econs 2; [econs 1|]. econs.
-      - econs; eauto.
+      - econs; eauto. econs 2. econs; [|econs 6]; eauto.
       - econs; [by rewrite THS; setoid_rewrite IdentMap.Properties.F.map_o; rewrite THS4|..]; eauto.
-        econs 2. econs 6; eauto.
+        econs 2. econs; [|econs 6]; eauto.
         eapply local_simul_fence.
         s. rewrite SC. eauto.
       - s. by rewrite !IdentMap.gss.

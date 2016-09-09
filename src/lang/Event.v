@@ -85,6 +85,7 @@ End Event.
 
 Module ProgramEvent.
   Inductive t :=
+  | silent
   | read (loc:Loc.t) (val:Const.t) (ord:Ordering.t)
   | write (loc:Loc.t) (val:Const.t) (ord:Ordering.t)
   | update (loc:Loc.t) (valr valw:Const.t) (ordr ordw:Ordering.t)
@@ -107,6 +108,8 @@ Module ProgramEvent.
     end.
 
   Inductive ord: forall (e1 e2:t), Prop :=
+  | ord_silent:
+      ord silent silent
   | ord_read
       l v o1 o2
       (O: Ordering.le o1 o2):
@@ -128,14 +131,5 @@ Module ProgramEvent.
   | ord_syscall
       e:
       ord (syscall e) (syscall e)
-  .
-
-  Inductive ord_opt: forall (e1 e2:option t), Prop :=
-  | ord_opt_none:
-      ord_opt None None
-  | ord_opt_some
-      e1 e2
-      (ORD: ord e1 e2):
-      ord_opt (Some e1) (Some e2)
   .
 End ProgramEvent.

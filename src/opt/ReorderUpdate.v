@@ -215,7 +215,8 @@ Proof.
   inv SIM. ii.
   exploit Local.read_step_future; eauto. i. des.
   exploit fulfill_step_future; eauto. i. des.
-  inv STEP_TGT; inv STEP; try (inv STATE; inv INSTR; inv REORDER); ss.
+  inv STEP_TGT; [inv STEP|inv STEP; inv LOCAL0];
+    try (inv STATE; inv INSTR; inv REORDER); ss.
   - (* promise *)
     exploit Local.promise_step_future; eauto. i. des.
     exploit sim_local_promise; try apply LOCAL0; (try by etrans; eauto); eauto. i. des.
@@ -240,9 +241,9 @@ Proof.
     exploit fulfill_write; eauto. i. des.
     esplits.
     + econs 2; eauto. econs.
-      * econs. econs 2. econs 2; eauto. econs. econs.
+      * econs. econs 2. econs; [|econs 2]; eauto. econs. econs.
       * auto.
-    + econs 2. econs 2. econs 4; eauto. econs. econs.
+    + econs 2. econs 2. econs; [|econs 4]; eauto. econs. econs.
       erewrite RegFile.eq_except_rmw; eauto.
       * symmetry. eauto.
       * apply RegFile.eq_except_singleton.
@@ -255,7 +256,7 @@ Proof.
   - (* store *)
     guardH ORD2.
     apply RegSet.disjoint_add in REGS. des.
-    hexploit sim_local_write; try exact LOCAL0; try exact LOCAL; try exact SC; try exact WF0; try refl; eauto; try by viewtac. i. des.
+    hexploit sim_local_write; try exact LOCAL1; try exact LOCAL; try exact SC; try exact WF0; try refl; eauto; try by viewtac. i. des.
     hexploit reorder_update_write; try exact READ; try exact FULFILL; try exact STEP_SRC; eauto; try by viewtac.
     { ii. subst. inv FULFILL. eapply Time.lt_strorder. eauto. }
     i. des.
@@ -264,13 +265,13 @@ Proof.
     exploit fulfill_write; eauto. i. des.
     esplits.
     + econs 2; eauto. econs.
-      * econs. econs 2. econs 3; eauto. econs.
+      * econs. econs 2. econs; [|econs 3]; eauto. econs.
         erewrite RegFile.eq_except_value; cycle 2.
         { apply RegFile.eq_except_singleton. }
         { econs. }
         { ii. apply RegSet.singleton_spec in LHS. subst. congr. }
       * auto.
-    + econs 2. econs 2. econs 4; eauto. econs. econs. eauto.
+    + econs 2. econs 2. econs; [|econs 4]; eauto. econs. econs. eauto.
     + auto.
     + etrans; eauto.
     + etrans; eauto. etrans; eauto.
@@ -294,12 +295,12 @@ Proof.
     exploit fulfill_write; eauto. i. des.
     esplits.
     + econs 2; eauto. econs.
-      * econs. econs 2. econs 4; eauto. econs. econs.
+      * econs. econs 2. econs; [|econs 4]; eauto. econs. econs.
         erewrite RegFile.eq_except_rmw; eauto; cycle 1.
         { symmetry. apply RegFile.eq_except_singleton. }
         { ii. apply RegSet.singleton_spec in LHS. subst. contradict REGS. apply RegSet.add_spec. auto. }
       * auto.
-    + econs 2. econs 2. econs 4; eauto. econs. econs.
+    + econs 2. econs 2. econs; [|econs 4]; eauto. econs. econs.
       erewrite RegFile.eq_except_rmw; cycle 2.
       * apply RegFile.eq_except_singleton.
       * eauto.
