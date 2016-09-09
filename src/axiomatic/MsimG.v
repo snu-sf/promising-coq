@@ -573,17 +573,16 @@ Proof.
       eby eapply no_promises_consistent.
     * intro; rewrite IdentMap.gsspec. ins; desf; simpl; eapply NO_PROMISES; eauto.
     * by rewrite IdentMap.map_add; simpl; rewrite MTS, STATES.
-    * admit.
-      (* red in TIME; desc; exists ffrom', fto'; splits; eauto.  *)
-      (* red; simpl; splits; eauto; ins. *)
-      (* rewrite IdentMap.gsspec in TID0; desf; ins; simpl. *)
-      (* destruct MSTEP; subst. *)
-      (*   rewrite SAME_EXEC. *)
-      (*   eapply sim_tview_other_threads_silent; eauto. *)
-      (* all: eapply sim_tview_other_threads; eauto 2. *)
-      (* all: try eapply sim_tview_other_threads; eauto 2. *)
-      (* all: try intro; subst; eauto. *)
-      (* all: congruence. *)
+    * red in TIME; desc; exists ffrom', fto'; splits; eauto.
+      red; simpl; splits; eauto; ins.
+      clear CSTEP.
+      rewrite IdentMap.gsspec in TID0; desf; ins; simpl.
+      destruct MSTEP; subst.
+      by desf; rewrite SAME_EXEC; eapply sim_tview_other_threads_silent; eauto. 
+      all: eapply sim_tview_other_threads; eauto 2. 
+      all: try eapply sim_tview_other_threads; eauto 2.
+      all: try intro; subst; eauto. 
+      all: congruence. 
    }
   clear f_from f_to TIME SPACE BSPACE.
 
