@@ -66,6 +66,44 @@ Module Ordering.
   Next Obligation.
     ii. destruct x, y, z; auto.
   Qed.
+
+  Definition join (lhs rhs:t): t :=
+    match lhs, rhs with
+    | plain, _ => rhs
+    | _, plain => lhs
+
+    | relaxed, _ => rhs
+    | _, relaxed => lhs
+
+    | acqrel, _ => rhs
+    | _, acqrel => lhs
+
+    | seqcst, _ => rhs
+    end.
+
+  Lemma join_comm lhs rhs: join lhs rhs = join rhs lhs.
+  Proof. destruct lhs, rhs; ss. Qed.
+
+  Lemma join_assoc a b c: join (join a b) c = join a (join b c).
+  Proof. destruct a, b, c; ss. Qed.
+
+  Lemma join_l lhs rhs:
+    le lhs (join lhs rhs).
+  Proof. destruct lhs, rhs; ss. Qed.
+
+  Lemma join_r lhs rhs:
+    le rhs (join lhs rhs).
+  Proof. destruct lhs, rhs; ss. Qed.
+
+  Lemma join_spec lhs rhs o
+        (LHS: le lhs o)
+        (RHS: le rhs o):
+    le (join lhs rhs) o.
+  Proof. destruct lhs, rhs; ss. Qed.
+
+  Lemma join_cases lhs rhs:
+    join lhs rhs = lhs \/ join lhs rhs = rhs.
+  Proof. destruct lhs, rhs; auto. Qed.
 End Ordering.
 
 

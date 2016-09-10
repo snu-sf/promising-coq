@@ -110,6 +110,21 @@ Module ThreadEvent.
   | le_syscall e:
       le (syscall e) (syscall e)
   .
+
+  Definition lift (ord0:Ordering.t) (e:program_t): program_t :=
+    match e with
+    | silent => silent
+    | read loc ts val released ord =>
+      read loc ts val released (Ordering.join ord0 ord)
+    | write loc from to val released ord =>
+      write loc from to val released (Ordering.join ord0 ord)
+    | update loc tsr tsw valr valw releasedr releasedw ordr ordw =>
+      update loc tsr tsw valr valw releasedr releasedw (Ordering.join ord0 ordr) (Ordering.join ord0 ordw)
+    | fence ordr ordw =>
+      fence (Ordering.join ord0 ordr) (Ordering.join ord0 ordw)
+    | syscall e =>
+      syscall e
+    end.
 End ThreadEvent.
 Coercion ThreadEvent.program: ThreadEvent.program_t >-> ThreadEvent.t.
 
