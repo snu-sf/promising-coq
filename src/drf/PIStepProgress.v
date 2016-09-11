@@ -344,7 +344,11 @@ Proof.
     i; des; eauto.
   }
 
-  exploit IHSTEP; s; eauto using promise_consistent_pre_th.
+  exploit IHSTEP; s; eauto. 
+  { exploit rtc_pi_step_future; try (eapply rtc_implies, PI_STEPS); eauto.
+    intro; des. inv WF0.
+    eauto using promise_consistent_th_pre, promise_consistent_pre_th.
+  }
 
   intro STEPS. des. ss.
   eapply (@pi_consistent_small_step_pi _ _ _ (_,_)) in PSTEP; eauto; cycle 1.
@@ -366,6 +370,7 @@ Proof.
   exploit step_small_steps; eauto; [by inv WF|].
   i. des.
   eapply rtc_union_with_pre in STEPS. des.
-  exploit pi_consistent_rtc_small_step_pi; eauto using consistent_promise_consistent_th.
+  exploit pi_consistent_rtc_small_step_pi; eauto.
+  { inv WF. eauto using promise_consistent_th_pre, consistent_promise_consistent_th. }
   i; des. eexists. eapply with_pre_rtc_union. eauto.
 Qed.
