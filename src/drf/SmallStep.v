@@ -154,6 +154,16 @@ Definition small_step_all withprm (c1 c2:Configuration.t) : Prop :=
   union (small_step_evt withprm) c1 c2.
 Hint Unfold small_step_all.
 
+Lemma small_step_evt_to_true
+      withprm tid cST1 cST2
+      (STEP: small_step_evt withprm tid cST1 cST2):
+  small_step_evt true tid cST1 cST2.
+Proof.
+  destruct withprm; eauto.
+  inv STEP. inv USTEP.
+  econs. econs; eauto.
+Qed.
+
 Lemma small_step_future
       e tid c1 c2 withprm
       (WF1: Configuration.wf c1)
@@ -460,3 +470,13 @@ Proof.
   rewrite PROMISES in *. 
   setoid_rewrite Cell.bot_get in PROMISES0. done.
 Qed.
+
+Lemma small_step_promise_remove
+      tid c1 c2 e loc from ts val relw ordw
+      (WFT: Configuration.wf c1)
+      (STEPT: small_step false tid e c1 c2)
+      (EVTW: ThreadEvent.is_writing e = Some (loc, from, ts, val, relw, ordw)):
+  forall tid', ~Threads.is_promised tid' loc ts c2.(Configuration.threads).
+Proof.
+Admitted.
+

@@ -1204,14 +1204,21 @@ Lemma lift_step
    <<EVTW: ThreadEvent.is_writing e = Some (loc, from, ts, val, relw, ordw)>>)
   \/
   (exists eS thS2,
-   <<EVT: ThreadEvent.le eS eT>> /\
    <<STEP: Thread.step true eS thS1 thS2>> /\
    <<ST: thS2.(Thread.state) = thT2.(Thread.state)>> /\
-   <<COM: TView.le thS2.(Thread.local).(Local.tview) thT2.(Thread.local).(Local.tview)>> /\
    <<PRM: thS2.(Thread.local).(Local.promises) = thT2.(Thread.local).(Local.promises)>> /\
-   <<SC: TimeMap.le thS2.(Thread.sc) thT2.(Thread.sc)>> /\
-   <<MEM: mem_eqlerel_lift l t thT2.(Thread.local).(Local.promises) e thS2.(Thread.memory) thT2.(Thread.memory)>>).
+   ((exists loc ts val relr relr' ordr,
+     <<EVTR: ThreadEvent.is_reading eT = Some (loc, ts, val, relr, ordr)>> /\
+     <<EVTP: ThreadEvent.is_promising e = Some (loc, ts)>> /\
+     <<EVTL: ThreadEvent.is_lower_none e>> /\
+     <<EVT:  ThreadEvent.is_reading eS = Some (loc, ts, val, relr', ordr)>>)
+    \/
+    (<<EVT: ThreadEvent.le eS eT>> /\
+     <<COM: TView.le thS2.(Thread.local).(Local.tview) thT2.(Thread.local).(Local.tview)>> /\
+     <<SC: TimeMap.le thS2.(Thread.sc) thT2.(Thread.sc)>> /\
+     <<MEM: mem_eqlerel_lift l t thT2.(Thread.local).(Local.promises) e thS2.(Thread.memory) thT2.(Thread.memory)>>))).
 Proof.
+(*
   inv STEP; [inv STEP0|inv STEP0; inv LOCAL]; ss.
   - symmetry in PF. apply promise_pf_inv in PF. des. subst. right.
     inv LOCAL. exploit mem_eqlerel_lift_promise; eauto.
@@ -1313,3 +1320,5 @@ Proof.
     + ss.
     + ss.
 Qed.
+*)
+Admitted.

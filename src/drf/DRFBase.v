@@ -23,31 +23,10 @@ Set Implicit Arguments.
 Hint Constructors Thread.program_step.
 Hint Constructors Thread.step.
 
-
-Definition option_app {A} (a b: option A) : option A :=
-  if a then a else b.
-
-Lemma strengthen
-      (A B: Prop)
-      (H: A /\ (A -> B)):
-  A /\ B.
-Proof. intuition. Qed.
-
-Lemma option_map_map 
-      A B C (f: B -> C) (g: A -> B) (a: option A):
-  option_map f (option_map g a) = option_map (fun x => f (g x)) a.
-Proof.
-  destruct a; eauto.
-Qed.
-
 Lemma ordering_relaxed_dec
       ord:
   Ordering.le ord Ordering.relaxed \/ Ordering.le Ordering.acqrel ord.
 Proof. destruct ord; auto. Qed.
-
-
-
-
 
 Inductive union {A} {E} (step: E -> A -> A -> Prop) (c1 c2: A) : Prop :=
 | step_evt_intro e
