@@ -42,6 +42,18 @@ Proof.
   rewrite IdentMap.Facts.map_o; unfold option_map; ins; desf; eauto.
 Qed.
 
+Lemma lt_bot a (H: Time.lt a Time.bot) : False.
+Proof.
+  eapply Time.lt_strorder, TimeFacts.le_lt_lt; try edone.
+  by eapply Time.bot_spec.
+Qed.
+
+Lemma in_interval a b (LT: Time.lt a b) : Interval.mem (a, b) b.
+Proof.
+econs; ins.
+by rewrite Time.le_lteq; eauto.
+Qed.
+
 Lemma no_promises_consistent op_st 
   (NO_PROMISES: forall i foo local 
     (TID: IdentMap.find i (Configuration.threads op_st) = Some (foo, local)),
@@ -107,7 +119,8 @@ Lemma find_free_interval acts mo (IRR: irreflexive mo) (T: transitive mo)
   (NBOT: forall y (MO: mo a y) 
                   (IMM: forall z, mo a z -> mo z y -> In z acts -> False), 
             Time.bot <> f_from y)
-  (WF: forall l x (INx: In x acts) (Dx: dom l x), Time.lt (f_from x) (f_to x))
+  (WF: forall l x (INx: In x acts) (Dx: dom l x)
+      (NB: f_from x <> Time.bot \/ f_to x <> Time.bot), Time.lt (f_from x) (f_to x))
   (NIN: ~ In a acts)
   (DJ: forall l x (INx: In x acts) (Dx: dom l x) y (NEQ: x <> y)
                   (INy: In y acts) (Dy: dom l y),
@@ -128,56 +141,73 @@ Proof.
      as [Q|Q'];
     [desc; exists (f_from next) |  exists (Time.incr from');
      assert (Q := no_imm_successor_simpl IRR T acts a Q'); clear Q' ]); subst from'.
-
-  assert (K: Interval.disjoint (f_from prev, f_to prev) (f_from next, f_to next)).
-    destruct (D prev next); desc; eauto.
-    by eapply DJ; eauto; ins; desf; intro; desf; eauto.
-  exploit D; try exact P0; intro Dp; desc.
-  exploit D; try exact Q0; intro Dn; desc.
-  assert (l0 = l) by eauto; subst; clear Dp0.
-  splits; ins. 
-    red in K; destruct (Time.le_lt_dec (f_from next) (f_to prev)) as [LE|LT]; desf.
-    exfalso; rewrite Time.le_lteq in *; desf; eauto.
-    2: by eapply eq_sym, NADJ in LE; eauto.
-    exploit (MON prev next); ins; eauto.  
-    by eapply (K (f_to prev)); econs; ins; eauto; 
-       rewrite Time.le_lteq; eauto.
-  rewrite Time.le_lteq.
-  destruct (classic (x = prev)) as [|N]; desf; eauto.
-    destruct (D _ _ H0) as [l' ?]; desc.
-    eapply TOT in N; eauto; desf; eauto; try solve [exfalso; eauto].
-    exploit (DD a l l'); eauto; ins; desf.
-  rewrite Time.le_lteq.
-  destruct (classic (x = next)) as [|N]; desf; eauto.
-    destruct (D _ _ H0) as [l' ?]; desc.
-    eapply TOT in N; eauto; desf; eauto; try solve [exfalso; eauto];
-     exploit (DD a l l'); eauto; ins; desf.
-  destruct (TimeFacts.le_lt_dec (f_from x) (f_from next)); eauto.
-  exfalso; eapply DJ with (x := x) (y:= next) (x0 := f_to next); eauto; 
-    try (by intro; desf; eauto); econs; ins; eauto; try rewrite Time.le_lteq;
-    eauto using TimeFacts.le_lt_lt.
-
+  - assert (K: Interval.disjoint (f_from prev, f_to prev) (f_from next, f_to next)).
+      destruct (D prev next); desc; eauto.
+      by eapply DJ; eauto; ins; desf; intro; desf; eauto.
+    exploit D; try exact P0; intro Dp; desc.
+    exploit D; try exact Q0; intro Dn; desc.
+    assert (l0 = l) by eauto; subst; clear Dp0.
+    splits; ins. 
+      red in K; destruct (Time.le_lt_dec (f_from next) (f_to prev)) as [LE|LT]; desf.
+      exfalso; rewrite Time.le_lteq in *; desf; eauto.
+      2: by eapply eq_sym, NADJ in LE; eauto.
+      exploit (MON prev next); ins; eauto.
+      eapply (K (f_to prev)); econs; ins; eauto.
+      eapply WF; try edone.
+      eby right; intro X; rewrite X in *; eapply lt_bot.
+      by rewrite Time.le_lteq; eauto.
+      by rewrite Time.le_lteq; eauto.
+    rewrite Time.le_lteq.
+    destruct (classic (x = prev)) as [|N]; desf; eauto.
+      destruct (D _ _ H0) as [l' ?]; desc.
+      eapply TOT in N; eauto; desf; eauto; try solve [exfalso; eauto].
+      exploit (DD a l l'); eauto; ins; desf.
+    rewrite Time.le_lteq.
+    destruct (classic (x = next)) as [|N]; desf; eauto.
+      destruct (D _ _ H0) as [l' ?]; desc.
+      eapply TOT in N; eauto; desf; eauto; try solve [exfalso; eauto];
+       exploit (DD a l l'); eauto; ins; desf.
+    destruct (TimeFacts.le_lt_dec (f_from x) (f_from next)); eauto.
+    destruct l as [l|]; eauto.
+    assert (f_from next <> Time.bot \/ f_to next <> Time.bot).
+      by left; intro X; eapply lt_bot; eapply MON in N; rewrite X in l; eauto.
+    exfalso; eapply DJ with (x := x) (y:= next) (x0 := f_to next); eauto.
+    by intro; desf; eauto.
+    econs; ins.
+    eapply TimeFacts.le_lt_lt.
+    rewrite Time.le_lteq; eby left.
+    eauto.
+    eby rewrite Time.le_lteq; left; eapply MON.
+    by apply in_interval; eauto.
+  -
   splits; ins; eauto using Time.incr_spec; try solve [exfalso; eauto].
   rewrite Time.le_lteq.
   destruct (classic (x = prev)) as [|N]; desf; eauto.
     destruct (D _ _ P0) as [l ?], (D _ _ H0) as [l' ?]; desc.
     eapply TOT in N; eauto; desf; eauto; try solve [exfalso; eauto].
     by exploit (DD a l l'); eauto; ins; desf.
-
-  splits; ins; eauto using Time.bot_spec; try solve [exfalso; eauto].
+  - splits; ins.
     by generalize (Time.bot_spec (f_from next)); rewrite Time.le_lteq; 
-       intro M; desf; eauto; eapply NBOT in M; ins.
-  rewrite Time.le_lteq.
-  destruct (classic (x = next)) as [|N]; desf; eauto.
-    destruct (D _ _ Q0) as [l ?], (D _ _ H0) as [l' ?]; desc.
-    eapply TOT in N; eauto; desf; eauto; try solve [exfalso; eauto];
-    exploit (DD a l l'); eauto; ins; desf.
-  destruct (TimeFacts.le_lt_dec (f_from x) (f_from next)); eauto.
-  exfalso; eapply DJ with (x := x) (y:= next) (x0 := f_to next); eauto; 
-    try (by intro; desf; eauto); econs; ins; eauto; try rewrite Time.le_lteq;
-    eauto using TimeFacts.le_lt_lt.
-
-  by splits; intros; eauto using Time.incr_spec; try solve [exfalso; eauto]. 
+      intro M; desf; eauto; eapply NBOT in M; ins.
+    by exfalso; eauto.
+    rewrite Time.le_lteq.
+    destruct (classic (x = next)) as [|N]; desf; eauto.
+      destruct (D _ _ Q0) as [l ?], (D _ _ H0) as [l' ?]; desc.
+      eapply TOT in N; eauto; desf; eauto; try solve [exfalso; eauto];
+      exploit (DD a l l'); eauto; ins; desf.
+    destruct (TimeFacts.le_lt_dec (f_from x) (f_from next)); eauto.
+    destruct l as [l|]; eauto.
+    assert (f_from next <> Time.bot \/ f_to next <> Time.bot).
+      by left; intro X; eapply lt_bot; eapply MON in N; rewrite X in l; eauto.
+    exfalso; eapply DJ with (x := x) (y:= next) (x0 := f_to next); eauto.
+    by intro; desf; eauto.
+    econs; ins.
+    eapply TimeFacts.le_lt_lt; try edone.
+    eby left.
+    eauto.
+    eby rewrite Time.le_lteq; left; eapply MON.
+    by apply in_interval; eauto.
+  - by splits; intros; eauto using Time.incr_spec; try solve [exfalso; eauto]. 
 Qed.
 
 
@@ -195,7 +225,8 @@ Lemma find_free_interval2 acts mo (IRR: irreflexive mo) (T: transitive mo)
   (NBOT: forall y (MO: mo a y) 
                   (IMM: forall z, mo a z -> mo z y -> In z acts -> False), 
             Time.bot <> f_from y)
-  (WF: forall l x (INx: In x acts) (Dx: dom l x), Time.lt (f_from x) (f_to x))
+  (WF: forall l x (INx: In x acts) (Dx: dom l x) 
+      (NB: f_from x <> Time.bot \/ f_to x <> Time.bot), Time.lt (f_from x) (f_to x))
   (NIN: ~ In a acts)
   (DJ: forall l x (INx: In x acts) (Dx: dom l x) y (NEQ: x <> y)
                   (INy: In y acts) (Dy: dom l y),
@@ -235,7 +266,8 @@ Lemma new_f acts mo (IRR: irreflexive mo) (T: transitive mo)
   (NBOT: forall y (MO: mo a y) 
                   (IMM: forall z, mo a z -> mo z y -> In z acts -> False), 
             Time.bot <> f_from y)
-  (WF: forall l x (INx: In x acts) (Dx: dom l x), Time.lt (f_from x) (f_to x))
+  (WF: forall l x (INx: In x acts) (Dx: dom l x) 
+      (NB: f_from x <> Time.bot \/ f_to x <> Time.bot), Time.lt (f_from x) (f_to x))
   (NIN: ~ In a acts)
   (DJ: forall l x (INx: In x acts) (Dx: dom l x) y (NEQ: x <> y)
                   (INy: In y acts) (Dy: dom l y),
@@ -243,7 +275,8 @@ Lemma new_f acts mo (IRR: irreflexive mo) (T: transitive mo)
   exists f_from' f_to', 
     << F_FROM: forall b, In b acts -> f_from' b = f_from b >> /\
     << F_TO: forall b, In b acts -> f_to' b = f_to b >> /\
-    << TWF: forall l x (Dx: dom l x), Time.lt (f_from' x) (f_to' x) >> /\
+    << TWF: forall l x (Dx: dom l x) 
+      (NB: f_from' x <> Time.bot \/ f_to' x <> Time.bot), Time.lt (f_from' x) (f_to' x) >> /\
     << MON': monotone mo f_to' >> /\
     << DJ' : forall l x (Dx: dom l x) y (NEQ: x <> y) (Dy: dom l y),
          Interval.disjoint (f_from' x, f_to' x) (f_from' y, f_to' y) >> /\ 
@@ -252,56 +285,35 @@ Lemma new_f acts mo (IRR: irreflexive mo) (T: transitive mo)
     << NBOT': Time.bot <> f_from' a >>.
 Proof.
   edestruct find_free_interval2 as (from' & to' & K); eauto; desc.
-  exists (upd f_from a from'), (upd f_to a to');
-  splits; simpls; rewrite ?upds; ins;
-    try solve [ins; desf; desf; rewrite ?upds, ?updo; ins; intro; desf; eauto].
-    exploit ACT; eauto; intro;
-    desf; desf; rewrite ?upds, ?updo; eauto; subst; try intro; desf; desf; 
-    solve [etransitivity; eauto | exfalso; eauto].
-
-    red; ins.
+  exists (upd f_from a from'), (upd f_to a to'); splits; simpls; rewrite ?upds; ins.
+  - by ins; desf; desf; rewrite ?upds, ?updo; ins; intro; desf; eauto.
+  - by ins; desf; desf; rewrite ?upds, ?updo; ins; intro; desf; eauto.
+  - destruct (classic (x=a)) as [EQ|NEQ]; subst.
+    by rewrite ?upds.
+    destruct (ACT _ _ Dx).
+    by exfalso; auto.
+    by rewrite ?updo in *; eauto.
+  - red; ins.
     exploit D; eauto; intro M; desc; generalize M, M0; ins; apply ACT in M; apply ACT in M0;
     desf; desf; rewrite ?upds, ?updo; eauto; subst; try intro; desf; desf;
     try solve [etransitivity; eauto | exfalso; eauto].
-
-    ins; destruct (ACT _ _ Dx); desf; destruct (ACT _ _ Dy); desf;
+    eapply Time.lt_strorder.
+    by eapply NEXT'; eauto.
+    eapply WF; eauto; left.
+    by intro X; eapply lt_bot;  rewrite <- X; eapply NEXT'; eauto.
+  - ins; destruct (ACT _ _ Dx); desf; destruct (ACT _ _ Dy); desf;
       rewrite ?upds, ?updo; eauto; subst; try intro; desf; desf;
       eauto; ins; destruct LHS, RHS; ins; eauto;
     eapply TOT in NEQ; eauto;
     des; eapply Time.lt_strorder; 
          eauto using time_lt_trans, TimeFacts.le_lt_lt, TimeFacts.lt_le_lt. 
-
-    ins; desf; rewrite updo; try intro; desf; desf; eauto.
+  - ins; desf; rewrite updo; try intro; desf; desf; eauto.
     exploit D; eauto; intro M; desc; apply ACT in M; desf; eauto.
     eapply Time.lt_strorder, PREV'; eauto. 
-
-    ins; desf; rewrite updo; try intro; desf; desf; eauto.
+  - ins; desf; rewrite updo; try intro; desf; desf; eauto.
     exploit D; eauto; intro M; desc; apply ACT in M0; desf; eauto.
     eapply Time.lt_strorder, NEXT'; eauto. 
 Qed.
-
-
-(*
-Lemma new_from (f: event -> Time.t) acts to (NZ: Time.lt Time.bot to) :
-  exists from, 
-    Time.lt from to /\ 
-    forall b, In b acts -> Time.lt (f b) to -> Time.lt (f b) from.
-Proof.
-  induction acts; ins; desf.
-    by eexists; split; ins; eauto.
-  destruct (Time.le_lt_dec from (f a)). 
-  2: by exists from; split; ins; desf; eauto.
-  destruct (Time.le_lt_dec (f a) to) as [L|L]. 
-    rewrite Time.le_lteq in L; desf.
-    2: by exists from; split; ins; desf; eauto; 
-        exfalso; eapply Time.lt_strorder; eauto.
-    apply Time.middle_spec in L; desc. 
-    exists (Time.middle (f a) to); split; ins; desf; eauto.
-    by transitivity from; eauto using TimeFacts.le_lt_lt.
-  exists from; split; ins; desf; eauto.
-  by exfalso; eapply Time.lt_strorder; etransitivity; eauto.
-Qed. 
-*)
 
 Lemma monotone_converse a b l f acts mo
   (INa: In a acts) (INb: In b acts) (WRITEa: is_write a) (WRITEb: is_write b)
@@ -464,8 +476,8 @@ Definition sim_msg b  rel :=
 
 Definition sim_mem_helper b from v rel :=
   << VAL: Some v = (val b) >> /\
-  << FROM: Time.lt from (f_to b) >> /\ 
-(*   << FROMRMW: (forall a (RFRMW: (rf ;; rmw) a b), from = f a) >> /\ *)
+  << FROM: Time.lt from (f_to b) \/ 
+    is_init b /\ from = Time.bot /\ (f_to b) = Time.bot >> /\ 
   << SIMMSG: sim_msg b rel >>.
 
 Definition sim_mem mem :=
@@ -534,7 +546,7 @@ Definition MGsim (op_st: Configuration.t) (ax_st: Machine.configuration) :=
      (Configuration.sc op_st) (Configuration.memory op_st) (exec ax_st) f_from f_to >> /\
     << SPACE : forall x y (MO: mo (exec ax_st) x y) (NRMW: ~ (rf (exec ax_st) ;; rmw (exec ax_st)) x y),
                  f_to x <> f_from y >> /\
-    << BSPACE : forall y (INy: In y (acts (exec ax_st))) (W: is_write y)
+    << BSPACE : forall y (INy: In y (acts (exec ax_st))) (W: is_write y) (P: is_proper y)
                        (NRMW: ~ exists x, (rf (exec ax_st) ;; rmw (exec ax_st)) x y),
                  Time.bot <> f_from y >>.
 
@@ -573,8 +585,9 @@ Lemma sim_mem_lt ffrom fto acts sb rmw rf mo sc mem
       (SIM_MEM : sim_mem ffrom fto acts sb rmw rf sc mem)
       (WF: Wf acts sb rmw rf mo sc)
       (MON: monotone mo fto)
-      l x (IN : In x acts) (W: is_write x) (L: loc x = Some l) :
-  Time.lt (ffrom x) (fto x).
+      l x (IN : In x acts) (W: is_write x) (L: loc x = Some l) 
+      (NBOT: ffrom x <> Time.bot \/ fto x <> Time.bot) :
+    Time.lt (ffrom x) (fto x). 
 Proof.
 assert (exists v, val x = Some v); desc.
 by destruct x as [??[]]; ins; exists v; unfold val; ins.
@@ -582,7 +595,7 @@ exploit sim_mem_get; try edone.
 by eapply WF.
 specialize (SIM_MEM l); desc.
 intro G; desc.
-unfold sim_mem_helper in *; apply SIMCELL in G; desf; congruence.
+unfold sim_mem_helper in *; apply SIMCELL in G; desf. 
 Qed.
 
 Lemma sim_mem_disj ffrom fto acts sb rmw rf mo sc mem

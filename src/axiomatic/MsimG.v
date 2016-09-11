@@ -285,7 +285,7 @@ Definition proof_obligation ax_st G' op_st i lang st st' :=
    (LWF : TView.wf tview)
    (SPACE : forall x y (MO: mo G x y) (NRMW: ~ (rf G ;; rmw G) x y),
                  fto x <> ffrom y)
-   (BSPACE : forall y (INy: In y (acts G)) (W: is_write y)
+   (BSPACE : forall y (INy: In y (acts G)) (W: is_write y) (P: is_proper y)
                        (NRMW: ~ exists x, (rf G ;; rmw G) x y),
                  Time.bot <> ffrom y),
   exists te tview' sc' mem' op_st' threads' local', 
@@ -307,7 +307,7 @@ Definition proof_obligation ax_st G' op_st i lang st st' :=
       << SIM_MEM: sim_mem ffrom' fto' (acts G') (sb G') (rmw G') (rf G') (sc G') mem'  >> /\
       << SPACE : forall x y (MO: mo G' x y) (NRMW: ~ (rf G' ;; rmw G') x y),
                  fto' x <> ffrom' y >> /\
-      << BSPACE : forall y (INy: In y (acts G')) (W: is_write y)
+      << BSPACE : forall y (INy: In y (acts G')) (W: is_write y) (P: is_proper y)
                        (NRMW: ~ exists x, (rf G' ;; rmw G') x y),
                  Time.bot <> ffrom' y >>.
 
@@ -356,9 +356,11 @@ splits; eauto.
          eauto; destruct a as [??[]].
     intro X; apply (gstep_rf_rmw_nonwrite COH GSTEP) in X; eauto;
     by destruct a as [??[]].
-  * cdes GSTEP; subst; ins; desf; [by destruct y as [??[]]|].
+  * cdes GSTEP; subst; ins. 
+    destruct INy; subst.
+    by destruct y as [??[]].
     apply BSPACE; eauto; intro; desc; apply NRMW; eexists.
-    eapply seq_mori; eauto using rf_mon, rmw_mon.
+    by eapply seq_mori; eauto using rf_mon, rmw_mon.
 Qed.
 
 Lemma ax_op_sim_step_write :
@@ -398,6 +400,8 @@ Proof.
       exploit mo_domb; try exact MO; eauto.
       intros K K'; cdes GSTEP; desf; ins; desf.
         by cdes WF'; exfalso; eapply WF_MO; eauto.
+      assert (P: is_proper y).
+        by eapply no_mo_to_init; eauto.
       destruct (classic (exists x : event, (rf;; rmw) x y)) as [C|]; desc; eauto.
       assert (INx: In x acts).
         by eapply seq_doma in C; [|eapply rf_acta]; eauto. 
@@ -418,8 +422,10 @@ Proof.
     by ins; desc; eapply sim_mem_disj; eauto.
 
   assert (FROM: Time.lt (f_from' a) (f_to' a)).
-  by cdes GSTEP; desf; eapply TWF; splits; auto using in_eq; 
-     destruct a as [??[]]; ins; desf.
+    eapply TWF; eauto.
+    cdes GSTEP; desf.
+    splits; eauto using in_eq with acts.
+    by destruct a as [??[]]; ins; desf.
 
   assert (exists mem', Memory.write Memory.bot
                         (Configuration.memory op_st) l (f_from' a) (f_to' a) v
@@ -567,17 +573,16 @@ Proof.
       eby eapply no_promises_consistent.
     * intro; rewrite IdentMap.gsspec. ins; desf; simpl; eapply NO_PROMISES; eauto.
     * by rewrite IdentMap.map_add; simpl; rewrite MTS, STATES.
-    * admit.
-      (* red in TIME; desc; exists ffrom', fto'; splits; eauto.  *)
-      (* red; simpl; splits; eauto; ins. *)
-      (* rewrite IdentMap.gsspec in TID0; desf; ins; simpl. *)
-      (* destruct MSTEP; subst. *)
-      (*   rewrite SAME_EXEC. *)
-      (*   eapply sim_tview_other_threads_silent; eauto. *)
-      (* all: eapply sim_tview_other_threads; eauto 2. *)
-      (* all: try eapply sim_tview_other_threads; eauto 2. *)
-      (* all: try intro; subst; eauto. *)
-      (* all: congruence. *)
+    * red in TIME; desc; exists ffrom', fto'; splits; eauto.
+      red; simpl; splits; eauto; ins.
+      clear CSTEP.
+      rewrite IdentMap.gsspec in TID0; desf; ins; simpl.
+      destruct MSTEP; subst.
+      by desf; rewrite SAME_EXEC; eapply sim_tview_other_threads_silent; eauto. 
+      all: eapply sim_tview_other_threads; eauto 2. 
+      all: try eapply sim_tview_other_threads; eauto 2.
+      all: try intro; subst; eauto. 
+      all: congruence. 
    }
   clear f_from f_to TIME SPACE BSPACE.
 

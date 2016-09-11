@@ -1179,36 +1179,35 @@ eapply GMsim_helper with
 * red; splits; eauto.
 * econs 2. econs; [|econs]; eauto.
 * eapply update with (a_r:=a) (a_w:=a0) (G_mid:= new_G_read G a b) ; try done.
-  admit.
   eapply new_G_update_coherent with (a_r:=a) (acts:= a:: acts G); try edone.
   eby ins; desc; eapply disjoint_to.
-
-unfold Relation_Operators.union, singl_rel; ins; desc.
-destruct H15; try by  apply FRESH; eapply rf_actb; eauto.
-desc; subst.
-
+  unfold Relation_Operators.union, singl_rel; ins; desc.
+  destruct H15; try by  apply FRESH; eapply rf_actb; eauto.
+  desc; subst.
   assert (exists v, val x = Some v); desc.
     by destruct x as [??[]]; try exists v; ins; desf.
-
-assert (exists rel : option View.t,
-  Memory.get l (f_to x) mem =
-  Some (f_from x, {| Message.val := v; Message.released := rel |}) /\
-  sim_mem_helper f_to 
-(a :: acts G) (sb G +++ sb_ext (acts G) a) 
-          (rmw G) (rf G +++ singl_rel b a) (sc G +++ sc_ext (acts G) a) x (f_from x) v (View.unwrap rel)).
-by eapply sim_mem_get;   cdes COHr; cdes WF; eauto.
-
-
-desc.
+  assert (exists rel : option View.t,
+    Memory.get l (f_to x) mem =
+    Some (f_from x, {| Message.val := v; Message.released := rel |}) /\
+    sim_mem_helper f_to 
+    (a :: acts G) (sb G +++ sb_ext (acts G) a) 
+            (rmw G) (rf G +++ singl_rel b a) (sc G +++ sc_ext (acts G) a) 
+            x (f_from x) v (View.unwrap rel)).
+    by eapply sim_mem_get; cdes COHr; cdes WF; eauto.
+  desc.
   destruct ADD, ADD.
   eapply DISJOINT with (to2:=f_to x); try edone.
   econs; ins; eauto.
   by eapply Time.le_lteq; eauto.
-econs; ins; vauto.
-specialize (SIMCELL (f_to x) (f_from x) v rel H15); desc.
-red in SIMCELL4; desc.
-rewrite <- SIMCELL3; done.
-
+  econs; ins; vauto.
+  specialize (SIMCELL (f_to x) (f_from x) v rel H15); desc.
+  red in SIMCELL4; desc.
+  rewrite <- SIMCELL3.
+  destruct FROM0 as [FROM0|[A [B C]]].
+  by auto.
+  exfalso; rewrite SIMCELL3, C in *.
+  eapply Time.lt_strorder, TimeFacts.le_lt_lt; try edone.
+  by eapply Time.bot_spec.
 * ins; rewrite IdentMap.gsspec in TID0; desf; ins; try edone.
   all: pattern to_w at 2; erewrite <- upds with (a:=a0) (b:=to_w). 
   all: rewrite <- THREAD_ID0.
@@ -1229,7 +1228,8 @@ rewrite <- SIMCELL3; done.
   eapply monotone_injective with (acts:= (a :: acts G)) (f:= f_to); try edone.
   by right.
   eby eapply COHr.
-Admitted.
+  by rewrite upds.
+Qed.
 
 (******************************************************************************)
 (** * Lemmas for fence step  *)

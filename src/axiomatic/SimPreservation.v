@@ -471,7 +471,7 @@ clear GET ACQ_UR ACQ_RW ACQ_SC CLOSED.
 
 red; splits; try done.
 by unfold val, lab in *; destruct a; destruct lb; desf.
-
+by auto.
 red; splits; intro l0.
 
 all: specialize (CUR_UR l0).
@@ -645,7 +645,7 @@ red in SIMMSG; desc.
 
 red; splits; try done.
 by unfold val, lab in *; destruct a; destruct lb; desf.
-
+by auto.
 red; splits; intro l0.
 
 all: specialize (UR l0).
