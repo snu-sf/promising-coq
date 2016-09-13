@@ -673,6 +673,22 @@ Module TViewFacts.
     apply TView.antisym; repeat (condtac; tac; try refl).
   Qed.
 
+  Lemma read_future1
+        loc from to val released ord tview mem
+        (WF_TVIEW: TView.wf tview)
+        (RELEASED: View.opt_wf released)
+        (GET: Memory.get loc to mem = Some (from, Message.mk val released)):
+    <<WF_TVIEW: TView.wf (TView.read_tview tview loc to released ord)>>.
+  Proof.
+    econs; repeat (try condtac; tac);
+        try by rewrite <- ? View.join_l; apply WF_TVIEW.
+    - apply TimeMap.singleton_inv.
+      rewrite <- TimeMap.join_l. tac.
+    - apply TimeMap.singleton_inv.
+      rewrite <- TimeMap.join_l. tac.
+    - destruct ord; inv COND; inv COND0.
+  Qed.
+
   Lemma read_future
         loc from to val released ord tview mem
         (MEM: Memory.closed mem)
@@ -683,18 +699,9 @@ Module TViewFacts.
     <<WF_TVIEW: TView.wf (TView.read_tview tview loc to released ord)>> /\
     <<CLOSED_TVIEW: TView.closed (TView.read_tview tview loc to released ord) mem>>.
   Proof.
-    splits; tac.
-    - econs; repeat (try condtac; tac);
-        try by rewrite <- ? View.join_l; apply WF_TVIEW.
-      + apply TimeMap.singleton_inv.
-        rewrite <- TimeMap.join_l. tac.
-      + apply TimeMap.singleton_inv.
-        rewrite <- TimeMap.join_l. tac.
-      + destruct ord; inv COND; inv COND0.
-    - inv MEM. exploit CLOSED; eauto. i. des.
-      econs; tac; try apply CLOSED_TVIEW.
-      + condtac; tac.
-      + condtac; tac.
+    splits; try eapply read_future1; eauto.
+    inv MEM. exploit CLOSED; eauto. i. des.
+    econs; tac; try apply CLOSED_TVIEW; condtac; tac.
   Qed.
 
   Lemma op_closed_tview

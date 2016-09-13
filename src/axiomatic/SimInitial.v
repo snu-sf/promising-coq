@@ -71,7 +71,7 @@ by intro; ins; exfalso; eapply SC; eauto.
   specialize (SC x z); tauto. }
 Qed.
 
-Lemma sim_initial :
+Lemma sim_initial_GM :
   forall s ax_st (INIT: initial ax_st s),
     GMsim (Configuration.init s) ax_st.
 Proof.
@@ -141,4 +141,19 @@ red; splits; try done.
     by eapply urr_actb; eauto.
     by eapply rwr_actb; eauto.
     by eapply scr_actb; eauto.
+Qed.
+
+Lemma sim_initial_MG :
+  forall s ax_st (INIT: initial ax_st s),
+    MGsim (Configuration.init s) ax_st.
+  ins.
+  exploit sim_initial_GM; eauto.
+  unfold GMsim, MGsim in *.
+  ins; desc; splits; eauto.
+  eexists _,_; splits; eauto.
+  - destruct INIT, EXEC.
+  ins; exfalso; specialize (MO x y); tauto.
+  - destruct INIT, EXEC.
+  ins; exfalso; eapply proper_non_init; try edone.
+  by apply ACTS. 
 Qed.

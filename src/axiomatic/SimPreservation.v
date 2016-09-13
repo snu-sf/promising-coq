@@ -266,62 +266,6 @@ assert (SCa: Ordering.le Ordering.seqcst o <-> is_sc a).
     by destruct a; ins; desf; exfalso; unfold loc in *; ins; desf; auto.
 Qed.
 
-
-Lemma memory_add_bot l from to val released (LT : Time.lt from to) 
-      (WF : View.opt_wf released) :
-  Memory.add Memory.bot l from to val released 
-    (Memory.singleton l val released LT). 
-Proof.
-  econs; econs; eauto.
-  red; ins; unfold DenseOrder.DOMap.find in *; ins.
-  rewrite DenseOrder.DOMap.Raw.gempty in *; ins.
-Qed.
-
-Lemma memory_exists 
-  mem (CLOSED: Memory.closed mem)
-  from to (FROM: Time.lt from to)
-  tview (CWF: TView.wf tview)
-  released (RWF: View.opt_wf released)
-  l (LE: Time.le (released.(View.unwrap).(View.rlx) l) to) 
-  (DISJ: forall (to2 from2 : Time.t) (msg2 : Message.t),
-           Memory.get l to2 mem = Some (from2, msg2) ->
-           Interval.disjoint (from, to) (from2, to2)) v :
-  exists mem', 
-    Memory.write Memory.bot mem l from to v 
-                 released Memory.bot mem' Memory.op_kind_add .
-Proof.
-  exploit (@Memory.add_exists mem l from to v); try edone.
-  intro M; desc; exists mem2.
-  econs; eauto using Memory.remove_singleton.
-  econs; try apply (memory_add_bot _ _ FROM); eauto.
-Qed.
-
-Lemma memory_exists_write 
-  mem (CLOSED: Memory.closed mem)
-  from to (FROM: Time.lt from to)
-  tview (CWF: TView.wf tview)
-  l (CUR_LE: Time.le (View.rlx (TView.cur tview) l) to)
-  (DISJ: forall (to2 from2 : Time.t) (msg2 : Message.t),
-           Memory.get l to2 mem = Some (from2, msg2) ->
-           Interval.disjoint (from, to) (from2, to2)) 
-  v o sc_map :
-  exists mem', 
-    Memory.write Memory.bot mem l from to v 
-                 (TView.write_released tview sc_map l to None o)
-                 Memory.bot mem' Memory.op_kind_add .
-Proof.
-  eapply memory_exists; eauto.
-  { apply TViewFacts.write_future0; ss. econs. }
-  assert (YY: Time.le (View.rlx (TView.rel tview l) l) to).
-    by etransitivity; [|exact CUR_LE]; apply CWF.
-  unfold TView.write_released.
-  ins; desf; ins; unfold TimeMap.join, TimeMap.bot; ins; desf;
-  unfold LocFun.add; desf; try congruence; ins;
-  repeat apply Time.join_spec; eauto using Time.bot_spec;
-  try rewrite tm_singleton; try reflexivity.
-Qed.
-
-
 Lemma memory_write0 mem mem' l from t v rel l0 t0
   (ADD: Memory.write Memory.bot mem l from t v rel Memory.bot mem' Memory.op_kind_add)
   from0 m (NEW: Memory.get l0 t0 mem = Some (from0, m)):
@@ -330,16 +274,6 @@ Proof.
   destruct ADD; inv PROMISE. 
   rewrite (Memory.add_o _ _ MEM); desf; ins; desf. 
   by rewrite (Memory.add_get0 MEM) in NEW.
-Qed.
-
-Lemma memory_write1 mem mem' l from t v rel 
-  (ADD: Memory.write Memory.bot mem l from t v rel Memory.bot mem' Memory.op_kind_add)
-  l0 t0 from0 m
-  (NEW: Memory.get l0 t0 mem' = Some (from0, m)) (NEQ: l <> l0 \/ t <> t0 \/ from <> from0):
-  Memory.get l0 t0 mem = Some (from0, m).
-Proof.
-  destruct ADD; inv PROMISE. 
-  rewrite (Memory.add_o _ _ MEM) in NEW; desf; ins; desf; try congruence.
 Qed.
 
 
@@ -550,8 +484,9 @@ Lemma memory_step_write_cell_neq acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0
   exists b, In b acts0 /\ is_write b /\ loc b = Some l0 /\
     ffrom' b = from0 /\ f' b = to /\ sim_mem_helper f' acts0 sb0 rmw0 rf0 sc0 b from0 v0 rel0.(View.unwrap).
 Proof.
-assert (OLD: Memory.get l0 to mem = Some (from0, Message.mk v0 rel0)).
-    eapply memory_write1; try edone; tauto.
+  assert (OLD: Memory.get l0 to mem = Some (from0, Message.mk v0 rel0)).
+    destruct ADD; inv PROMISE.
+    rewrite (Memory.add_o _ _ MEM) in GET; desf; ins; desf; try congruence; try edone; tauto.
   assert (LOC_A: Gevents.loc a = Some l). 
     by unfold Gevents.loc; destruct (lab a); ins; desf.
   assert (W: is_write a). 
