@@ -497,13 +497,3 @@ Proof.
   - inv H. inv USTEP. i. exploit small_step_promise_decr; eauto. i. des.
     exploit IHSTEPT; eauto.
 Qed.
-
-Lemma small_step_promise_remove
-      tid c1 c2 e loc from ts val relw ordw
-      (WFT: Configuration.wf c1)
-      (STEPT: small_step false tid e c1 c2)
-      (EVTW: ThreadEvent.is_writing e = Some (loc, from, ts, val, relw, ordw)):
-  forall tid', ~Threads.is_promised tid' loc ts c2.(Configuration.threads).
-Proof.
-Admitted.
-

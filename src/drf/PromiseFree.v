@@ -810,7 +810,7 @@ Proof.
         eapply with_pre_rtc_union in PI_STEPS.
         rewrite <-(rtc_small_step_find PI_STEPS) in TID0; eauto.
         s in TID0. inv PI_STEP. inv WF3.
-        eapply small_step_promise_remove; eauto.
+        eapply writing_small_step_fulfilled_new; eauto.
         econs; eauto.
       + eapply PROM0; eauto. by s; rewrite IdentMap.gss.
   }
