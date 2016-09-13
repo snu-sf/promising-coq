@@ -19,21 +19,6 @@ Require Import Configuration.
 Set Implicit Arguments.
 
 
-(* TODO: position *)
-Definition proj_sumbool (P Q: Prop) (a: {P} + {Q}) : bool :=
-  if a then true else false.
-
-Implicit Arguments proj_sumbool [P Q].
-
-Coercion proj_sumbool: sumbool >-> bool.
-
-Lemma proj_sumbool_true:
-  forall (P Q: Prop) (a: {P}+{Q}), proj_sumbool a = true -> P.
-Proof.
-  intros P Q a. destruct a; simpl. auto. congruence.
-Qed.
-
-
 Inductive ord_thread_step (ord:Ordering.t) (lang:Language.t) (e:ThreadEvent.program_t): forall (e1 e2:Thread.t lang), Prop :=
 | ra_thread_step_intro
     st1 lc1 sc1 mem1
@@ -52,17 +37,8 @@ Inductive ord_step (ord:Ordering.t) (e:ThreadEvent.program_t) (tid:Ident.t): for
     ord_step ord e tid c1 (Configuration.mk (IdentMap.add tid (existT _ _ st2, lc2) c1.(Configuration.threads)) sc2 memory2)
 .
 
-(* TODO: position *)
-Definition ThreadEvent_is_accessing (e:ThreadEvent.t): option (Loc.t * Time.t) :=
-  match e with
-  | ThreadEvent.read loc ts _ _ _ => Some (loc, ts)
-  | ThreadEvent.write loc _ ts _ _ _ => Some (loc, ts)
-  | ThreadEvent.update loc _ ts _ _ _ _ _ _ => Some (loc, ts)
-  | _ => None
-  end.
-
 Definition interleaving (e:ThreadEvent.t) (c2:Configuration.t): bool :=
-  match ThreadEvent_is_accessing e with
+  match ThreadEvent.is_accessing e with
   | None => true
   | Some (loc, ts) =>
     Time.le_lt_dec (Memory.max_ts loc c2.(Configuration.memory)) ts

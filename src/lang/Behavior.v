@@ -23,7 +23,7 @@ Set Implicit Arguments.
  * - Simulation.  We do not introduce simulation index for inftau
  *   behaviors (i.e. infinite loop without system call interactions).
  *
- * We will consdier infinite behaviors in the future work.
+ * We will consider infinite behaviors in the future work.
  *)
 (* NOTE: We serialize all the events within a behavior, but it may not
  * be the case.  The *NIX kernels are re-entrant: system calls may

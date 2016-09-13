@@ -481,6 +481,28 @@ Proof.
   inv STEP; econs; eauto.
 Qed.
 
+Lemma pi_step_small_step_fst
+      tid e cST1 cST2 withprm withprm'
+      (PI_STEP: pi_step withprm tid e cST1 cST2):
+  small_opt_step withprm' tid e (fst cST1) (fst cST2).
+Proof.
+  inv PI_STEP.
+  destruct (ThreadEvent.is_promising e) eqn:X.
+  - subst. ss. destruct e; inv X. econs 1. ss.
+  - econs 2. ss. destruct withprm'; ss. inv STEPS; eauto.
+Qed.
+
+Lemma tau_pi_steps_tau_small_steps_fst
+      tid cST1 cST2 withprm withprm'
+      (PI_STEPS: rtc (tau (pi_step withprm tid)) cST1 cST2):
+  rtc (tau (small_step withprm' tid)) (fst cST1) (fst cST2).
+Proof.
+  induction PI_STEPS; eauto.
+  inv H. exploit pi_step_small_step_fst; eauto. i. inv x1.
+  - rewrite H1. ss.
+  - econs; eauto.
+Qed.
+
 Lemma pi_steps_small_steps_fst
       tid cST1 cST2 withprm withprm'
       (PI_STEPS: rtc (pi_step_evt withprm tid) cST1 cST2):
@@ -491,6 +513,24 @@ Proof.
   destruct (ThreadEvent.is_promising e).
   - subst. eauto.
   - econs; eauto. s. inv STEPS. destruct withprm'; econs; eauto 10. 
+Qed.
+
+Lemma pi_step_small_step_snd
+      cST1 cST2 withprm tid
+      (PI_STEP: pi_step_evt withprm tid cST1 cST2):
+  small_step_evt withprm tid (snd cST1) (snd cST2).
+Proof.
+  inv PI_STEP. inv USTEP. econs. eauto.
+Qed.
+
+Lemma pi_steps_all_small_steps_all_snd
+      cST1 cST2 withprm
+      (PI_STEPS: rtc (pi_step_all withprm) cST1 cST2):
+  rtc (small_step_all withprm) (snd cST1) (snd cST2).
+Proof.
+  induction PI_STEPS; eauto.
+  inv H. exploit pi_step_small_step_snd; eauto. i.
+  econs 2; eauto.
 Qed.
 
 Lemma pi_steps_small_steps_snd

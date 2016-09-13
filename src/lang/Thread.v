@@ -85,6 +85,14 @@ Module ThreadEvent.
     | _ => None
     end.
 
+  Definition is_accessing (e:t): option (Loc.t * Time.t) :=
+    match e with
+    | read loc ts _ _ _ => Some (loc, ts)
+    | write loc _ ts _ _ _ => Some (loc, ts)
+    | update loc _ ts _ _ _ _ _ _ => Some (loc, ts)
+    | _ => None
+    end.
+
   Inductive le: forall (lhs rhs:t), Prop :=
   | le_promise
       loc from to val rel1 rel2 kind1 kind2
