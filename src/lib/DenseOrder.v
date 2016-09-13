@@ -105,7 +105,9 @@ Module DOAux.
 
   Definition le := lt \2/ eq.
   Lemma le_lteq : forall x y : t, le x y <-> lt x y \/ x = y.
-  Proof. auto. Qed.
+  Proof.
+    auto. 
+  Qed.
   Global Opaque le.
 
   Fixpoint decr (x:t) :=
@@ -116,6 +118,7 @@ Module DOAux.
     end.
 
   Lemma decr_spec: forall x, lt (decr x) x.
+  Proof.
     induction x; ss; econs; eauto.
   Qed.
 
@@ -127,6 +130,7 @@ Module DOAux.
     end.
 
   Lemma incr_spec: forall x, lt x (incr x).
+  Proof.
     induction x; ss; econs; eauto.
   Qed.
 

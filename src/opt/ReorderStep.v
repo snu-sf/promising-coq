@@ -55,12 +55,13 @@ Proof.
       { apply Time.incr_spec. }
       { econs 2. }
       { econs. }
+      { i. rewrite PROMISES1. apply Memory.bot_nonsynch_loc. }
       i. des. esplits. econs; [|econs 3]; eauto. econs. econs.
     + hexploit progress_read_step; eauto. i. des.
       exploit Local.read_step_future; eauto. i. des.
       hexploit progress_write_step; eauto.
       { apply Time.incr_spec. }
-      { inv H. auto. }
+      { i. inv H. s. rewrite PROMISES1. apply Memory.bot_nonsynch_loc. }
       i. des. esplits. econs; [|econs 4]; eauto. econs. econs. apply surjective_pairing.
     + hexploit progress_fence_step; eauto.
       { i. rewrite PROMISES1. apply Memory.bot_nonsynch. }

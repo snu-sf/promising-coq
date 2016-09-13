@@ -46,7 +46,7 @@
        This proof is complete except for the case of update steps, which is admitted.
 
 - `src/drf`: DRF Theorems (Section 5.3)
-    + Promise-Free DRF (Theorem 1): Theorem `pi_consistent_step_pi` (`PIStep.v`) and Theorem `pi_consistent_pi_step_pi_consistent` (`PromiseFree.v`) collectively proves the promise-free DRF.
+    + Promise-Free DRF (Theorem 1): Lemma `sim_pf_init` and `sim_pf_step` (`DRF_PF.v`) collectively proves the promise-free DRF.
     + We did not formalize DRF-RA (Theorem 2) and DRF-SC (Theorem 3).
 
 - `src/invariant`: An Invariant-Based Program Logic (Section 5.4)

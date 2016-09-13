@@ -146,6 +146,17 @@ Inductive small_step (withprm: bool) (tid:Ident.t) (e:ThreadEvent.t) (c1:Configu
 .
 Hint Constructors small_step.
 
+Inductive small_opt_step withprm tid e: forall (c1 c2:Configuration.t), Prop :=
+| small_opt_step_none
+    c
+    (EVENT: ThreadEvent.get_event e = None):
+    small_opt_step withprm tid e c c
+| small_opt_step_some
+    c1 c2
+    (STEP: small_step withprm tid e c1 c2):
+    small_opt_step withprm tid e c1 c2
+.
+
 Definition small_step_evt withprm (tid:Ident.t) (c1 c2:Configuration.t) : Prop :=
   union (small_step withprm tid) c1 c2.
 Hint Unfold small_step_evt.
@@ -153,6 +164,16 @@ Hint Unfold small_step_evt.
 Definition small_step_all withprm (c1 c2:Configuration.t) : Prop :=
   union (small_step_evt withprm) c1 c2.
 Hint Unfold small_step_all.
+
+Lemma small_step_evt_to_true
+      withprm tid cST1 cST2
+      (STEP: small_step_evt withprm tid cST1 cST2):
+  small_step_evt true tid cST1 cST2.
+Proof.
+  destruct withprm; eauto.
+  inv STEP. inv USTEP.
+  econs. econs; eauto.
+Qed.
 
 Lemma small_step_future
       e tid c1 c2 withprm
@@ -459,4 +480,20 @@ Proof.
   i; des. rewrite FIND0 in FIND1. inv FIND1.
   rewrite PROMISES in *. 
   setoid_rewrite Cell.bot_get in PROMISES0. done.
+Qed.
+
+Lemma small_steps_promise_decr
+      tid' loc ts c1 c2 lst2 lc2 from2 msg2
+      (STEPT: rtc (small_step_all false) c1 c2)
+      (FIND2: IdentMap.find tid' c2.(Configuration.threads) = Some (lst2,lc2))
+      (PROMISES: Memory.get loc ts lc2.(Local.promises) = Some (from2, msg2)):
+  exists lst1 lc1 from1 msg1,
+  <<FIND1: IdentMap.find tid' c1.(Configuration.threads) = Some (lst1,lc1)>> /\
+  <<PROMISES: Memory.get loc ts lc1.(Local.promises) = Some (from1, msg1)>>.
+Proof.
+  move STEPT at top. revert_until STEPT.
+  apply rtc_reverse in STEPT. induction STEPT.
+  - i. esplits; eauto.
+  - inv H. inv USTEP. i. exploit small_step_promise_decr; eauto. i. des.
+    exploit IHSTEPT; eauto.
 Qed.

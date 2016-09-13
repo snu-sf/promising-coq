@@ -108,6 +108,15 @@ Proof.
   etrans; eauto. econs 2; eauto.
 Qed.
 
+Lemma rtc_reverse
+      A R (a b:A)
+      (RTC: rtc R a b):
+  rtc (fun x y => R y x) b a.
+Proof.
+  induction RTC; eauto.
+  etrans; eauto. econs 2; eauto.
+Qed.
+
 Lemma fapp A (B:A->Type) (a:A) (P Q:forall (a:A), B a)
       (EQ: P = Q):
   P a = Q a.
@@ -189,3 +198,17 @@ Ltac condtac :=
     let COND := fresh "COND" in
     destruct c eqn:COND
   end.
+
+
+Definition proj_sumbool (P Q: Prop) (a: {P} + {Q}) : bool :=
+  if a then true else false.
+
+Implicit Arguments proj_sumbool [P Q].
+
+Coercion proj_sumbool: sumbool >-> bool.
+
+Lemma proj_sumbool_true:
+  forall (P Q: Prop) (a: {P}+{Q}), proj_sumbool a = true -> P.
+Proof.
+  intros P Q a. destruct a; simpl. auto. congruence.
+Qed.

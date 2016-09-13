@@ -112,8 +112,7 @@ Lemma progress_read_step
       lc1 mem1
       loc ord
       (WF1: Local.wf lc1 mem1)
-      (MEM1: Memory.closed mem1)
-      (PROMISES1: lc1.(Local.promises) = Memory.bot):
+      (MEM1: Memory.closed mem1):
   exists val released lc2,
     Local.read_step lc1 mem1 loc (Memory.max_ts loc mem1) val released ord lc2.
 Proof.
@@ -132,30 +131,23 @@ Lemma progress_write_step
       (MEM1: Memory.closed mem1)
       (WF_REL: View.opt_wf releasedm)
       (CLOSED_REL: Memory.closed_opt_view releasedm mem1)
-      (PROMISES1: lc1.(Local.promises) = Memory.bot):
+      (PROMISES1: Ordering.le Ordering.acqrel ord -> Memory.nonsynch_loc loc lc1.(Local.promises)):
   exists released lc2 sc2 mem2,
     Local.write_step lc1 sc1 mem1 loc (Memory.max_ts loc mem1) to val releasedm released ord lc2 sc2 mem2 Memory.op_kind_add.
 Proof.
   exploit progress_promise_step; eauto. i. des.
   exploit Local.promise_step_future; eauto. i. des. inv x0.
-  assert (PROMISES2:
-            promises2 = Memory.singleton
-                          loc val
-                          (TView.write_released (Local.tview lc1) sc1 loc to releasedm ord)
-                          LT).
-  { apply Memory.ext. i.
-    inv PROMISE. erewrite Memory.add_o; eauto.
-    rewrite PROMISES1, Memory.bot_get, Memory.singleton_get.
-    repeat (condtac; unfold fst, snd in *; des; subst; auto; try congr).
+  exploit Memory.remove_exists; eauto.
+  { inv PROMISE. erewrite Memory.add_o; try eexact PROMISES.
+    condtac; eauto. ss. des; exfalso; apply o; eauto.
   }
+  i. des.
   esplits. econs; eauto.
   - econs; i; (try eapply TimeFacts.le_lt_lt; [|eauto]).
     + apply Memory.max_ts_spec2. apply WF1.
     + apply Memory.max_ts_spec2. apply WF1.
     + apply Memory.max_ts_spec2. auto.
-  - econs; eauto. subst promises2. apply Memory.remove_singleton.
-  - rewrite PROMISES1. i. splits; ss.
-    apply Memory.bot_nonsynch_loc.
+  - econs; eauto.
 Qed.
 
 Lemma progress_fence_step

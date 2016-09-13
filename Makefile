@@ -1,5 +1,5 @@
 COQMODULE    := cmem
-COQTHEORIES  := lib/hahn/*.v src/*/*.v
+COQTHEORIES  := lib/sflib/*.v lib/paco/src/*.v lib/hahn/*.v src/*/*.v
 
 .PHONY: all theories clean
 
