@@ -39,7 +39,7 @@ Lemma sim_progress
       (STEP: ord_step Ordering.acqrel e tid c1 c2):
   sim c2.
 Proof.
-  destruct (ThreadEvent_is_accessing e) as [[loc ts]|] eqn:ACCESSING; cycle 1.
+  destruct (ThreadEvent.is_accessing e) as [[loc ts]|] eqn:ACCESSING; cycle 1.
   { inv SIM. econs. eapply rtc_n1; eauto. econs.
     instantiate (1 := (_, _)). econs; eauto.
     unfold interleaving. ss. rewrite ACCESSING. ss.

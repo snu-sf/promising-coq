@@ -71,10 +71,10 @@ Proof.
   induction STEP; i; des.
   { split; eauto. econs 2; eauto. i; inv PRE. }
   splits.
-  { eapply small_step_future; eauto. } 
+  { eapply small_step_future; eauto. }
   i. destruct (classic(is_reading_promise_except tid e es)).
-  - econs 1; eauto. 
-    i; eapply promise_consistent_th_small_step_backward; eauto. 
+  - econs 1; eauto.
+    i; eapply promise_consistent_th_small_step_backward; eauto.
   - econs 2; eauto. by i; inv PRE.
 Qed.
 
@@ -104,7 +104,7 @@ Proof.
     { reflexivity. }
     { eapply rtc_implies, PI_STEPS. eauto. }
     intros [WF2 _].
-    inv WF2. eauto. 
+    inv WF2. eauto.
   }
 
   intro PI_STEPS'. des. ss.
@@ -119,7 +119,7 @@ Proof.
 
   clear CONSIS. i. des.
   exploit (PI_RACEFREE cS3 ord ord0).
-  { etrans. 
+  { etrans.
     - eapply rtc_implies; [by i; econs; eapply PR|].
       by eapply pi_steps_small_steps_fst in PI_STEPS; eauto.
     - eapply rtc_implies, STEPS. by econs; eauto.
@@ -156,7 +156,7 @@ Proof.
 
   assert (PCONSIS: promise_consistent_th tid cT2).
   { inv WF2. eauto using promise_consistent_pre_th. }
-  
+
   assert (RW:= pi_consistent_small_step_pi_rw WF PI_CONSISTENT PI_RACEFREE PI_STEPS STEP FULFILL).
 
   exploit rtc_pi_step_future; [| |eapply rtc_implies; [eapply pi_step_evt_all_incl|]|]; eauto.
@@ -221,7 +221,7 @@ Proof.
         subst. exfalso. eapply NOT. econs; eauto.
       }
       intro WRITE; des.
-      eexists; econs. 
+      eexists; econs.
       - eauto.
       - s. econs; s; eauto.
         + setoid_rewrite IdentMap.Properties.F.map_o. by rewrite TID.
@@ -251,7 +251,7 @@ Proof.
         + ss. setoid_rewrite IdentMap.Properties.F.map_o.
           by rewrite TID.
         + econs 2. econs; [|econs 4]; [by eauto|..].
-          { 
+          {
             econs; eauto.
             s. hexploit RL; [| |by intro X; des; unfold loctmeq in *; subst; apply X]; eauto.
             i. destruct (Ident.eq_dec tid tid0) eqn: EQ; cycle 1.
@@ -322,7 +322,7 @@ Lemma pi_consistent_rtc_small_step_pi
       cT3 pre
       (STEP: with_pre (small_step withprm tid) cST2.(snd) pre cT3)
       (FULFILL: promise_consistent_pre tid pre cT3):
-  exists cS3 pre', with_pre (pi_step withprm tid) cST2 pre' (cS3,cT3) /\ 
+  exists cS3 pre', with_pre (pi_step withprm tid) cST2 pre' (cS3,cT3) /\
                    pre = pi_pre_proj pre'.
 Proof.
   destruct cST2 as [cS2 cT2].
@@ -344,7 +344,7 @@ Proof.
     i; des; eauto.
   }
 
-  exploit IHSTEP; s; eauto. 
+  exploit IHSTEP; s; eauto.
   { exploit rtc_pi_step_future; try (eapply rtc_implies, PI_STEPS); eauto.
     intro; des. inv WF0.
     eauto using promise_consistent_th_pre, promise_consistent_pre_th.
@@ -352,25 +352,92 @@ Proof.
 
   intro STEPS. des. ss.
   eapply (@pi_consistent_small_step_pi _ _ _ (_,_)) in PSTEP; eauto; cycle 1.
-  { etrans; eauto. subst. 
+  { etrans; eauto. subst.
+    eapply rtc_implies; [eapply pi_step_evt_to_true|].
+    eapply with_pre_rtc_union; eauto. }
+  des; esplits; eauto.
+Qed.
+
+Lemma pi_consistent_rtc_ftau_small_step_pi
+      tid cST1 cST2 withprm
+      (WF: pi_wf loctmeq cST1)
+      (PI_CONSISTENT: pi_consistent cST1)
+      (PI_RACEFREE: pf_racefree cST1.(fst))
+      (PI_STEPS: rtc (pi_step_evt true tid) cST1 cST2)
+      cT3 pre
+      (STEP: with_pre (ftau (small_step withprm tid)) cST2.(snd) pre cT3)
+      (FULFILL: promise_consistent_pre tid pre cT3):
+  exists cS3 pre', with_pre (ftau (pi_step withprm tid)) cST2 pre' (cS3,cT3) /\
+                   pre = pi_pre_proj pre'.
+Proof.
+  destruct cST2 as [cS2 cT2].
+  revert_until STEP. induction STEP.
+  { s; i. eauto. }
+  s; i. inv PSTEP.
+
+  eapply with_pre_implies in STEP; cycle 1.
+  { i. inv STEP0. eauto. }
+
+  assert (WF2 : Configuration.wf ms).
+  { exploit rtc_pi_step_future.
+    { eauto. }
+    { reflexivity. }
+    { eapply rtc_implies, PI_STEPS. eauto. }
+    intros [WF2 _]. inv WF2.
+
+    exploit with_pre_rtc_union; eauto.
+    i. exploit rtc_small_step_future.
+    { eauto. }
+    { eapply rtc_implies, x0. eauto. }
+    i; des; eauto.
+  }
+
+  exploit IHSTEP; s; eauto.
+  { exploit rtc_pi_step_future; try (eapply rtc_implies, PI_STEPS); eauto.
+    intro; des. inv WF0.
+    eauto using promise_consistent_th_pre, promise_consistent_pre_th.
+  }
+
+  intro STEPS. des. ss.
+  exploit with_pre_implies; try exact STEPS; i.
+  { i. inv STEP0. eauto. }
+
+  eapply (@pi_consistent_small_step_pi _ _ _ (_,_)) in TSTEP; eauto; cycle 1.
+  { etrans; eauto. subst.
     eapply rtc_implies; [eapply pi_step_evt_to_true|].
     eapply with_pre_rtc_union; eauto. }
   des; esplits; eauto.
 Qed.
 
 Theorem pi_consistent_step_pi
-      cST1 cT2 e tid
+      cST1 cT3 e tid
       (WF: pi_wf loctmeq cST1)
       (PI_CONSISTENT: pi_consistent cST1)
       (CONSISTENT: Configuration.consistent cST1.(snd))
       (PI_RACEFREE: pf_racefree cST1.(fst))
-      (STEP: Configuration.step e tid cST1.(snd) cT2):
-  exists cS2, rtc (pi_step_evt true tid) cST1 (cS2,cT2).
+      (STEP: Configuration.step e tid cST1.(snd) cT3):
+  exists cST2 cS3 te,
+    <<STEPS: rtc (tau (pi_step true tid)) cST1 cST2>> /\
+    <<STEP: (pi_step true tid te) cST2 (cS3,cT3)>> /\
+    <<EVENT: ThreadEvent.get_event te = e>>.
 Proof.
-  exploit step_small_steps; eauto; [by inv WF|].
+  exploit step_small_steps; eauto; [by inv WF|]. i. des. subst.
+  eapply rtc_tau_with_pre in STEPS. des.
+  exploit pi_consistent_rtc_ftau_small_step_pi; eauto.
+  { inv WF.
+    eapply promise_consistent_th_pre; eauto.
+    - eapply with_pre_implies, STEPS. i. inv STEP1. eauto.
+    - i. eapply promise_consistent_th_small_step; eauto.
+      eapply consistent_promise_consistent_th; eauto.
+  }
   i. des.
-  eapply rtc_union_with_pre in STEPS. des.
-  exploit pi_consistent_rtc_small_step_pi; eauto.
-  { inv WF. eauto using promise_consistent_th_pre, consistent_promise_consistent_th. }
-  i; des. eexists. eapply with_pre_rtc_union. eauto.
+  exploit with_pre_rtc_tau; eauto. i. des.
+  exploit pi_consistent_small_step_pi.
+  5: instantiate (2 := (_, _)). 5: exact STEP0. all: eauto.
+  { eapply rtc_implies, x2. i. inv PR. econs. eauto. }
+  { inv WF.
+    eapply promise_consistent_th_pre; eauto.
+    i. eapply consistent_promise_consistent_th; eauto.
+  }
+  i. des. esplits; eauto.
 Qed.

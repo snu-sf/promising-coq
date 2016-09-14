@@ -30,19 +30,6 @@ Require Import PromiseFree.
 
 Set Implicit Arguments.
 
-Theorem pi_consistent_step_pi
-      cST1 cT3 e tid
-      (WF: pi_wf loctmeq cST1)
-      (PI_CONSISTENT: pi_consistent cST1)
-      (CONSISTENT: Configuration.consistent cST1.(snd))
-      (PI_RACEFREE: pf_racefree cST1.(fst))
-      (STEP: Configuration.step e tid cST1.(snd) cT3):
-  exists cST2 cS3 te,
-    <<STEPS: rtc (tau (pi_step true tid)) cST1 cST2>> /\
-    <<STEP: (pi_step true tid te) cST2 (cS3,cT3)>> /\
-    <<EVENT: ThreadEvent.get_event te = e>>.
-Proof.
-Admitted.
 
 Inductive sim_pf (c_src c_tgt:Configuration.t): Prop :=
 | sim_pf_intro

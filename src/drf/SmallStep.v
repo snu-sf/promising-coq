@@ -23,6 +23,13 @@ Require Import MemoryRel.
 Set Implicit Arguments.
 
 
+Inductive ftau T (step: forall (e:ThreadEvent.t) (e1 e2:T), Prop) (e:ThreadEvent.t) (e1 e2:T): Prop :=
+| ftau_intro
+    (TSTEP: step e e1 e2)
+    (EVENT: ThreadEvent.get_event e = None)
+.
+Hint Constructors ftau.
+
 Inductive with_pre {A} {E} (step: E -> A -> A -> Prop) bs : option (A*E) ->  A -> Prop :=
 | swp_base:
   with_pre step bs None bs
@@ -55,6 +62,29 @@ Proof.
   induction STEPS.
   { exists None. eauto. }
   des. inv H. exists (Some(y,e)). s. eauto.
+Qed.
+
+Lemma with_pre_rtc_tau
+      A (step: ThreadEvent.t -> A -> A -> Prop) c1 c2 pre
+      (STEPS: with_pre (ftau step) c1 pre c2):
+  rtc (tau step) c1 c2.
+Proof.
+  ginduction STEPS; s; i; subst; eauto.
+  i. etrans; eauto.
+  econs 2; [|reflexivity]. inv PSTEP. eauto.
+Qed.
+
+Lemma rtc_tau_with_pre
+      A (step: ThreadEvent.t -> A -> A -> Prop) c1 c2
+      (STEPS: rtc (tau step) c1 c2):
+  exists pre,
+  with_pre (ftau step) c1 pre c2.
+Proof.
+  apply Operators_Properties.clos_rt_rt1n_iff,
+        Operators_Properties.clos_rt_rtn1_iff in STEPS.
+  induction STEPS.
+  { exists None. eauto. }
+  des. inv H. exists (Some(y,e)). eauto.
 Qed.
 
 Lemma with_pre_implies
@@ -279,6 +309,39 @@ Proof.
   exploit rtc_thread_step_rtc_small_step_aux; eauto. auto.
 Qed.
 
+Lemma rtc_tau_thread_step_rtc_tau_small_step_aux
+      lang tid threads
+      th1 th2
+      (TID: IdentMap.find tid threads = Some (existT _ lang th1.(Thread.state), th1.(Thread.local)))
+      (STEP: (rtc (@Thread.tau_step lang)) th1 th2):
+  rtc (tau (small_step true tid))
+      (Configuration.mk threads th1.(Thread.sc) th1.(Thread.memory))
+      (Configuration.mk (IdentMap.add tid (existT _ lang th2.(Thread.state), th2.(Thread.local)) threads) th2.(Thread.sc) th2.(Thread.memory)).
+Proof.
+  revert threads TID. induction STEP; i.
+  - apply rtc_refl. f_equal. apply IdentMap.eq_leibniz. ii.
+    rewrite IdentMap.Facts.add_o. condtac; auto. subst. auto.
+  - inv H. inv TSTEP. destruct x, y. ss. econs 2.
+    + econs; eauto.
+    + etrans; [eapply IHSTEP|].
+      * apply IdentMap.Facts.add_eq_o. auto.
+      * apply rtc_refl. f_equal. apply IdentMap.eq_leibniz. ii.
+        rewrite ? IdentMap.Facts.add_o. condtac; auto.
+Qed.
+
+Lemma rtc_tau_thread_step_rtc_tau_small_step
+      lang tid threads
+      st1 lc1 sc1 mem1
+      st2 lc2 sc2 mem2
+      (TID: IdentMap.find tid threads = Some (existT _ lang st1, lc1))
+      (STEP: (rtc (@Thread.tau_step lang)) (Thread.mk lang st1 lc1 sc1 mem1) (Thread.mk lang st2 lc2 sc2 mem2)):
+  rtc (tau (small_step true tid))
+      (Configuration.mk threads sc1 mem1)
+      (Configuration.mk (IdentMap.add tid (existT _ lang st2, lc2) threads) sc2 mem2).
+Proof.
+  exploit rtc_tau_thread_step_rtc_tau_small_step_aux; eauto. auto.
+Qed.
+
 Lemma tau_pf_step_small_step
       lang tid threads
       st1 lc1 sc1 mem1
@@ -345,20 +408,21 @@ Lemma step_small_steps
       (STEP: Configuration.step e tid c1 c3)
       (WF1: Configuration.wf c1)
       (CONSISTENT1: Configuration.consistent c1):
-    <<STEPS: rtc (small_step_evt true tid) c1 c3>> /\
+  exists c2 te,
+    <<STEPS: rtc (tau (small_step true tid)) c1 c2>> /\
+    <<STEP: small_step true tid te c2 c3>> /\
+    <<EVENT: e = ThreadEvent.get_event te>> /\
+    <<WF2: Configuration.wf c2>> /\
     <<WF3: Configuration.wf c3>> /\
     <<CONSISTENT3: Configuration.consistent c3>>.
 Proof.
   exploit Configuration.step_future; eauto. i. des.
-  inv STEP. destruct c1, e2. ss. esplits; [|eauto|eauto].
-  etrans.
-  - eapply rtc_thread_step_rtc_small_step; cycle 1.
-    + eapply rtc_implies, STEPS.
-      i. inv PR. econs; eauto.
-    + eauto.
-  - econs; eauto. econs. econs; s; cycle 1; eauto.
-    + rewrite IdentMap.add_add_eq. auto.
-    + rewrite IdentMap.gss. eauto.
+  inv STEP. destruct c1, e2. ss.
+  exploit rtc_tau_thread_step_rtc_tau_small_step; eauto. i. des.
+  exploit thread_step_small_step_aux; eauto. i. des.
+  esplits; eauto.
+  eapply rtc_small_step_future; try exact WF1.
+  eapply rtc_implies, x0. i. inv PR. eauto.
 Qed.
 
 Lemma small_step_find
