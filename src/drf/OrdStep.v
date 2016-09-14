@@ -15,6 +15,7 @@ Require Import Memory.
 Require Import TView.
 Require Import Thread.
 Require Import Configuration.
+Require Import SmallStep.
 
 Set Implicit Arguments.
 
@@ -35,6 +36,19 @@ Inductive ord_step (ord:Ordering.t) (e:ThreadEvent.program_t) (tid:Ident.t): for
     (TID: IdentMap.find tid c1.(Configuration.threads) = Some (existT _ lang st1, lc1))
     (STEP: ord_thread_step ord e (Thread.mk _ st1 lc1 c1.(Configuration.sc) c1.(Configuration.memory)) (Thread.mk _ st2 lc2 sc2 memory2)):
     ord_step ord e tid c1 (Configuration.mk (IdentMap.add tid (existT _ _ st2, lc2) c1.(Configuration.threads)) sc2 memory2)
+.
+
+Inductive ord_step_evt (ord:Ordering.t) (e:option Event.t) (tid:Ident.t) (c1 c2:Configuration.t): Prop :=
+| ord_step_evt_intro
+    te
+    (STEP: ord_step ord te tid c1 c2)
+    (EVENT: e = ThreadEvent.get_event te)
+.
+
+Inductive ord_step_all (ord:Ordering.t) (c1 c2:Configuration.t): Prop :=
+| ord_step_all_intro
+    e tid
+    (STEP: ord_step ord e tid c1 c2)
 .
 
 Definition interleaving (e:ThreadEvent.t) (c2:Configuration.t): bool :=
@@ -73,3 +87,54 @@ Lemma interleaving_step_threads2
       (STEP: interleaving_step etid c1 c2):
   exists th2, IdentMap.find etid.(snd) c2.(Configuration.threads) = Some th2.
 Proof. inv STEP. eapply ord_step_threads2. eauto. Qed.
+
+Lemma small_step_false_ord_step_plain
+      tid e c1 c2
+      (PROMISE: ~ Configuration.has_promise c1)
+      (STEP: small_step false tid e c1 c2):
+  exists pe,
+    <<STEP: ord_step Ordering.plain pe tid c1 c2>> /\
+    <<PROMISE: ~ Configuration.has_promise c2>> /\
+    <<EVENT: e = pe>>.
+Proof.
+  inversion STEP. subst. inv STEP0.
+  - contradict PROMISE.
+    destruct pf; ss. inv STEP1.
+    symmetry in PF. apply promise_pf_inv in PF. des. subst.
+    inv LOCAL. inv PROMISE. exploit Memory.lower_get0; try exact PROMISES; eauto. i.
+    econs; eauto.
+  - esplits; eauto.
+    + econs; eauto. inv STEP1. econs; eauto.
+      rewrite ThreadEvent.lift_plain. ss.
+    + contradict PROMISE. inv PROMISE. ss.
+      exploit small_step_promise_decr; eauto. i. des.
+      econs; eauto.
+Qed.
+
+Lemma rtc_tau_small_step_false_rtc_union_ord_step_plain
+      tid c1 c2
+      (PROMISE: ~ Configuration.has_promise c1)
+      (STEP: rtc (tau (small_step false tid)) c1 c2):
+  <<STEP: rtc (union (ord_step_evt Ordering.plain None)) c1 c2>> /\
+  <<PROMISE: ~ Configuration.has_promise c2>>.
+Proof.
+  revert PROMISE. induction STEP.
+  - i. esplits; eauto.
+  - i. inv H. exploit small_step_false_ord_step_plain; eauto. i. des. subst.
+    exploit IHSTEP; eauto. i. des.
+    esplits; eauto. econs 2; eauto. econs. econs; eauto.
+Qed.
+
+Lemma rtc_small_step_all_false_ord_step_all_plain
+      c1 c2
+      (PROMISE: ~ Configuration.has_promise c1)
+      (STEP: rtc (small_step_all false) c1 c2):
+  <<STEP: rtc (ord_step_all Ordering.plain) c1 c2>> /\
+  <<PROMISE: ~ Configuration.has_promise c2>>.
+Proof.
+  revert PROMISE. induction STEP.
+  - i. esplits; eauto.
+  - i. inv H. inv USTEP. exploit small_step_false_ord_step_plain; eauto. i. des. subst.
+    exploit IHSTEP; eauto. i. des.
+    esplits; eauto. econs 2; eauto. econs. eauto.
+Qed.

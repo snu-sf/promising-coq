@@ -18,6 +18,19 @@ Require Import Thread.
 Set Implicit Arguments.
 
 
+Inductive opt E T (step: forall (e:option E) (tid:Ident.t) (c1 c2:T), Prop):
+  forall (e:option E) (tid:Ident.t) (c1 c2:T), Prop :=
+| step_none
+    tid c:
+    opt step None tid c c
+| step_some
+    e tid c1 c2
+    (STEP: step e tid c1 c2):
+    opt step e tid c1 c2
+.
+Hint Constructors opt.
+
+
 Module Threads.
   Definition syntax := IdentMap.t {lang:Language.t & lang.(Language.syntax)}.
   Definition t := IdentMap.t ({lang:Language.t & lang.(Language.state)} * Local.t).
@@ -162,20 +175,15 @@ Module Configuration.
       step (ThreadEvent.get_event e) tid c1 (mk (IdentMap.add tid (existT _ _ st3, lc3) c1.(threads)) sc3 memory3)
   .
 
-  Inductive opt_step: forall (e:option Event.t) (tid:Ident.t) (c1 c2:t), Prop :=
-  | step_none
-      tid c:
-      opt_step None tid c c
-  | step_some
-      e tid c1 c2
-      (STEP: step e tid c1 c2):
-      opt_step e tid c1 c2
-  .
+  Definition opt_step := opt step.
 
-  Inductive tau_step (c1 c2:t): Prop :=
-  | tau_step_intro
-      tid
-      (STEP: step None tid c1 c2)
+  Definition tau_step := union (step None).
+
+  Inductive has_promise (c:t): Prop :=
+  | has_promise_intro
+      tid st lc loc from to msg
+      (FIND: IdentMap.find tid c.(threads) = Some (st, lc))
+      (GET: Memory.get loc to lc.(Local.promises) = Some (from, msg))
   .
 
   Ltac simplify :=

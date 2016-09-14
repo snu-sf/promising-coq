@@ -1,6 +1,7 @@
 Require Import Omega.
 Require Import RelationClasses.
 
+Require Import paco.
 Require Import sflib.
 
 Require Import Axioms.
@@ -27,6 +28,10 @@ Require Import Lift.
 Require Import PromiseConsistent.
 Require Import PFConsistent.
 Require Import PromiseFree.
+
+Require Import OrdStep.
+Require Import SimWhole.
+Require Import Behavior.
 
 Set Implicit Arguments.
 
@@ -113,4 +118,52 @@ Proof.
     i. inv PR. econs. eauto.
   - inv x2; eauto.
     econs 2; [|econs 1]. econs. eauto.
+Qed.
+
+Lemma sim_pf_has_promise
+      c1 c2
+      (SIM: sim_pf c1 c2):
+  ~ Configuration.has_promise c1.
+Proof.
+  ii. inv H.
+  inv SIM. inv WF. rewrite THS in *. clear -FIND GET.
+  rewrite IdentMap.Facts.map_o in *.
+  destruct (IdentMap.find tid c2.(Configuration.threads)) as [[]|] eqn:X; ss. inv FIND. ss.
+  rewrite Memory.bot_get in *. ss.
+Qed.
+
+Lemma sim_pf_sim_whole:
+  sim_pf <2= (sim_whole (ord_step_evt Ordering.plain) Configuration.step).
+Proof.
+  s. pcofix CIH. i. pfold. econs.
+  - i. esplits; eauto. inv PR. inv WF. rewrite THS. clear -TERMINAL_TGT.
+    ii. rewrite IdentMap.Facts.map_o in FIND.
+    destruct (IdentMap.find tid x1.(Configuration.threads)) as [[]|] eqn:X; ss. inv FIND.
+    exploit TERMINAL_TGT; eauto. i. des. esplits; ss.
+  - hexploit sim_pf_has_promise; eauto. i.
+    i. exploit sim_pf_step; eauto. i. des.
+    exploit rtc_tau_small_step_false_rtc_union_ord_step_plain; eauto. i. des.
+    esplits; [by eauto| |by eauto].
+    inv STEP_SRC.
+    + rewrite EVENT0. econs 1.
+    + econs 2. hexploit small_step_false_ord_step_plain; eauto. i. des. subst.
+      econs; eauto.
+Qed.
+
+Definition racefree (c1:Configuration.t): Prop :=
+  forall c2 ordr ordw
+    (STEPS: rtc (ord_step_all Ordering.plain) c1 c2)
+    (RACE: race c2 ordr ordw),
+    <<ORDR: Ordering.le Ordering.acqrel ordr>> /\
+    <<ORDW: Ordering.le Ordering.acqrel ordw>>.
+
+Theorem drf_pf
+      s
+      (RACEFREE: racefree (Configuration.init s)):
+  behaviors Configuration.step (Configuration.init s) <1=
+  behaviors (ord_step_evt Ordering.plain) (Configuration.init s).
+Proof.
+  apply sim_whole_adequacy, sim_pf_sim_whole, sim_pf_init.
+  ii. eapply RACEFREE; [|eauto].
+  eapply rtc_small_step_all_false_ord_step_all_plain; eauto.
 Qed.

@@ -133,6 +133,10 @@ Module ThreadEvent.
     | syscall e =>
       syscall e
     end.
+
+  Lemma lift_plain e:
+    lift Ordering.plain e = e.
+  Proof. destruct e; ss. Qed.
 End ThreadEvent.
 Coercion ThreadEvent.program: ThreadEvent.program_t >-> ThreadEvent.t.
 

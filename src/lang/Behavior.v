@@ -30,19 +30,31 @@ Set Implicit Arguments.
  * race.
  *)
 
-Inductive behaviors: forall (conf:Configuration.t) (b:list Event.t), Prop :=
+Inductive behaviors
+          (step: forall (e:option Event.t) (tid:Ident.t) (c1 c2:Configuration.t), Prop):
+  forall (conf:Configuration.t) (b:list Event.t), Prop :=
 | behaviors_nil
     c
     (TERMINAL: Configuration.is_terminal c):
-    behaviors c nil
+    behaviors step c nil
 | behaviors_event
     e tid c1 c2 beh
-    (STEP: Configuration.step (Some e) tid c1 c2)
-    (NEXT: behaviors c2 beh):
-    behaviors c1 (e::beh)
+    (STEP: step (Some e) tid c1 c2)
+    (NEXT: behaviors step c2 beh):
+    behaviors step c1 (e::beh)
 | behaviors_tau
-    c1 c2 beh
-    (STEP: Configuration.tau_step c1 c2)
-    (NEXT: behaviors c2 beh):
-    behaviors c1 beh
+    tid c1 c2 beh
+    (STEP: step None tid c1 c2)
+    (NEXT: behaviors step c2 beh):
+    behaviors step c1 beh
 .
+
+Lemma rtc_tau_step_behavior
+      step c1 c2 b
+      (STEPS: rtc (union (step None)) c1 c2)
+      (BEH: behaviors step c2 b):
+  behaviors step c1 b.
+Proof.
+  revert BEH. induction STEPS; auto. inv H.
+  i. specialize (IHSTEPS BEH). econs 3; eauto.
+Qed.

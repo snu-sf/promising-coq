@@ -42,7 +42,7 @@ Section Simulation.
       <<TERMINAL:
         forall (TERMINAL_TGT: Threads.is_terminal ths1_tgt),
         exists ths2_src sc2_src mem2_src,
-          <<STEPS: rtc Configuration.tau_step (Configuration.mk ths1_src sc1_src mem1_src) (Configuration.mk ths2_src sc2_src mem2_src)>> /\
+          <<STEPS_SRC: rtc Configuration.tau_step (Configuration.mk ths1_src sc1_src mem1_src) (Configuration.mk ths2_src sc2_src mem2_src)>> /\
           <<SC: TimeMap.le sc2_src sc1_tgt>> /\
           <<MEMORY: sim_memory mem2_src mem1_tgt>> /\
           <<TERMINAL_SRC: Threads.is_terminal ths2_src>>>> /\
@@ -50,7 +50,7 @@ Section Simulation.
         forall e tid_tgt ths3_tgt sc3_tgt mem3_tgt
           (STEP_TGT: Configuration.step e tid_tgt (Configuration.mk ths1_tgt sc1_tgt mem1_tgt) (Configuration.mk ths3_tgt sc3_tgt mem3_tgt)),
         exists tid_src ths2_src sc2_src mem2_src ths3_src sc3_src mem3_src,
-          <<STEPS: rtc Configuration.tau_step (Configuration.mk ths1_src sc1_src mem1_src) (Configuration.mk ths2_src sc2_src mem2_src)>> /\
+          <<STEPS_SRC: rtc Configuration.tau_step (Configuration.mk ths1_src sc1_src mem1_src) (Configuration.mk ths2_src sc2_src mem2_src)>> /\
           <<STEP_SRC: Configuration.opt_step e tid_src (Configuration.mk ths2_src sc2_src mem2_src) (Configuration.mk ths3_src sc3_src mem3_src)>> /\
           <<SC3: TimeMap.le sc3_src sc3_tgt>> /\
           <<MEMORY3: sim_memory mem3_src mem3_tgt>> /\

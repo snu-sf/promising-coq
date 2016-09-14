@@ -18,15 +18,6 @@ Require Import Simulation.
 
 Set Implicit Arguments.
 
-Lemma rtc_tau_step_behavior
-  c1 c2 b
-  (STEPS: rtc Configuration.tau_step c1 c2)
-  (BEH: behaviors c2 b):
-  behaviors c1 b.
-Proof.
-  revert BEH. induction STEPS; auto.
-  i. specialize (IHSTEPS BEH). econs 3; eauto.
-Qed.
 
 Lemma sim_adequacy
       ths_src sc_src mem_src
@@ -38,8 +29,8 @@ Lemma sim_adequacy
       (SC: TimeMap.le sc_src sc_tgt)
       (MEMORY: sim_memory mem_src mem_tgt)
       (SIM: sim ths_src sc_src mem_src ths_tgt sc_tgt mem_tgt):
-  behaviors (Configuration.mk ths_tgt sc_tgt mem_tgt) <1=
-  behaviors (Configuration.mk ths_src sc_src mem_src).
+  behaviors Configuration.step (Configuration.mk ths_tgt sc_tgt mem_tgt) <1=
+  behaviors Configuration.step (Configuration.mk ths_src sc_src mem_src).
 Proof.
   s. i.
   revert WF_SRC WF_TGT CONSISTENT_SRC CONSISTENT_TGT SC MEMORY SIM.
@@ -60,13 +51,13 @@ Proof.
     eapply IHPR; eauto.
   - destruct c2.
     punfold SIM. exploit SIM; eauto; try refl. i. des.
-    inv STEP. exploit STEP0; eauto. i. des. inv SIM0; [|done].
+    exploit STEP0; eauto. i. des. inv SIM0; [|done].
     eapply rtc_tau_step_behavior; eauto.
     exploit Configuration.step_future; try apply STEP; eauto. i. des.
     exploit Configuration.rtc_step_future; eauto. i. des.
     inv STEP_SRC.
     + eapply IHPR; eauto.
-    + econs 3; [econs; eauto|].
-      exploit Configuration.step_future; try apply STEP; eauto. i. des.
+    + econs 3; eauto.
+      exploit Configuration.step_future; try apply STEP1; eauto. s. i. des.
       eapply IHPR; eauto.
 Qed.
