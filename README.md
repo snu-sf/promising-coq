@@ -21,23 +21,25 @@
     + `Behavior.v`: the behaviors of a configuration
 
 - `src/prop`: General properties on the memory model
-    + Promise-free certification: Lemma `consistent_pf_consistent` (`PFConsistent.v`)
+    + Promise-free certification: `consistent_pf_consistent` (`PFConsistent.v`)
       In certification, promise is useless.
 
 - `src/while` Toy "while" language
   This language provides the basis for the optimization & compilation results.
 
 - `src/opt`: Compiler Transformations (Section 5.1)
-    + Trace-Preserving Transformations: Lemma `sim_trace_sim_stmts` (`SimTrace.v`)
-    + Strengthening: Lemma `sim_stmts_instr` (`SimTrace.v`)
-    + Reorderings: `Reorder.v` (Lemma `reorder_sim_stmts`) and `ReorderReleaseFenceF.v` (Lemma `reorder_release_fenceF_sim_stmts`)
-    + Merges: `Merge.v` (all the Lemmas in this file)
-    + Unused Plain Read Elimination: Lemma `unused_load_sim_stmts` (`UnusedLoad.v`)
+    + Trace-Preserving Transformations: `sim_trace_sim_stmts` (`SimTrace.v`)
+    + Strengthening: `sim_stmts_instr` (`SimTrace.v`)
+    + Reorderings: `reorder_sim_stmts` (`Reorder.v`) and `reorder_release_fenceF_sim_stmts` (`ReorderReleaseFenceF.v`)
+    + Merges: `Merge.v`
+    + Unused Plain Read Elimination: `unused_load_sim_stmts` (`UnusedLoad.v`)
     + Proof Technique:
-        * Simulation Relation: `Simulation.v` (Definition `sim` for the configuration simulation, and `sim_thread` for the thread simulation)
-        * Adequacy: `Adequacy.v` (from the configuration simulation to the behaviors)
-        * Composition: `Composition.v` ("horizontally" composing configuration simulations for disjoint configurations)
-        * Compatibility: `Compatibility.v` (Lemmas `sim_stmts_frame`, `sim_stmts_nil`, `sim_stmts_seq`, `sim_stmts_ite`, `sim_stmts_dowhile`)
+        * Simulation (Configuration): `sim` (`Simulation.v`) for the configuration simulation
+        * Simulation (Thread): `sim_thread` (`SimThread.v`)
+        * Adequacy (Configuration): `sim_adequacy` (`Adequacy.v`).  From the configuration simulation to the behaviors.
+        * Adequacy (Thread): `sim_thread_sim` (`AdequacyThread.v`).  From the thread simulation to the configuration simulation.
+        * Composition: `sim_compose` (`Composition.v`).  "horizontally" composing configuration simulations for disjoint configurations.
+        * Compatibility: `sim_stmts_*` (`Compatibility.v`).
 
 - `src/axiomatic`: Compilation to TSO and Power (Section 5.2)
     + `model.v` and `Machine.v`: Definition of the axiomatic machine..
@@ -46,8 +48,8 @@
        This proof is complete except for the case of update steps, which is admitted.
 
 - `src/drf`: DRF Theorems (Section 5.3)
-    + Promise-Free DRF (Theorem 1): Lemma `sim_pf_init` and `sim_pf_step` (`DRF_PF.v`) collectively proves the promise-free DRF.
+    + Promise-Free DRF (Theorem 1): `sim_pf_init` and `sim_pf_step` (`DRF_PF.v`) collectively proves the promise-free DRF.
     + We did not formalize DRF-RA (Theorem 2) and DRF-SC (Theorem 3).
 
 - `src/invariant`: An Invariant-Based Program Logic (Section 5.4)
-    + Soundness: Lemma `sound` (`Invariant.v`)
+    + Soundness: `sound` (`Invariant.v`)

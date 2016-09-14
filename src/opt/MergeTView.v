@@ -20,7 +20,7 @@ Require Import Progress.
 
 Require Import SimPromises.
 Require Import Compatibility.
-Require Import Simulation.
+Require Import SimThread.
 
 Require Import Syntax.
 Require Import Semantics.

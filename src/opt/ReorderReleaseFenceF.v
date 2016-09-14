@@ -24,7 +24,7 @@ Require Import SimPromises.
 Require Import SimLocal.
 Require Import SimLocalF.
 Require Import Compatibility.
-Require Import Simulation.
+Require Import SimThread.
 
 Require Import ReorderStep.
 

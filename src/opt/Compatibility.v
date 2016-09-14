@@ -22,7 +22,7 @@ Require Import FulfillStep.
 Require Import SimMemory.
 Require Import SimPromises.
 Require Import SimLocal.
-Require Import Simulation.
+Require Import SimThread.
 
 Require Import Syntax.
 Require Import Semantics.
