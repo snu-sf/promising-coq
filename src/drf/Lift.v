@@ -1207,11 +1207,11 @@ Lemma lift_step
    <<STEP: Thread.step true eS thS1 thS2>> /\
    <<ST: thS2.(Thread.state) = thT2.(Thread.state)>> /\
    <<PRM: thS2.(Thread.local).(Local.promises) = thT2.(Thread.local).(Local.promises)>> /\
-   ((exists loc ts val relr relr' ordr,
+   ((exists loc ts ts' val relr relr' ordr,
      <<EVTR: ThreadEvent.is_reading eT = Some (loc, ts, val, relr, ordr)>> /\
      <<EVTP: ThreadEvent.is_promising e = Some (loc, ts)>> /\
      <<EVTL: ThreadEvent.is_lower_none e>> /\
-     <<EVT:  ThreadEvent.is_reading eS = Some (loc, ts, val, relr', ordr)>>)
+     <<EVT:  ThreadEvent.is_reading eS = Some (loc, ts', val, relr', ordr)>>)
     \/
     (<<EVT: ThreadEvent.le eS eT>> /\
      <<COM: TView.le thS2.(Thread.local).(Local.tview) thT2.(Thread.local).(Local.tview)>> /\
