@@ -1184,6 +1184,22 @@ Proof.
     apply TViewFacts.read_fence_tview_mon; eauto; try refl.
 Qed.
 
+Lemma lift_step_read
+      lang (thS1 thT1 thT2: @Thread.t lang) eT loc ts val relr ordr
+      (STEP: Thread.step true eT thT1 thT2)
+      (ST: thS1.(Thread.state) = thT1.(Thread.state))
+      (PRM: Memory.le thT1.(Thread.local).(Local.promises) thS1.(Thread.local).(Local.promises))
+      (WFS1: Local.wf thS1.(Thread.local) thS1.(Thread.memory))
+      (SCS1: Memory.closed_timemap thS1.(Thread.sc) thS1.(Thread.memory))
+      (MEMS1: Memory.closed thS1.(Thread.memory))
+      (EVT: ThreadEvent.is_reading eT = Some (loc, ts, val, relr, ordr)):
+  (exists eS thS2 ts' val' relr',
+   <<STEP: Thread.step true eS thS1 thS2>> /\
+   <<EVT:  ThreadEvent.is_reading eS = Some (loc, ts', val', relr', ordr)>> /\
+   <<LE: Memory.le thT2.(Thread.local).(Local.promises) thS2.(Thread.local).(Local.promises)>>).
+Proof.
+Admitted.
+
 Lemma lift_step
       lang (thS1 thT1 thT2: @Thread.t lang) eT l t e
       (STEP: Thread.step true eT thT1 thT2)
@@ -1203,20 +1219,19 @@ Lemma lift_step
    <<EVTR: ThreadEvent.is_reading eT = Some (loc, ts, val, relr, ordr)>> /\
    <<EVTW: ThreadEvent.is_writing e = Some (loc, from, ts, val, relw, ordw)>>)
   \/
+  (exists loc ts val relr ordr,     
+   <<EVTR: ThreadEvent.is_reading eT = Some (loc, ts, val, relr, ordr)>> /\
+   <<EVTP: ThreadEvent.is_promising e = Some (loc, ts)>> /\
+   <<EVTL: ThreadEvent.is_lower_none e>>)
+  \/
   (exists eS thS2,
    <<STEP: Thread.step true eS thS1 thS2>> /\
    <<ST: thS2.(Thread.state) = thT2.(Thread.state)>> /\
    <<PRM: thS2.(Thread.local).(Local.promises) = thT2.(Thread.local).(Local.promises)>> /\
-   ((exists loc ts ts' val relr relr' ordr,
-     <<EVTR: ThreadEvent.is_reading eT = Some (loc, ts, val, relr, ordr)>> /\
-     <<EVTP: ThreadEvent.is_promising e = Some (loc, ts)>> /\
-     <<EVTL: ThreadEvent.is_lower_none e>> /\
-     <<EVT:  ThreadEvent.is_reading eS = Some (loc, ts', val, relr', ordr)>>)
-    \/
-    (<<EVT: ThreadEvent.le eS eT>> /\
-     <<COM: TView.le thS2.(Thread.local).(Local.tview) thT2.(Thread.local).(Local.tview)>> /\
-     <<SC: TimeMap.le thS2.(Thread.sc) thT2.(Thread.sc)>> /\
-     <<MEM: mem_eqlerel_lift l t thT2.(Thread.local).(Local.promises) e thS2.(Thread.memory) thT2.(Thread.memory)>>))).
+   <<EVT: ThreadEvent.le eS eT>> /\
+   <<COM: TView.le thS2.(Thread.local).(Local.tview) thT2.(Thread.local).(Local.tview)>> /\
+   <<SC: TimeMap.le thS2.(Thread.sc) thT2.(Thread.sc)>> /\
+   <<MEM: mem_eqlerel_lift l t thT2.(Thread.local).(Local.promises) e thS2.(Thread.memory) thT2.(Thread.memory)>>).
 Proof.
 (*
   inv STEP; [inv STEP0|inv STEP0; inv LOCAL]; ss.

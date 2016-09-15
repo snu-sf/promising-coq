@@ -30,7 +30,7 @@ Set Implicit Arguments.
 Definition is_reading_promise_except tid (e:ThreadEvent.t) c : Prop :=
   match ThreadEvent.is_reading e with
   | Some (loc, to, val, relr, ordr) =>
-    exists tid', <<NEQ: tid' <> tid>> /\ <<PROM: Threads.is_promised tid' loc to c.(Configuration.threads)>>
+    exists tid' to', <<NEQ: tid' <> tid>> /\ <<PROM: Threads.is_promised tid' loc to' c.(Configuration.threads)>>
   | _ => False
   end.
 
@@ -165,7 +165,7 @@ Proof.
     + inv STEP. ss. rewrite IdentMap.gss.
       setoid_rewrite IdentMap.Properties.F.map_o.
       by rewrite TID.
-    + i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
+    + i. des; eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
   - inv STEP. inv LOCAL.
     { eexists. econs.
       - eauto.
@@ -176,7 +176,7 @@ Proof.
         + eauto.
         + eauto.
       - s. by rewrite !IdentMap.gss.
-      - i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
+      - i. des; eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
     }
     { inv LOCAL0. eexists. econs.
       - econs; eauto. econs 2. econs; [|econs 2]; eauto. econs; eauto.
@@ -205,7 +205,7 @@ Proof.
         + eauto.
         + eauto.
       - s. by rewrite !IdentMap.gss.
-      - i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
+      - i. des; eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
     }
     { destruct lc1, lc2. exploit local_simul_write; [| |by eapply LOCAL0|..].
       { instantiate (1:= memory). ii. eapply LR in IN.
@@ -227,7 +227,7 @@ Proof.
         + setoid_rewrite IdentMap.Properties.F.map_o. by rewrite TID.
         + rewrite Bool.orb_true_r. econs 2. econs; [|econs 3]; eauto.
       - s. by rewrite !IdentMap.gss.
-      - i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
+      - i. des; eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
     }
     { destruct lc2, lc3. exploit local_simul_write; [| |by eapply LOCAL2|..].
       { instantiate (1:= memory). ii. eapply LR in IN.
@@ -278,7 +278,7 @@ Proof.
         + eauto.
         + eauto.
       - s. by rewrite !IdentMap.gss.
-      - i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
+      - i. des; eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
     }
     { inv LOCAL0. eexists. econs.
       - econs; eauto. econs 2. econs; [|econs 5]; eauto. econs; eauto.
@@ -291,7 +291,7 @@ Proof.
         + eauto.
         + eauto.
       - s. by rewrite !IdentMap.gss.
-      - i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
+      - i. des; eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
     }
     { inv LOCAL0. eexists. econs.
       - econs; eauto. econs 2. econs; [|econs 6]; eauto. econs; eauto.
@@ -304,10 +304,17 @@ Proof.
         + eauto.
         + eauto.
       - s. by rewrite !IdentMap.gss.
-      - i. eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
+      - i. des; eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
     }
 Grab Existential Variables.
   { exact Time.bot. }
+  { exact xH. }
+  { exact xH. }
+  { exact xH. }
+  { exact xH. }
+  { exact xH. }
+  { exact xH. }
+  { exact xH. }
   { exact xH. }
   { exact xH. }
   { exact true. }

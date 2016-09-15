@@ -38,7 +38,8 @@ Inductive pi_step withprm: Ident.t -> ThreadEvent.t -> Configuration.t*Configura
      option_map fst (IdentMap.find tid cS2.(Configuration.threads)) =
      option_map fst (IdentMap.find tid cT2.(Configuration.threads)))
     (NOWR: forall loc from ts val rel ord tid' ts'
-             (WRITE:ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord))
+             (WRITE: ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord) \/
+                     ThreadEvent.is_reading e = Some (loc, ts, val, rel, ord))
              (TIDNEQ: tid' <> tid),
            ~ Threads.is_promised tid' loc ts' cT1.(Configuration.threads)):
   pi_step withprm tid e (cS1,cT1) (cS2,cT2)
@@ -699,7 +700,7 @@ Proof.
   i. destruct cST3. subst. des.
   { destruct (ThreadEvent.is_promising e0) eqn:E0; subst.
     - exploit IH; try exact A23; eauto.
-      { econs; econs; eauto; ii; by destruct e2', e0. }
+      { econs; econs; eauto; ii; by des; destruct e2', e0. }
       i. des. esplits; try exact STEPS; eauto.
     - assert (EQ: e2' = e0). 
       { by destruct e2', e0; inv EVENT. }
@@ -723,7 +724,7 @@ Proof.
       * subst. by rewrite IdentMap.gss, TID0.
       * rewrite IdentMap.gso; eauto.
     + ii. eapply NOWR0; eauto.
-      * destruct e2'; ss. destruct e0; ss. inv EVENT. destruct event0; eauto.
+      * des; destruct e2'; ss; destruct e0; ss; inv EVENT; destruct event0; eauto.
       * eapply small_step_is_promised; eauto.
   }
   assert (STEP2': pi_step_evt true tid (cS0, c1') (cS0, cT3)).
@@ -734,7 +735,7 @@ Proof.
       rewrite <-LANGMATCH.
       destruct (ThreadEvent.is_promising e0); subst; eauto.
       rewrite (small_step_find STEPS); eauto.
-    - ii. by destruct e1'.
+    - ii. by des; destruct e1'.
   }
   assert (STEP1': pi_step_evt false tid0 (cS2, cT1) (cS0, c1')).
   { econs. econs; eauto.
@@ -744,7 +745,7 @@ Proof.
         inv STEP; [by inv STEP0; rewrite TID0|by inv STEP0; inv PROMISING].
       + rewrite (small_step_find STEP2); eauto.
     - ii. eapply NOWR0; eauto.
-      + destruct e2'; ss. destruct e0; ss. inv EVENT. destruct event0; eauto.
+      + des; destruct e2'; ss; destruct e0; ss; inv EVENT; destruct event0; eauto.
       + eapply small_step_is_promised; eauto.
   }
 
