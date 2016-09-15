@@ -828,7 +828,6 @@ Proof.
   { r in READ. destruct (ThreadEvent.is_reading e0) as [[[[[]]]]|] eqn: EQe0; [|done]. des.
 
     exploit (@lift_step_read _ (Thread.mk _ st1 (Local.mk com3' prm3') cM3'.(Configuration.sc) cM3'.(Configuration.memory))); [apply STEP|..]; eauto.
-    { reflexivity. }
     { inv SEMI_WF3. inv WFT. inv WF0. s. eapply THREADS. eauto. }
     { s. inv SEMI_WF3. inv WFT. eauto. }
     { s. inv SEMI_WF3. inv WFT. eauto. }

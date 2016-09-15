@@ -1188,7 +1188,7 @@ Lemma lift_step_read
       lang (thS1 thT1 thT2: @Thread.t lang) eT loc ts val relr ordr
       (STEP: Thread.step true eT thT1 thT2)
       (ST: thS1.(Thread.state) = thT1.(Thread.state))
-      (PRM: Memory.le thT1.(Thread.local).(Local.promises) thS1.(Thread.local).(Local.promises))
+      (PRM: thS1.(Thread.local).(Local.promises) = thT1.(Thread.local).(Local.promises))
       (WFS1: Local.wf thS1.(Thread.local) thS1.(Thread.memory))
       (SCS1: Memory.closed_timemap thS1.(Thread.sc) thS1.(Thread.memory))
       (MEMS1: Memory.closed thS1.(Thread.memory))
