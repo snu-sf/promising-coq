@@ -171,6 +171,18 @@ Module MemoryFacts.
     - inv MEM. inv LOWER. inv TS0.
   Qed.
 
+  Lemma write_add_promises
+        promises1 mem1 loc from to val released promises2 mem2
+        (WRITE: Memory.write promises1 mem1 loc from to val released promises2 mem2 Memory.op_kind_add):
+    promises2 = promises1.
+  Proof.
+    apply Memory.ext. i.
+    inv WRITE. inv PROMISE.
+    erewrite (@Memory.remove_o promises2); eauto. condtac; ss.
+    - des. subst. symmetry. eapply Memory.add_get0. eauto.
+    - guardH o. erewrite (@Memory.add_o promises0); eauto. condtac; ss.
+  Qed.
+
   Lemma promise_exists_None
         promises1 mem1 loc from to val released
         (LE: Memory.le promises1 mem1)

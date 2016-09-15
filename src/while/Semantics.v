@@ -285,10 +285,19 @@ Module State.
            (mk rf ((Stmt.dowhile s cond)::stmts))
            (mk rf (s ++ (Stmt.ite cond ((Stmt.dowhile s cond)::nil) nil) :: stmts))
   .
+
+  Lemma receptive: Language.receptive step.
+  Proof.
+    econs; i.
+    - inv STEP1. inv INSTR.
+      esplits. econs. econs.
+    - inv STEP1. inv INSTR.
+      esplits. econs. econs. apply surjective_pairing.
+  Qed.
 End State.
 
 Program Definition lang :=
   Language.mk
     State.init
     State.is_terminal
-    State.step.
+    State.receptive.

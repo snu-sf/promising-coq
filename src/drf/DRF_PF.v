@@ -27,7 +27,7 @@ Require Import PIStepProgress.
 Require Import Lift.
 Require Import PromiseConsistent.
 Require Import PFConsistent.
-Require Import PromiseFree.
+Require Import PIStepPreservation.
 
 Require Import OrdStep.
 Require Import SimWhole.
@@ -120,6 +120,15 @@ Proof.
     econs 2; [|econs 1]. econs. eauto.
 Qed.
 
+Lemma init_has_promise s:
+  ~ Configuration.has_promise (Configuration.init s).
+Proof.
+  ii. inv H.
+  ss. unfold Threads.init in *. rewrite IdentMap.Facts.map_o in *.
+  destruct (IdentMap.find tid s) as [[]|] eqn:X; ss. inv FIND. ss.
+  rewrite Memory.bot_get in *. ss.
+Qed.
+
 Lemma sim_pf_has_promise
       c1 c2
       (SIM: sim_pf c1 c2):
@@ -166,4 +175,5 @@ Proof.
   apply sim_whole_adequacy, sim_pf_sim_whole, sim_pf_init.
   ii. eapply RACEFREE; [|eauto].
   eapply rtc_small_step_all_false_ord_step_all_plain; eauto.
+  eapply init_has_promise.
 Qed.

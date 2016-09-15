@@ -860,7 +860,7 @@ Proof.
         - eauto.
       }
     }
-    { eapply LE in PROMEQ. by rewrite PROMEQ. }
+    { eapply LE in PROMEQ. des. by rewrite PROMEQ. }
     i; des. ss. clear MAIN.
     destruct pre'0; [|done].
     destruct p as [[cS3'x ?] ?]. symmetry in EQPRE. inv EQPRE.

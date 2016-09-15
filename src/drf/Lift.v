@@ -863,6 +863,8 @@ Lemma mem_eqlerel_lift_get
       (LIFT: mem_eqlerel_lift loc ts prm e m1 m2)
       (GET: Memory.get l t m2 = Some (f, Message.mk v r2)):
   (exists r o, ThreadEvent.is_writing e = Some (l, f, t, v, r, o)) \/
+  (ThreadEvent.is_promising e = Some (l, t) /\
+   ThreadEvent.is_lower_none e) \/
   (exists f' r1,
       <<EVT: forall o, ThreadEvent.is_writing e <> Some (l, f, t, v, r1, o)>> /\
       <<GET: Memory.get l t m1 = Some (f', Message.mk v r1)>> /\
@@ -874,21 +876,18 @@ Proof.
   - i. des. exploit Memory.op_get_inv; eauto. i. des.
     + subst. eauto.
     + exploit mem_eqlerel_get; eauto. i. des.
-      right. esplits; eauto. ii. inv H. unguardH x0. des; congr.
+      right. right. esplits; eauto. ii. inv H. unguardH x0. des; congr.
   - i. destruct (classic (m1' = m2)).
     { subst. exploit mem_eqlerel_get; eauto. i. des.
-      right. esplits; eauto; ss. refl.
+      right. right. esplits; eauto; ss. refl.
     }
     destruct e; try congr. destruct released; try congr. destruct kind; try congr.
     des. revert GET. erewrite Memory.lower_o; eauto. condtac; ss.
     + i. des. inv GET.
-      exploit Memory.lower_get0; eauto. i. apply MEMEQ in x0. des.
-      right. esplits; eauto; ss.
-      * admit. (* TODO: lift: promise; step: read. *)
-      * refl.
-    + guardH o. i. apply MEMEQ in GET. des.
-    right. esplits; eauto; ss. refl.
-Admitted.
+      exploit Memory.lower_get0; eauto.
+    + guardH o. right. right. apply MEMEQ in GET. des.
+      esplits; eauto; ss. refl.
+Qed.
 
 Lemma lift_read
       com1 com2 com2' m1 m2 prm l t e loc to val rel2 ordr
@@ -900,20 +899,22 @@ Lemma lift_read
   (exists from relw ordw,
    <<EVENT: ThreadEvent.is_writing e = Some (loc, from, to, val, relw, ordw)>>)
   \/
+  (<<EVTP: ThreadEvent.is_promising e = Some (loc, to)>> /\
+   <<EVTL: ThreadEvent.is_lower_none e>>)
+  \/
   (exists com1' rel1,
    <<LOCAL: Local.read_step (Local.mk com1 prm) m1 loc to val rel1 ordr (Local.mk com1' prm)>> /\
    <<CoMLE: TView.le com1' com2'>> /\
    <<RELLE: View.opt_le rel1 rel2>>).
 Proof.
   inversion LOCAL. ss. subst.
-  exploit mem_eqlerel_lift_get; eauto. i. des.
-  - left. esplits; eauto.
-  - right. esplits; ss.
-    + econs; eauto. ss. eapply TViewFacts.readable_mon; eauto.
-      * apply CoMLE.
-      * refl.
-    + apply TViewFacts.read_tview_mon; eauto; try refl.
-    + auto.
+  exploit mem_eqlerel_lift_get; eauto. i. des; eauto.
+  right. right. esplits; ss.
+  - econs; eauto. ss. eapply TViewFacts.readable_mon; eauto.
+    + apply CoMLE.
+    + refl.
+  - apply TViewFacts.read_tview_mon; eauto; try refl.
+  - auto.
 Qed.
 
 Lemma lift_mem_add
@@ -1196,9 +1197,47 @@ Lemma lift_step_read
   (exists eS thS2 ts' val' relr',
    <<STEP: Thread.step true eS thS1 thS2>> /\
    <<EVT:  ThreadEvent.is_reading eS = Some (loc, ts', val', relr', ordr)>> /\
-   <<LE: Memory.le thT2.(Thread.local).(Local.promises) thS2.(Thread.local).(Local.promises)>>).
+   <<LE:
+     forall loc from to msg (GET: Memory.get loc to (thT2.(Thread.local).(Local.promises)) = Some (from, msg)),
+     exists from', Memory.get loc to (thS2.(Thread.local).(Local.promises)) = Some (from', msg)>>).
 Proof.
-Admitted.
+  destruct thS1. ss.
+  inv STEP; inv STEP0; ss. destruct e; inv EVT; ss.
+  - exploit progress_read_step; eauto. i. des.
+    destruct lang.(Language.RECEPTIVE). exploit READ; eauto. i. des.
+    esplits.
+    + econs 2. econs; cycle 1.
+      * econs 2. eauto.
+      * eauto.
+    + ss.
+    + inv LOCAL. inv LOCAL0. inv x0. ss.
+      i. rewrite PRM. esplits; eauto.
+  - exploit progress_read_step; eauto. i. des.
+    destruct lang.(Language.RECEPTIVE). exploit UPDATE; eauto. i. des.
+    exploit Local.read_step_future; eauto. i. des.
+    exploit progress_write_step; eauto.
+    { apply Time.incr_spec. }
+    { inv x0. ss. rewrite PRM.
+      inv LOCAL. inv LOCAL1. inv LOCAL2. ss.
+      eapply RELEASE.
+    }
+    i. des.
+    esplits.
+    + econs 2. econs; cycle 1.
+      * econs 4; eauto.
+      * eauto.
+    + ss.
+    + s. i. revert GET.
+      inv LOCAL. inv LOCAL2. ss. inv WRITE.
+      erewrite Memory.remove_o; eauto. condtac; ss. guardH o. i. destruct msg.
+      exploit MemoryFacts.promise_get_promises_inv_diff; eauto.
+      { ii. inv H. unguardH o. des; congr. }
+      i. des.
+      inv LOCAL1. ss. rewrite <- PRM in *.
+      inv x0. ss. inv x1. ss.
+      hexploit MemoryFacts.write_add_promises; eauto. i. subst.
+      esplits. eauto.
+Qed.
 
 Lemma lift_step
       lang (thS1 thT1 thT2: @Thread.t lang) eT l t e
@@ -1219,7 +1258,7 @@ Lemma lift_step
    <<EVTR: ThreadEvent.is_reading eT = Some (loc, ts, val, relr, ordr)>> /\
    <<EVTW: ThreadEvent.is_writing e = Some (loc, from, ts, val, relw, ordw)>>)
   \/
-  (exists loc ts val relr ordr,     
+  (exists loc ts val relr ordr,
    <<EVTR: ThreadEvent.is_reading eT = Some (loc, ts, val, relr, ordr)>> /\
    <<EVTP: ThreadEvent.is_promising e = Some (loc, ts)>> /\
    <<EVTL: ThreadEvent.is_lower_none e>>)
@@ -1233,28 +1272,28 @@ Lemma lift_step
    <<SC: TimeMap.le thS2.(Thread.sc) thT2.(Thread.sc)>> /\
    <<MEM: mem_eqlerel_lift l t thT2.(Thread.local).(Local.promises) e thS2.(Thread.memory) thT2.(Thread.memory)>>).
 Proof.
-(*
   inv STEP; [inv STEP0|inv STEP0; inv LOCAL]; ss.
-  - symmetry in PF. apply promise_pf_inv in PF. des. subst. right.
+  - symmetry in PF. apply promise_pf_inv in PF. des. subst.
     inv LOCAL. exploit mem_eqlerel_lift_promise; eauto.
     { rewrite <- PRM. apply WFS1. }
-    s. i. des. destruct thS1. ss. esplits.
-    + econs. econs.
+    s. i. des. destruct thS1. ss.
+    right. right. esplits.
     + econs 1. econs. econs.
       * rewrite PRM. eauto.
       * econs.
       * ss.
     + ss.
     + ss.
+    + econs. econs.
     + ss.
     + ss.
     + ss.
   - subst. destruct thS1, local. ss. subst.
-    right. esplits.
-    + econs.
+    right. right. esplits.
     + econs 2. econs; [|econs 1]; eauto.
     + ss.
     + ss.
+    + econs.
     + ss.
     + ss.
     + ss.
@@ -1264,12 +1303,13 @@ Proof.
     { eapply MEMT1. eauto. }
     i. des.
     { left. esplits; eauto. }
+    { right. left. esplits; eauto. }
     destruct thS1, local. ss. subst.
-    right. esplits.
-    + econs. eauto.
+    right. right. esplits.
     + econs 2. econs; [|econs 2]; eauto.
     + ss.
     + ss.
+    + econs. eauto.
     + ss.
     + ss.
     + ss.
@@ -1277,11 +1317,11 @@ Proof.
     hexploit lift_write; try exact MEM; eauto; try refl;
       try apply WFS1; try apply WFT1; try by viewtac. i. des.
     destruct thS1, local. ss. subst.
-    right. esplits.
-    + econs. eauto.
+    right. right. esplits.
     + econs 2. econs; [|econs 3]; eauto.
     + ss.
     + ss.
+    + econs. eauto.
     + ss.
     + ss.
     + ss.
@@ -1291,6 +1331,7 @@ Proof.
     { apply WFT1. }
     i. des.
     { left. esplits; eauto. }
+    { right. left. esplits; eauto. }
     inversion LOCAL2. ss. subst.
     exploit Local.read_step_future; try exact LOCAL; try apply WFS1; eauto.
     { destruct thS1, local. ss. }
@@ -1298,11 +1339,11 @@ Proof.
     hexploit lift_write; try exact MEM; eauto; try refl;
       try apply WF0; try apply WF2; try by viewtac. i. des.
     destruct thS1, local. ss. subst.
-    right. esplits.
-    + econs; eauto.
+    right. right. esplits.
     + econs 2. econs; [|econs 4]; eauto.
     + ss.
     + ss.
+    + econs; eauto.
     + ss.
     + ss.
     + ss.
@@ -1312,11 +1353,11 @@ Proof.
     { apply WFT1. }
     i. des.
     destruct thS1, local. ss. subst.
-    right. esplits.
-    + econs.
+    right. right. esplits.
     + econs 2. econs; [|econs 5]; eauto.
     + ss.
     + ss.
+    + econs.
     + ss.
     + ss.
     + ss.
@@ -1326,14 +1367,12 @@ Proof.
     { apply WFT1. }
     i. des.
     destruct thS1, local. ss. subst.
-    right. esplits.
-    + econs.
+    right. right. esplits.
     + econs 2. econs; [|econs 6]; eauto.
     + ss.
     + ss.
+    + econs.
     + ss.
     + ss.
     + ss.
 Qed.
-*)
-Admitted.
