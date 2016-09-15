@@ -1363,6 +1363,52 @@ eapply GMsim_helper with
   by eauto 3 with acts.
 Qed.
 
+
+Lemma GMsim_syscall ts G tid lang st1 st2 lc1 lc2 threads sc_map mem sc_map' 
+  (SIM: GMsim (Configuration.mk threads sc_map mem) {| ts:= ts; exec:= G |})
+  (TID: IdentMap.find tid threads =
+        Some (existT (fun lang : Language.t => Language.state lang) lang st1, lc1))
+  e
+  (STATE: Language.step lang (ProgramEvent.syscall e) st1 st2)
+  (LOCAL: Local.fence_step lc1 sc_map Ordering.seqcst Ordering.seqcst lc2 sc_map'):
+  exists ax_st', step {| ts:= ts; exec:= G |} ax_st' /\
+    GMsim (Configuration.mk 
+        (IdentMap.add tid (existT Language.state lang st2, lc2) threads) sc_map' mem)
+     ax_st'.
+Proof.
+generalize (fresh_id (acts G) (Some tid) (Afence Ordering.seqcst Ordering.seqcst)); intro; desc.
+unfold GMsim, sim_time in *; desc; ins.
+assert (LOCAL':=LOCAL).
+destruct LOCAL'; ins; subst.
+assert (is_proper a).
+  by red; eauto.
+exploit exists_gstep_fence; eauto with acts.
+intro GSTEP.
+eapply GMsim_helper with 
+    (e:=ThreadEvent.syscall e)
+    (tid:=tid) (f_to:=f_to) (f_to':=f_to) 
+    (f_from:=f_from) (f_from':=f_from)
+    (G':= new_G_fence G a); eauto.
+- red; splits; eauto.
+- econs 2. econs; [|econs]; eauto.
+- ins. eapply syscall; eauto.
+  ss. eapply new_G_fence_coherent; try edone.
+- ins.
+  rewrite IdentMap.gsspec in TID0; desf; ins; try edone.
+  rewrite <- THREAD_ID.
+  destruct (classic (is_sc a));
+    [ eapply tview_step_scfence|eapply tview_step_rafence]; eauto.
+  eby  rewrite THREAD_ID in *; eapply SIM_TVIEW.
+  eby eapply WF_OP_ST.
+  eby  rewrite THREAD_ID in *; eapply SIM_TVIEW.
+- unfold new_G_fence; ins.
+  eapply sc_map_step_fence; eauto.
+  eby rewrite THREAD_ID in *; eapply SIM_TVIEW.
+- eapply memory_step_nonwrite; eauto.
+  eapply new_G_fence_coherent; eauto.
+  by eauto 3 with acts.
+Qed.
+
 (******************************************************************************)
 (** * Main theorem  *)
 (******************************************************************************)
@@ -1392,7 +1438,7 @@ inv STEP.
   * destruct op_st; eapply GMsim_write; edone.
   * destruct op_st; eapply GMsim_update; edone.
   * destruct op_st; eapply GMsim_fence; edone.
-  * admit. (** SYSTEM_CALL **)
-Admitted.
+  * destruct op_st; eapply GMsim_syscall; edone.
+Qed.
 
 (* lemma about machine step? *)

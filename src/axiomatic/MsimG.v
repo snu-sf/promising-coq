@@ -860,6 +860,38 @@ Proof.
     eapply seq_mori; eauto using rf_mon, rmw_mon.
 Qed.
 
+Lemma ax_op_sim_step_syscall :
+  forall op_st ths G G'
+         a (LABa : lab a = Afence Ordering.seqcst Ordering.seqcst)
+   (GSTEP : gstep (acts G) (sb G) (rmw G) (rf G) (mo G) (sc G) 
+            (acts G') (sb G') (rmw G') (rf G') (mo G') (sc G') a a)
+   (COH' : Coherent (acts G') (sb G') (rmw G') (rf G') (mo G') (sc G')) 
+   lang st st' ee
+   (STATE : Language.step lang (ProgramEvent.syscall ee) st st'),
+  proof_obligation {|ts:=ths; exec:=G|} G' op_st (thread a) lang st st'.
+Proof.
+  ins; red; ins; red in TIME; ins; desc.
+  subst G0; destruct G, G'; simpl; ins.
+  eexists _,_,_,_,_,_,_; splits; eauto.
+  econs; [|eapply Local.step_syscall]; eauto.
+  econstructor; eauto.
+  { i. apply Memory.bot_nonsynch. }
+  exists ffrom, fto; splits; eauto.
+  * rewrite <- gstep_non_write_mo; eauto with acts.
+  * eapply tview_step_scfence; eauto; red; ins; desf.
+  * eby eapply sc_map_step_fence.
+  * by eapply memory_step_nonwrite; eauto with acts.
+  * ins; eapply SPACE.
+      by eapply gstep_mo; eauto; intro; subst; 
+         [eapply mo_doma in MO|eapply mo_domb in MO]; 
+         eauto; destruct a as [??[]].
+    intro X; apply (gstep_rf_rmw_nonwrite COH GSTEP) in X; eauto;
+    by destruct a as [??[]].
+  * cdes GSTEP; subst; ins; desf; [by destruct y as [??[]]|].
+    apply BSPACE; eauto; intro; desc; apply NRMW; eexists.
+    eapply seq_mori; eauto using rf_mon, rmw_mon.
+Qed.
+
 Lemma ax_op_sim :
   forall op_st ax_st (SIM: MGsim op_st ax_st) ax_st' (AXSTEP: step ax_st ax_st'),
   exists e tid op_st', Configuration.step e tid op_st op_st' /\ MGsim op_st' ax_st'.
@@ -916,7 +948,7 @@ Proof.
   by eapply ax_op_sim_step_write; eauto.
   by eapply ax_op_sim_step_update; eauto.
   by eapply ax_op_sim_step_fence; eauto.
-  admit. (** SYSTEM_CALL **)
-Admitted.
+  by eapply ax_op_sim_step_syscall; eauto.
+Qed.
 
 
