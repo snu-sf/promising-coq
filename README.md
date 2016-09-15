@@ -2,8 +2,15 @@
 
 ## Build
 
-- Requirement: Coq 8.5pl2, Make, Rsync.
-- `make`: quickly build without checking all the proofs.
+- Requirement: [Coq 8.5pl2](https://coq.inria.fr/download), Make, Rsync.
+
+- Initialization
+
+        git submodule init
+        git submodule update
+
+- `make`: quickly build without checking the proofs.
+
 - `./build.sh`: build with checking all the proofs.  It will incrementally copy the development in the `.build` directory, and then build there.
 
 ## References
@@ -42,14 +49,14 @@
         * Compatibility: `sim_stmts_*` (`Compatibility.v`).
 
 - `src/axiomatic`: Compilation to TSO and Power (Section 5.2)
-    + `model.v` and `Machine.v`: Definition of the axiomatic machine..
+    + `model.v` and `Machine.v`: Definition of the axiomatic machine.
     + `SimRel.v`: Definition of the simulation relation.
-    + `sim.v`: Proof of the axiomatic machine is weaker than the operational one.
-       This proof is complete except for the case of update steps, which is admitted.
+    + `MsimG.v`, `GsimM.v`: the operational machine (`M`) simulates the axiomatic one (`G`), and vice versa.
+       These proofs are complete except for the case of system call steps, which is admitted.
 
 - `src/drf`: DRF Theorems (Section 5.3)
     + Promise-Free DRF (Theorem 1): `drf_pf` (`DRF_PF.v`)
-    + We did not formalize DRF-RA (Theorem 2) and DRF-SC (Theorem 3).
+    + We did not formalize DRF-RA (Theorem 2) and DRF-SC (Theorem 3) yet.
 
 - `src/invariant`: An Invariant-Based Program Logic (Section 5.4)
     + Soundness: `sound` (`Invariant.v`)
