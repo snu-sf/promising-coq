@@ -26,6 +26,7 @@ Require Import Compatibility.
 Require Import SimThread.
 
 Require Import ReorderStep.
+Require Import ProgressStep.
 
 Require Import Syntax.
 Require Import Semantics.
@@ -189,6 +190,24 @@ Proof.
     esplits.
     + econs 2; eauto. econs.
       * econs. econs 2. econs; [|econs 2]; eauto. econs. econs.
+      * auto.
+    + econs 2. econs 2. econs; [|econs 3]; eauto. econs.
+      erewrite <- RegFile.eq_except_value; eauto.
+      * econs.
+      * symmetry. eauto.
+      * apply RegFile.eq_except_singleton.
+    + auto.
+    + auto.
+    + etrans; eauto.
+    + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
+  - (* update-load *)
+    exploit sim_local_read; try exact LOCAL0; (try by etrans; eauto); eauto; try refl. i. des.
+    exploit reorder_fulfill_read; try exact FULFILL; try exact STEP_SRC; eauto. i. des.
+    exploit Local.read_step_future; try exact STEP1; eauto. i. des.
+    exploit fulfill_write; eauto; try by viewtac. i. des.
+    esplits.
+    + econs 2; eauto. econs.
+      * econs. econs 2. econs; [|econs 2]; eauto. econs. econs. eauto.
       * auto.
     + econs 2. econs 2. econs; [|econs 3]; eauto. econs.
       erewrite <- RegFile.eq_except_value; eauto.

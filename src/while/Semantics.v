@@ -30,14 +30,14 @@ Module RegFile.
     | Instr.expr_op2 op op1 op2 => Op2.eval op (eval_value rf op1) (eval_value rf op2)
     end.
 
-  Definition eval_rmw (rf:t) (rmw:Instr.rmw) (val:Const.t): Const.t * Const.t :=
+  Definition eval_rmw (rf:t) (rmw:Instr.rmw) (val:Const.t): Const.t * option Const.t :=
     match rmw with
     | Instr.fetch_add addendum =>
-      (Const.add val (eval_value rf addendum), Const.add val (eval_value rf addendum))
+      (Const.add val (eval_value rf addendum), Some (Const.add val (eval_value rf addendum)))
     | Instr.cas o n =>
       if Const.eq_dec (eval_value rf o) val
-      then (1, eval_value rf n)
-      else (0, val)
+      then (1, Some (eval_value rf n))
+      else (0, None)
     end.
 
   Inductive eval_instr: forall (rf1:t) (i:Instr.t) (e:ProgramEvent.t) (rf2:t), Prop :=
@@ -69,13 +69,21 @@ Module RegFile.
         (Instr.store lhs rhs ord)
         (ProgramEvent.write lhs (eval_value rf rhs) ord)
         rf
-  | eval_update
+  | eval_update_success
       rf lhs loc rmw ordr ordw valr valret valw
-      (RMW: eval_rmw rf rmw valr = (valret, valw)):
+      (RMW: eval_rmw rf rmw valr = (valret, Some valw)):
       eval_instr
         rf
         (Instr.update lhs loc rmw ordr ordw)
         (ProgramEvent.update loc valr valw ordr ordw)
+        (RegFun.add lhs valret rf)
+  | eval_update_fail
+      rf lhs loc rmw ordr ordw valr valret
+      (RMW: eval_rmw rf rmw valr = (valret, None)):
+      eval_instr
+        rf
+        (Instr.update lhs loc rmw ordr ordw)
+        (ProgramEvent.read loc valr ordr)
         (RegFun.add lhs valret rf)
   | eval_fence
       rf ordr ordw:
@@ -232,6 +240,13 @@ Module RegFile.
           eapply RS; eauto.
       + ii. eapply REGS; eauto.
         apply RegSet.add_spec. auto.
+    - erewrite <- eq_except_rmw in RMW; eauto.
+      + eexists. splits.
+        * econs. eauto.
+        * ii. unfold RegFun.add. condtac; auto.
+          eapply RS; eauto.
+      + ii. eapply REGS; eauto.
+        apply RegSet.add_spec. auto.
     - eexists. splits; [econs|]. auto.
     - erewrite <- eq_except_value_list; eauto.
       + eexists. splits; [econs|].
@@ -249,7 +264,7 @@ Module RegFile.
       <<EVAL: RegFile.eval_instr rf1 instr_src e_src rf2>> /\
       <<ORD: ProgramEvent.ord e_src e_tgt>>.
   Proof.
-    inv ORD; inv EVAL; esplits; repeat (econs; eauto).
+    inv ORD; inv EVAL; esplits; try by repeat (econs; eauto).
   Qed.
 End RegFile.
 
@@ -285,19 +300,10 @@ Module State.
            (mk rf ((Stmt.dowhile s cond)::stmts))
            (mk rf (s ++ (Stmt.ite cond ((Stmt.dowhile s cond)::nil) nil) :: stmts))
   .
-
-  Lemma receptive: Language.receptive step.
-  Proof.
-    econs; i.
-    - inv STEP1. inv INSTR.
-      esplits. econs. econs.
-    - inv STEP1. inv INSTR.
-      esplits. econs. econs. apply surjective_pairing.
-  Qed.
 End State.
 
 Program Definition lang :=
   Language.mk
     State.init
     State.is_terminal
-    State.receptive.
+    State.step.

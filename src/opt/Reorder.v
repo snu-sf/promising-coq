@@ -92,6 +92,14 @@ Proof.
     + left. eapply paco9_mon; [apply sim_load_sim_thread|]; ss.
       econs; eauto.
       eapply Local.read_step_future; eauto.
+  - (* update-load *)
+    exploit sim_local_read; eauto; try refl. i. des.
+    esplits; try apply SC; eauto.
+    + econs 1.
+    + auto.
+    + left. eapply paco9_mon; [apply sim_update_sim_thread|]; ss.
+      econs; [eauto|..]; s; eauto.
+      eapply Local.read_step_future; eauto.
   - (* store *)
     exploit Local.write_step_future; eauto; try by viewtac. i. des.
     hexploit sim_local_write; try exact LOCAL1; try exact SC;
@@ -126,7 +134,7 @@ Proof.
     + etrans; eauto.
     + auto.
     + left. eapply paco9_mon; [apply sim_update_sim_thread|done].
-      econs; eauto.
+      econs; [eauto|..]; s; eauto. 
       * etrans; eauto.
       * etrans; eauto.
   - (* fence *)
@@ -139,4 +147,7 @@ Proof.
     + auto.
     + left. eapply paco9_mon; [apply sim_fence_sim_thread|]; ss.
       econs; eauto.
+Grab Existential Variables.
+{ econs 2. }
+{ econs. econs 3. }
 Qed.

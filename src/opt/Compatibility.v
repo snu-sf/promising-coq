@@ -92,9 +92,9 @@ Lemma lang_step_deseq
                (State.mk rs2 stmts2').
 Proof.
   inv STEP.
-  - esplits; eauto. econs 1. auto.
-  - eexists. rewrite app_assoc. splits; eauto. econs 2.
-  - eexists. rewrite app_comm_cons, app_assoc. splits; eauto. econs 3.
+  - esplits; eauto. econs; eauto.
+  - eexists. rewrite app_assoc. splits; eauto. econs.
+  - eexists. rewrite app_comm_cons, app_assoc. splits; eauto. econs.
 Qed.
 
 Lemma program_step_seq

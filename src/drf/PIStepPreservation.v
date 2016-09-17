@@ -644,6 +644,7 @@ Grab Existential Variables.
 { exact xH. }
 Qed.
 
+
 Lemma key_lemma
       cS1 cT1 cS2 cT2 tid
       (PI_CONSISTENT : pi_consistent (cS1, cT1))
@@ -666,14 +667,14 @@ Lemma key_lemma
   <<MAIN:
     forall cM4 pre
       (PI_STEPS : with_pre (small_step false tid) (conf_update_memory cSTM3.(fst).(snd) cSTM3.(snd)) pre cM4)
-      (PRCONSIS: promise_consistent_pre tid pre cM4)
+      (PRCONSIS: forall tid0, promise_consistent_th tid0 cM4)
       lst4 lc4
       (THREAD4 : IdentMap.find tid (Configuration.threads cM4) = Some (lst4, lc4))
       (PROM: Memory.get loc ts lc4.(Local.promises) <> None),
+    <<NORDPRM: ~ is_reading_writing_promise_except tid cM4>> /\
     <<NOMSG: pre_in_msgs pre msgs>> /\
     exists cS4 pre',
-    <<STEPS: with_pre (pi_step false tid) (cSTM3.(fst).(fst), conf_update_memory cSTM3.(fst).(snd) cSTM3.(snd)) pre' (cS4, cM4)>>
-    /\
+    <<STEPS: with_pre (pi_step false tid) (cSTM3.(fst).(fst), conf_update_memory cSTM3.(fst).(snd) cSTM3.(snd)) pre' (cS4,cM4)>> /\
     <<EQPRE: pre = pi_pre_proj pre'>> >>.
 Proof.
   assert (WF2: pi_wf loctmeq (cS2,cT2)).
@@ -691,13 +692,21 @@ Proof.
       destruct lst2. exploit THREADS; eauto.
       intro X. inv X. apply PROMISES in PROMISE2. rewrite PROMISE2. done.
     - done.
-    - s. i. split.
-      { unfold pre_in_msgs in *. destruct pre; eauto. destruct p; eauto.
-        destruct (ThreadEvent.is_reading t0); repeat destruct p; eauto. }
-      destruct cT2. unfold conf_update_memory in *. ss.
-      eapply with_pre_implies in PI_STEPS.
-      + exploit pi_consistent_rtc_small_step_pi; try eapply WF; eauto.
-      + i. inv STEP. eauto.
+    - s. i. 
+      exploit pi_consistent_rtc_small_step_pi; [apply WF|..]
+      ; try (by instantiate (3:=(_,_)); eapply with_pre_implies, PI_STEPS; eauto); eauto.
+      { destruct cT2. eauto. }
+      i; des; subst.
+      esplits.
+      + eapply (@pi_consistent_lang_step_pi_rw tid _ (_,_)); [apply WF|..]; eauto. 
+        etrans; eauto.
+        apply with_pre_rtc_union in x0.
+        destruct cT2. ss.
+        eapply rtc_implies, x0; eauto using pi_step_evt_to_true.
+      + unfold pre_in_msgs in *. destruct pre'; ss. repeat (destruct p; ss).
+        destruct (ThreadEvent.is_reading t); eauto. repeat (destruct p; ss).
+      + eauto.
+      + eauto.
   }
   i.
 
@@ -747,23 +756,24 @@ Proof.
        <<THS3: IdentMap.find tid cM3'.(Configuration.threads) = Some (lst3', Local.mk com3' prm3') >> /\
        <<THS4: IdentMap.find tid cM4'.(Configuration.threads) = Some (lst3', Local.mk com4' prm3') >> /\
        <<COMLE: TView.le com3' com4' >>) /\
+       <<NORDPRM: ~ is_reading_writing_promise_except tid cM4'>> /\
        (exists cS4' pre',
-       <<STEPS4: with_pre (pi_step false tid) (cS4, conf_update_memory cT4 M4) pre' (cS4',cM4')>>/\
+       <<STEPS4: with_pre (pi_step false tid) (cS4, conf_update_memory cT4 M4) pre' (cS4',cM4')>> /\
        <<EQPRE: pre = pi_pre_proj pre'>>)).
-  { i; des. eauto. }
+  { i; des. esplits; eauto. }
 
   move cM4' at bottom. move lst4 at bottom. move lc4 at bottom. move PROM at bottom.
   revert_until PI_STEPS.
   induction PI_STEPS; i.
   { split; eauto.
-    destruct lc4 as [com4 prm4]. subst. ss.
+    destruct lc4 as [com4 prm4]. subst. ss. inv PI_STEP. 
     esplits.
     { eauto. }
-    { i. inv PI_STEP. eapply promise_consistent_th_small_step_backward in STEPT; eauto.
+    { i. eapply promise_consistent_th_small_step_backward in STEPT; eauto.
       inv WF3; eauto. }
     { econs; eauto.
       by split; ii; esplits; eauto; reflexivity. }
-    { s. inv PI_STEP. inv STEPT. ss.
+    { s. inv STEPT. ss.
       inv WF3. inv WFT. inv WF0. ss.
       exploit THREADS; eauto. i.
       exploit Thread.step_future; eauto. s. i. des. auto.
@@ -771,8 +781,26 @@ Proof.
     { s. rewrite THEQA0, THEQB0, THREAD4 in THREAD2. inv THREAD2. rewrite THEQB0. eauto. }
     { s. rewrite THEQA0, THEQB0, THREAD4 in THREAD2. inv THREAD2. eauto. }
     { reflexivity. }
+    { cut (~ is_reading_writing_promise_except tid (conf_update_memory cT3 M3)).
+      { ii. apply H. clear H. inv H0. econs; eauto.
+        - setoid_rewrite THEQB0. eauto.
+        - guardH RW. inv PROM0. ss. 
+          destruct (Ident.eq_dec tid' tid0) eqn: TEQ; cycle 1.
+          + rewrite <- (small_step_find STEPT) in TID0; eauto.
+            econs; eauto.
+          + subst. exploit small_step_promise_decr; [apply STEPT|..]; eauto.
+            i; des. destruct lst1. econs.
+            * rewrite FIND1. eauto.
+            * eauto.
+      }
+
+      eapply MAIN; eauto.
+      - i. inv WF3. hexploit promise_consistent_th_small_step_backward; [apply STEPT|..]; eauto.
+      - ss. rewrite THEQB0; eauto.
+      - s. eauto.
+    }
     { eauto. }
-    { eauto. }
+    { s. eauto. }
   }
 
   rename ms into cM4', es into cM5'.
@@ -798,8 +826,7 @@ Proof.
   { inv WF4'. eauto. }
   intros [WF4'' _].
   
-  exploit IHPI_STEPS; eauto.
-  { inv WF4'. eauto using promise_consistent_th_pre, promise_consistent_pre_th. }
+  exploit IHPI_STEPS; eauto using promise_consistent_th_small_step.
   { exploit small_step_promise_decr; [apply STEP2|..].
     - s. rewrite IdentMap.gss. eauto.
     - eauto.
@@ -824,66 +851,6 @@ Proof.
   intros STEPS3'.
   eapply rtc_union_with_pre in STEPS3'. des.
 
-  inv PRCONSIS; rename PROM0 into PRCONSIS.
-  { r in READ. destruct (ThreadEvent.is_reading e0) as [[[[[]]]]|] eqn: EQe0; [|done]. des.
-
-    exploit (@lift_step_read _ (Thread.mk _ st1 (Local.mk com3' prm3') cM3'.(Configuration.sc) cM3'.(Configuration.memory))); [apply STEP|..]; eauto.
-    { inv SEMI_WF3. inv WFT. inv WF0. s. eapply THREADS. eauto. }
-    { s. inv SEMI_WF3. inv WFT. eauto. }
-    { s. inv SEMI_WF3. inv WFT. eauto. }
-    intro X. des.
-    destruct thS2 as [stx lcx scx mx]. ss.
-
-    inv PROM0. s in TID0. rewrite IdentMap.gso in TID0; eauto.
-    eapply with_pre_rtc_union in PI_STEPS.
-    rewrite <-(rtc_small_step_find PI_STEPS) in TID0; eauto. s in TID0.
-
-    exploit (@MAIN (Configuration.mk (IdentMap.add tid (existT _ _ stx, lcx) cM3'.(Configuration.threads)) scx mx)); s; swap 1 3; swap 2 3.
-    { rewrite IdentMap.gss. eauto. }
-    { eapply with_pre_trans.
-      - apply STEPS3'.
-      - s; eauto. }
-    { econs 1; eauto. 
-      r. rewrite EVT. esplits; eauto.
-      eapply with_pre_rtc_union in STEPS3'. s. inv PI_STEP.
-      destruct (Ident.eq_dec tid' tid0) eqn: TEQ; cycle 1.
-      { econs.
-        - rewrite IdentMap.gso; eauto.
-          rewrite <-(rtc_small_step_find STEPS3'); eauto.
-          s. rewrite (small_step_find STEPT); eauto.
-        - eauto.
-      }
-      { subst. exploit small_step_promise_decr; [apply STEPT|..]; eauto.
-        i; des. destruct lst1. econs.
-        - rewrite IdentMap.gso; eauto.
-          rewrite <-(rtc_small_step_find STEPS3'); eauto.
-        - eauto.
-      }
-    }
-    { eapply LE in PROMEQ. des. by rewrite PROMEQ. }
-    i; des. ss. clear MAIN.
-    destruct pre'0; [|done].
-    destruct p as [[cS3'x ?] ?]. symmetry in EQPRE. inv EQPRE.
-
-    destruct lcx as [comx prmx].
-    destruct lc4 as [com4 prm4].
-    ss. subst.
-    
-    exfalso.
-    inv STEPS0. inv PSTEP0.
-    destruct (ThreadEvent.is_promising eS) eqn: EQeS'.
-    { destruct eS; inv EVT; inv EQeS'. }
-
-    eapply NOWR; eauto.
-    inv PI_STEP.
-    hexploit small_step_promise_decr; [apply STEPT0|..]; eauto.
-    i; des. destruct lst1. 
-    econs; [|by eauto].
-    eapply with_pre_rtc_union in STEPS3'.
-    eapply rtc_small_step_find in STEPS3'; eauto.
-    rewrite <-STEPS3'. eauto.
-  }
-
   assert(NORW: forall loc' ts' from valr valw relr relw ordr ordw
       (EVTR: ThreadEvent.is_reading e0 = Some (loc', ts', valr, relr, ordr))
       (EVTW: ThreadEvent.is_writing e = Some (loc', from, ts', valw, relw, ordw)),
@@ -906,16 +873,25 @@ Proof.
   { exfalso. eauto. }
 
   (* Read the event "e", which is lower-none *)
-  { exfalso. eapply READ; eauto.
-    inv PI_STEP.
-    exploit pi_wf_small_step_is_promising; try apply STEPT; eauto. 
-    intro X. inv X.
-    r. rewrite EVTR. exists tid0. esplits; eauto.
-    econs; eauto.
-    s. rewrite IdentMap.gso; eauto.
-    rewrite <- TID0.
-    eapply with_pre_rtc_union in PI_STEPS.
-    rewrite (rtc_small_step_find PI_STEPS); eauto.
+  { exfalso. eapply NORDPRM. inv STEP2. ss.
+    eapply (f_equal (IdentMap.find tid)) in THS2.
+    rewrite !IdentMap.gss in THS2. depdes THS2.
+    rewrite THS4 in TID0. depdes TID0.
+    inv STEP0; inv STEP1; [by inv EVTR|].
+    econs.
+    - rewrite THS4. s. eauto.
+    - eauto.
+    - left. destruct e1; inv EVTR; s; eauto.
+    - eauto.
+    - apply with_pre_rtc_union in PI_STEPS.
+      inv PI_STEP. inv STEPT. ss. inv STEP0; inv STEP1; inv EVTP.
+      inv LOCAL0. inv PROMISE; inv EVTL. inv PROMISES. inv LOWER.
+      econs. 
+      + rewrite <-(rtc_small_step_find PI_STEPS); eauto.
+        s. rewrite IdentMap.gss. eauto.
+      + s. unfold Memory.get, Cell.get. 
+        setoid_rewrite LocFun.add_spec_eq.
+        rewrite <-H1, IdentMap.gss. eauto.
   }
 
   (* Simulation exists *)
@@ -926,19 +902,14 @@ Proof.
   { eapply with_pre_trans.
     - apply STEPS3'.
     - s; eauto. }
-  { s. eapply promise_consistent_th_pre.
-    { econs; [by econs 1|].
-      econs; try apply STEP0; eauto. by instantiate (1:=true). }
-    { inv SEMI_WF3. eauto. }
-
-    i. destruct (Ident.eq_dec tid1 tid) eqn: TEQ; cycle 1.
+  { i. destruct (Ident.eq_dec tid1 tid) eqn: TEQ; cycle 1.
     { ii. s in THREAD. rewrite IdentMap.gso in THREAD; eauto.
       eapply (PRCONSIS3 tid1); eauto. }
 
-    subst; ii. r in PRCONSIS. ss.
-    rewrite IdentMap.gss in THREAD.
+    subst; ii. r in PRCONSIS. ss. 
+    rewrite IdentMap.gss in THREAD. 
     specialize (PRCONSIS tid). rewrite IdentMap.gss in PRCONSIS.
-    inv THREAD. rewrite PRM in PROMISE.
+    inv THREAD. rewrite PRM in PROMISE. 
     exploit PRCONSIS; eauto.
     intro LT. move COM at bottom.
     eapply TimeFacts.le_lt_lt; eauto. apply COM.
@@ -985,12 +956,29 @@ Proof.
     { s. rewrite IdentMap.gss. eauto. }
     { s. rewrite IdentMap.gss. eauto. }
   }
+  split.
+  { ii. inv H. s in ST1. rewrite IdentMap.gss in ST1. s in ST1. depdes ST1.
+    eapply NORDPRM0. econs; eauto.
+    - s. rewrite IdentMap.gss. eauto.
+    - inv PROM0. ss. rewrite IdentMap.gso in TID0; eauto. inv PI_STEP.
+      apply with_pre_rtc_union in STEPS3'.
+      apply with_pre_rtc_union in PI_STEPS.
+      rewrite <-(rtc_small_step_find PI_STEPS) in TID0; eauto.
+      destruct (Ident.eq_dec tid' tid0) eqn: TEQ; cycle 1.
+      + econs; eauto. rewrite IdentMap.gso; eauto.
+        rewrite <-(rtc_small_step_find STEPS3'), <-TID0; eauto.
+        apply (small_step_find STEPT); eauto.
+      + subst. guardH RW.
+        exploit small_step_promise_decr; [apply STEPT|..]; eauto. i; des. destruct lst1. 
+        econs.
+        * rewrite IdentMap.gso; eauto. 
+          rewrite <-(rtc_small_step_find STEPS3'); eauto.
+        * eauto.
+  }
 
   eapply key_lemma_core; eauto.
   { s. rewrite IdentMap.gss. eauto. }
   { s. rewrite IdentMap.gss. eauto. }
-Grab Existential Variables.
-{ exact xH. }
 Qed.
 
 Theorem pi_consistent_pi_step_pi_consistent
@@ -1082,10 +1070,7 @@ Proof.
   intro STEPS'. des.
 
   exploit (MAIN c0); eauto.
-  { eapply promise_consistent_th_pre; eauto.
-    { inv WF3. eauto. }
-
-    i. eapply rtc_promise_consistent_th_small_step_forward.
+  { eapply rtc_promise_consistent_th_small_step_forward.
     { apply STEPS0. }
     { ii. eapply PRCONSIS; eauto. }
     { apply can_fulfill_promises_promise_consistent in FULFILL2; eauto.

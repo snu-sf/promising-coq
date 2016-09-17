@@ -188,6 +188,18 @@ Proof.
     + auto.
     + left. eapply paco9_mon; [apply sim_release_fenceF_sim_thread|]; ss.
       econs. eauto.
+  - (* update-load *)
+    exploit sim_localF_read; eauto; try refl. i. des.
+    esplits.
+    + etrans; [eauto|]. econs 2; [|refl]. econs.
+      * econs. econs 2. econs; [|econs 5]; eauto. econs. econs.
+      * ss.
+    + econs 2. econs 2. econs; [|econs 2]; eauto. econs. econs. eauto.
+    + auto.
+    + etrans; eauto.
+    + auto.
+    + left. eapply paco9_mon; [apply sim_release_fenceF_sim_thread|]; ss.
+      econs. eauto.
   - (* write *)
     hexploit sim_localF_write; try exact SC; eauto;
       (try refl); (try by econs). i. des.

@@ -134,6 +134,22 @@ Proof.
     + auto.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
       etrans; eauto.
+  - (* update-load *)
+    guardH ORDR2.
+    exploit sim_local_read; try exact LOCAL0; try apply SC; eauto; try refl; viewtac.
+    { eapply Local.fence_step_future; eauto. }
+    i. des.
+    exploit reorder_fence_read; try apply x0; try apply STEP_SRC; eauto; try by viewtac. i. des.
+    esplits.
+    + econs 2; [|econs 1]. econs.
+      * econs. econs 2. econs; [|econs 2]; eauto. econs. econs. eauto.
+      * eauto.
+    + econs 2. econs 2. econs; [|econs 5]; eauto. econs. econs.
+    + auto.
+    + etrans; eauto.
+    + auto.
+    + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
+      etrans; eauto.
   - (* store *)
     hexploit sim_local_write; try exact LOCAL1; try apply SC; eauto; try refl; viewtac.
     { eapply Local.fence_step_future; eauto. }

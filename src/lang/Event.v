@@ -131,17 +131,17 @@ Module ProgramEvent.
   | syscall (e:Event.t)
   .
 
-  Definition is_reading (e:t): option (Loc.t * Ordering.t) :=
+  Definition is_reading (e:t): option (Loc.t * Const.t * Ordering.t) :=
     match e with
-    | read loc _ ord => Some (loc, ord)
-    | update loc _ _ ordr _ => Some (loc, ordr)
+    | read loc val ord => Some (loc, val, ord)
+    | update loc valr _ ordr _ => Some (loc, valr, ordr)
     | _ => None
     end.
 
-  Definition is_writing (e:t): option (Loc.t * Ordering.t) :=
+  Definition is_writing (e:t): option (Loc.t * Const.t * Ordering.t) :=
     match e with
-    | write loc _ ord => Some (loc, ord)
-    | update loc _ _ _ ordw => Some (loc, ordw)
+    | write loc val ord => Some (loc, val, ord)
+    | update loc _ valw _ ordw => Some (loc, valw, ordw)
     | _ => None
     end.
 

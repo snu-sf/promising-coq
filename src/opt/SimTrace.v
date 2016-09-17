@@ -277,6 +277,13 @@ Proof.
   - inv ORD. esplits; eauto.
     + econs; eauto.
     + econs 2. econs. econs.
+      ss. symmetry in REGS. apply RegSet.disjoint_add in REGS. des. symmetry in REGS0.
+      erewrite <- RegFile.eq_except_rmw; eauto. symmetry. ss.
+    + left. apply sim_trace_nil.
+      apply RegFile.eq_except_add. ss.
+  - inv ORD. esplits; eauto.
+    + econs; eauto.
+    + econs 2. econs. econs.
     + left. apply sim_trace_nil. ss.
   - inv ORD. esplits; eauto.
     + econs.
