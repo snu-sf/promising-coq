@@ -1185,60 +1185,6 @@ Proof.
     apply TViewFacts.read_fence_tview_mon; eauto; try refl.
 Qed.
 
-Lemma lift_step_read
-      lang (thS1 thT1 thT2: @Thread.t lang) eT loc ts val relr ordr
-      (STEP: Thread.step true eT thT1 thT2)
-      (ST: thS1.(Thread.state) = thT1.(Thread.state))
-      (PRM: thS1.(Thread.local).(Local.promises) = thT1.(Thread.local).(Local.promises))
-      (WFS1: Local.wf thS1.(Thread.local) thS1.(Thread.memory))
-      (SCS1: Memory.closed_timemap thS1.(Thread.sc) thS1.(Thread.memory))
-      (MEMS1: Memory.closed thS1.(Thread.memory))
-      (EVT: ThreadEvent.is_reading eT = Some (loc, ts, val, relr, ordr)):
-  (exists eS thS2 ts' val' relr',
-   <<STEP: Thread.step true eS thS1 thS2>> /\
-   <<EVT:  ThreadEvent.is_reading eS = Some (loc, ts', val', relr', ordr)>> /\
-   <<LE:
-     forall loc from to msg (GET: Memory.get loc to (thT2.(Thread.local).(Local.promises)) = Some (from, msg)),
-     exists from', Memory.get loc to (thS2.(Thread.local).(Local.promises)) = Some (from', msg)>>).
-Proof.
-  destruct thS1. ss.
-  inv STEP; inv STEP0; ss. destruct e; inv EVT; ss.
-  - exploit progress_read_step; eauto. i. des.
-    destruct lang.(Language.RECEPTIVE). exploit READ; eauto. i. des.
-    esplits.
-    + econs 2. econs; cycle 1.
-      * econs 2. eauto.
-      * eauto.
-    + ss.
-    + inv LOCAL. inv LOCAL0. inv x0. ss.
-      i. rewrite PRM. esplits; eauto.
-  - exploit progress_read_step; eauto. i. des.
-    destruct lang.(Language.RECEPTIVE). exploit UPDATE; eauto. i. des.
-    exploit Local.read_step_future; eauto. i. des.
-    exploit progress_write_step; eauto.
-    { apply Time.incr_spec. }
-    { inv x0. ss. rewrite PRM.
-      inv LOCAL. inv LOCAL1. inv LOCAL2. ss.
-      eapply RELEASE.
-    }
-    i. des.
-    esplits.
-    + econs 2. econs; cycle 1.
-      * econs 4; eauto.
-      * eauto.
-    + ss.
-    + s. i. revert GET.
-      inv LOCAL. inv LOCAL2. ss. inv WRITE.
-      erewrite Memory.remove_o; eauto. condtac; ss. guardH o. i. destruct msg.
-      exploit MemoryFacts.promise_get_promises_inv_diff; eauto.
-      { ii. inv H. unguardH o. des; congr. }
-      i. des.
-      inv LOCAL1. ss. rewrite <- PRM in *.
-      inv x0. ss. inv x1. ss.
-      hexploit MemoryFacts.write_add_promises; eauto. i. subst.
-      esplits. eauto.
-Qed.
-
 Lemma lift_step
       lang (thS1 thT1 thT2: @Thread.t lang) eT l t e
       (STEP: Thread.step true eT thT1 thT2)

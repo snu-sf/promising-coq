@@ -193,6 +193,26 @@ Proof.
       apply RegFun.add_add. ii. subst. eapply REGS.
       * apply RegSet.singleton_spec. eauto.
       * apply RegSet.singleton_spec. eauto.
+  - (* update-load *)
+    guardH ORDW2.
+    exploit sim_local_read; (try by etrans; eauto); eauto; try refl. i. des.
+    exploit reorder_read_read; try exact READ; try exact STEP_SRC; try by eauto. i. des.
+    esplits.
+    + econs 2; [|econs 1]. econs.
+      * econs. econs 2. econs; [|econs 2]; eauto. econs. econs.
+        erewrite <- RegFile.eq_except_rmw; eauto; try apply RegFile.eq_except_singleton.
+        ii. eapply REGS; eauto.
+        apply RegSet.singleton_spec in LHS. subst.
+        apply RegSet.add_spec. auto.
+      * eauto.
+    + econs 2. econs 2. econs; [|econs 2]; eauto. econs. econs.
+    + eauto.
+    + eauto.
+    + eauto.
+    + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
+      apply RegFun.add_add. ii. subst. eapply REGS.
+      * apply RegSet.singleton_spec. eauto.
+      * apply RegSet.add_spec. auto.
   - (* store *)
     guardH ORD.
     hexploit sim_local_write; try exact LOCAL1; try exact SC;

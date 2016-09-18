@@ -26,7 +26,6 @@ Require Import PromiseConsistent.
 
 Set Implicit Arguments.
 
-
 Inductive pi_step withprm: Ident.t -> ThreadEvent.t -> Configuration.t*Configuration.t -> Configuration.t*Configuration.t -> Prop :=
 | pi_step_step
     e tid cS1 cT1 cS2 cT2
@@ -90,10 +89,10 @@ Inductive pi_consistent: Configuration.t*Configuration.t -> Prop :=
     (THREAD: IdentMap.find tid cT2.(Configuration.threads) = Some (lst2, lc2))
     (PROMISE: Memory.get loc ts lc2.(Local.promises) = Some (from, msg))
     (PRCONSIS: forall tid0, promise_consistent_th tid0 cT2),
-  exists cS3 e ord,
+  exists cS3 e val ord,
     <<STEPS: rtc (small_step_evt false tid) cS2 cS3>> /\
     <<PROEVT: Configuration_program_event cS3 tid e>> /\
-    <<EVENT: ProgramEvent.is_writing e = Some (loc, ord)>> /\
+    <<EVENT: ProgramEvent.is_writing e = Some (loc, val, ord)>> /\
     <<ORD: Ordering.le ord Ordering.relaxed>>):
   pi_consistent (cS1, cT1).
 Hint Constructors pi_consistent.
@@ -788,71 +787,6 @@ Lemma rtc_pi_step_remove_promises
   forall tid0, promise_consistent_th tid0 cT3'.
 Proof.
   exploit rtc_pi_step_remove_promises_aux; eauto.
-Qed.
-
-Lemma promise_consistent_th_small_step_forward
-      withprm tid e c1 c2
-      (STEP: small_step withprm tid e c1 c2)
-      (PRCONS: forall tid0, promise_consistent_th tid0 c1)
-      (PRCONS2: promise_consistent_th tid c2)
-      (WF: Configuration.wf c1):
-  forall tid0, promise_consistent_th tid0 c2.
-Proof.
-  i. s. destruct (Ident.eq_dec tid0 tid) eqn: EQ.
-  - subst. eauto.
-  - ii. exploit small_step_find; eauto.
-    s; intro X. rewrite <-X in THREAD. 
-    eapply (PRCONS tid0); eauto.  
-Qed.
-
-Lemma rtc_promise_consistent_th_small_step_forward
-      withprm tid c1 c2
-      (STEP: rtc (small_step_evt withprm tid) c1 c2)
-      (PRCONS: forall tid0, promise_consistent_th tid0 c1)
-      (PRCONS2: promise_consistent_th tid c2)
-      (WF: Configuration.wf c1):
-  forall tid0, promise_consistent_th tid0 c2.
-Proof.
-  apply Operators_Properties.clos_rt_rt1n_iff,
-        Operators_Properties.clos_rt_rtn1_iff in STEP.
-  ginduction STEP; eauto.
-  apply Operators_Properties.clos_rt_rtn1_iff,
-        Operators_Properties.clos_rt_rt1n_iff in STEP.
-  i. inv H. hexploit promise_consistent_th_small_step_forward; eauto; cycle 1.
-  { eapply rtc_small_step_future; eauto.
-    eapply rtc_implies, STEP. eauto. }
-  i. hexploit IHSTEP; eauto.
-  eapply promise_consistent_th_small_step; eauto.
-  eapply rtc_small_step_future; eauto.
-  eapply rtc_implies, STEP. eauto.
-Qed.
-
-Lemma promise_consistent_th_small_step_backward
-      withprm tid e c1 c2
-      (STEP: small_step withprm tid e c1 c2)
-      (PRCONS: forall tid0, promise_consistent_th tid0 c2)
-      (WF: Configuration.wf c1):
-  forall tid0, promise_consistent_th tid0 c1.
-Proof.
-  i. s. destruct (Ident.eq_dec tid0 tid) eqn: EQ.
-  - subst. hexploit promise_consistent_th_small_step; eauto.
-  - ii. exploit small_step_find; eauto.
-    s; intro X. rewrite X in THREAD. 
-    eapply (PRCONS tid0); eauto.  
-Qed.
-
-Lemma rtc_promise_consistent_th_small_step_backward
-      withprm tid c1 c2
-      (STEP: rtc (small_step_evt withprm tid) c1 c2)
-      (PRCONS: forall tid0, promise_consistent_th tid0 c2)
-      (WF: Configuration.wf c1):
-  forall tid0, promise_consistent_th tid0 c1.
-Proof.
-  ginduction STEP; eauto.
-  i. inv H. 
-  i. hexploit promise_consistent_th_small_step_backward; eauto.
-  i. hexploit IHSTEP; eauto.
-  eapply small_step_future; eauto.
 Qed.
 
 Lemma pi_step_evt_to_true

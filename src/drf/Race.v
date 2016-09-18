@@ -37,12 +37,12 @@ Inductive Configuration_program_event c tid e : Prop :=
 Hint Constructors Configuration_program_event.
 
 Inductive race_condition e1 e2 ord1 ord2 : Prop :=
-| race_condition_rw loc
-    (EVENT1: ProgramEvent.is_reading e1 = Some (loc, ord1))
-    (EVENT2: ProgramEvent.is_writing e2 = Some (loc, ord2))
-| race_condition_ww loc
-    (EVENT1: ProgramEvent.is_writing e1 = Some (loc, ord1))
-    (EVENT2: ProgramEvent.is_writing e2 = Some (loc, ord2))
+| race_condition_rw loc val1 val2
+    (EVENT1: ProgramEvent.is_reading e1 = Some (loc, val1, ord1))
+    (EVENT2: ProgramEvent.is_writing e2 = Some (loc, val2, ord2))
+| race_condition_ww loc val1 val2
+    (EVENT1: ProgramEvent.is_writing e1 = Some (loc, val1, ord1))
+    (EVENT2: ProgramEvent.is_writing e2 = Some (loc, val2, ord2))
 .
 Hint Constructors race_condition.
 
@@ -79,7 +79,7 @@ Lemma small_step_to_program_step_writing
       (EVENT: ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord)):
   exists (pe : ProgramEvent.t),
   <<EVENT: Configuration_program_event c1 tid pe >> /\
-  <<WRITE: ProgramEvent.is_writing pe = Some (loc, ord) >>.
+  <<WRITE: ProgramEvent.is_writing pe = Some (loc, val, ord) >>.
 Proof.
   inv STEP. inv STEP0; inv STEP; ss.
   inv LOCAL; inv EVENT; eauto 10.
@@ -91,7 +91,7 @@ Lemma small_step_to_program_step_reading
       (EVENT: ThreadEvent.is_reading e = Some (loc, ts, val, rel, ord)):
   exists (pe : ProgramEvent.t),
   <<EVENT: Configuration_program_event c1 tid pe >> /\
-  <<WRITE: ProgramEvent.is_reading pe = Some (loc, ord) >>.
+  <<WRITE: ProgramEvent.is_reading pe = Some (loc, val, ord) >>.
 Proof.
   inv STEP. inv STEP0; inv STEP; ss.
   inv LOCAL; inv EVENT; eauto 10.
