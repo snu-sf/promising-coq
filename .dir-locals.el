@@ -4,9 +4,11 @@
                         (setq coq-load-path
                               `((rec ,(pre "lib/sflib") "sflib")
                                 (rec ,(pre "lib/paco/src") "Paco")
+                                (rec ,(pre "lib/hahn") "cmem")
                                 (rec ,(pre "src/axiomatic") "cmem")
                                 (rec ,(pre "src/lib") "cmem")
                                 (rec ,(pre "src/opt") "cmem")
+                                (rec ,(pre "src/prop") "cmem")
                                 (rec ,(pre "src/lang") "cmem")
                                 (rec ,(pre "src/drf") "cmem")
                                 (rec ,(pre "src/hahn") "cmem")
