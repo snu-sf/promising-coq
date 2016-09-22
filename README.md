@@ -22,7 +22,7 @@
 - `src/lang`: Model (Section 2-4)
     + `Language.v`: abstract interface of the programming languages
     + `Memory.v`: memory model (`MEMORY: *` rules in Figure 3)
-    + `Commit.v`: the rule for thread views (`*-HELPER` rules in Figure 3)
+    + `TView.v`: the rule for thread views (`*-HELPER` rules in Figure 3)
     + `Thread.v`: thread and its execution (`READ`, `WRITE`, `UPDATE`, `FENCE`, `SYSTEM CALL`, `SILENT`, `PROMISE` rules in Figure 3)
     + `Configuration.v`: configuration (machine state) and its execution (`MACHINE STEP` rule in Figure 3)
     + `Behavior.v`: the behaviors of a configuration
