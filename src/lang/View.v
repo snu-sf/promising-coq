@@ -363,6 +363,37 @@ Module View <: JoinableType.
     apply TimeMap.singleton_inv. apply LE.
   Qed.
 
+  Definition singleton_ur_if (cond:bool) loc ts :=
+    (if cond then singleton_ur else singleton_rw) loc ts.
+
+  Lemma singleton_ur_if_wf
+        cond loc ts:
+    wf (singleton_ur_if cond loc ts).
+  Proof.
+    destruct cond; ss.
+    - apply singleton_ur_wf.
+    - apply singleton_rw_wf.
+  Qed.
+
+  Lemma singleton_ur_if_spec (cond:bool) loc ts c
+        (WF: wf c)
+        (TS: Time.le ts ((if cond then c.(pln) else c.(rlx)) loc)):
+    le (singleton_ur_if cond loc ts) c.
+  Proof.
+    destruct cond; ss.
+    - apply singleton_ur_spec; ss.
+    - apply singleton_rw_spec; ss.
+  Qed.
+
+  Lemma singleton_ur_if_inv cond loc ts c
+        (LE: le (singleton_ur_if cond loc ts) c):
+    Time.le ts ((if cond then c.(pln) else c.(rlx)) loc).
+  Proof.
+    destruct cond; ss.
+    - apply singleton_ur_inv. ss.
+    - apply singleton_rw_inv. ss.
+  Qed.
+
   Lemma le_join_l l r
         (LE: le r l):
     join l r = l.

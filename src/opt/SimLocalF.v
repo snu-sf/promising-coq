@@ -125,12 +125,12 @@ Lemma read_tview_mon'
            (TView.read_tview tview2 loc ts released2 ord2).(TView.acq)>>.
 Proof.
   splits.
-  - unfold TView.read_tview.
+  - unfold TView.read_tview, View.singleton_ur_if.
     repeat (condtac; aggrtac);
       (try by etrans; [apply TVIEW|aggrtac]);
       (try by rewrite <- ? View.join_r; econs; aggrtac);
       (try apply WF2).
-  - unfold TView.read_tview.
+  - unfold TView.read_tview, View.singleton_ur_if.
     repeat (condtac; aggrtac);
       (try by etrans; [apply TVIEW|aggrtac]);
       (try by rewrite <- ? View.join_r; econs; aggrtac);
@@ -233,15 +233,14 @@ Proof.
       condtac; cycle 1.
       { by destruct ord_tgt; inv NONEFOR; inv COND0. }
       econs. unfold TView.write_tview. s. rewrite NONEFOR.
-      repeat (condtac; aggrtac).
-      + rewrite <- View.join_r. rewrite <- ? View.join_l. apply LOCAL1.
-      + rewrite <- View.join_r. rewrite <- ? View.join_l. apply LOCAL1.
-      + apply WF1_TGT.
+      repeat (condtac; aggrtac); try by apply WF1_TGT.
+      + rewrite <- View.join_r. rewrite <- View.join_r. rewrite <- ? View.join_l. apply LOCAL1.
+      + rewrite <- View.join_r. rewrite <- View.join_r. rewrite <- ? View.join_l. apply LOCAL1.
       + econs; aggrtac.
-      + rewrite <- View.join_r. rewrite <- ? View.join_l. etrans; [|apply LOCAL1].
-        apply WF1_SRC.
-      + rewrite <- View.join_r. rewrite <- ? View.join_l. etrans; [|apply LOCAL1].
-        apply WF1_SRC.
+      + rewrite <- View.join_r. rewrite <- View.join_r. rewrite <- ? View.join_l.
+        etrans; [|apply LOCAL1]. apply WF1_SRC.
+      + rewrite <- View.join_r. rewrite <- View.join_r. rewrite <- ? View.join_l.
+        etrans; [|apply LOCAL1]. apply WF1_SRC.
     - unfold TView.write_released. repeat (condtac; viewtac). refl.
   }
   assert (RELT_WF:

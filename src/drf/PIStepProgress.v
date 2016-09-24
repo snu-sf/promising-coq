@@ -187,8 +187,11 @@ Proof.
           inv READABLE; eauto.
           apply TimeFacts.join_lt_des in LT. des.
           apply TimeFacts.join_lt_des in AC. des.
-          revert BC0. unfold TimeMap.singleton, LocFun.add. condtac; [|congr]. i.
-          eapply Time.lt_strorder. eauto.
+          revert BC0. unfold View.singleton_ur_if. condtac; ss.
+          * unfold TimeMap.singleton, LocFun.add. condtac; [|congr]. i.
+            eapply Time.lt_strorder. eauto.
+          * unfold TimeMap.singleton, LocFun.add. condtac; [|congr]. i.
+            eapply Time.lt_strorder. eauto.
         + eauto.
         + eauto.
       - s. by rewrite !IdentMap.gss.
@@ -256,8 +259,11 @@ Proof.
             inv READABLE; eauto.
             apply TimeFacts.join_lt_des in LT. des.
             apply TimeFacts.join_lt_des in AC. des.
-            revert BC0. unfold TimeMap.singleton, LocFun.add. condtac; [|congr]. i.
-            eapply Time.lt_strorder. eauto.
+            revert BC0. unfold View.singleton_ur_if. condtac; ss.
+            * unfold TimeMap.singleton, LocFun.add. condtac; [|congr]. i.
+              eapply Time.lt_strorder. eauto.
+            * unfold TimeMap.singleton, LocFun.add. condtac; [|congr]. i.
+              eapply Time.lt_strorder. eauto.
           }
           { eauto. }
         + eauto.

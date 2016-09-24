@@ -915,6 +915,17 @@ Module Memory.
     - eapply singleton_closed_timemap; eauto.
   Qed.
 
+  Lemma singleton_ur_if_closed_view
+        cond loc from to val released mem
+        (GET: get loc to mem = Some (from, Message.mk val released))
+        (INHABITED: inhabited mem):
+    closed_view (View.singleton_ur_if cond loc to) mem.
+  Proof.
+    destruct cond; ss.
+    - eapply singleton_ur_closed_view; eauto.
+    - eapply singleton_rw_closed_view; eauto.
+  Qed.
+
 
   (* finite *)
 

@@ -154,12 +154,12 @@ Module TView <: JoinableType.
        (View.join
           (View.join
              tview1.(cur)
-             (View.singleton_rw loc ts))
+             (View.singleton_ur_if (Ordering.le Ordering.relaxed ord) loc ts))
           (if Ordering.le Ordering.acqrel ord then released.(View.unwrap) else View.bot))
        (View.join
           (View.join
              tview1.(acq)
-             (View.singleton_rw loc ts))
+             (View.singleton_ur_if (Ordering.le Ordering.relaxed ord) loc ts))
           (if Ordering.le Ordering.relaxed ord then released.(View.unwrap) else View.bot)).
 
   Inductive writable
@@ -198,7 +198,10 @@ Module TView <: JoinableType.
 
   Definition write_released tview sc loc ts releasedm ord :=
     if Ordering.le Ordering.relaxed ord
-    then Some (View.join releasedm.(View.unwrap) ((write_tview tview sc loc ts ord).(rel) loc))
+    then Some (View.join
+                 releasedm.(View.unwrap)
+                 (View.join (View.singleton_ur loc ts)
+                            ((write_tview tview sc loc ts ord).(rel) loc)))
     else None.
 
   Definition read_fence_tview
@@ -349,6 +352,8 @@ Module TViewFacts.
              apply View.singleton_rw_spec
            | [|- View.le (View.singleton_sc _ _) _] =>
              apply View.singleton_sc_spec
+           | [|- View.le (View.singleton_ur_if _ _ _) _] =>
+             apply View.singleton_ur_if_spec
            | [|- TimeMap.le (TimeMap.singleton _ _) _] =>
              apply TimeMap.singleton_spec
            | [|- TimeMap.le (TimeMap.join _ _) _] =>
@@ -366,6 +371,8 @@ Module TViewFacts.
              eapply Memory.singleton_rw_closed_view; eauto
            | [|- Memory.closed_view (View.singleton_sc _ _) _] =>
              eapply Memory.singleton_sc_closed_view; eauto
+           | [|- Memory.closed_view (View.singleton_ur_if _ _ _) _] =>
+             eapply Memory.singleton_ur_if_closed_view; eauto
            | [|- Memory.closed_timemap (TimeMap.join _ _) _] =>
              eapply Memory.join_closed_timemap; eauto
            | [|- Memory.closed_timemap (TimeMap.singleton _ _) _] =>
@@ -392,6 +399,8 @@ Module TViewFacts.
              eapply View.singleton_rw_wf; eauto
            | [|- View.wf (View.singleton_sc _ _)] =>
              eapply View.singleton_sc_wf; eauto
+           | [|- View.wf (View.singleton_ur_if _ _ _)] =>
+             eapply View.singleton_ur_if_wf; eauto
            | [|- View.wf View.bot] =>
              apply View.bot_wf
 
@@ -528,7 +537,7 @@ Module TViewFacts.
       (TView.read_tview tview1 loc ts released1 ord1)
       (TView.read_tview tview2 loc ts released2 ord2).
   Proof.
-    unfold TView.read_tview.
+    unfold TView.read_tview, View.singleton_ur_if.
     econs; repeat (condtac; aggrtac);
       (try by etrans; [apply TVIEW|aggrtac]);
       (try by rewrite <- ? View.join_r; econs; aggrtac);
@@ -545,7 +554,7 @@ Module TViewFacts.
       (TView.write_tview tview1 sc1 loc ts ord1)
       (TView.write_tview tview2 sc2 loc ts ord2).
   Proof.
-    unfold TView.write_tview.
+    unfold TView.write_tview, View.singleton_ur_if.
     econs; repeat (condtac; aggrtac);
       (try by etrans; [apply TVIEW|aggrtac]);
       (try by rewrite <- ? View.join_r; econs; aggrtac);
@@ -744,9 +753,10 @@ Module TViewFacts.
   Proof.
     hexploit Memory.op_future0; eauto; try by tac. i. des.
     unfold TView.write_released. condtac; econs.
-    apply Memory.join_closed_view.
+    repeat apply Memory.join_closed_view.
     - eapply Memory.op_closed_view; eauto.
       apply Memory.unwrap_closed_opt_view; tac.
+    - tac. eapply Memory.op_get2. eauto.
     - eapply op_closed_tview; eauto.
   Qed.
 
@@ -785,8 +795,9 @@ Module TViewFacts.
     Memory.closed_opt_view (TView.write_released tview1 sc1 loc to releasedm ord) mem1.
   Proof.
     unfold TView.write_released. condtac; econs.
-    apply Memory.join_closed_view.
+    repeat apply Memory.join_closed_view.
     - apply Memory.unwrap_closed_opt_view; tac.
+    - tac.
     - eapply get_closed_tview; eauto.
   Qed.
 

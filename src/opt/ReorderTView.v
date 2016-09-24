@@ -87,6 +87,7 @@ Proof.
     (try by condtac; aggrtac).
   - repeat condtac; aggrtac; try apply WF0.
   - repeat condtac; aggrtac; try apply WF0.
+  - repeat condtac; aggrtac; try apply WF0.
     destruct ord1; inv COND; inv COND1.
 Qed.
 

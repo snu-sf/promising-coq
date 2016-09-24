@@ -47,7 +47,10 @@ Lemma merge_read_read
   Local.read_step lc2 mem0 loc ts val released ord lc2.
 Proof.
   inv STEP1. refine (Local.read_step_intro _ _ _ _ _); s; eauto.
-  - econs; repeat (try condtac; aggrtac); try apply READABLE; auto.
+  - unfold View.singleton_ur_if.
+    econs; repeat (try condtac; aggrtac); try apply READABLE; auto.
+    + inv MEM0. exploit CLOSED; eauto. i. des.
+      etrans; eauto. apply View.unwrap_opt_wf. ss.
     + inv MEM0. exploit CLOSED; eauto. i. des.
       etrans; eauto. apply View.unwrap_opt_wf. ss.
     + inv MEM0. exploit CLOSED; eauto. i. des. auto.

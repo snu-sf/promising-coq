@@ -180,7 +180,9 @@ Proof.
   inv STEP. exploit CONS; eauto. s. i.
   apply TimeFacts.join_lt_des in x. des.
   apply TimeFacts.join_lt_des in AC. des.
-  revert BC0. unfold TimeMap.singleton, LocFun.add. condtac; ss.
+  revert BC0. unfold View.singleton_ur_if. condtac; ss.
+  - unfold TimeMap.singleton, LocFun.add. condtac; ss.
+  - unfold TimeMap.singleton, LocFun.add. condtac; ss.
 Qed.
 
 Lemma promise_consistent_promise_write
