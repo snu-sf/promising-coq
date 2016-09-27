@@ -75,7 +75,7 @@ Lemma write_promise_fulfill
     <<STEP1: Local.promise_step lc0 mem0 loc from to val released lc1 mem2 kind>> /\
     <<STEP2: fulfill_step lc1 sc0 loc from to val releasedm released ord lc2 sc2>> /\
     <<REL: released = TView.write_released lc0.(Local.tview) sc0 loc to releasedm ord>> /\
-    <<ORD: Ordering.le Ordering.acqrel ord ->
+    <<ORD: Ordering.le Ordering.strong_relaxed ord ->
            Memory.nonsynch_loc loc lc0.(Local.promises) /\
            kind = Memory.op_kind_add>>.
 Proof.
@@ -123,8 +123,9 @@ Lemma promise_fulfill_write
       (FULFILL: fulfill_step lc1 sc0 loc from to val releasedm released ord lc2 sc2)
       (REL_WF: View.opt_wf releasedm)
       (REL_CLOSED: Memory.closed_opt_view releasedm mem0)
-      (ORD: Ordering.le Ordering.acqrel ord -> Memory.nonsynch_loc loc lc0.(Local.promises) /\
-                                              kind = Memory.op_kind_add)
+      (ORD: Ordering.le Ordering.strong_relaxed ord ->
+            Memory.nonsynch_loc loc lc0.(Local.promises) /\
+            kind = Memory.op_kind_add)
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0):
@@ -154,8 +155,9 @@ Lemma promise_fulfill_write_exact
       (FULFILL: fulfill_step lc1 sc0 loc from to val releasedm released ord lc2 sc2)
       (REL_WF: View.opt_wf releasedm)
       (REL_CLOSED: Memory.closed_opt_view releasedm mem0)
-      (ORD: Ordering.le Ordering.acqrel ord -> Memory.nonsynch_loc loc lc0.(Local.promises) /\
-                                              kind = Memory.op_kind_add)
+      (ORD: Ordering.le Ordering.strong_relaxed ord ->
+            Memory.nonsynch_loc loc lc0.(Local.promises) /\
+            kind = Memory.op_kind_add)
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)

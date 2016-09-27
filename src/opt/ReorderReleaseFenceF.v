@@ -40,11 +40,11 @@ Inductive reorder_release_fenceF: forall (i2:Instr.t), Prop :=
     reorder_release_fenceF (Instr.load r2 l2 o2)
 | reorder_release_fenceF_store
     l2 v2 o2
-    (ORD2: o2 <> Ordering.relaxed):
+    (ORD2: Ordering.le o2 Ordering.plain \/ Ordering.le Ordering.acqrel o2):
     reorder_release_fenceF (Instr.store l2 v2 o2)
 | reorder_release_fenceF_update
     r2 l2 rmw2 or2 ow2
-    (ORDW2: ow2 <> Ordering.relaxed):
+    (ORDW2: Ordering.le ow2 Ordering.plain \/ Ordering.le Ordering.acqrel ow2):
     reorder_release_fenceF (Instr.update r2 l2 rmw2 or2 ow2)
 | reorder_release_fenceF_fence:
     reorder_release_fenceF (Instr.fence Ordering.acqrel Ordering.relaxed)
@@ -189,6 +189,7 @@ Proof.
     + left. eapply paco9_mon; [apply sim_release_fenceF_sim_thread|]; ss.
       econs. eauto.
   - (* update-load *)
+    guardH ORDW2.
     exploit sim_localF_read; eauto; try refl. i. des.
     esplits.
     + etrans; [eauto|]. econs 2; [|refl]. econs.
@@ -201,6 +202,7 @@ Proof.
     + left. eapply paco9_mon; [apply sim_release_fenceF_sim_thread|]; ss.
       econs. eauto.
   - (* write *)
+    guardH ORD2.
     hexploit sim_localF_write; try exact SC; eauto;
       (try refl); (try by econs). i. des.
     esplits.
@@ -215,6 +217,7 @@ Proof.
     + left. eapply paco9_mon; [apply sim_release_fenceF_sim_thread|]; ss.
       econs. eauto.
   - (* update *)
+    guardH ORDW2.
     exploit Local.read_step_future; eauto. i. des.
     exploit sim_localF_read; eauto; try refl. i. des.
     exploit Local.read_step_future; eauto. i. des.

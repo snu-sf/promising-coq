@@ -106,7 +106,7 @@ Qed.
 
 Lemma ordering_relaxed_dec
       ord:
-  Ordering.le ord Ordering.relaxed \/ Ordering.le Ordering.acqrel ord.
+  Ordering.le ord Ordering.relaxed \/ Ordering.le Ordering.strong_relaxed ord.
 Proof. destruct ord; auto. Qed.
 
 Lemma step_promise_consistent

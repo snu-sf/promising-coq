@@ -132,7 +132,7 @@ Lemma progress_write_step
       (MEM1: Memory.closed mem1)
       (WF_REL: View.opt_wf releasedm)
       (CLOSED_REL: Memory.closed_opt_view releasedm mem1)
-      (PROMISES1: Ordering.le Ordering.acqrel ord -> Memory.nonsynch_loc loc lc1.(Local.promises)):
+      (PROMISES1: Ordering.le Ordering.strong_relaxed ord -> Memory.nonsynch_loc loc lc1.(Local.promises)):
   exists released lc2 sc2 mem2,
     Local.write_step lc1 sc1 mem1 loc (Memory.max_ts loc mem1) to val releasedm released ord lc2 sc2 mem2 Memory.op_kind_add.
 Proof.
@@ -154,7 +154,7 @@ Qed.
 Lemma progress_fence_step
       lc1 sc1
       ordr ordw
-      (PROMISES1: Ordering.le Ordering.acqrel ordw -> Memory.nonsynch lc1.(Local.promises)):
+      (PROMISES1: Ordering.le Ordering.strong_relaxed ordw -> Memory.nonsynch lc1.(Local.promises)):
   exists lc2 sc2,
     Local.fence_step lc1 sc1 ordr ordw lc2 sc2.
 Proof.

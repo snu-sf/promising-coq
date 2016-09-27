@@ -232,7 +232,7 @@ Proof.
       condtac; [|by econs].
       condtac; cycle 1.
       { by destruct ord_tgt; inv NONEFOR; inv COND0. }
-      econs. unfold TView.write_tview. s. rewrite NONEFOR.
+      econs. unfold TView.write_tview. s.
       repeat (condtac; aggrtac); try by apply WF1_TGT.
       + rewrite <- View.join_r. rewrite <- View.join_r. rewrite <- ? View.join_l. apply LOCAL1.
       + rewrite <- View.join_r. rewrite <- View.join_r. rewrite <- ? View.join_l. apply LOCAL1.
@@ -281,7 +281,7 @@ Lemma sim_localF_write
       (RELM_TGT_WF: View.opt_wf releasedm_tgt)
       (RELM_TGT_CLOSED: Memory.closed_opt_view releasedm_tgt mem1_tgt)
       (ORD: Ordering.le ord_src ord_tgt)
-      (ORD_TGT: ord_tgt <> Ordering.relaxed)
+      (ORD_TGT: Ordering.le ord_tgt Ordering.plain \/ Ordering.le Ordering.acqrel ord_tgt)
       (STEP_TGT: Local.write_step lc1_tgt sc1_tgt mem1_tgt loc from to val releasedm_tgt released_tgt ord_tgt lc2_tgt sc2_tgt mem2_tgt kind)
       (LOCAL1: sim_localF none_for lc1_src lc1_tgt)
       (SC1: TimeMap.le sc1_src sc1_tgt)
@@ -299,14 +299,15 @@ Lemma sim_localF_write
     <<SC2: TimeMap.le sc2_src sc2_tgt>> /\
     <<MEM2: sim_memory mem2_src mem2_tgt>>.
 Proof.
+  guardH ORD_TGT.
   exploit write_promise_fulfill; eauto. i. des.
   exploit Local.promise_step_future; eauto. i. des.
   exploit sim_localF_promise; eauto. i. des.
   exploit Local.promise_step_future; eauto. i. des.
   assert (NONEFOR: __guard__ ((Ordering.le Ordering.acqrel ord_tgt /\ SimPromises.mem loc to none_for = false) \/
                               Ordering.le ord_tgt Ordering.plain)).
-  { destruct (Ordering.le ord_tgt Ordering.relaxed) eqn:X.
-    - right. destruct ord_tgt; inv X; ss.
+  { destruct (Ordering.le ord_tgt Ordering.strong_relaxed) eqn:X.
+    - right. unguardH ORD_TGT. destruct ord_tgt; des; ss.
     - left. splits.
       { by destruct ord_tgt; inv X. }
       exploit ORD0.
@@ -354,7 +355,7 @@ Lemma sim_localF_update
       (MEM1_TGT: Memory.closed mem1_tgt)
       (ORD1: Ordering.le ord1_src ord1_tgt)
       (ORD2: Ordering.le ord2_src ord2_tgt)
-      (ORD2_TGT: ord2_tgt <> Ordering.relaxed):
+      (ORD2_TGT: Ordering.le ord2_tgt Ordering.plain \/ Ordering.le Ordering.acqrel ord2_tgt):
   exists released1_src released2_src lc2_src lc3_src sc3_src mem3_src,
     <<REL1: View.opt_le released1_src released1_tgt>> /\
     <<REL2: View.opt_le released2_src released2_tgt>> /\
@@ -364,6 +365,7 @@ Lemma sim_localF_update
     <<SC3: TimeMap.le sc3_src sc3_tgt>> /\
     <<MEM3: sim_memory mem3_src mem3_tgt>>.
 Proof.
+  guardH ORD2_TGT.
   exploit Local.read_step_future; eauto. i. des.
   exploit sim_localF_read; eauto. i. des.
   exploit Local.read_step_future; eauto. i. des.
