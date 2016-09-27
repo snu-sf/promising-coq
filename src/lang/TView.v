@@ -185,7 +185,7 @@ Module TView <: JoinableType.
                   (if Ordering.le Ordering.seqcst ord then View.mk TimeMap.bot TimeMap.bot sc1 else View.bot)
     in
     let rel2 := LocFun.add loc
-                     (if Ordering.le Ordering.acqrel ord then cur2 else (tview1.(rel) loc))
+                     (if Ordering.le Ordering.acqrel ord then cur2 else View.join (tview1.(rel) loc) (View.singleton_ur loc ts))
                   tview1.(rel)
     in
     mk rel2 cur2 acq2.
@@ -200,8 +200,7 @@ Module TView <: JoinableType.
     if Ordering.le Ordering.relaxed ord
     then Some (View.join
                  releasedm.(View.unwrap)
-                 (View.join (View.singleton_ur loc ts)
-                            ((write_tview tview sc loc ts ord).(rel) loc)))
+                 ((write_tview tview sc loc ts ord).(rel) loc))
     else None.
 
   Definition read_fence_tview
@@ -753,10 +752,9 @@ Module TViewFacts.
   Proof.
     hexploit Memory.op_future0; eauto; try by tac. i. des.
     unfold TView.write_released. condtac; econs.
-    repeat apply Memory.join_closed_view.
+    apply Memory.join_closed_view.
     - eapply Memory.op_closed_view; eauto.
       apply Memory.unwrap_closed_opt_view; tac.
-    - tac. eapply Memory.op_get2. eauto.
     - eapply op_closed_tview; eauto.
   Qed.
 
@@ -795,9 +793,8 @@ Module TViewFacts.
     Memory.closed_opt_view (TView.write_released tview1 sc1 loc to releasedm ord) mem1.
   Proof.
     unfold TView.write_released. condtac; econs.
-    repeat apply Memory.join_closed_view.
+    apply Memory.join_closed_view.
     - apply Memory.unwrap_closed_opt_view; tac.
-    - tac.
     - eapply get_closed_tview; eauto.
   Qed.
 
@@ -813,8 +810,7 @@ Module TViewFacts.
       + unfold LocFun.add, LocFun.find. repeat condtac; tac; try apply WF_TVIEW.
       + condtac; tac; try apply WF_TVIEW.
       + condtac; tac.
-      + unfold LocFun.add, LocFun.find.
-        repeat condtac; tac; rewrite <- ? View.join_l; apply WF_TVIEW.
+      + repeat condtac; aggrtac; rewrite <- ? View.join_l; try apply WF_TVIEW.
       + repeat condtac; tac; rewrite <- ? View.join_l; apply WF_TVIEW.
       + condtac; tac.
       + apply TimeMap.singleton_inv. rewrite <- TimeMap.join_l. tac.

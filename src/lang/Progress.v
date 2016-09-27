@@ -104,8 +104,8 @@ Proof.
         (try apply WF1).
     + viewtac.
     + erewrite Memory.add_o; eauto. condtac; eauto. ss. des; congr.
-    + erewrite Memory.add_o; eauto. condtac; eauto. ss. des; congr.
     + econs; try apply Memory.closed_timemap_bot; viewtac.
+    + erewrite Memory.add_o; eauto. condtac; eauto. ss. des; congr.
     + erewrite Memory.add_o; eauto. condtac; eauto. ss. des; congr.
 Qed.
 

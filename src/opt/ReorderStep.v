@@ -76,7 +76,6 @@ Proof.
   rewrite TVIEW. rewrite SC_EQ at 3. econs; eauto.
   - etrans; eauto. unfold TView.write_released. condtac; econs. repeat apply View.join_spec.
     + rewrite <- View.join_l. apply View.unwrap_opt_le. auto.
-    + aggrtac.
     + rewrite <- ? View.join_r. rewrite TVIEW. refl.
   - econs; try apply WRITABLE.
     i. destruct ord; inversion H; inversion ORD.
@@ -840,7 +839,6 @@ Proof.
     + etrans; eauto. unfold TView.write_released. condtac; econs.
       repeat apply View.join_spec.
       * rewrite <- View.join_l. refl.
-      * rewrite <- View.join_r. rewrite <- View.join_l. refl.
       * rewrite <- ? View.join_r.
         apply TViewFacts.write_tview_mon; eauto; try refl.
         { etrans.

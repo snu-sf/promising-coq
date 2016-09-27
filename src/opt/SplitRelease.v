@@ -33,10 +33,11 @@ Set Implicit Arguments.
 Inductive split_release: forall (i1 i2:Instr.t), Prop :=
 | split_release_store
     l v:
-    split_release (Instr.store l v Ordering.acqrel) (Instr.store l v Ordering.relaxed)
+    split_release (Instr.store l v Ordering.acqrel) (Instr.store l v Ordering.strong_relaxed)
 | split_release_update
-    r l rmw or:
-    split_release (Instr.update r l rmw or Ordering.acqrel) (Instr.update r l rmw or Ordering.relaxed)
+    r l rmw or
+    (OR: Ordering.le or Ordering.strong_relaxed):
+    split_release (Instr.update r l rmw or Ordering.acqrel) (Instr.update r l rmw or Ordering.strong_relaxed)
 .
 
 Inductive sim_released: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (sc1_src:TimeMap.t) (mem1_src:Memory.t)
@@ -139,8 +140,9 @@ Lemma sim_local_fulfill_released
       (RELM_WF: View.opt_wf releasedm_src)
       (RELM_CLOSED: Memory.closed_opt_view releasedm_src mem1_src)
       (WF_RELM_TGT: View.opt_wf releasedm_tgt)
-      (STEP_TGT: fulfill_step lc1_tgt sc1_tgt loc from to val releasedm_tgt released Ordering.relaxed lc2_tgt sc2_tgt)
+      (STEP_TGT: fulfill_step lc1_tgt sc1_tgt loc from to val releasedm_tgt released Ordering.strong_relaxed lc2_tgt sc2_tgt)
       (LOCAL1: sim_local lc1_src lc1_tgt)
+      (RELEASED1: View.le lc1_tgt.(Local.tview).(TView.cur) (View.join (lc1_tgt.(Local.tview).(TView.rel) loc) (View.singleton_ur loc to)))
       (SC1: TimeMap.le sc1_src sc1_tgt)
       (MEM1: sim_memory mem1_src mem1_tgt)
       (WF1_SRC: Local.wf lc1_src mem1_src)
@@ -158,11 +160,10 @@ Proof.
   assert (RELT_LE:
    View.opt_le
      (TView.write_released lc1_src.(Local.tview) sc1_src loc to releasedm_src Ordering.acqrel)
-     (TView.write_released lc1_tgt.(Local.tview) sc1_tgt loc to releasedm_tgt Ordering.relaxed)).
-  { apply TViewFacts.write_released_mon; ss.
-    - apply LOCAL1.
-    - apply WF1_TGT.
-    - admit.
+     (TView.write_released lc1_tgt.(Local.tview) sc1_tgt loc to releasedm_tgt Ordering.strong_relaxed)).
+  { unfold TView.write_released, TView.write_tview. ss. viewtac;
+      try econs; repeat (condtac; aggrtac); try apply WF1_TGT.
+    rewrite <- View.join_r. etrans; eauto. apply LOCAL1.
   }
   assert (RELT_WF:
    View.opt_wf (TView.write_released lc1_src.(Local.tview) sc1_src loc to releasedm_src Ordering.acqrel)).
@@ -177,15 +178,20 @@ Proof.
   i. des. esplits.
   - econs; eauto.
     + etrans; eauto.
-    + eapply TViewFacts.writable_mon; eauto. apply LOCAL1.
-      admit.
-  - econs; eauto. s. apply TViewFacts.write_tview_mon; auto.
-    + apply LOCAL1.
-    + apply WF1_TGT.
-    + admit.
-  - apply TViewFacts.write_sc_mon; auto.
-    admit.
-Admitted.
+    + inv WRITABLE. econs; ss. eapply TimeFacts.le_lt_lt; [apply LOCAL1|apply TS].
+  - econs; eauto. s.
+    unfold TView.write_tview, View.singleton_ur_if. repeat (condtac; aggrtac).
+    econs; repeat (condtac; aggrtac);
+      (try by etrans; [apply LOCAL1|aggrtac]);
+      (try by rewrite <- ? View.join_r; econs; aggrtac);
+      (try apply WF1_TGT).
+    + ss. i. unfold LocFun.find. repeat (condtac; aggrtac).
+      * etrans; eauto. apply LOCAL1.
+      * apply LOCAL1.
+    + ss. aggrtac; try apply WF1_TGT. rewrite <- ? View.join_l. apply LOCAL1.
+    + ss. aggrtac; try apply WF1_TGT. rewrite <- ? View.join_l. apply LOCAL1.
+  - unfold TView.write_sc. repeat condtac; aggrtac.
+Qed.
 
 Lemma sim_local_write_released
       lc1_src sc1_src mem1_src
@@ -197,8 +203,9 @@ Lemma sim_local_write_released
       (RELM_SRC_CLOSED: Memory.closed_opt_view releasedm_src mem1_src)
       (RELM_TGT_WF: View.opt_wf releasedm_tgt)
       (RELM_TGT_CLOSED: Memory.closed_opt_view releasedm_tgt mem1_tgt)
-      (STEP_TGT: Local.write_step lc1_tgt sc1_tgt mem1_tgt loc from to val releasedm_tgt released_tgt Ordering.relaxed lc2_tgt sc2_tgt mem2_tgt kind)
+      (STEP_TGT: Local.write_step lc1_tgt sc1_tgt mem1_tgt loc from to val releasedm_tgt released_tgt Ordering.strong_relaxed lc2_tgt sc2_tgt mem2_tgt kind)
       (LOCAL1: sim_local lc1_src lc1_tgt)
+      (RELEASED1: View.le lc1_tgt.(Local.tview).(TView.cur) (View.join (lc1_tgt.(Local.tview).(TView.rel) loc) (View.singleton_ur loc to)))
       (SC1: TimeMap.le sc1_src sc1_tgt)
       (MEM1: sim_memory mem1_src mem1_tgt)
       (WF1_SRC: Local.wf lc1_src mem1_src)
@@ -221,11 +228,14 @@ Proof.
   exploit sim_local_fulfill_released; try apply STEP2;
     try apply LOCAL2; try apply MEM2; eauto.
   { eapply Memory.future_closed_opt_view; eauto. }
+  { by inv STEP1. }
   i. des.
   exploit promise_fulfill_write; try exact STEP_SRC; try exact STEP_SRC0; eauto.
-  { admit. }
+  { i. exploit ORD; eauto. i. des. splits; ss.
+    eapply sim_local_nonsynch_loc; eauto.
+  }
   i. des. esplits; eauto. etrans; eauto.
-Admitted.
+Qed.
 
 Lemma sim_released_step
       st1_src lc1_src sc1_src mem1_src
@@ -255,21 +265,29 @@ Proof.
     + eauto.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
   - (* write *)
-    hexploit sim_local_write; (try by etrans; eauto); eauto; try refl; try by econs. i. des.
+    hexploit sim_local_write_released; (try by etrans; eauto); eauto; try refl; try by econs.
+    { by rewrite <- View.join_l. }
+    i. des.
     esplits; eauto.
-    + econs 2. econs 2. econs; [|econs 3]; eauto. econs. admit.
+    + econs 2. econs 2. econs; [|econs 3]; eauto. econs. econs.
     + ss.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
   - (* update *)
     exploit Local.read_step_future; eauto. i. des.
     exploit sim_local_read; (try by etrans; eauto); eauto; try refl; try by econs. i. des.
     exploit Local.read_step_future; eauto. i. des.
-    hexploit sim_local_write; (try by etrans; eauto); eauto; try refl; try by econs. i. des.
+    hexploit sim_local_write_released; (try by etrans; eauto); eauto; try refl; try by econs.
+    { assert (TS: Time.lt tsr tsw).
+      { inv LOCAL2. eapply MemoryFacts.MemoryFacts.write_time_lt. eauto. }
+      inv LOCAL1. ss. repeat (condtac; aggrtac); try by apply WF_TGT.
+      destruct ordr; ss.
+    }
+    i. des.
     esplits; eauto.
-    + econs 2. econs 2. econs; [|econs 4]; eauto. econs. admit.
+    + econs 2. econs 2. econs; [|econs 4]; eauto. econs. econs. eauto.
     + ss.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
-Admitted.
+Qed.
 
 Lemma sim_released_sim_thread:
   sim_released <8= (sim_thread (sim_terminal eq)).

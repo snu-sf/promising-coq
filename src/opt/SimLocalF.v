@@ -234,12 +234,12 @@ Proof.
       { by destruct ord_tgt; inv NONEFOR; inv COND0. }
       econs. unfold TView.write_tview. s.
       repeat (condtac; aggrtac); try by apply WF1_TGT.
-      + rewrite <- View.join_r. rewrite <- View.join_r. rewrite <- ? View.join_l. apply LOCAL1.
-      + rewrite <- View.join_r. rewrite <- View.join_r. rewrite <- ? View.join_l. apply LOCAL1.
+      + rewrite <- View.join_r. rewrite <- ? View.join_l. apply LOCAL1.
+      + rewrite <- View.join_r. rewrite <- ? View.join_l. apply LOCAL1.
       + econs; aggrtac.
-      + rewrite <- View.join_r. rewrite <- View.join_r. rewrite <- ? View.join_l.
+      + rewrite <- View.join_r. rewrite <- ? View.join_l.
         etrans; [|apply LOCAL1]. apply WF1_SRC.
-      + rewrite <- View.join_r. rewrite <- View.join_r. rewrite <- ? View.join_l.
+      + rewrite <- View.join_r. rewrite <- ? View.join_l.
         etrans; [|apply LOCAL1]. apply WF1_SRC.
     - unfold TView.write_released. repeat (condtac; viewtac). refl.
   }
