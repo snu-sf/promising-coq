@@ -37,9 +37,13 @@
 - `src/opt`: Compiler Transformations (Section 5.1)
     + Trace-Preserving Transformations: `sim_trace_sim_stmts` (`SimTrace.v`)
     + Strengthening: `sim_stmts_instr` (`SimTrace.v`)
-    + Reorderings: `reorder_sim_stmts` (`Reorder.v`) and `reorder_release_fenceF_sim_stmts` (`ReorderReleaseFenceF.v`)
+    + Reorderings: `reorder_sim_stmts` (`Reorder.v`) and `reorder_release_fenceF_sim_stmts` (`ReorderRelFence.v`)
     + Merges: `Merge.v`
     + Unused Plain Read Elimination: `unused_load_sim_stmts` (`UnusedLoad.v`)
+    + Spliting acquire loads/updates and release writes/updates:
+        `split_acquire_sim_stmts` (`SplitAcq.v`), `split_release_sim_stmts` (`SplitRel.v`), `split_acqrel_sim_stmts` (`SplitAcqRel.v`)
+      These are used for the soundness proof of compilation to Power.
+
     + Proof Technique:
         * Simulation (Configuration): `sim` (`Simulation.v`) for the configuration simulation
         * Simulation (Thread): `sim_thread` (`SimThread.v`)
