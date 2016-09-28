@@ -73,12 +73,14 @@ Lemma sim_local_fulfill_acquired
       (RELM_LE: View.opt_le releasedm_src releasedm_tgt)
       (RELM_WF: View.opt_wf releasedm_src)
       (RELM_CLOSED: Memory.closed_opt_view releasedm_src mem1_src)
+      (RELM_TGT: Time.le (View.rlx (View.unwrap releasedm_tgt) loc) from)
       (WF_RELM_TGT: View.opt_wf releasedm_tgt)
       (ORD: Ordering.le ord_src ord_tgt)
+      (ORD_TGT: Ordering.le ord_tgt Ordering.strong_relaxed)
       (STEP_TGT: fulfill_step lc1_tgt sc1_tgt loc from to val releasedm_tgt released ord_tgt lc2_tgt sc2_tgt)
       (LOCAL1: sim_local lc1_src (local_acquired lc1_tgt))
       (ACQUIRED1: View.le lc1_src.(Local.tview).(TView.cur)
-                          (View.join lc1_tgt.(Local.tview).(TView.cur) (View.singleton_ur loc to)))
+                          (View.join lc1_tgt.(Local.tview).(TView.cur) releasedm_tgt.(View.unwrap)))
       (SC1: TimeMap.le sc1_src sc1_tgt)
       (MEM1: sim_memory mem1_src mem1_tgt)
       (WF1_SRC: Local.wf lc1_src mem1_src)
@@ -103,9 +105,12 @@ Proof.
                 | [|- View.opt_le _ _] => econs
                 end);
       try apply WF1_TGT.
+    - etrans; eauto. aggrtac.
     - rewrite <- ? View.join_r. econs; viewtac.
-    - etrans; [apply WF1_SRC|]. aggrtac.
-    - etrans; [apply WF1_SRC|]. aggrtac.
+    - etrans; eauto. aggrtac.
+    - etrans; eauto. aggrtac.
+    - etrans; [apply WF1_SRC|]. etrans; eauto. aggrtac.
+    - etrans; [apply WF1_SRC|]. etrans; eauto. aggrtac.
     - etrans; [apply LOCAL1|]. aggrtac.
   }
   assert (RELT_WF:
@@ -121,10 +126,21 @@ Proof.
   i. des. esplits.
   - econs; eauto.
     + etrans; eauto.
-    + admit.
-  - econs; eauto. s. admit.
+    + inv WRITABLE. econs.
+      * eapply TimeFacts.le_lt_lt; [apply ACQUIRED1|]. viewtac.
+        eapply TimeFacts.le_lt_lt; eauto.
+      * by destruct ord_src, ord_tgt.
+      * by destruct ord_src, ord_tgt.
+  - econs; eauto. s. unfold TView.write_tview, TView.read_fence_tview. ss.
+    econs; ss; repeat (condtac; aggrtac).
+    all: try by destruct ord_src, ord_tgt.
+    all: try by apply WF1_TGT.
+    + etrans; [apply LOCAL1|]. aggrtac.
+    + etrans; [apply LOCAL1|]. aggrtac.
+    + etrans; [apply WF1_SRC|]. etrans; [apply LOCAL1|]. aggrtac.
+    + etrans; [apply LOCAL1|]. aggrtac.
   - apply TViewFacts.write_sc_mon; auto.
-Admitted.
+Qed.
 
 Lemma sim_local_write_acquired
       lc1_src sc1_src mem1_src
@@ -136,9 +152,13 @@ Lemma sim_local_write_acquired
       (RELM_SRC_CLOSED: Memory.closed_opt_view releasedm_src mem1_src)
       (RELM_TGT_WF: View.opt_wf releasedm_tgt)
       (RELM_TGT_CLOSED: Memory.closed_opt_view releasedm_tgt mem1_tgt)
+      (RELM_TGT: Time.le (View.rlx (View.unwrap releasedm_tgt) loc) from)
       (ORD: Ordering.le ord_src ord_tgt)
+      (ORD_TGT: Ordering.le ord_tgt Ordering.strong_relaxed)
       (STEP_TGT: Local.write_step lc1_tgt sc1_tgt mem1_tgt loc from to val releasedm_tgt released_tgt ord_tgt lc2_tgt sc2_tgt mem2_tgt kind)
       (LOCAL1: sim_local lc1_src (local_acquired lc1_tgt))
+      (ACQUIRED1: View.le lc1_src.(Local.tview).(TView.cur)
+                          (View.join lc1_tgt.(Local.tview).(TView.cur) releasedm_tgt.(View.unwrap)))
       (SC1: TimeMap.le sc1_src sc1_tgt)
       (MEM1: sim_memory mem1_src mem1_tgt)
       (WF1_SRC: Local.wf lc1_src mem1_src)
@@ -158,10 +178,10 @@ Proof.
   exploit Local.promise_step_future; eauto. i. des.
   exploit sim_local_promise_acquired; eauto. i. des.
   exploit Local.promise_step_future; eauto. i. des.
-  exploit sim_local_fulfill_acquired; try apply STEP2;
+  hexploit sim_local_fulfill_acquired; try apply STEP2;
     try apply LOCAL2; try apply MEM2; eauto.
   { eapply Memory.future_closed_opt_view; eauto. }
-  { admit. }
+  { inv STEP_SRC. inv STEP1. ss. }
   i. des.
   exploit promise_fulfill_write; try exact STEP_SRC; try exact STEP_SRC0; eauto.
   { i. exploit ORD0; eauto.
@@ -169,7 +189,7 @@ Proof.
     - i. des. splits; auto. eapply sim_local_nonsynch_loc; eauto.
   }
   i. des. esplits; eauto. etrans; eauto.
-Admitted.
+Qed.
 
 
 Inductive split_acquire: forall (i1 i2:Instr.t), Prop :=
@@ -177,7 +197,8 @@ Inductive split_acquire: forall (i1 i2:Instr.t), Prop :=
     r l:
     split_acquire (Instr.load r l Ordering.acqrel) (Instr.load r l Ordering.relaxed)
 | split_acquire_update
-    r l rmw ow:
+    r l rmw ow
+    (OW: Ordering.le ow Ordering.strong_relaxed):
     split_acquire (Instr.update r l rmw Ordering.acqrel ow) (Instr.update r l rmw Ordering.relaxed ow)
 .
 
@@ -402,7 +423,16 @@ Proof.
     exploit sim_local_read_acquired; eauto. i. des.
     exploit Local.read_step_future; eauto. i. des.
     exploit Local.write_step_future; eauto. i. des.
-    hexploit sim_local_write_acquired; try exact SC; eauto; try refl. i. des.
+    hexploit sim_local_write_acquired; try exact LOCAL2; try exact SC; eauto; try refl.
+    { inv LOCAL1. eapply MEM_TGT. eauto. }
+    { inv STEP_SRC. inv LOCAL1. ss. repeat (condtac; aggrtac).
+      - rewrite <- ? View.join_l. apply LOCAL.
+      - apply WF_TGT.
+      - unfold TimeMap.join. rewrite <- Time.join_l. rewrite <- Time.join_l. rewrite <- Time.join_r.
+        unfold View.singleton_ur_if. condtac; ss. unfold TimeMap.singleton, LocFun.add.
+        condtac; ss. refl.
+    }
+    i. des.
     exploit Local.write_step_future; eauto. i. des.
     esplits; try apply SC; eauto.
     + econs 2. econs 2. econs; cycle 1.
