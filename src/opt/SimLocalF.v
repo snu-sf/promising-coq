@@ -552,7 +552,7 @@ Lemma sim_localF_fence_src
       (WF1_SRC: Local.wf lc1_src mem1_src)
       (WF1_TGT: Local.wf lc1_tgt mem1_tgt):
   exists lc2_src sc2_src,
-    <<STEP_SRC: Local.fence_step lc1_src sc1_src Ordering.relaxed Ordering.acqrel lc2_src sc2_src>> /\
+    <<STEP_SRC: Local.fence_step lc1_src sc1_src Ordering.plain Ordering.acqrel lc2_src sc2_src>> /\
     <<LOCAL2: sim_localF none_for lc2_src lc1_tgt>> /\
     <<SC2: TimeMap.le sc2_src sc1_tgt>>.
 Proof.
@@ -567,7 +567,7 @@ Lemma sim_localF_elimination
       lc1_src sc1_src mem1_src
       lc1_tgt sc1_tgt mem1_tgt
       lc2_tgt sc2_tgt
-      (STEP_TGT: Local.fence_step lc1_tgt sc1_tgt Ordering.relaxed Ordering.acqrel lc2_tgt sc2_tgt)
+      (STEP_TGT: Local.fence_step lc1_tgt sc1_tgt Ordering.plain Ordering.acqrel lc2_tgt sc2_tgt)
       (LOCAL1: sim_localF none_for lc1_src lc1_tgt)
       (SC1: TimeMap.le sc1_src sc1_tgt)
       (MEM1: sim_memory mem1_src mem1_tgt)

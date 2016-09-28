@@ -330,13 +330,12 @@ Proof.
     inv LOCAL. apply SimPromises.sem_bot_inv in PROMISES; auto. rewrite PROMISES. auto.
   }
   inv STEP_TGT; [inv STEP|inv STEP; inv LOCAL0];
-    try (inv STATE; inv INSTR; inv REORDER); ss.
+    try (inv STATE; inv INSTR); ss.
   - (* promise *)
     exploit sim_local_promise; eauto. i. des.
     esplits; try apply SC; eauto.
     econs 2. econs 1; eauto. econs; eauto. eauto.
   - (* fence *)
-    inv STATE. inv INSTR.
     exploit Local.fence_step_future; eauto. i. des.
     esplits.
     + eauto.

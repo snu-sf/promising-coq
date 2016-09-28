@@ -681,6 +681,16 @@ Module TViewFacts.
     apply TView.antisym; repeat (condtac; tac; try refl).
   Qed.
 
+  Lemma write_fence_tview_strong_relaxed
+        tview sc o (ORD: Ordering.le o Ordering.strong_relaxed):
+    TView.write_fence_tview tview sc o = tview.
+  Proof.
+    unfold TView.write_fence_tview, TView.write_fence_sc.
+    destruct tview. ss.
+    f_equal; repeat (condtac; aggrtac); try by destruct o.
+    rewrite View.join_comm, View.join_bot_l. ss.
+  Qed.
+
   Lemma read_future1
         loc from to val released ord tview mem
         (WF_TVIEW: TView.wf tview)

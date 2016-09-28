@@ -47,7 +47,7 @@ Inductive reorder_release_fenceF: forall (i2:Instr.t), Prop :=
     (ORDW2: Ordering.le ow2 Ordering.plain \/ Ordering.le Ordering.acqrel ow2):
     reorder_release_fenceF (Instr.update r2 l2 rmw2 or2 ow2)
 | reorder_release_fenceF_fence:
-    reorder_release_fenceF (Instr.fence Ordering.acqrel Ordering.relaxed)
+    reorder_release_fenceF (Instr.fence Ordering.acqrel Ordering.plain)
 .
 
 Inductive sim_release_fenceF: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (sc1_src:TimeMap.t) (mem1_src:Memory.t)
@@ -60,7 +60,7 @@ Inductive sim_release_fenceF: forall (st_src:lang.(Language.state)) (lc_src:Loca
     (LOCALF: sim_localF none_for lc1_src lc1_tgt):
     sim_release_fenceF
       (State.mk rs []) lc1_src sc1_src mem1_src
-      (State.mk rs [Stmt.instr (Instr.fence Ordering.relaxed Ordering.acqrel)]) lc1_tgt sc1_tgt mem1_tgt
+      (State.mk rs [Stmt.instr (Instr.fence Ordering.plain Ordering.acqrel)]) lc1_tgt sc1_tgt mem1_tgt
 .
 
 Lemma sim_release_fenceF_step
@@ -144,8 +144,8 @@ Qed.
 Lemma reorder_release_fenceF_sim_stmts
       i1 (REORDER: reorder_release_fenceF i1):
   sim_stmts eq
-            [Stmt.instr (Instr.fence Ordering.relaxed Ordering.acqrel); Stmt.instr i1]
-            [Stmt.instr i1; Stmt.instr (Instr.fence Ordering.relaxed Ordering.acqrel)]
+            [Stmt.instr (Instr.fence Ordering.plain Ordering.acqrel); Stmt.instr i1]
+            [Stmt.instr i1; Stmt.instr (Instr.fence Ordering.plain Ordering.acqrel)]
             eq.
 Proof.
   pcofix CIH. ii. subst. pfold. ii. splits; ii.
