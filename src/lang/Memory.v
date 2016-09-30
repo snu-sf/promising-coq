@@ -148,8 +148,8 @@ Module Memory.
 
   Inductive closed_view (view:View.t) (mem:t): Prop :=
   | closed_view_intro
-      (UR: closed_timemap view.(View.pln) mem)
-      (RW: closed_timemap view.(View.rlx) mem)
+      (PLN: closed_timemap view.(View.pln) mem)
+      (RLX: closed_timemap view.(View.rlx) mem)
       (SC: closed_timemap view.(View.sc) mem)
   .
 
