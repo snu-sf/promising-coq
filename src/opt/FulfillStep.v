@@ -38,7 +38,7 @@ Inductive fulfill_step (lc1:Local.t) (sc1:TimeMap.t) (loc:Loc.t) (from to:Time.t
     (TIME: Time.lt from to):
     fulfill_step lc1 sc1 loc from to val releasedm released ord
                  (Local.mk (TView.write_tview lc1.(Local.tview) sc1 loc to ord) promises2)
-                 (TView.write_sc sc1 loc to ord)
+                 sc1
 .
 
 Lemma fulfill_step_future lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2
@@ -60,7 +60,7 @@ Proof.
   i. des.
   esplits; eauto.
   - econs; eauto.
-  - apply TViewFacts.write_sc_incr.
+  - refl.
 Qed.
 
 Lemma write_promise_fulfill

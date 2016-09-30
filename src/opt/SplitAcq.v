@@ -98,7 +98,7 @@ Proof.
   assert (RELT_LE:
    View.opt_le
      (TView.write_released lc1_src.(Local.tview) sc1_src loc to releasedm_src ord_src)
-     (TView.write_released lc1_tgt.(Local.tview) sc1_tgt loc to releasedm_tgt ord_tgt)).
+     (TView.write_released lc1_tgt.(Local.tview) sc2_tgt loc to releasedm_tgt ord_tgt)).
   { unfold TView.write_released, TView.write_tview. ss. viewtac.
     repeat (condtac; aggrtac;
             try match goal with
@@ -106,10 +106,6 @@ Proof.
                 end);
       try apply WF1_TGT.
     - etrans; eauto. aggrtac.
-    - rewrite <- ? View.join_r. econs; viewtac.
-    - etrans; eauto. aggrtac.
-    - etrans; eauto. aggrtac.
-    - etrans; [apply WF1_SRC|]. etrans; eauto. aggrtac.
     - etrans; [apply WF1_SRC|]. etrans; eauto. aggrtac.
     - etrans; [apply LOCAL1|]. aggrtac.
   }
@@ -129,17 +125,15 @@ Proof.
     + inv WRITABLE. econs.
       * eapply TimeFacts.le_lt_lt; [apply ACQUIRED1|]. viewtac.
         eapply TimeFacts.le_lt_lt; eauto.
-      * by destruct ord_src, ord_tgt.
-      * by destruct ord_src, ord_tgt.
   - econs; eauto. s. unfold TView.write_tview, TView.read_fence_tview. ss.
-    econs; ss; repeat (condtac; aggrtac).
+    econs; ss; repeat (try condtac; aggrtac).
     all: try by destruct ord_src, ord_tgt.
     all: try by apply WF1_TGT.
     + etrans; [apply LOCAL1|]. aggrtac.
     + etrans; [apply LOCAL1|]. aggrtac.
     + etrans; [apply WF1_SRC|]. etrans; [apply LOCAL1|]. aggrtac.
     + etrans; [apply LOCAL1|]. aggrtac.
-  - apply TViewFacts.write_sc_mon; auto.
+  - ss.
 Qed.
 
 Lemma sim_local_write_acquired

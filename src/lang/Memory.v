@@ -150,7 +150,6 @@ Module Memory.
   | closed_view_intro
       (PLN: closed_timemap view.(View.pln) mem)
       (RLX: closed_timemap view.(View.rlx) mem)
-      (SC: closed_timemap view.(View.sc) mem)
   .
 
   Inductive closed_opt_view: forall (view:option View.t) (mem:t), Prop :=
@@ -607,9 +606,6 @@ Module Memory.
     - apply join_closed_timemap.
       + apply LHS.
       + apply RHS.
-    - apply join_closed_timemap.
-      + apply LHS.
-      + apply RHS.
   Qed.
 
   Lemma add_closed_timemap
@@ -631,7 +627,6 @@ Module Memory.
     closed_view view mem2.
   Proof.
     inv CLOSED. econs; eauto.
-    - eapply add_closed_timemap; eauto.
     - eapply add_closed_timemap; eauto.
     - eapply add_closed_timemap; eauto.
   Qed.
@@ -682,7 +677,6 @@ Module Memory.
     closed_view view mem2.
   Proof.
     inv CLOSED. econs; eauto.
-    - eapply split_closed_timemap; eauto.
     - eapply split_closed_timemap; eauto.
     - eapply split_closed_timemap; eauto.
   Qed.
@@ -737,7 +731,6 @@ Module Memory.
     closed_view view mem2.
   Proof.
     inv CLOSED. econs; eauto.
-    - eapply lower_closed_timemap; eauto.
     - eapply lower_closed_timemap; eauto.
     - eapply lower_closed_timemap; eauto.
   Qed.
@@ -888,7 +881,6 @@ Module Memory.
     econs; s.
     - eapply singleton_closed_timemap; eauto.
     - eapply singleton_closed_timemap; eauto.
-    - eapply singleton_closed_timemap; eauto.
   Qed.
 
   Lemma singleton_rw_closed_view
@@ -898,19 +890,6 @@ Module Memory.
     closed_view (View.singleton_rw loc to) mem.
   Proof.
     econs; s.
-    - apply closed_timemap_bot. auto.
-    - eapply singleton_closed_timemap; eauto.
-    - eapply singleton_closed_timemap; eauto.
-  Qed.
-
-  Lemma singleton_sc_closed_view
-        loc from to val released mem
-        (GET: get loc to mem = Some (from, Message.mk val released))
-        (INHABITED: inhabited mem):
-    closed_view (View.singleton_sc loc to) mem.
-  Proof.
-    econs; s.
-    - apply closed_timemap_bot. auto.
     - apply closed_timemap_bot. auto.
     - eapply singleton_closed_timemap; eauto.
   Qed.
@@ -1334,10 +1313,10 @@ Module Memory.
   Qed.
 
   Definition max_view (mem:t): View.t :=
-    View.mk (max_timemap mem) (max_timemap mem) (max_timemap mem).
+    View.mk (max_timemap mem) (max_timemap mem).
 
   Lemma max_view_wf mem: View.wf (max_view mem).
-  Proof. econs. refl. refl. Qed.
+  Proof. econs. refl. Qed.
 
   Lemma max_view_closed
         mem
@@ -1384,7 +1363,6 @@ Module Memory.
     apply View.ext; s.
     - eapply add_max_timemap; eauto.
     - eapply add_max_timemap; eauto.
-    - eapply add_max_timemap; eauto.
   Qed.
 
   Lemma closed_timemap_add
@@ -1400,18 +1378,14 @@ Module Memory.
 
   Definition max_released
              mem loc ts :=
-    let sc := TimeMap.join (max_timemap mem) (TimeMap.singleton loc ts) in
-    let rw := TimeMap.add loc ts sc in
-    View.mk rw rw sc.
+    let rlx := TimeMap.add loc ts (max_timemap mem) in
+    View.mk rlx rlx.
 
   Lemma  max_released_wf
          mem1 loc to:
     View.wf (max_released mem1 loc to).
   Proof.
-    econs; [refl|]. s.
-    ii. unfold TimeMap.join, TimeMap.singleton, TimeMap.add, TimeMap.get, LocFun.add. condtac.
-    - subst. etrans; [|apply Time.join_r]. refl.
-    - refl.
+    econs. refl.
   Qed.
 
   Lemma max_released_closed
@@ -1423,17 +1397,13 @@ Module Memory.
   Proof.
     splits.
     - unfold max_released.
-      erewrite <- add_max_timemap; eauto; cycle 1.
-      { apply CLOSED. }
       hexploit add_inhabited; try apply CLOSED; eauto. i. des.
-      econs; ss.
-      + eapply closed_timemap_add.
-        * erewrite add_o; eauto. condtac; ss. des; congr.
-        * apply max_timemap_closed. auto.
-      + eapply closed_timemap_add.
-        * erewrite add_o; eauto. condtac; ss. des; congr.
-        * apply max_timemap_closed. auto.
-      + apply max_timemap_closed. auto.
+      cut (closed_timemap (TimeMap.add loc to (max_timemap mem1)) mem2).
+      { i. econs; ss. }
+      eapply closed_timemap_add.
+      + erewrite add_o; eauto. condtac; ss. des; congr.
+      + eapply add_closed_timemap; eauto.
+        eapply max_timemap_closed. apply CLOSED.
     - ss. unfold TimeMap.add. condtac; [|congr]. refl.
   Qed.
 
@@ -1451,11 +1421,15 @@ Module Memory.
     erewrite add_max_view in x0; try apply CLOSED; eauto.
     inv x0. ss.
     unfold max_released. econs; ss.
-    - ii. unfold TimeMap.add. destruct (Loc.eq_dec loc0 loc); eauto.
-      subst. etrans; [|exact REL_TS].
-      inv ADD. inv ADD0. inv WF. apply WF0.
-    - ii. unfold TimeMap.add. destruct (Loc.eq_dec loc0 loc); eauto.
-      subst. auto.
+    - ii. unfold TimeMap.add. condtac.
+      + subst. etrans; [|exact REL_TS].
+        inv ADD. inv ADD0. inv WF. apply WF0.
+      + etrans; [apply PLN|]. apply Time.join_spec; [refl|].
+        unfold TimeMap.singleton, LocFun.add. condtac; ss. apply Time.bot_spec.
+    - ii. unfold TimeMap.add. condtac.
+      + subst. ss.
+      + etrans; [apply RLX|]. apply Time.join_spec; [refl|].
+        unfold TimeMap.singleton, LocFun.add. condtac; ss. apply Time.bot_spec.
   Qed.
 
   Lemma add_exists

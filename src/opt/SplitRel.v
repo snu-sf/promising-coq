@@ -160,7 +160,7 @@ Proof.
   assert (RELT_LE:
    View.opt_le
      (TView.write_released lc1_src.(Local.tview) sc1_src loc to releasedm_src Ordering.acqrel)
-     (TView.write_released lc1_tgt.(Local.tview) sc1_tgt loc to releasedm_tgt Ordering.strong_relaxed)).
+     (TView.write_released lc1_tgt.(Local.tview) sc2_tgt loc to releasedm_tgt Ordering.strong_relaxed)).
   { unfold TView.write_released, TView.write_tview. ss. viewtac;
       try econs; repeat (condtac; aggrtac); try apply WF1_TGT.
     rewrite <- View.join_r. etrans; eauto. apply LOCAL1.
@@ -190,7 +190,7 @@ Proof.
       * apply LOCAL1.
     + ss. aggrtac; try apply WF1_TGT. rewrite <- ? View.join_l. apply LOCAL1.
     + ss. aggrtac; try apply WF1_TGT. rewrite <- ? View.join_l. apply LOCAL1.
-  - unfold TView.write_sc. repeat condtac; aggrtac.
+  - ss.
 Qed.
 
 Lemma sim_local_write_released

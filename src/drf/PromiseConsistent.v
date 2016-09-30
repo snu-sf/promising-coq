@@ -83,7 +83,7 @@ Proof.
   inv STEP. ii.
   destruct (Memory.get loc0 ts promises2) as [[]|] eqn:X.
   - apply CONS in X. eapply TimeFacts.le_lt_lt; eauto.
-    s. etrans; [|apply Time.join_l]. etrans; [|apply Time.join_l]. refl.
+    s. etrans; [|apply Time.join_l]. refl.
   - destruct msg. inv WRITE.
     exploit Memory.promise_promises_get1; eauto. i. des.
     exploit fulfill_unset_promises; eauto. i. des. subst.
@@ -197,8 +197,7 @@ Proof.
   - inv STEP. inv WRITE. destruct m.
     exploit CONS; eauto. i. ss.
     apply TimeFacts.join_lt_des in x. des.
-    apply TimeFacts.join_lt_des in AC. des.
-    left. revert BC0. unfold TimeMap.singleton, LocFun.add. condtac; ss.
+    left. revert BC. unfold TimeMap.singleton, LocFun.add. condtac; ss.
   - inv STEP. inv WRITE. destruct m.
     exploit Memory.promise_promises_get1; eauto. i. des.
     exploit fulfill_unset_promises; eauto. i. des. subst. refl.

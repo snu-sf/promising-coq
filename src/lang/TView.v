@@ -144,8 +144,6 @@ Module TView <: JoinableType.
       (PLN: Time.le (view1.(View.pln) loc) ts)
       (RLX: Ordering.le Ordering.relaxed ord ->
             Time.le (view1.(View.rlx) loc) ts)
-      (SC1: Ordering.le Ordering.seqcst ord -> Time.le (view1.(View.sc) loc) ts)
-      (SC2: Ordering.le Ordering.seqcst ord -> Time.le (released.(View.unwrap).(View.sc) loc) ts)
   .
 
   Definition read_tview
@@ -166,35 +164,23 @@ Module TView <: JoinableType.
             (view1:View.t) (sc1:TimeMap.t) (loc:Loc.t) (ts:Time.t) (ord:Ordering.t): Prop :=
   | writable_intro
       (TS: Time.lt (view1.(View.rlx) loc) ts)
-      (SC1: Ordering.le Ordering.seqcst ord -> Time.lt (view1.(View.sc) loc) ts)
-      (SC2: Ordering.le Ordering.seqcst ord -> Time.lt (sc1 loc) ts)
   .
 
   Definition write_tview
              (tview1:t) (sc1:TimeMap.t) (loc:Loc.t) (ts:Time.t) (ord:Ordering.t): t :=
     let cur2 := View.join
-                  (View.join
-                     tview1.(cur)
-                     (View.singleton_ur loc ts))
-                  (if Ordering.le Ordering.seqcst ord then View.mk TimeMap.bot TimeMap.bot sc1 else View.bot)
+                  tview1.(cur)
+                  (View.singleton_ur loc ts)
     in
     let acq2 := View.join
-                  (View.join
-                     tview1.(acq)
-                     (View.singleton_ur loc ts))
-                  (if Ordering.le Ordering.seqcst ord then View.mk TimeMap.bot TimeMap.bot sc1 else View.bot)
+                  tview1.(acq)
+                  (View.singleton_ur loc ts)
     in
     let rel2 := LocFun.add loc
                      (if Ordering.le Ordering.acqrel ord then cur2 else View.join (tview1.(rel) loc) (View.singleton_ur loc ts))
                   tview1.(rel)
     in
     mk rel2 cur2 acq2.
-
-  Definition write_sc
-             (sc1:TimeMap.t) (loc:Loc.t) (ts:Time.t) (ord:Ordering.t): TimeMap.t :=
-    TimeMap.join
-      sc1
-      (if Ordering.le Ordering.seqcst ord then TimeMap.singleton loc ts else TimeMap.bot).
 
   Definition write_released tview sc loc ts releasedm ord :=
     if Ordering.le Ordering.relaxed ord
@@ -214,17 +200,17 @@ Module TView <: JoinableType.
   Definition write_fence_sc
              (tview1:t) (sc1:TimeMap.t) (ord:Ordering.t): TimeMap.t :=
     if Ordering.le Ordering.seqcst ord
-    then TimeMap.join sc1 tview1.(cur).(View.sc)
+    then TimeMap.join sc1 tview1.(cur).(View.rlx)
     else sc1.
 
   Definition write_fence_tview
              (tview1:t) (sc1:TimeMap.t) (ord:Ordering.t): t :=
     let sc2 := write_fence_sc tview1 sc1 ord in
-	  let cur2 := if Ordering.le Ordering.seqcst ord then View.mk sc2 sc2 sc2 else tview1.(cur)
+	  let cur2 := if Ordering.le Ordering.seqcst ord then View.mk sc2 sc2 else tview1.(cur)
 	  in
 	  let acq2 := View.join
                   tview1.(acq)
-				          (if Ordering.le Ordering.seqcst ord then View.mk sc2 sc2 sc2 else View.bot)
+				          (if Ordering.le Ordering.seqcst ord then View.mk sc2 sc2 else View.bot)
 	  in
 	  let rel2 := fun l => if Ordering.le Ordering.acqrel ord then cur2 else (tview1.(rel) l)
     in
@@ -243,14 +229,13 @@ Module TView <: JoinableType.
 End TView.
 
 Module TViewFacts.
-  Lemma sc_le_view_le
+  Lemma rlx_le_view_le
         c tm
         (WF: View.wf c)
-        (SC: TimeMap.le c.(View.sc) tm):
-    View.le c (View.mk tm tm tm).
+        (SC: TimeMap.le c.(View.rlx) tm):
+    View.le c (View.mk tm tm).
   Proof.
     econs; auto.
-    - etrans; eauto. etrans; apply WF.
     - etrans; eauto. apply WF.
   Qed.
 
@@ -291,10 +276,6 @@ Module TViewFacts.
            | [WF: TView.wf ?c |- View.le ?c.(TView.cur) ?c.(TView.acq)] =>
              apply WF
            | [WF: View.wf ?c |- TimeMap.le ?c.(View.pln) ?c.(View.rlx)] =>
-             apply WF
-           | [WF: View.wf ?c |- TimeMap.le ?c.(View.pln) ?c.(View.sc)] =>
-             etrans; apply WF
-           | [WF: View.wf ?c |- TimeMap.le ?c.(View.rlx) ?c.(View.sc)] =>
              apply WF
            | [WF: View.opt_wf ?released |- View.wf (View.unwrap ?released)] =>
              apply View.unwrap_opt_wf
@@ -338,7 +319,7 @@ Module TViewFacts.
               H2: Ordering.le ?o0 ?o1 = true,
               H3: Ordering.le ?o0 ?o2 = false |- _] =>
                by destruct o1, o2; inv H1; inv H2; inv H3
-           | [|- View.wf (View.mk ?tm ?tm ?tm)] =>
+           | [|- View.wf (View.mk ?tm ?tm)] =>
                by econs; refl
            | [|- View.wf (View.mk TimeMap.bot TimeMap.bot _)] =>
              econs; apply TimeMap.bot_spec
@@ -349,8 +330,6 @@ Module TViewFacts.
              apply View.singleton_ur_spec
            | [|- View.le (View.singleton_rw _ _) _] =>
              apply View.singleton_rw_spec
-           | [|- View.le (View.singleton_sc _ _) _] =>
-             apply View.singleton_sc_spec
            | [|- View.le (View.singleton_ur_if _ _ _) _] =>
              apply View.singleton_ur_if_spec
            | [|- TimeMap.le (TimeMap.singleton _ _) _] =>
@@ -368,8 +347,6 @@ Module TViewFacts.
              eapply Memory.singleton_ur_closed_view; eauto
            | [|- Memory.closed_view (View.singleton_rw _ _) _] =>
              eapply Memory.singleton_rw_closed_view; eauto
-           | [|- Memory.closed_view (View.singleton_sc _ _) _] =>
-             eapply Memory.singleton_sc_closed_view; eauto
            | [|- Memory.closed_view (View.singleton_ur_if _ _ _) _] =>
              eapply Memory.singleton_ur_if_closed_view; eauto
            | [|- Memory.closed_timemap (TimeMap.join _ _) _] =>
@@ -396,8 +373,6 @@ Module TViewFacts.
              eapply View.singleton_ur_wf; eauto
            | [|- View.wf (View.singleton_rw _ _)] =>
              eapply View.singleton_rw_wf; eauto
-           | [|- View.wf (View.singleton_sc _ _)] =>
-             eapply View.singleton_sc_wf; eauto
            | [|- View.wf (View.singleton_ur_if _ _ _)] =>
              eapply View.singleton_ur_if_wf; eauto
            | [|- View.wf View.bot] =>
@@ -407,7 +382,7 @@ Module TViewFacts.
              left; apply H
            | [|- Time.le ?a ?a] =>
              refl
-           | [|- View.le (View.mk ?tm1 ?tm1 ?tm1) (View.mk ?tm2 ?tm2 ?tm2)] =>
+           | [|- View.le (View.mk ?tm1 ?tm1) (View.mk ?tm2 ?tm2)] =>
              apply View.timemap_le_le
            | [|- context[LocFun.find _ (LocFun.add _ _ _)]] =>
              rewrite LocFun.add_spec
@@ -443,8 +418,8 @@ Module TViewFacts.
              try (by etrans; [|by apply Time.join_l]; aggrtac);
              try (by etrans; [|by apply Time.join_r]; aggrtac)
 
-           | [|- View.le _ (View.mk ?tm ?tm ?tm)] =>
-             apply sc_le_view_le
+           | [|- View.le _ (View.mk ?tm ?tm)] =>
+             apply rlx_le_view_le
            end).
 
   Lemma read_tview_incr
@@ -464,13 +439,6 @@ Module TViewFacts.
     econs; repeat (try condtac; aggrtac).
   Qed.
 
-  Lemma write_sc_incr
-        sc1 loc ts ord:
-    TimeMap.le sc1 (TView.write_sc sc1 loc ts ord).
-  Proof.
-    unfold TView.write_sc. tac.
-  Qed.
-
   Lemma read_fence_tview_incr
         tview1 ord
         (WF1: TView.wf tview1):
@@ -486,7 +454,7 @@ Module TViewFacts.
   Proof.
     unfold TView.write_fence_tview, TView.write_fence_sc.
     econs; repeat (try condtac; aggrtac; try apply WF1).
-    rewrite <- TimeMap.join_r. apply WF1.
+    - etrans; [apply WF1|]. tac.
   Qed.
 
   Lemma write_fence_sc_incr
@@ -507,8 +475,6 @@ Module TViewFacts.
     inv READABLE. econs; eauto.
     - etrans; try apply VIEW; auto.
     - etrans; [apply VIEW|]. apply RLX. etrans; eauto.
-    - etrans; [apply VIEW|]. apply SC1. etrans; eauto.
-    - i. etrans; [|apply SC2; etrans; eauto]. apply View.unwrap_opt_le. ss.
   Qed.
 
   Lemma writable_mon
@@ -521,8 +487,6 @@ Module TViewFacts.
   Proof.
     inv WRITABLE. econs; eauto.
     - eapply TimeFacts.le_lt_lt; try apply VIEW; auto.
-    - i. eapply TimeFacts.le_lt_lt; [apply VIEW|]. apply SC1. etrans; eauto.
-    - i. eapply TimeFacts.le_lt_lt; eauto. apply SC2. etrans; eauto.
   Qed.
 
   Lemma read_tview_mon
@@ -583,17 +547,6 @@ Module TViewFacts.
       (try apply WF2).
   Qed.
 
-  Lemma write_sc_mon
-        sc1 sc2 loc ts ord1 ord2
-        (SC: TimeMap.le sc1 sc2)
-        (ORD: Ordering.le ord1 ord2):
-    TimeMap.le
-      (TView.write_sc sc1 loc ts ord1)
-      (TView.write_sc sc2 loc ts ord2).
-  Proof.
-    unfold TView.write_sc. repeat condtac; aggrtac.
-  Qed.
-
   Lemma read_fence_tview_mon
         tview1 tview2 ord1 ord2
         (TVIEW: TView.le tview1 tview2)
@@ -621,10 +574,11 @@ Module TViewFacts.
       (TView.write_fence_tview tview2 sc2 ord2).
   Proof.
     unfold TView.write_fence_tview, TView.write_fence_sc.
-    econs; repeat (condtac; aggrtac);
-      (try by etrans; [apply TVIEW|aggrtac]);
-      (try by rewrite <- ? View.join_r; aggrtac;
-       rewrite <- ? TimeMap.join_r; apply TVIEW);
+    econs; repeat (condtac; aggrtac).
+    all: try by etrans; [apply TVIEW|aggrtac].
+    all: try by apply WF1.
+    all: try by rewrite <- ? View.join_r; aggrtac;
+      (rewrite <- ? TimeMap.join_r; apply TVIEW);
       (try by apply WF1).
     - rewrite <- TimeMap.join_r. etrans; [apply WF1|]. apply TVIEW.
     - etrans; [apply WF1|]. apply TVIEW.
@@ -644,15 +598,6 @@ Module TViewFacts.
       (try by etrans; [apply TVIEW|aggrtac]);
       (try rewrite <- ? View.join_r; aggrtac;
        rewrite <- ? TimeMap.join_r; apply TVIEW).
-  Qed.
-
-  Lemma write_sc_acqrel
-        sc loc ts ordw
-        (ORDW: Ordering.le ordw Ordering.acqrel):
-    TView.write_sc sc loc ts ordw = sc.
-  Proof.
-    unfold TView.write_sc. condtac; tac.
-    apply TimeMap.antisym; tac.
   Qed.
 
   Lemma write_tview_acqrel
@@ -739,16 +684,14 @@ Module TViewFacts.
   Qed.
 
   Lemma op_closed_sc
-        mem1 sc1 loc from to val released ord mem2 kind
+        mem1 sc1 loc from to val released mem2 kind
         (CLOSED0: Memory.closed_timemap sc1 mem1)
         (CLOSED1: Memory.closed mem1)
         (OP: Memory.op mem1 loc from to val released mem2 kind):
-    Memory.closed_timemap (TView.write_sc sc1 loc to ord) mem2.
+    Memory.closed_timemap sc1 mem2.
   Proof.
     hexploit Memory.op_future0; eauto; try by tac. i. des.
-    unfold TView.write_sc. condtac; tac;
-      (try by eapply Memory.op_closed_timemap; eauto; apply CLOSED0);
-      (try by eapply Memory.op_get2; eauto).
+    eapply Memory.op_closed_timemap; eauto.
   Qed.
 
   Lemma op_closed_released
@@ -778,19 +721,6 @@ Module TViewFacts.
   Proof.
     econs; tac; (try by apply CLOSED2).
     - unfold LocFun.add. repeat condtac; tac; (try by apply CLOSED2).
-      econs; tac; apply MEM.
-    - condtac; tac. econs; tac.
-    - condtac; tac. econs; tac.
-  Qed.
-
-  Lemma get_closed_sc
-        mem1 sc1 loc from to val released ord
-        (CLOSED0: Memory.closed_timemap sc1 mem1)
-        (CLOSED1: Memory.closed mem1)
-        (GET: Memory.get loc to mem1 = Some (from, Message.mk val released)):
-    Memory.closed_timemap (TView.write_sc sc1 loc to ord) mem1.
-  Proof.
-    unfold TView.write_sc. condtac; tac.
   Qed.
 
   Lemma get_closed_released
@@ -818,12 +748,8 @@ Module TViewFacts.
     splits; tac.
     - econs; tac; try apply WF_TVIEW.
       + unfold LocFun.add, LocFun.find. repeat condtac; tac; try apply WF_TVIEW.
-      + condtac; tac; try apply WF_TVIEW.
-      + condtac; tac.
       + repeat condtac; aggrtac; rewrite <- ? View.join_l; try apply WF_TVIEW.
       + repeat condtac; tac; rewrite <- ? View.join_l; apply WF_TVIEW.
-      + condtac; tac.
-      + apply TimeMap.singleton_inv. rewrite <- TimeMap.join_l. tac.
     - unfold TView.write_released. condtac; econs. repeat (try condtac; aggrtac; try apply WF_TVIEW).
   Qed.
 
@@ -841,7 +767,7 @@ Module TViewFacts.
     <<WF_TVIEW: TView.wf (TView.write_tview tview sc loc to ord)>> /\
     <<WF_RELEASED: View.opt_wf (TView.write_released tview sc loc to releasedm ord)>> /\
     <<CLOSED_TVIEW: TView.closed (TView.write_tview tview sc loc to ord) mem2>> /\
-    <<CLOSED_SC: Memory.closed_timemap (TView.write_sc sc loc to ord) mem2>> /\
+    <<CLOSED_SC: Memory.closed_timemap sc mem2>> /\
     <<CLOSED_RELEASED: Memory.closed_opt_view (TView.write_released tview sc loc to releasedm ord) mem2>>.
   Proof.
     exploit write_future0; eauto. i. des. splits; eauto.
@@ -862,12 +788,11 @@ Module TViewFacts.
     <<WF_TVIEW: TView.wf (TView.write_tview tview sc loc to ord)>> /\
     <<WF_RELEASED: View.opt_wf (TView.write_released tview sc loc to releasedm ord)>> /\
     <<CLOSED_TVIEW: TView.closed (TView.write_tview tview sc loc to ord) mem>> /\
-    <<CLOSED_SC: Memory.closed_timemap (TView.write_sc sc loc to ord) mem>> /\
+    <<CLOSED_SC: Memory.closed_timemap sc mem>> /\
     <<CLOSED_RELEASED: Memory.closed_opt_view (TView.write_released tview sc loc to releasedm ord) mem>>.
   Proof.
     exploit write_future0; eauto. i. des. splits; eauto.
     - eapply get_closed_tview; eauto.
-    - eapply get_closed_sc; eauto.
     - eapply get_closed_released; eauto.
   Qed.
 

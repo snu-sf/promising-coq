@@ -104,8 +104,6 @@ Proof.
         (try apply WF1).
     + viewtac.
     + erewrite Memory.add_o; eauto. condtac; eauto. ss. des; congr.
-    + econs; try apply Memory.closed_timemap_bot; viewtac.
-    + erewrite Memory.add_o; eauto. condtac; eauto. ss. des; congr.
     + erewrite Memory.add_o; eauto. condtac; eauto. ss. des; congr.
 Qed.
 
@@ -120,7 +118,6 @@ Proof.
   exploit (Memory.max_ts_spec loc); try apply MEM1; eauto. i. des.
   esplits; eauto. econs; eauto.
   econs; try by i; eapply Memory.max_ts_spec2; apply WF1.
-  i. eapply Memory.max_ts_spec2. apply Memory.unwrap_closed_opt_view; viewtac. eapply MEM1. eauto.
 Qed.
 
 Lemma progress_write_step
@@ -146,8 +143,6 @@ Proof.
   esplits. econs; eauto.
   - econs; i; (try eapply TimeFacts.le_lt_lt; [|eauto]).
     + apply Memory.max_ts_spec2. apply WF1.
-    + apply Memory.max_ts_spec2. apply WF1.
-    + apply Memory.max_ts_spec2. auto.
   - econs; eauto.
 Qed.
 
