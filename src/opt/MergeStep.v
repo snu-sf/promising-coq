@@ -168,7 +168,7 @@ Proof.
   inv WF. inv STEP.
   exploit Memory.remove_get0; eauto. i.
   exploit PROMISES; eauto. i.
-  inv TVIEW_CLOSED. inv CUR. exploit RW; eauto. instantiate (1 := loc). i. des.
+  inv TVIEW_CLOSED. inv CUR. exploit RLX; eauto. instantiate (1 := loc). i. des.
   eapply to_lt_from_le; eauto.
   inv WRITABLE. auto.
 Qed.
@@ -224,7 +224,7 @@ Proof.
       exploit Memory.remove_get0; try exact REMOVE; eauto. i.
       exploit PROMISES; eauto. i.
       inv TVIEW_CLOSED. inv CUR.
-      exploit RW; eauto. i. des. eauto.
+      exploit RLX; eauto. i. des. eauto.
       exploit SC; eauto. i. des. eauto.
       exploit SC0; eauto. i. des.
       econs; i;

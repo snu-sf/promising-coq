@@ -356,8 +356,8 @@ Proof.
   exploit sim_memory_get; try apply MEM1; eauto. i. des.
   esplits; eauto.
   - econs; eauto. inv READABLE. econs; ss; i.
-    + rewrite <- UR. apply TVIEW.
-    + rewrite <- RW; ss. apply TVIEW.
+    + rewrite <- PLN. apply TVIEW.
+    + rewrite <- RLX; ss. apply TVIEW.
   - econs; eauto. s.
     unfold TView.read_tview, TView.read_fence_tview. ss.
     econs; repeat (condtac; aggrtac).

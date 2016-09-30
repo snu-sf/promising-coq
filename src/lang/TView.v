@@ -141,9 +141,9 @@ Module TView <: JoinableType.
   Inductive readable
             (view1:View.t) (loc:Loc.t) (ts:Time.t) (released:option View.t) (ord:Ordering.t): Prop :=
   | readable_intro
-      (UR: Time.le (view1.(View.pln) loc) ts)
-      (RW: Ordering.le Ordering.relaxed ord ->
-           Time.le (view1.(View.rlx) loc) ts)
+      (PLN: Time.le (view1.(View.pln) loc) ts)
+      (RLX: Ordering.le Ordering.relaxed ord ->
+            Time.le (view1.(View.rlx) loc) ts)
       (SC1: Ordering.le Ordering.seqcst ord -> Time.le (view1.(View.sc) loc) ts)
       (SC2: Ordering.le Ordering.seqcst ord -> Time.le (released.(View.unwrap).(View.sc) loc) ts)
   .
@@ -506,7 +506,7 @@ Module TViewFacts.
   Proof.
     inv READABLE. econs; eauto.
     - etrans; try apply VIEW; auto.
-    - etrans; [apply VIEW|]. apply RW. etrans; eauto.
+    - etrans; [apply VIEW|]. apply RLX. etrans; eauto.
     - etrans; [apply VIEW|]. apply SC1. etrans; eauto.
     - i. etrans; [|apply SC2; etrans; eauto]. apply View.unwrap_opt_le. ss.
   Qed.
