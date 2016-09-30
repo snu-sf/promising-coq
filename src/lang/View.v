@@ -144,14 +144,12 @@ Module View <: JoinableType.
   Structure t_ := mk {
     pln: TimeMap.t;
     rlx: TimeMap.t;
-    sc: TimeMap.t;
   }.
   Definition t := t_.
 
   Inductive wf (view:t): Prop :=
   | wf_intro
       (PLN_RLX: TimeMap.le view.(pln) view.(rlx))
-      (RLX_SC: TimeMap.le view.(rlx) view.(sc))
   .
 
   Inductive opt_wf: forall (view:option View.t), Prop :=
@@ -169,7 +167,6 @@ Module View <: JoinableType.
   | le_intro
       (PLN: TimeMap.le lhs.(pln) rhs.(pln))
       (RLX: TimeMap.le lhs.(rlx) rhs.(rlx))
-      (SC: TimeMap.le lhs.(sc) rhs.(sc))
   .
   Definition le := le_.
 
@@ -202,13 +199,12 @@ Module View <: JoinableType.
   Lemma ext l r
         (PLN: l.(pln) = r.(pln))
         (RLX: l.(rlx) = r.(rlx))
-        (SC: l.(sc) = r.(sc)):
-    l = r.
+    : l = r.
   Proof.
     destruct l, r. f_equal; auto.
   Qed.
 
-  Definition bot: t := mk TimeMap.bot TimeMap.bot TimeMap.bot.
+  Definition bot: t := mk TimeMap.bot TimeMap.bot.
 
   Lemma bot_wf: wf bot.
   Proof. econs; refl. Qed.
@@ -218,8 +214,7 @@ Module View <: JoinableType.
 
   Definition join (lhs rhs:t): t :=
     mk (TimeMap.join lhs.(pln) rhs.(pln))
-       (TimeMap.join lhs.(rlx) rhs.(rlx))
-       (TimeMap.join lhs.(sc) rhs.(sc)).
+       (TimeMap.join lhs.(rlx) rhs.(rlx)).
 
   Lemma join_comm lhs rhs: join lhs rhs = join rhs lhs.
   Proof. unfold join. f_equal; apply TimeMap.join_comm. Qed.
@@ -227,7 +222,6 @@ Module View <: JoinableType.
   Lemma join_assoc a b c: join (join a b) c = join a (join b c).
   Proof.
     unfold join. ss. f_equal.
-    - apply TimeMap.join_assoc.
     - apply TimeMap.join_assoc.
     - apply TimeMap.join_assoc.
   Qed.
@@ -257,9 +251,6 @@ Module View <: JoinableType.
     - apply TimeMap.join_spec.
       + etrans; [apply LHS|]. apply TimeMap.join_l.
       + etrans; [apply RHS|]. apply TimeMap.join_r.
-    - apply TimeMap.join_spec.
-      + etrans; [apply LHS|]. apply TimeMap.join_l.
-      + etrans; [apply RHS|]. apply TimeMap.join_r.
   Qed.
 
   Definition bot_unless (cond:bool) (c:t): t :=
@@ -275,7 +266,6 @@ Module View <: JoinableType.
 
   Definition singleton_ur loc ts :=
     mk (TimeMap.singleton loc ts)
-       (TimeMap.singleton loc ts)
        (TimeMap.singleton loc ts).
 
   Lemma singleton_ur_wf
@@ -294,7 +284,6 @@ Module View <: JoinableType.
       try apply TimeMap.bot_spec;
       try apply TimeMap.singleton_spec; auto.
     - etrans; eauto. apply WF.
-    - etrans; eauto. etrans; apply WF.
   Qed.
 
   Lemma singleton_ur_inv loc ts c
@@ -306,7 +295,6 @@ Module View <: JoinableType.
 
   Definition singleton_rw loc ts :=
     mk TimeMap.bot
-       (TimeMap.singleton loc ts)
        (TimeMap.singleton loc ts).
 
   Lemma singleton_rw_wf
@@ -324,41 +312,11 @@ Module View <: JoinableType.
     econs; s;
       try apply TimeMap.bot_spec;
       try apply TimeMap.singleton_spec; auto.
-    etrans; eauto. apply WF.
   Qed.
 
   Lemma singleton_rw_inv loc ts c
         (LE: le (singleton_rw loc ts) c):
     Time.le ts (c.(rlx) loc).
-  Proof.
-    apply TimeMap.singleton_inv. apply LE.
-  Qed.
-
-  Definition singleton_sc loc ts :=
-    mk TimeMap.bot
-       TimeMap.bot
-       (TimeMap.singleton loc ts).
-
-  Lemma singleton_sc_wf
-        loc ts:
-    wf (singleton_sc loc ts).
-  Proof.
-    econs; ss; try refl. apply TimeMap.bot_spec.
-  Qed.
-
-  Lemma singleton_sc_spec loc ts c
-        (WF: wf c)
-        (TS: Time.le ts (c.(sc) loc)):
-    le (singleton_sc loc ts) c.
-  Proof.
-    econs; s;
-      try apply TimeMap.bot_spec;
-      try apply TimeMap.singleton_spec; auto.
-  Qed.
-
-  Lemma singleton_sc_inv loc ts c
-        (LE: le (singleton_sc loc ts) c):
-    Time.le ts (c.(sc) loc).
   Proof.
     apply TimeMap.singleton_inv. apply LE.
   Qed.
@@ -387,7 +345,6 @@ Module View <: JoinableType.
     destruct l, r. inv LR. inv RL. ss. f_equal.
     - apply TimeMap.antisym; auto.
     - apply TimeMap.antisym; auto.
-    - apply TimeMap.antisym; auto.
   Qed.
 
   Lemma opt_antisym l r
@@ -401,7 +358,7 @@ Module View <: JoinableType.
 
   Lemma timemap_le_le tm1 tm2
         (LE: TimeMap.le tm1 tm2):
-    le (mk tm1 tm1 tm1) (mk tm2 tm2 tm2).
+    le (mk tm1 tm1) (mk tm2 tm2).
   Proof. econs; eauto. Qed.
 
   Definition unwrap (view:option t): t :=

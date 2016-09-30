@@ -105,13 +105,9 @@ Lemma sim_memory_max_released
 Proof.
   unfold Memory.max_released. econs; s.
   - ii. unfold TimeMap.add. condtac; [refl|].
-    unfold TimeMap.get. aggrtac.
-    etrans; [|apply Time.join_l]. eapply sim_memory_max_timemap; eauto.
+    eapply sim_memory_max_timemap; eauto.
   - ii. unfold TimeMap.add. condtac; [refl|].
-    unfold TimeMap.get. aggrtac.
-    etrans; [|apply Time.join_l]. eapply sim_memory_max_timemap; eauto.
-  - unfold TimeMap.get. aggrtac.
-    etrans; [|apply TimeMap.join_l]. eapply sim_memory_max_timemap; eauto.
+    eapply sim_memory_max_timemap; eauto.
 Qed.
 
 Lemma covered_disjoint
@@ -329,7 +325,6 @@ Lemma sim_memory_closed_view
   Memory.closed_view view mem_src.
 Proof.
   econs.
-  - eapply sim_memory_closed_timemap; eauto. apply TGT.
   - eapply sim_memory_closed_timemap; eauto. apply TGT.
   - eapply sim_memory_closed_timemap; eauto. apply TGT.
 Qed.

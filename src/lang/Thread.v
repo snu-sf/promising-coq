@@ -235,8 +235,7 @@ Module Local.
                 kind = Memory.op_kind_add):
       write_step lc1 sc1 mem1 loc from to val releasedm released ord
                  (mk (TView.write_tview lc1.(tview) sc1 loc to ord) promises2)
-                 (TView.write_sc sc1 loc to ord)
-                 mem2 kind
+                 sc1 mem2 kind
   .
 
   Inductive fence_step (lc1:t) (sc1:TimeMap.t) (ordr ordw:Ordering.t): forall (lc2:t) (sc2:TimeMap.t), Prop :=
@@ -352,7 +351,7 @@ Module Local.
     splits; eauto.
     - econs; ss.
     - apply TViewFacts.write_tview_incr. auto.
-    - apply TViewFacts.write_sc_incr.
+    - refl.
     - inv WRITE. inv PROMISE; auto.
   Qed.
 

@@ -77,8 +77,6 @@ Proof.
   - inv WRITABLE. unfold TView.write_released. s.
     econs; repeat (try condtac; aggrtac); (try by left; eauto).
     + etrans; [|left; eauto]. apply WF0.
-    + etrans; [|left; eauto]. apply WF0.
-    + etrans; [|left; apply SC1; auto]. apply WF0.
   - unfold TView.read_tview, TView.write_released, TView.write_tview. s.
     apply TView.antisym; econs;
       repeat (try condtac; aggrtac; rewrite <- ? View.join_l; try apply WF0).
@@ -109,9 +107,6 @@ Proof.
   - inv WRITABLE. unfold TView.write_released. s.
     econs; repeat (try condtac; aggrtac); (try by left; eauto).
     + etrans; [|left; eauto]. apply WF0.
-    + etrans; [|left; eauto]. apply WF0.
-    + etrans; [|left; apply SC1; auto]. apply ACQ. etrans; eauto. auto.
-    + etrans; [|left; apply SC1; auto]. apply WF0.
   - unfold TView.read_tview, TView.write_released, TView.write_tview. s.
     apply TView.antisym; econs;
       repeat (try condtac; aggrtac; rewrite <- ? View.join_l; try apply WF0; eauto).
@@ -222,8 +217,6 @@ Proof.
       exploit PROMISES; eauto. i.
       inv TVIEW_CLOSED. inv CUR.
       exploit RLX; eauto. i. des. eauto.
-      exploit SC; eauto. i. des. eauto.
-      exploit SC0; eauto. i. des.
       econs; i;
         eapply TimeFacts.le_lt_lt; try eexact TS12;
         eapply to_lt_from_le; eauto.
@@ -231,15 +224,11 @@ Proof.
     econs; try exact STEP3; auto.
     + etrans; eauto. unfold released1', TView.write_released. s. condtac; econs.
       repeat (try condtac; aggrtac; try by apply WF0).
-      unfold TView.write_sc. econs; repeat (try condtac; aggrtac).
     + s. inv WRITABLE. econs; repeat (try condtac; aggrtac; eauto).
-      * eapply TimeFacts.le_lt_lt; eauto. apply Time.bot_spec.
-      * eapply TimeFacts.le_lt_lt; eauto. apply Time.bot_spec.
-      * unfold TView.write_sc. repeat (try condtac; aggrtac; eauto).
   - s. econs; ss.
     + eapply MergeTView.write_write_tview; eauto. apply WF0.
     + apply SimPromises.sem_bot.
-  - eapply MergeTView.write_write_sc; eauto.
+  - refl.
   - inv STEP1. eapply split_sim_memory. eauto.
   - refl.
 Qed.

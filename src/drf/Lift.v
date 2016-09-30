@@ -38,8 +38,8 @@ Definition lift_timemap (l: Loc.t) (t: Time.t) (tm: TimeMap.t) : TimeMap.t :=
 
 Definition lift_view (l: Loc.t) (t: Time.t) (rel: View.t) : View.t :=
   match rel with
-  | View.mk ur rw sc =>
-    View.mk ur (lift_timemap l t rw) (lift_timemap l t sc)
+  | View.mk pln rlx =>
+    View.mk pln (lift_timemap l t rlx)
   end.
 
 Definition lift_opt_view (l: Loc.t) (t: Time.t) (rel: option View.t) : option View.t :=
@@ -67,14 +67,12 @@ Lemma lift_view_wf l t cap
 Proof.
   unfold lift_view. destruct cap. inv WF. econs; ss.
   - etrans; eauto. apply lift_timemap_incr.
-  - apply lift_timemap_mon. auto.
 Qed.
 
 Lemma lift_view_incr l t cap:
   View.le cap (lift_view l t cap).
 Proof.
   unfold lift_view. destruct cap. econs; try refl.
-  - apply lift_timemap_incr.
   - apply lift_timemap_incr.
 Qed.
 
@@ -83,7 +81,6 @@ Lemma lift_view_mon l t cap1 cap2
   View.le (lift_view l t cap1) (lift_view l t cap2).
 Proof.
   inv LE. unfold lift_view. destruct cap1, cap2. econs; ss.
-  - apply lift_timemap_mon. auto.
   - apply lift_timemap_mon. auto.
 Qed.
 
@@ -127,7 +124,6 @@ Lemma lift_view_closed_view
   Memory.closed_view (lift_view l t cap) mem.
 Proof.
   destruct cap. ss. inv CLOSED. econs; ss.
-  - apply lift_timemap_closed_timemap; auto.
   - apply lift_timemap_closed_timemap; auto.
 Qed.
 
@@ -242,11 +238,6 @@ Next Obligation.
   des; subst; eauto. s.
   right. splits; ss. destruct (x.(View.unwrap)). s.
   unfold lift_timemap. f_equal. f_equal.
-  - extensionality y. destruct (LocSet.Facts.eq_dec l y); eauto.
-    apply TimeFacts.antisym; repeat apply Time.join_spec;
-      (try apply Time.join_l);
-      (try apply Time.join_r).
-    rewrite <- ? Time.join_l. refl.
   - extensionality y. destruct (LocSet.Facts.eq_dec l y); eauto.
     apply TimeFacts.antisym; repeat apply Time.join_spec;
       (try apply Time.join_l);
@@ -1155,7 +1146,6 @@ Proof.
       * refl.
     + econs; eauto.
   - apply TViewFacts.write_tview_mon; auto. refl.
-  - apply TViewFacts.write_sc_mon; auto. refl.
   - inv MEMLE'. econs; eauto.
     + etrans; eauto.
       eapply lower_mem_eqlerel. inv PROMISE0. eauto.
