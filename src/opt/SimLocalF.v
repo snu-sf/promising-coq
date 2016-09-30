@@ -226,7 +226,7 @@ Proof.
   assert (RELT_LE:
    View.opt_le
      (TView.write_released lc1_src.(Local.tview) sc1_src loc to releasedm_src ord_src)
-     (TView.write_released lc1_tgt.(Local.tview) sc1_tgt loc to releasedm_tgt ord_tgt)).
+     (TView.write_released lc1_tgt.(Local.tview) sc2_tgt loc to releasedm_tgt ord_tgt)).
   { unguardH NONEFOR. des.
     - unfold TView.write_released.
       condtac; [|by econs].
@@ -235,13 +235,9 @@ Proof.
       econs. unfold TView.write_tview. s. rewrite NONEFOR.
       repeat (condtac; aggrtac).
       + rewrite <- View.join_r. rewrite <- ? View.join_l. apply LOCAL1.
-      + rewrite <- View.join_r. rewrite <- ? View.join_l. apply LOCAL1.
       + apply WF1_TGT.
-      + econs; aggrtac.
-      + rewrite <- View.join_r. rewrite <- ? View.join_l. etrans; [|apply LOCAL1].
-        apply WF1_SRC.
-      + rewrite <- View.join_r. rewrite <- ? View.join_l. etrans; [|apply LOCAL1].
-        apply WF1_SRC.
+      + rewrite <- View.join_r. rewrite <- ? View.join_l.
+        etrans; [|apply LOCAL1]. apply WF1_SRC.
     - unfold TView.write_released. repeat (condtac; viewtac). refl.
   }
   assert (RELT_WF:
@@ -267,7 +263,7 @@ Proof.
     { apply LOCAL1. }
     { apply WF1_TGT. }
     i. des. econs; eauto.
-  - apply TViewFacts.write_sc_mon; auto.
+  - ss.
 Qed.
 
 Lemma sim_localF_write

@@ -161,7 +161,7 @@ Proof.
   assert (RELT_LE:
    View.opt_le
      (TView.write_released lc1_src.(Local.tview) sc1_src loc to releasedm_src ord_src)
-     (TView.write_released lc1_tgt.(Local.tview) sc1_tgt loc to releasedm_tgt ord_tgt)).
+     (TView.write_released lc1_tgt.(Local.tview) sc2_tgt loc to releasedm_tgt ord_tgt)).
   { apply TViewFacts.write_released_mon; ss.
     - apply LOCAL1.
     - apply WF1_TGT.
@@ -183,7 +183,7 @@ Proof.
   - econs; eauto. s. apply TViewFacts.write_tview_mon; auto.
     + apply LOCAL1.
     + apply WF1_TGT.
-  - apply TViewFacts.write_sc_mon; auto.
+  - ss.
 Qed.
 
 Lemma sim_local_write
