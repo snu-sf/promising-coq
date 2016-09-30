@@ -60,7 +60,7 @@ Proof.
   destruct lc0.
   assert (exists from val released, Memory.get loc ((TView.cur tview).(View.pln) loc) mem0 = Some (from, Message.mk val released)).
   { inv WF. ss. inv TVIEW_CLOSED. inv CUR.
-    exploit UR; eauto.
+    exploit PLN; eauto.
   }
   des. inv MEM. exploit CLOSED; eauto. i. des.
   esplits. econs; s; eauto.

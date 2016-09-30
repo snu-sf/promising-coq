@@ -583,8 +583,8 @@ by unfold val, lab in *; destruct a; destruct lb; desf.
 by auto.
 red; splits; intro l0.
 
-all: specialize (UR l0).
-all: specialize (RW l0).
+all: specialize (PLN l0).
+all: specialize (RLX l0).
 all: specialize (SC l0).
 all: specialize (CUR_UR l0).
 all: specialize (CUR_RW l0).
@@ -593,9 +593,9 @@ all: specialize (REL_UR l l0).
 all: specialize (REL_UR0 l l0).
 all: specialize (REL_UR1 l l0).
 all: specialize (SIM_SC_MAP l0).
-all: eapply max_value_new_f with (f:=f) (f':=f') in UR;
+all: eapply max_value_new_f with (f:=f) (f':=f') in PLN;
      try by intro; ins; eauto 4 with acts.
-all: eapply max_value_new_f with (f:=f) (f':=f') in RW;
+all: eapply max_value_new_f with (f:=f) (f':=f') in RLX;
      try by intro; ins; eauto 4 with acts.
 all: eapply max_value_new_f with (f:=f) (f':=f') in SC;
      try by intro; ins; eauto 4 with acts.
