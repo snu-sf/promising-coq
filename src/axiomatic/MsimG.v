@@ -93,43 +93,12 @@ eapply monotone_converse with (acts:=(a :: acts)); ins; eauto using rf_acta, rf_
   eapply gstep_tm_to_a; eauto.
 Qed.
 
-Lemma Readable_msg_sc acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
-  prev a (GSTEP: gstep acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc' prev a)
-  (COH: Coherent acts sb rmw rf mo sc) 
-  (COH': Coherent acts' sb' rmw' rf' mo' sc') 
-  t f (MON: monotone mo f) l v o b (LABa: lab a = Aload l v o)
-  (MSG: max_value f (fun a => msg_rel scr acts sb rmw rf sc l a b) t)
-  (RFb: rf' b a) (SC: is_sc a): Time.le t (f b).
-Proof.
-assert (~ is_write a).
-  intro; unfold is_write in *; destruct (lab a); ins.
-red in MSG; desf.
-apply Time.bot_spec.
-eapply transitivity with (y:=f a_max); try done.
-cdes GSTEP. 
-eapply monotone_converse with (acts:=(a :: acts)); eauto.
-- right; eapply acta_msg_scr; eauto.
-- eapply rf_acta in RFb; eauto. rewrite <- ACT_STEP; eauto.
-- eauto with rel.
-- eapply rf_doma in RFb; eauto.
-- eauto with rel.
-- eapply loceq_rf in RFb; eauto. unfold loc in *. rewrite LABa in RFb. auto.
-- rewrite gstep_non_write_mo with (mo':=mo'); eauto.
-  rewrite <- ACT_STEP.
-  cdes WF'; eauto.
-- intro. 
-  eapply (Coherent_m_scr COH'); eauto. 
-  eapply gstep_non_write_mo with (mo:=mo); eauto.
-  eapply (gstep_msg_rel_scr_nonwrite COH GSTEP); eauto. 
-Qed.
-
 Lemma Readable_full acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
   prev a (GSTEP: gstep acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc' prev a)
   (COH: Coherent acts sb rmw rf mo sc) 
   (COH': Coherent acts' sb' rmw' rf' mo' sc') 
   f (MON: monotone mo f) l v o b (LABa: lab a = Aload l v o)
   view rel
-  (MSG: max_value f (fun a => msg_rel scr acts sb rmw rf sc l a b) (View.sc rel.(View.unwrap) l))
   (CUR: sim_cur f acts sb rmw rf sc view (thread a))
   (RFb: rf' b a): 
     TView.readable view l (f b) rel o.
@@ -142,10 +111,6 @@ constructor; try intro.
   ins; eapply Coherent_rwr with (mo:=mo'); eauto.
   right; splits; eauto with acts.
   eapply rwr_actb; eauto.
-- eapply Readable_cur_tm; eauto using scr_hb, scr_mon with rel acts.
-  ins; eapply Coherent_scr_rf with (mo:=mo');  eauto with acts.
-  eapply scr_actb; eauto.
-- eapply Readable_msg_sc; eauto with acts.
 Qed.
 
 (******************************************************************************)
@@ -183,71 +148,6 @@ eapply monotone_converse_strict with (acts:=(a :: acts)); eauto.
 - intro; subst; eauto with acts.
 Qed.
 
-Lemma Writable_cur_scr acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
-  prev a (GSTEP: gstep acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc' prev a)
-  (COH: Coherent acts sb rmw rf mo sc) 
-  (COH': Coherent acts' sb' rmw' rf' mo' sc') 
-  t f f' (F : forall b, In b acts -> f' b = f b)
-  (MON: monotone mo' f') l v o (LABa: lab a = Astore l v o)
-  (CUR: max_value f (t_cur scr acts sb rmw rf sc (thread a) l) t) 
-  (SC: is_sc a) 
-  (N_ZERO: Time.lt Time.bot (f' a)) : Time.lt t (f' a).
-Proof.
-red in CUR; desf; try done.
-eapply TimeFacts.le_lt_lt with (b:=f a_max); try done.
-cdes GSTEP.
-rewrite <- F; eauto with acts.
-eapply monotone_converse_strict with (acts:=(a :: acts)); eauto.
-- right; eauto with acts. 
-- left; done.
-- eauto with rel.
-- eauto with acts.
-- eauto with rel.
-- unfold loc; rewrite LABa; done.
-- rewrite <- ACT_STEP; cdes WF'; eauto.
-- intro.
-  eapply Coherent_scr_eq; eauto.
-  eapply gstep_tm_to_a; eauto.
-  eapply scr_hb.
-  eapply scr_mon; eauto.
-  eapply scr_actb; eauto.
-- intro; subst; eauto with acts. 
-Qed.
-
-Lemma Writable_sc_map acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
-  prev a (GSTEP: gstep acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc' prev a)
-  (COH: Coherent acts sb rmw rf mo sc) 
-  (COH': Coherent acts' sb' rmw' rf' mo' sc') 
-  t f f' (F : forall b, In b acts -> f' b = f b)
-  (MON: monotone mo' f') l v o (LABa: lab a = Astore l v o)
-  (SCMAP: max_value f (S_tm acts sb rmw rf l) t)
-  (SC: is_sc a) 
-  (N_ZERO: Time.lt Time.bot (f' a)) : Time.lt t (f' a).
-Proof.
-red in SCMAP; desf; try done.
-eapply TimeFacts.le_lt_lt with (b:=f a_max); try done.
-cdes GSTEP.
-rewrite <- F; eauto with acts.
-eapply monotone_converse_strict with (acts:=(a :: acts)); eauto.
-- right; eauto with acts. 
-- left; done.
-- eauto with rel.
-- eauto with acts.
-- eauto with rel.
-- unfold loc; rewrite LABa; done.
-- rewrite <- ACT_STEP; cdes WF'; eauto.
-- intro.
-  eapply Coherent_scr_eq; eauto.
-  red in INam; red in INam; desc.
-  eapply S_tm_sc with (b:=y); eauto with acts.
-  eapply S_tmr_mon; eauto.
-  apply SC_AT_END; eauto 4 with acts.
-  apply S_tmr_domb in INam; done.
-  eapply S_tmr_actb; eauto.
-  intro; subst; apply FRESH; eapply S_tmr_actb; eauto.
-- intro; subst; eauto with acts. 
-Qed.
-
 Lemma Writable_full acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
   prev a (GSTEP: gstep acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc' prev a)
   (COH: Coherent acts sb rmw rf mo sc) 
@@ -263,8 +163,6 @@ Proof.
 red in CUR; desc.
 constructor; try intro.
 eapply Writable_cur_rwr; eauto.
-eapply Writable_cur_scr; eauto with acts.
-eapply Writable_sc_map; eauto with acts.
 Qed.
 
 (******************************************************************************)
@@ -348,7 +246,8 @@ splits; eauto.
   * rewrite <- gstep_non_write_mo; eauto with acts.
   * eapply tview_step_read with (acts := acts) (acts0 := acts0); eauto.
   * ins. eapply max_value_same_set; try edone.
-    ins; rewrite gstep_S_tm_other; eauto with acts.
+    ins; rewrite gstep_S_tm_other; eauto.
+    destruct a as [??[]]; ins.
   * eapply memory_step_nonwrite with (acts := acts) (acts0 := acts0); eauto with acts.
   * ins; eapply SPACE.
       by eapply gstep_mo; eauto; intro; subst; 
@@ -550,7 +449,13 @@ Proof.
     + esplits; ss. apply Memory.bot_nonsynch_loc.
   - exists f_from', f_to'; splits; try done.
     * eapply tview_step_write; eauto.
-    * eapply sc_map_step_write; eauto.
+    * ins; eapply max_value_new_f.
+      eapply max_value_same_set; try edone.
+      ins; rewrite gstep_S_tm_other; eauto.
+      intro; destruct a as [??[]]; ins.
+      intro x;  rewrite gstep_S_tm_other; try edone. 
+      by ins; eapply F_TO; apply acts_S_tm in H0.
+      destruct a as [??[]]; ins.
     * eapply memory_step_write; eauto.
       destruct WF_OP_ST; done.
     * clear H.
@@ -629,7 +534,7 @@ Proof.
   assert (SIM_SC_MAPw: forall l, max_value fto (S_tm acts1 sb1 rmw1 rf1 l)
                  (LocFun.find l (Configuration.sc op_st))).
     ins; eapply max_value_same_set; try edone.
-    by ins; rewrite gstep_S_tm_other; eauto with acts.
+    by ins; rewrite gstep_S_tm_other; eauto; destruct a_r as [??[]]; ins.
   assert (SIM_MEMw : sim_mem ffrom fto acts1 sb1 rmw1 rf1 sc1 (Configuration.memory op_st)).
     by eapply memory_step_nonwrite with (acts := acts) (acts0 := acts1); eauto with acts.
   assert (SPACEw : forall x y : event, mo1 x y -> ~ (rf1;; rmw1) x y -> fto x <> ffrom y).
@@ -780,7 +685,18 @@ Proof.
     * rewrite <- SAME_THREAD.
       eapply tview_step_write with (acts:=acts1); eauto.
       by rewrite SAME_THREAD.
-    * eapply sc_map_step_write with (acts:=acts1); eauto.
+    * ins; eapply max_value_new_f.
+      eapply max_value_same_set; try edone.
+      ins; rewrite gstep_S_tm_other with (acts:=acts1); eauto.
+      rewrite gstep_S_tm_other with (acts:=acts); eauto.
+      intro; destruct a_r as [??[]]; ins.
+      intro; destruct a_w as [??[]]; ins.
+      intro x;  rewrite gstep_S_tm_other with (acts:=acts1); try edone.
+      rewrite gstep_S_tm_other with (acts:=acts); eauto.
+      ins; eapply F_TO; apply acts_S_tm in H0; try edone.
+      cdes GSTEPr; desf; right; eauto.
+      intro; destruct a_r as [??[]]; ins.
+      intro; destruct a_w as [??[]]; ins.
     * eapply memory_step_update with (acts:=acts1); eauto; try rewrite upds; try done.
       + ins; rewrite updo; try done.
         eby intro; subst; cdes GSTEPw; eapply FRESH.
