@@ -110,8 +110,6 @@ red; splits; try done.
     all: right.
     all: repeat (exists (init_event l); splits).
     all: try match goal with
-         | [|- scr _ _ _ _ _ _ _ _] => left     end.
-    all: try match goal with
          | [|- rwr _ _ _ _ _ _ _ _] => left     end.
     all: repeat (exists (init_event l); splits).
     all: try by econs.
@@ -123,7 +121,7 @@ red; splits; try done.
     unfold S_tm, dom_rel, seq, eqv_rel in *; desc; subst.
     eapply init_not_sc, sc_wf_is_sc; try edone.
     eapply ACTS, S_tmr_actb; eauto.
-    eby eapply S_tmr_domb.
+    eby eapply sc_fence_is_sc_wf, S_tmr_domb.
   * red; splits; ins.
     apply UsualFMapPositive.UsualPositiveMap'.singleton_find_inv in CELL; desf.
     exists (init_event l); splits; eauto.
@@ -140,7 +138,6 @@ red; splits; try done.
     all: eapply init_not_rel; try edone; eapply ACTS.
     by eapply urr_actb; eauto.
     by eapply rwr_actb; eauto.
-    by eapply scr_actb; eauto.
 Qed.
 
 Lemma sim_initial_MG :

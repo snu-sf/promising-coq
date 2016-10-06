@@ -150,7 +150,7 @@ Definition gstep prev a :=
   << SB_AT_END: forall x (TIDx: thread x = thread a \/ is_init x) 
                          (INx: In x acts) (NEQ: x <> a), sb' x a >> /\
   << RMW_STEP: rmw_step prev a >> /\
-  << SC_AT_END: forall (SCa: is_sc_wf a) x (SCx: is_sc_wf x) (INx: In x acts)
+  << SC_AT_END: forall (SCa: is_sc_fence a) x (SCx: is_sc_fence x) (INx: In x acts)
                   (NEQ: x <> a), sc' x a >> /\
   << INC: graph_inclusion >> /\
   << WF': Wf acts' sb' rmw' rf' mo' sc' >>.
@@ -232,9 +232,6 @@ Section GstepLemmas.
   Lemma rwr_mon l : inclusion (rwr acts sb rmw rf sc l) (rwr acts' sb' rmw' rf' sc' l).
   Proof. unfold rwr; eauto 20 with mon. Qed.
   Hint Resolve rwr_mon: mon.
-  Lemma scr_mon l : inclusion (scr acts sb rmw rf sc l) (scr acts' sb' rmw' rf' sc' l).
-  Proof. unfold scr; eauto 20 with mon. Qed.
-  Hint Resolve scr_mon: mon.
   Lemma S_tmr_mon l : inclusion (S_tmr acts sb rmw rf l) (S_tmr acts' sb' rmw' rf' l).
   Proof. unfold S_tmr; eauto 20 with mon. Qed.
   Hint Resolve S_tmr_mon: mon.
@@ -319,9 +316,6 @@ Section GstepLemmas.
   Lemma wmax_elt_rwr l : wmax_elt (rwr acts' sb' rmw' rf' sc' l) a.
   Proof. eauto 14 with rel_max rel. Qed.
   Hint Resolve wmax_elt_rwr : rel_max.
-  Lemma wmax_elt_scr l : wmax_elt (scr acts' sb' rmw' rf' sc' l) a.
-  Proof. eauto 14 with rel_max rel. Qed.
-  Hint Resolve wmax_elt_scr : rel_max.
 
   Lemma max_elt_rel_nonwrite (N: ~ is_write a) : max_elt (rel acts' sb' rmw' rf') a. 
   Proof. eauto 14 with rel_max rel. Qed.
@@ -479,9 +473,6 @@ Section GstepLemmas.
   Lemma gstep_rwr_a l : gstep_a (rwr acts sb rmw rf sc l) (rwr acts' sb' rmw' rf' sc' l).
   Proof. unfold rwr; eauto 30 with rel rel_max. Qed.
   Hint Resolve gstep_rwr_a : rel_max.
-  Lemma gstep_scr_a l : gstep_a (scr acts sb rmw rf sc l) (scr acts' sb' rmw' rf' sc' l).
-  Proof. unfold scr; eauto 30 with rel rel_max. Qed.
-  Hint Resolve gstep_scr_a : rel_max.
 
   Lemma gstep_m_rel_a tm tm' : 
     wmax_elt tm' a -> gstep_a tm tm' ->
@@ -571,20 +562,19 @@ Proof.
   by intro A; rewrite A in *; edestruct (lab a); ins.
 Qed.
 
-Lemma gstep_sc_nonsc (N: ~ is_sc_wf a) : sc <--> sc'.
+Lemma gstep_sc_nonsc (N: ~ is_sc_fence a) : sc <--> sc'.
 Proof.
   cdes GSTEP; cdes INC; split; ins.
   intros x y H.
   cdes WF'; cdes WF_SC.
-  specialize (SC_DOMa _ _ H); red in SC_DOMa.
-  specialize (SC_DOMb _ _ H); red in SC_DOMb.
-  unfold is_sc in *.
-  eapply gstep_sc_a; try edone;
-  by intro A; rewrite A in *; edestruct (lab a); ins.
+  specialize (SC_DOMa _ _ H).
+  specialize (SC_DOMb _ _ H).
+  eapply gstep_sc_a; try edone.
+  intro; subst; destruct a as [??[]]; ins.
 Qed.
 
 Definition sc_ext x y := 
-  In x acts /\ is_sc_wf x /\ is_sc_wf y /\ y = a.
+  In x acts /\ is_sc_fence x /\ is_sc_fence y /\ y = a.
 
 Definition sb_ext :=
   <| fun x => In x acts |> ;; 
