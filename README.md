@@ -1,17 +1,53 @@
 # A Promising Semantics for Relaxed-Memory Concurrency
 
+[This branch](https://github.com/snu-sf/promising-coq/tree/popl17ae) is the [artifact](http://conf.researchr.org/track/POPL-2017/ArtifactEvaluation) for the POPL 2017 Submission #65: A Promising Semantics for Relaxed-Memory Concurrency.
+
 ## Build
 
 - Requirement: [Coq 8.5pl2](https://coq.inria.fr/download), Make, Rsync.
 
 - Initialization
 
+        git clone https://github.com/snu-sf/promising-coq.git
+        cd promising-coq
+        git checkout popl17ae
         git submodule init
         git submodule update
 
 - `make`: quickly build without checking the proofs.
 
 - `./build.sh`: build with checking all the proofs.  It will incrementally copy the development in the `.build` directory, and then build there.
+
+- Interactive Theorem Proving: use [ProofGeneral](https://proofgeneral.github.io/) or [CoqIDE](https://coq.inria.fr/download).
+
+  Note that `make` creates `_CoqProject`, which is then used by ProofGeneral and CoqIDE. To use it:
+
+    + ProofGeneral: use a recent version.
+    + CoqIDE: configure it to use `_CoqProject`: `Edit` > `Preferences` > `Project`: change `ignored` to `appended to arguments`.
+
+## Difference from the POPL Submission
+
+Since the POPL submission, we changed the Coq development as follows. We are revising the paper for the camera-ready deadline. Here is an [intermediate draft for the paper](http://sf.snu.ac.kr/promising/release/promising.pdf).
+
+- We removed SC accesses.
+
+  After the submission, we found out that compilation of SC accesses (reads/writes/updates) to Power is unsound. In the author response, we clearly stated that "we must retract the claim that our semantics of SC accesses is implementable on Power", and "if we do not find a fix, we will remove SC accesses (reads, write and updates) from our model and explain clearly up front that SC accesses and consume reads are future work."
+
+  We did not update the paper draft yet.
+
+- We changed the conditions for release writes/updates and release fences.
+
+  After the submission, we removed an asymmetry of the conditions for release writes/updates and fences on promises. We accordingly adapted the existing proofs of the "Results" (Section 5).
+
+  We already updated the paper draft.  To summarize, we changed the semantics of release writes/updates and fences as follows:
+
+    + Writes/Updates: The POPL submission version requires that, to release-write a message to `x`, the writing thread should not have any promise on `x`. Instead, the current version requires that any promise on `x` should have the bottom released view.
+
+    + Fences: The current version requires that any promises by the thread issuing a release fence, should have the bottom released view.  The POPL submission version did not require that.
+
+- Minor miscellaneous changes
+
+  We bumped the Coq version, changed names for better consistency, etc. No update is needed for the paper.
 
 ## References
 
@@ -33,6 +69,8 @@
 
 - `src/while` Toy "while" language
   This language provides the basis for the optimization & compilation results.
+
+### Results
 
 - `src/opt`: Compiler Transformations (Section 5.1)
     + Trace-Preserving Transformations: `sim_trace_sim_stmts` (`SimTrace.v`)
