@@ -86,11 +86,11 @@ Since the POPL submission, we changed the Coq development as follows. We are rev
         * Composition: `sim_compose` (`Composition.v`).  "horizontally" composing configuration simulations for disjoint configurations.
         * Compatibility: `sim_stmts_*` (`Compatibility.v`).
 
-- `src/axiomatic`: Compilation to TSO and Power (Section 5.2)
+- `src/axiomatic`: definition of an axiomatic semantics, which is equivalent to our promise-free machine.
+  This equivalence result is a stepping-stone for the compilation to TSO and Power (Section 5.2).
     + `model.v` and `Machine.v`: Definition of the axiomatic machine.
     + `SimRel.v`: Definition of the simulation relation.
     + `MsimG.v`, `GsimM.v`: the operational machine (`M`) simulates the axiomatic one (`G`), and vice versa.
-       These proofs are complete except for the case of system call steps, which is admitted.
 
 - `src/drf`: DRF Theorems (Section 5.3)
     + Promise-Free DRF (Theorem 1): `drf_pf` (`DRF_PF.v`)
