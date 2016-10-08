@@ -6,4 +6,4 @@
   url = https://github.com/snu-sf/paco.git
 [submodule "lib/hahn"]
   path = lib/hahn
-  url = git@github.com:vafeiadis/hahn.git
+  url = https://github.com/vafeiadis/hahn.git
