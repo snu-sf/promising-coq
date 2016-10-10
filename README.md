@@ -76,6 +76,7 @@ Since the POPL submission, we changed the Coq development as follows. We are rev
     + Trace-Preserving Transformations: `sim_trace_sim_stmts` (`SimTrace.v`)
     + Strengthening: `sim_stmts_instr` (`SimTrace.v`)
     + Reorderings: `reorder_sim_stmts` (`Reorder.v`) and `reorder_release_fenceF_sim_stmts` (`ReorderReleaseFenceF.v`)
+      The latter proves the reordering of `F_rel; *` is proved, while the former proves everything else.
     + Merges: `Merge.v`
     + Unused Plain Read Elimination: `unused_load_sim_stmts` (`UnusedLoad.v`)
     + Proof Technique:
