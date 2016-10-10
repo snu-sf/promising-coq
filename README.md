@@ -14,6 +14,8 @@
         git submodule init
         git submodule update
 
+  If you have a problem with Git, please download [promising-coq.zip](http://sf.snu.ac.kr/promising/release/promising-coq.zip). You can `make` and `./build.sh` after extracting it.
+
 - `make`: quickly build without checking the proofs.
 
 - `./build.sh`: build with checking all the proofs.  It will incrementally copy the development in the `.build` directory, and then build there.
