@@ -18,6 +18,8 @@ Require Import Gevents.
 Set Implicit Arguments.
 Remove Hints plus_n_O.
 
+Arguments transp [A] R x y.
+
 Ltac cdes H := 
   let H' := fresh H in assert (H' := H); red in H'; desc. 
 
@@ -62,17 +64,13 @@ Section Consistency.
     clos_refl (clos_refl rf ;; hb ;; <| is_sc_fence |>).
 
   Definition urr l := 
-    rfhbsc_opt l ;; clos_refl (sc ;; <| is_sc_fence |>) ;; clos_refl hb.
+    (rfhbsc_opt l ;; clos_refl (sc ;; <| is_sc_fence |>) +++
+    <| fun x => is_write x /\ loc x = Some l |> ;; rf ;; <| is_rlx_rw |>) ;; 
+    clos_refl hb.
 
   Definition rwr l := 
-    urr l +++ <| fun x => is_write x /\ loc x = Some l |> ;; rf ;; clos_refl hb.
-
-  Definition scr l := 
-    rwr l +++ rfhbsc_opt l ;; sc ;; <| is_write |> ;; clos_refl hb.
-
-(*  Definition urr_rel := urr ;; rel.
-  Definition rwr_rel := rwr ;; rel.
-  Definition scr_rel := scr ;; rel. *)
+    urr l +++ <| fun x => is_write x /\ loc x = Some l |> ;; 
+    <| fun y => ~ is_rlx_rw y |> ;; rf ;; clos_refl hb.
 
   Definition c_rel i l' tmr :=  
     tmr ;; 
@@ -89,9 +87,9 @@ Section Consistency.
 
   Definition m_rel tmr :=
     tmr ;; rel.
-                             
+
   Definition S_tmr l := 
-    rfhbsc_opt l ;; <| is_sc_wf |>. 
+    rfhbsc_opt l ;; <| is_sc_fence |>. 
 
   Definition S_tm l := dom_rel (S_tmr l).
 
@@ -104,18 +102,12 @@ Section Consistency.
 
   Lemma sw_in_hb : inclusion sw hb.
   Proof. vauto. Qed.
-   
+
   Lemma hb_trans : transitive hb.
   Proof. vauto. Qed.
-   
+
   Lemma ur_in_rw l : inclusion (urr l) (rwr l).
   Proof. vauto. Qed.
-   
-  Lemma rw_in_sc l : inclusion (rwr l) (scr l).
-  Proof. vauto. Qed.
-   
-  Lemma ur_in_sc l : inclusion (urr l) (scr l).
-  Proof. transitivity (rwr l); vauto. Qed.
 
   Section MonotonicityLemmas.
 
@@ -158,12 +150,6 @@ Section Consistency.
   Lemma rwr_hb l : inclusion (rwr l ;; hb) (rwr l). 
   Proof.
     unfold rwr; rewrite seq_union_l, urr_hb, !seqA, cr_hb_hb.
-    eauto 8 with rel.
-  Qed.
-
-  Lemma scr_hb l : inclusion (scr l ;; hb) (scr l).
-  Proof.
-    unfold scr; rewrite seq_union_l, rwr_hb, !seqA, cr_hb_hb.
     eauto 8 with rel.
   Qed.
 
@@ -220,11 +206,11 @@ Definition WfMO :=
 Definition WfSC :=
   << SC_ACTa: forall a b (SC: sc a b), In a acts >> /\
   << SC_ACTb: forall a b (SC: sc a b), In b acts >> /\
-  << SC_DOMa: forall a b (SC: sc a b), is_sc_wf a >> /\
-  << SC_DOMb: forall a b (SC: sc a b), is_sc_wf b >> /\
+  << SC_DOMa: forall a b (SC: sc a b), is_sc_fence a >> /\
+  << SC_DOMb: forall a b (SC: sc a b), is_sc_fence b >> /\
   << SC_IRR: irreflexive sc >> /\
   << SC_T: transitive sc >> /\
-  << SC_TOT: is_total (fun a => In a acts /\ is_sc_wf a) sc >>.
+  << SC_TOT: is_total (fun a => In a acts /\ is_sc_fence a) sc >>.
 
 Definition Wf :=
   << WF_ACTS : WfACTS >> /\
@@ -367,9 +353,9 @@ Lemma mo_doma : doma mo is_write.
 Proof. cdes WF; cdes WF_MO; eauto. Qed.
 Lemma mo_domb : domb mo is_write.
 Proof. cdes WF; cdes WF_MO; eauto. Qed.
-Lemma sc_doma : doma sc is_sc_wf.
+Lemma sc_doma : doma sc is_sc_fence.
 Proof. cdes WF; cdes WF_SC; eauto. Qed.
-Lemma sc_domb : domb sc is_sc_wf.
+Lemma sc_domb : domb sc is_sc_fence.
 Proof. cdes WF; cdes WF_SC; eauto. Qed.
 Lemma useq_doma : doma useq is_write.
 Proof. unfold useq; eauto using rf_doma with rel. Qed.
@@ -394,8 +380,6 @@ Lemma urr_doma l : doma (urr l) (fun a => is_write a /\ loc a = Some l).
 Proof. unfold urr; eauto using rfhbsc_opt_doma with rel. Qed.
 Lemma rwr_doma l : doma (rwr l) (fun a => is_write a /\ loc a = Some l).
 Proof. unfold rwr; eauto using urr_doma with rel. Qed.
-Lemma scr_doma l : doma (scr l) (fun a => is_write a /\ loc a = Some l).
-Proof. unfold scr; eauto using rwr_doma with rel. Qed.
 
 Lemma rfhbsc_opt_doma1 l : doma (rfhbsc_opt l) is_write.
 Proof. red; ins; apply rfhbsc_opt_doma in REL; desf. Qed.
@@ -403,16 +387,12 @@ Lemma urr_doma1 l : doma (urr l) is_write.
 Proof. red; ins; apply urr_doma in REL; desf. Qed.
 Lemma rwr_doma1 l : doma (rwr l) is_write.
 Proof. red; ins; apply rwr_doma in REL; desf. Qed.
-Lemma scr_doma1 l : doma (scr l) is_write.
-Proof. red; ins; apply scr_doma in REL; desf. Qed.
 Lemma rfhbsc_opt_doma2 l : doma (rfhbsc_opt l) (fun a => loc a = Some l).
 Proof. red; ins; apply rfhbsc_opt_doma in REL; desf. Qed.
 Lemma urr_doma2 l : doma (urr l) (fun a => loc a = Some l).
 Proof. red; ins; apply urr_doma in REL; desf. Qed.
 Lemma rwr_doma2 l : doma (rwr l) (fun a => loc a = Some l).
 Proof. red; ins; apply rwr_doma in REL; desf. Qed.
-Lemma scr_doma2 l : doma (scr l) (fun a => loc a = Some l).
-Proof. red; ins; apply scr_doma in REL; desf. Qed.
 
 Lemma c_rel_doma i l' tmr d: doma tmr d -> doma (c_rel i l' tmr) d.
 Proof. unfold c_rel; eauto with rel. Qed.
@@ -445,14 +425,8 @@ Lemma S_tmr_doma1 l: doma (S_tmr l) is_write.
 Proof. unfold doma; ins; exploit S_tmr_doma; ins; desc; eauto. Qed.
 Lemma S_tmr_doma2 l: doma (S_tmr l) (fun a => loc a = Some l).
 Proof. unfold doma; ins; exploit S_tmr_doma; ins; desc; eauto. Qed.
-Lemma S_tmr_domb l: domb (S_tmr l) is_sc_wf.
+Lemma S_tmr_domb l: domb (S_tmr l) is_sc_fence.
 Proof. unfold S_tmr; eauto 10 with rel. Qed.
-
-
-Lemma rf_to_non_read a b (RF: rf a b) (NON_READ: ~ is_read b) : False.
-Proof.
-  exploit rf_domb; eauto.
-Qed.
 
 Lemma rf_mo a b c (RF: rf a b) (MO: mo c b) : False.
 Proof.
@@ -542,15 +516,12 @@ Hint Resolve hb_acta hb_actb : rel.
 Lemma rfhbsc_opt_acta l : acta (rfhbsc_opt l). Proof. eauto with rel. Qed.
 Lemma rfhbsc_opt_actb l : actb (rfhbsc_opt l). Proof. eauto with rel. Qed.
 Hint Resolve rfhbsc_opt_acta rfhbsc_opt_actb : rel.
-Lemma urr_acta l: acta (urr l). Proof. eauto with rel. Qed.
-Lemma urr_actb l: actb (urr l). Proof. unfold urr; rewrite <- seqA; eauto with rel. Qed. 
+Lemma urr_acta l: acta (urr l). Proof. eauto 7 with rel. Qed.
+Lemma urr_actb l: actb (urr l). Proof. unfold urr; rewrite <- seqA; eauto 7 with rel. Qed. 
 Hint Resolve urr_acta urr_actb : rel.
 Lemma rwr_acta l: acta (rwr l). Proof. eauto with rel. Qed.
 Lemma rwr_actb l: actb (rwr l). Proof. unfold rwr; eauto with rel. Qed.
 Hint Resolve rwr_acta rwr_actb : rel.
-Lemma scr_acta l: acta (scr l). Proof. eauto with rel. Qed.
-Lemma scr_actb l: actb (scr l). Proof. unfold scr; rewrite <- !seqA; eauto with rel. Qed.
-Hint Resolve scr_acta scr_actb : rel.
 
 Lemma c_rel_actb i l' tm : actb tm -> actb (c_rel i l' tm).
 Proof. unfold c_rel; rewrite <- !seqA; eauto with rel. Qed.
@@ -574,58 +545,34 @@ End WellFormedResults.
 (** ** Coherence *)
 (******************************************************************************)
 
-(* Definition BasicRMW :=
-  forall a b (MO: a=b \/ mo a b) c (RF: rf b c) (RMW: rmw c a), False.
- *)
-(*Definition CoherentRW1 :=
-  forall a b (RF: rf a b) (HB: hb b a), False.*)
-
-Definition CoherentRW2 :=
-  forall a b (MO: mo a b) c (RF: rf b c) (HB: hb c a), False.
-
-Definition CoherentWW :=
-  forall a b (MO: mo a b) (HB: hb b a), False.
-
-Definition CoherentWR :=
-  forall a b (MO: mo a b) c (HB: hb b c) (RF: rf a c), False.
-
-Definition CoherentRR :=
-  forall a b (MO: mo a b) c (RF: rf b c) d (HB: hb c d) (RLX: is_rlx_rw d) (RF': rf a d),
-    False.
-
-Definition CoherentRFR :=
-  forall a b (MO: mo a b) c (RF: rf b c) d (HB: hb c d) (FSC: is_sc_fence d) e (HB: hb d e) 
-         (RF': rf a e),
-    False.
-
-Definition Atomicity :=
-  forall a b (MO: mo a b) c (MO': mo b c) d (RMW: rmw d c) (RF: rf a d), False.
-
-Definition CoherentSCR :=
-  forall a b d e f (MO: mo a b) 
-         (RFHBF: b = d \/ exists c, (clos_refl rf) b c /\ hb c d /\ is_sc_fence d)
-         (SC: sc d e) (HB: hb e f)
-         (SCread: is_write e -> is_sc f) (RF: rf a f), False.
-
-Definition CoherentSC :=
-  forall a b d e (MO: mo a b) 
-         (RFHBF: b = d \/ exists c, (clos_refl rf) b c /\ hb c d /\ is_sc_fence d)
-         (SC: sc d e) (HB: e = a \/ hb e a /\ is_sc_fence e), False.
-
-Definition NoPromises :=
+Definition CoherentRW := 
+  irreflexive (mo ;; rf ;; hb).
+Definition CoherentWW := 
+  irreflexive (mo ;; hb).
+Definition CoherentWR := 
+  irreflexive (mo ;; hb ;; transp rf).
+Definition CoherentRR := 
+  irreflexive (mo ;; rf ;; <| is_rlx_rw |> ;; hb ;; transp rf).
+Definition CoherentRR':= 
+  irreflexive (mo ;; rf ;; hb ;; <| is_rlx_rw |> ;; transp rf).
+Definition CoherentRFR:= 
+  irreflexive (mo ;; rf ;; hb ;; <| is_sc_fence |> ;; hb ;; transp rf).
+Definition Atomicity  := 
+  irreflexive (mo ;; mo ;; transp rmw ;; transp rf).
+Definition CoherentSC := 
+  irreflexive (mo ;; (clos_refl rf) ;; hb ;; sc ;; hb ;; (clos_refl (transp rf))).
+Definition NoPromises := 
   acyclic (sb +++ rf +++ sc).
 
 Definition Coherent :=
   << WF : Wf >> /\
-(*   << Crmw : BasicRMW >> /\ *)
-(*  << Crw1 : CoherentRW1 >> /\*)
-  << Crw2 : CoherentRW2 >> /\
+  << Crw : CoherentRW >> /\
   << Cww : CoherentWW >> /\
   << Cwr : CoherentWR >> /\
   << Crr : CoherentRR >> /\
-  << Crfr: CoherentRFR >> /\
+  << Crr : CoherentRR' >> /\
+  << Crfr : CoherentRFR >> /\
   << Cat : Atomicity >> /\
-  << Cscr : CoherentSCR >> /\
   << Csc : CoherentSC >> /\
   << Cnp : NoPromises >>.
 
@@ -647,7 +594,7 @@ Hint Resolve coh_wf wf_sb wf_rmw wf_rf wf_mo wf_sc.
 
 Lemma wf_sc_tot (WF_SC: WfSC) a b 
   (INa: In a acts) (INb: In b acts)
-  (SCa: is_sc_wf a) (SCb: is_sc_wf b)
+  (SCa: is_sc_fence a) (SCb: is_sc_fence b)
   (NSC: ~ sc a b) (NEQ: a <> b) : sc b a.
 Proof. cdes WF_SC; apply SC_TOT in NEQ; desf; eauto. Qed.
 
@@ -726,11 +673,11 @@ Proof.
 ins; eapply wf_mo_tot; eauto.
 - eapply hb_actb; eauto.
 - eapply hb_acta; eauto.
-- intro. cdes COH; eapply Cww; eauto.
+- intro. cdes COH; eapply Cww; unfold seq; eauto.
 - intro; subst; eapply irr_hb; eauto.
 Qed.
 
-Lemma hb_in_sc x y (HB: hb x y) (A: is_sc_wf x) (B: is_sc_wf y) : sc x y.
+Lemma hb_in_sc x y (HB: hb x y) (A: is_sc_fence x) (B: is_sc_fence y) : sc x y.
 Proof.
   destruct (classic (x=y)) as [|N]; subst.
     by apply irr_hb in HB; eauto.
@@ -740,28 +687,21 @@ Proof.
   exfalso; cdes COH; eapply Cnp, t_trans, hb_in_sb_rf_sc; vauto.
 Qed.
 
-Lemma hb_in_sc2 : inclusion (<| is_sc_wf |> ;; hb ;; <| is_sc_wf |>) sc.
+Lemma hb_in_sc2 : inclusion (<| is_sc_fence |> ;; hb ;; <| is_sc_fence |>) sc.
 Proof.
   rewrite seq_eqv_r, seq_eqv_l; red; ins; desf; eauto using hb_in_sc.
 Qed.
 
-Lemma sc_hb a b c (SC: sc a b) (HB: hb b c) (IS_SC: is_sc_wf c) : sc a c.
+Lemma sc_hb a b c (SC: sc a b) (HB: hb b c) (IS_SC: is_sc_fence c) : sc a c.
 Proof.
   cdes COH; cdes WF; unfold WfSC in *; desc.
   apply hb_in_sc in HB; eauto.
 Qed.
 
-Lemma hb_sc a b c (SC: sc b c) (HB: hb a b) (IS_SC: is_sc_wf a) : sc a c.
+Lemma hb_sc a b c (SC: sc b c) (HB: hb a b) (IS_SC: is_sc_fence a) : sc a c.
 Proof.
   cdes COH; cdes WF; unfold WfSC in *; desc.
   apply hb_in_sc in HB; eauto.
-Qed.
-
-Lemma mo_sc a b (MO: mo a b) (IS_SCa: is_sc_wf a) (IS_SCb: is_sc_wf b) : sc a b.
-Proof.
-cdes COH; cdes WF; cdes WF_MO.
-apply wf_sc_tot; eauto.
-eby intro; subst; eapply MO_IRR.
 Qed.
 
 Lemma BasicRMW : forall a b (MO: a=b \/ mo a b) c (RF: rf b c) (RMW: rmw c a), False.
@@ -772,7 +712,7 @@ destruct MO.
 - subst.
   eapply Cnp with (x:=b).
   by eapply t_trans; eapply t_step; unfold union; eauto.
-- by eapply Crw2; try edone; eapply sb_in_hb; eauto.
+- eapply Crw; unfold seq; eauto 7 using sb_in_hb.
 Qed.
 
 Lemma rf_rmw_mo : inclusion (rf ;; rmw) mo.
@@ -809,7 +749,7 @@ Proof.
   destruct (classic (x = y)) as [|N]; desf; vauto.
   right.
   eapply wf_mo_tot; eauto; try solve [eby eapply sb_acta | eby eapply sb_actb].
-  intro; subst; eapply Cww; eauto using sb_in_hb.
+  intro; subst; eapply Cww; unfold seq; eauto using sb_in_hb.
 Qed.
 
 Lemma rel_mo : inclusion (<| is_write |> ;; rel) (clos_refl mo).
@@ -828,51 +768,15 @@ Qed.
 
 Lemma basic_coherence_lemma a b (MO: mo a b) c 
   (RF: clos_refl rf b c) d (HB: clos_refl hb c d) (INV_RF: clos_refl rf a d)
-  (RLX: a=d \/ c=d \/ b=c \/ is_rlx_rw d) : False.
+  (RLX: a=d \/ c=d \/ b=c \/ is_rlx_rw d \/ is_rlx_rw c) : False.
 Proof.
 cdes COH; cdes WF; cdes WF_MO; cdes WF_RF.
-unfold seq, clos_refl in *;
-desf; eauto 2;
+unfold CoherentRW, CoherentWW, CoherentWR, CoherentRR, CoherentRR' in *.
+unfold irreflexive, seq, transp, clos_refl, eqv_rel in *; desf; eauto 2;
 try solve [eapply rf_mo; eauto| eapply inv_rf_mo; eauto|eapply irr_hb; eauto |
  eapply MO_IRR; erewrite RF_FUN; edone].
+all: eauto 12.
 Qed.
-
-(*
-Lemma ur_rel (COH: Coherent) a b c l (UR: ur_relation a b) (REL: rel b c) 
-  (WRITE: is_write a) (LOC: loc a = Some l) : m_rel_ur l a c.
-Proof.
-red; red; unfold eqv_rel.
-eexists; splits; try edone.
-eexists; edone.
-Qed.
-
-Lemma rw_rel (COH: Coherent) a b c l (RW: rw_relation a b) (REL: rel b c) 
-  (WRITE: is_write a) (LOC: loc a = Some l) : m_rel_rw l a c.
-Proof.
-red; red; unfold eqv_rel.
-eexists; splits; try edone.
-eexists; edone.
-Qed.
-
-Lemma scr_rel (COH: Coherent) a b c l (SC: sc_relation a b) (REL: rel b c) 
-  (WRITE: is_write a) (LOC: loc a = Some l) : m_rel_sc l a c.
-Proof.
-red; red; unfold eqv_rel.
-eexists; splits; try edone.
-eexists; edone.
-Qed.
-*)
-
-(*
-Lemma rf_in_rw (WF: Wf) : inclusion rf (rwr l).
-Proof. right; repeat (eexists; splits; eauto); eapply rf_acta; eauto. Qed.
-*)
-
-Lemma S_tm_sc a b c l (S_TM: S_tmr l a b) (SC: sc b c) (WRITE: is_write c) : scr l a c.
-Proof.
-  red; red; red in S_TM; unfold eqv_rel, seq, union in *; desc; subst; desf.
-  by right; repeat (eexists; splits; eauto).
-Qed. 
 
 (******************************************************************************)
 (** ** Basic properties of initialization *)
@@ -897,7 +801,7 @@ apply init_events_wf1; eauto.
 by eapply mo_actb; eauto.
 intro.
 cdes COH.
-eapply Cww; eauto.
+eapply Cww; unfold seq; eexists; split; eauto.
 apply sb_in_hb.
 cdes WF; cdes WF_SB.
 apply SB_INIT; red; splits; eauto.
@@ -911,6 +815,7 @@ by eapply mo_acta; eauto.
 Qed.
 
 Lemma no_hb_to_init a b (HB: hb a b) : is_proper b.
+Proof.
 cdes HB.
 apply t_rt_step in HB; desc.
 clear HB.
@@ -923,6 +828,7 @@ intro; eapply init_not_acq; eauto.
 Qed.
 
 Lemma no_rf_to_init a b (RF: rf a b) : is_proper b.
+Proof.
 apply init_events_wf1; eauto.
 by eapply rf_actb; eauto.
 intro.
@@ -932,6 +838,7 @@ eauto using init_is_write.
 Qed.
 
 Lemma no_sc_to_init a b (SC: sc a b) : is_proper b.
+Proof.
 apply init_events_wf1; eauto.
 by eapply sc_actb; eauto.
 intro.
@@ -949,56 +856,19 @@ Proof.
   rewrite seq_eqv_l; split; red; ins; desf; eauto.
 Qed.
 
-Lemma urr_expand l :
-  urr l <-->
-       <| fun x => is_write x /\ loc x = Some l |> ;;
-   ( <| fun x => In x acts |> +++ hb +++ 
-   sc;; <| is_sc_fence |>;; clos_refl hb +++
-   clos_refl rf ;; hb ;; <| is_sc_fence |> ;; clos_refl hb +++
-   clos_refl rf ;; hb ;; <| is_sc_fence |> ;; sc ;; <| is_sc_fence |> ;; clos_refl hb).
-Proof.
-  unfold urr, rfhbsc_opt; rewrite !(crE (_ ;; _)); rel_simpl; rewrite !seqA.
-  rewrite (crE hb) at 1; rel_simpl.
-  rewrite !eqv_doma with (d := fun x => In x acts); 
-    eauto 8 using rf_acta, hb_acta, sc_acta with rel.
-  split; repeat apply inclusion_union_l; eauto 8 with rel.
-Qed.
-
 Lemma Coherent_urr l a b c 
   (MO: mo a b) (UR: urr l b c) (RF_INV: a=c \/ rf a c) : False.
 Proof.
-  cdes COH; cdes WF; cdes WF_MO.
-  apply urr_expand, inclusion_seq_eqv_l in UR.
-  unfold union, seq, eqv_rel in *; revert RF_INV; desf; ins.
-  all: try by eapply basic_coherence_lemma; eauto.
-  { destruct UR1; subst.
-      destruct RF_INV as [?|B]; subst.
-      apply MO_DOMa in MO; destruct c as [??[]]; ins.
-      eapply rf_domb in B; try edone; destruct c as [??[]]; ins.
-    destruct RF_INV; subst.
-    eapply Csc; eauto with acts.
-    eapply Cscr; eauto with acts.
-    by intro; exfalso; destruct z0 as [??[]]; ins.
-  }
-  {
-    destruct UR2; subst. 
-      desf.   
-        by apply MO_DOMa in MO; destruct c as [??[]].
-      by eapply rf_domb in RF_INV; try edone; destruct c as [??[]].
-    destruct UR; subst.
-      by eapply basic_coherence_lemma with (d:=c); eauto using r_step, hb_trans.
-    desf; try by eapply Crfr; eauto.
-    by eapply basic_coherence_lemma with (d:=c); eauto using r_step, hb_trans.
-  }
-  { destruct UR4; subst.
-      destruct RF_INV as [?|B]; subst.
-      apply MO_DOMa in MO; destruct c as [??[]]; ins.
-      eapply rf_domb in B; try edone; destruct c as [??[]]; ins.
-    destruct RF_INV; subst.
-    eapply Csc; eauto with acts.
-    eapply Cscr; eauto with acts.
-    by intro; exfalso; destruct z3 as [??[]]; ins.
-  }
+cdes COH; cdes WF; cdes WF_RF; cdes WF_MO; cdes WF_SC.
+unfold urr, rfhbsc_opt, CoherentSC, CoherentRFR in *.
+assert (forall a, is_sc_fence a /\ (is_write a \/ is_read a) -> False).
+   ins; destruct a0 as [??[]]; ins; desf.
+generalize basic_coherence_lemma; intro BASIC.
+unfold irreflexive, seq, transp, eqv_rel, union in *; desf.
+all: eauto 10 using hb_trans.
+all: unfold clos_refl in *; desf; eauto.
+all: eauto 10 using hb_trans.
+all: eauto 20.
 Qed.
 
 Lemma Coherent_rwr l a b c 
@@ -1008,73 +878,6 @@ Proof.
   eapply Coherent_urr; eauto 9. tauto.
   unfold seq, clos_refl, eqv_rel in *.
   desf; try (by desf; eapply basic_coherence_lemma; eauto).
-Qed.
-
-(* Lemma Coherent_scr l a b c  (SCc: is_sc c) 
-  (MO: mo a b) (SC: scr l b c) (RF_INV: a=c \/ rf a c) : False.
-Proof.
-  destruct SC.
-  eapply Coherent_rwr; eauto; desf; eauto with acts.
-  right; split; ins.
-    apply rf_domb in RF_INV; eauto.
-    by destruct c as [??[]]; simpls; destruct o; ins.
-  unfold rfhbsc_opt, seq, clos_refl, eqv_rel in *; desc; subst.
-  cdes COH; cdes WF; cdes WF_SC.
-    destruct RF_INV; subst.
-    eapply Csc with (d:=z) (e:=z2); eauto with acts; desf; eauto.
-  eapply Cscr with (a:=a) (d:=z) (e:=z2) (f:=c); try edone; desf; eauto with acts.
-  all: exfalso; apply rf_domb in H; try done; eapply write_non_read with (a:=c); edone.
-Qed. *)
-
-Lemma Coherent_scr_eq l a b  (SCc: is_sc a) (MO: mo a b) (SC: scr l b a) : False.
-Proof.
-  destruct SC.
-  eapply Coherent_rwr; eauto; desf; eauto with acts.
-  unfold seq, eqv_rel in H; desc; subst.
-
-  assert (SC: sc z a \/ sc a z).
-  { 
-  eapply COH; splits.
-  by eapply sc_acta; eauto.
-  by eapply sc_doma; eauto.
-  by eapply mo_acta; eauto.
-  eby eapply mo_doma in MO; eauto with acts.
-  intro; subst z.
-  destruct H2; subst.
-  by cdes COH; cdes WF; eapply WF_SC; eapply WF_SC; eauto.
-  eapply hb_in_sb_rf in H1.
-  cdes COH.
-  eapply Cnp; eapply t_trans.
-  eapply clos_trans_mon; try edone.
-  by ins; unfold union in *; eauto.
-  by eapply t_step; right; eauto.
-  }
-
-  destruct SC.
-  cdes COH; eapply Csc with (d:=z) (e:=a); eauto.
-  by unfold rfhbsc_opt, seq, clos_refl, eqv_rel in *; desf; eauto 8.
-  destruct H2; subst.
-  by cdes COH; cdes WF; eapply WF_SC; eapply WF_SC; eauto.
-  eapply hb_in_sb_rf in H2.
-  cdes COH; eapply Cnp; eapply t_trans.
-  eapply clos_trans_mon; try edone.
-  by ins; unfold union in *; eauto.
-  by eapply t_trans; eapply t_step; right; eauto.
-Qed.
-
-
-Lemma Coherent_scr_rf l a b c  (SCc: is_sc c) 
-  (MO: mo a b) (SC: scr l b c) (RF: rf a c) : False.
-Proof.
-  destruct SC.
-  eapply Coherent_rwr; eauto; desf; eauto with acts.
-  right; split; ins.
-    apply rf_domb in RF; eauto.
-    by destruct c as [??[]]; simpls; destruct o; ins.
-  unfold rfhbsc_opt, seq, clos_refl, eqv_rel in *; desc; subst.
-  cdes COH; cdes WF; cdes WF_SC.
-  eapply Cscr with (a:=a) (d:=z) (e:=z2) (f:=c); try edone; desf; eauto with acts.
-  all: exfalso; apply rf_domb in RF; try done; eapply write_non_read with (a:=c); edone.
 Qed.
 
 Lemma step_seq_clos_refl R (TR: transitive R) (a b c : event) 
@@ -1094,8 +897,13 @@ Proof.
   eapply rel_hb_mo in REL; destruct REL as (d & K & L).
   eapply Coherent_urr with (a:=d) (b:=b) (c:=d); eauto. 
     by red in L; desf; cdes COH; cdes WF; cdes WF_MO; eauto.
-  eexists; split; eauto.
+
+exists z.
+
   repeat eexists; eauto using clos_refl_seq_clos_refl, hb_trans.
+left.
+  repeat eexists; eauto using clos_refl_seq_clos_refl, hb_trans.
+
 Qed.
 
 Lemma Coherent_rwr_rel l a b c
@@ -1108,25 +916,6 @@ Proof.
     by red in L; cdes COH; cdes WF; cdes WF_MO; desf; eauto.
   eapply clos_refl_seq_clos_refl; eauto using hb_trans.
 Qed.
-
-Lemma Coherent_scr_rel l a b c d 
-  (MO: mo a b) (SC: scr l b c) (REL: rel c a) (RF: rf a d)  (SCc: is_sc d) : False.
-Proof.
-  destruct SC as [RWR|(k' & SCR & k & SC & HB)]; eauto using Coherent_rwr_rel.
-  apply seq_eqv_l in HB; desc.
-  eapply Coherent_scr_rf with (l:=l) (c:=d); eauto.
-  right; exists k'; split; ins; exists k; split; ins; apply seq_eqv_l; split; ins.
-  eapply clos_refl_seq_clos_refl; eauto using hb_trans.
-  right; eapply sw_in_hb, rel_rf; eauto.
-  by eapply rf_domb in RF; eauto; destruct d as [??[]]; ins; destruct o.
-Qed.
-
-Lemma Coherent_m_scr l a b c 
-  (MO: mo a b) (SC: m_rel (scr l) b a) (RF: rf a c) (SCc: is_sc c) : False.
-Proof.
-  unfold m_rel, seq in *; desc; eapply Coherent_scr_rel; eauto.
-Qed.
-
 
 Lemma Coherent_urr_sb l a b c d
   (MO: mo a b) (UR: urr l b c) (SB: sb c d) (RF_INV: a=d \/ rf a d) : False.
@@ -1141,30 +930,6 @@ Proof.
   eapply Coherent_rwr with (c:=d); try eauto.
   eapply rwr_hb; try edone; eexists; split; eauto using sb_in_hb.
 Qed.
-
-Lemma Coherent_scr_sb l a b c d
-  (SCc: is_sc d) (MO: mo a b) (SC: scr l b c) (SB: sb c d) (RF_INV: a=d \/ rf a d) : False.
-Proof.
-destruct RF_INV; try subst d.
-- eapply Coherent_scr_eq; eauto.
-  eapply scr_hb. eexists; splits; eauto.
-  eapply sb_in_hb; eauto.
-- eapply Coherent_scr_rf; eauto.
-  eapply scr_hb. eexists; splits; eauto.
-  eapply sb_in_hb; eauto.
-Qed.
-
-(*
-Lemma Coherent_m_rel_rw (COH: Coherent) a b x (LOC: loc b = Some x) 
-  (RW: m_rel_rw x a b) (MO: mo b a) : False.
-Proof.
-cdes COH. cdes WF. unfold WfMO in *; desc.
-unfold m_rel_rw, m_rel_rw, m_rel, seq, eqv_rel in *; desc; subst.
-  apply rel_hb_mo in RW1; ins.
-clear - COH MO RW0 RW1 RW2 RW3 MO_T LOC.
-by unfold clos_refl, seq in *; desf; eauto using Coherent_rw, rw_hb.
-Qed.
-*)
 
 End CoherenceProperties.
 
