@@ -90,9 +90,8 @@ Definition is_rel a : Prop :=
 
 Definition is_sc a : Prop :=
   match lab a with
-    | Astore  _ _ o
-    | Aload  _ _ o
     | Afence _ o => Ordering.le Ordering.seqcst o
+    | _ => False
   end.
 
 Definition is_sc_fence a : Prop :=
@@ -101,13 +100,6 @@ Definition is_sc_fence a : Prop :=
     | _ => False
   end.
 
-Definition is_sc_write a : Prop :=
-  match lab a with
-    | Astore _ _ o => Ordering.le Ordering.seqcst o
-    | _ => False
-  end.
-
-Definition is_sc_wf a : Prop := is_sc_fence a \/ is_sc_write a.
 
 (** * Basic Lemmas *)
 
@@ -123,24 +115,14 @@ Lemma fence_non_read a (A: is_fence a) : ~ is_read a.
 Proof. destruct a; destruct lb; ins. Qed.
 Lemma fence_non_write a (A: is_fence a) : ~ is_write a.
 Proof. destruct a; destruct lb; ins. Qed.
-Lemma sc_fence_is_sc_wf a (A: is_sc_fence a) : is_sc_wf a.
-Proof. vauto. Qed.
-Lemma sc_write_is_sc_wf a (A: is_sc_write a) : is_sc_wf a.
-Proof. vauto. Qed.
-Lemma sc_wf_is_sc a (A: is_sc_wf a) : is_sc a.
-Proof. unfold is_sc, is_sc_wf in *.
-       destruct a; destruct lb; ins; desf. Qed.
-Lemma sc_write_is_sc_write a (A: is_sc a) (B: is_write a) : is_sc_write a.
-Proof. unfold is_sc, is_sc_wf in *.
-       destruct a; destruct lb; ins; desf. Qed.
 Lemma sc_fence_is_sc_fence a (A: is_sc a) (B: is_fence a) : is_sc_fence a.
-Proof. unfold is_sc, is_sc_wf in *.
+Proof. unfold is_sc in *.
        destruct a; destruct lb; ins; desf. Qed.
 
-Lemma sc_is_rel a (A: is_sc_wf a) : is_rel a.
-Proof. unfold is_sc_wf, is_rel, is_sc_fence, is_sc_write in *.
+Lemma sc_is_rel a (A: is_sc a) : is_rel a.
+Proof. unfold is_sc, is_rel, is_sc_fence in *.
        destruct a; destruct lb; ins; desf.
-       destruct o; ins. destruct ow; ins. 
+       destruct ow; ins.
 Qed.
 
 Lemma sc_fence_is_fence a (A: is_sc_fence a) : is_fence a.
@@ -168,23 +150,18 @@ Lemma read_rlx a l v o (A: lab a = Aload l v o) : Ordering.le Ordering.relaxed o
 Proof. destruct a; ins; rewrite A; done. Qed.
 Lemma read_acq a l v o (A: lab a = Aload l v o) : Ordering.le Ordering.acqrel o -> is_acq a.
 Proof. destruct a; ins; rewrite A; done. Qed.
-Lemma read_sc a l v o (A: lab a = Aload l v o) : Ordering.le Ordering.seqcst o -> is_sc a.
-Proof. destruct a; ins; rewrite A; done. Qed.
 
 Lemma write_rlx a l v o (A: lab a = Astore l v o) : Ordering.le Ordering.relaxed o -> is_rlx_rw a.
 Proof. destruct a; ins; rewrite A; done. Qed.
 Lemma write_rel a l v o (A: lab a = Astore l v o) : Ordering.le Ordering.acqrel o -> is_rel a.
 Proof. destruct a; ins; rewrite A; done. Qed.
-Lemma write_sc a l v o (A: lab a = Astore l v o) : Ordering.le Ordering.seqcst o -> is_sc a.
-Proof. destruct a; ins; rewrite A; done. Qed.
 
 Hint Resolve  read_non_write read_non_fence write_non_read fence_non_read 
-     read_is_read read_rlx read_acq read_sc
-     write_is_write write_rlx write_rel write_sc 
+     read_is_read read_rlx read_acq
+     write_is_write write_rlx write_rel
      write_non_fence write_non_fence 
      fence_is_fence fence_non_write
-     sc_fence_is_sc_wf sc_write_is_sc_wf sc_wf_is_sc
-     sc_write_is_sc_write sc_fence_is_sc_fence
+     sc_fence_is_sc_fence
      sc_is_rel sc_fence_is_fence : acts.
 
 (******************************************************************************)

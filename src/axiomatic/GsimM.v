@@ -237,6 +237,8 @@ all: try unfold Relation_Operators.union, sc_ext in *; desf; eauto.
   desf; eauto.
 Qed.
 
+
+
 (******************************************************************************)
 (** * Lemmas for read step  *)
 (******************************************************************************)
@@ -296,6 +298,90 @@ apply acyclic_decomp_u_1; try done.
   unfold sb_ext, singl_rel, sc_ext, seq, eqv_rel, Relation_Operators.union in R'; desf; auto.
 Qed.
 
+Lemma new_G_read_coherentSC 
+  acts sb rmw rf mo sc tview a
+  (COH: Coherent acts sb rmw rf mo sc)
+  f_to (MONOTONE: monotone mo f_to)
+  l v o b
+  (INb: In b acts) (WRITEb: is_write b) (LOCb: loc b = Some l)
+  (PLN : Time.le (View.pln (TView.cur tview) l) (f_to b))
+  (CUR_UR : max_value f_to (t_cur urr acts sb rmw rf sc (thread a) l)
+           (LocFun.find l (View.pln (TView.cur tview))))
+  (LABEL: lab a = Aload l v o)
+  (FRESH: ~ In a acts)
+  acts' sb' rmw' rf' mo' sc'
+  (NEW_G: new_G_read {| acts:=acts; sb:=sb; rmw:=rmw; rf:=rf; mo:=mo; sc:=sc |}
+   a b = {| acts:=acts'; sb:=sb'; rmw:=rmw'; rf:=rf'; mo:=mo'; sc:=sc' |})
+  (GSTEP: gstep acts sb rmw rf mo sc 
+               acts' sb' rmw' rf' mo' sc' a a):
+  CoherentSC acts' sb' rmw' rf' mo' sc'.
+Proof.
+  unfold new_G_read in *; ins; desf.
+
+  exploit gstep_hb_read; eauto.
+  right; edone.
+  intro HB.
+
+  assert (forall x y (MOxy: mo' x y), In y acts).
+    ins; eapply mo_actb; eauto.
+
+  assert (forall x y (MOxy: mo' x y), is_write y).
+    ins; eapply mo_domb; eauto. 
+
+  assert (forall x y (MOxy: mo' x y) (LOC: loc x = Some l), (loc y = Some l)).
+    ins; eapply loceq_mo in MOxy; eauto.
+    rewrite <- MOxy; done.
+
+  cdes COH; red; splits; eauto.
+
+  apply HB in HB0.
+  destruct HB0 as [HB0|X]; cycle 1.
+  assert (d=a); subst.
+    by unfold Relation_Operators.union, sb_ext, singl_rel, eqv_rel, seq in X; desf.
+  unfold sc_ext, seq in SC; red in SC; des;
+  [eapply sc_doma in SC; eauto|]; destruct a as [??[]]; desf; ins.
+  destruct SC as [SC|X]; cycle 1; unfold sc_ext in *; desc; subst.
+  by unfold is_sc_wf in *; destruct a as [??[]]; desf; ins.
+  assert (RFa: clos_refl rf b0 c).
+    destruct RF; unfold Relation_Operators.union, singl_rel in *; desf; subst; eauto 2.
+    eby exfalso; apply FRESH; eapply hb_acta.
+  clear RF.
+  apply HB in HB'.
+  destruct HB' as [HB'|X]; cycle 1.
+  assert (f=a); subst.
+    by unfold Relation_Operators.union, sb_ext, singl_rel, eqv_rel, seq in X; desf.
+  { 
+    assert (a0=b); [|subst; clear RF'].
+    unfold clos_refl, Relation_Operators.union, singl_rel in RF'; desf; eauto 2.
+    eby exfalso; apply FRESH; eapply mo_acta.
+    eby exfalso; apply FRESH; eapply rf_actb.
+    red in X; desc.
+    assert (rfhbsc_opt acts sb rmw' rf l b0 d). 
+      repeat eexists; splits.
+      eby eapply mo_domb.
+      eapply loceq_mo in MO; try edone; congruence.
+      eby eapply mo_actb.
+      right; exists c; splits; eauto.
+      repeat eexists; splits; try edone.
+      eby eapply sc_doma.
+    assert (urr acts sb rmw' rf sc l b0 z).
+      exists d; splits; eauto.
+      exists e; splits; eauto.
+      right; exists e; splits; eauto.
+      red; splits; try edone.
+      eby eapply sc_domb.
+    unfold sb_ext, singl_rel, eqv_rel, seq in X0.
+    destruct X0 as [SB|REL']; desc; subst z0 z1.
+    eapply max_value_le; eauto.
+    exists z,z; splits; eauto.
+    by repeat (eexists; splits; eauto).
+    eby eapply Coherent_urr_rel.
+  }
+  eapply Csc; try edone.
+  unfold clos_refl, Relation_Operators.union, singl_rel, seq in RF' |- *; desf; eauto.
+  by exfalso; eapply hb_actb in HB'; eauto.
+Qed.
+
 Lemma new_G_read_coherent 
   acts sb rmw rf mo sc sc_map memory tview a
   (COH: Coherent acts sb rmw rf mo sc)
@@ -337,7 +423,6 @@ red in SIM_TVIEW; desc.
 red in CUR; desc.
 specialize (CUR_UR l).
 specialize (CUR_RW l).
-specialize (CUR_SC l).
 
 cdes COH; red; splits; eauto.
 - red; ins; eapply gstep_hb_a in HB0; try edone.
@@ -366,7 +451,7 @@ cdes COH; red; splits; eauto.
     by right; repeat (eexists; splits; eauto).
   destruct A0; desc; subst z z0.
   * eapply max_value_le with (tm:=View.rlx (TView.cur tview)); eauto.
-    by red in RLX; rewrite LABEL in *; ins; auto.
+    by red in RLX0; rewrite LABEL in *; ins; auto.
     by exists d; repeat (eexists; splits; eauto).
   * eby eapply Coherent_rwr_rel.
 - red; ins; destruct RF; unfold singl_rel in *; desf; try eby eapply max_elt_hb.
@@ -388,75 +473,7 @@ cdes COH; red; splits; eauto.
     + eby eapply Coherent_urr_rel.
 - red; ins; destruct RF; unfold singl_rel in *; 
   desf; eauto 2; eby eapply max_elt_rmw.
-- red; ins.
-  assert (RFHBF_: b0 = d \/
-          (exists c, clos_refl rf b0 c /\ hb acts sb rmw' rf c d /\ is_sc_fence d)).
-    destruct RFHBF as [X|[c [RF' [HB' F]]]]; auto.
-    right; exists c; splits; try edone.
-    destruct RF' as [?|[X|Y]]; unfold singl_rel in *; desc; subst; try by econs.
-    eby exfalso; eapply max_elt_hb.
-    eapply gstep_hb_a in HB'; try edone.
-    eby intro; subst; eapply max_elt_sc.
-  clear RFHBF.
-  destruct SC as [SC|X]; cycle 1; unfold sc_ext in *; desc; subst.
-  by unfold is_sc_wf in *; destruct a as [??[]]; desf; ins.
-  apply HB in HB0; clear HB.
-  destruct HB0 as [X|HB0].
-  destruct RF; unfold singl_rel in *; desc; subst; eauto 2.
-  eby apply FRESH; eapply hb_actb.
-  assert (f=a).
-   by unfold Relation_Operators.union, sb_ext, seq, eqv_rel, singl_rel in *; desf.
-  subst f.
-  destruct RF as [?|RF]; subst.
-  by eapply FRESH, rf_actb; eauto.
-  red in RF; desc; subst a0.
-  unfold Relation_Operators.union, sb_ext, seq, eqv_rel, singl_rel in *.
-  assert (rfhbsc_opt acts sb rmw' rf l b0 d).
-   by clear HB0; red; unfold seq, eqv_rel, clos_refl in *; desf; eauto 20.
-  destruct HB0 as [z HB0].
-  assert (SC':=SC).
-  eapply sc_domb in SC'; try edone.
-  destruct SC' as [Ef|Ew].
-  * assert (urr acts sb rmw' rf sc l b0 z).
-    by unfold urr, seq, eqv_rel, clos_refl in *; desf; eauto 10.
-    destruct HB0 as [HB0 [SB|REL']]; desc; subst z1 z0.
-    eapply max_value_le; eauto.
-    exists z,z; splits; eauto.
-    by repeat (eexists; splits; eauto).
-    eby eapply Coherent_urr_rel.
-  * assert (is_write e).
-     by destruct e as [??[]]; ins.
-    assert (Ordering.le Ordering.seqcst o).
-     by exploit SCread; try edone; intro SCa; red in SCa; destruct (lab a); ins; desf.
-    assert (scr acts sb rmw' rf sc l b0 z).
-     by right; unfold seq, eqv_rel, clos_refl in *; desf; eauto 10.
-    destruct HB0 as [HB0 [SB|REL']]; desc; subst z1 z0.
-    + eapply max_value_le with (tm:=View.sc (TView.cur tview)); eauto.
-      exists z,z; splits; eauto.
-      repeat (eexists; splits; eauto).
-    + red in HELPERb; desc; red in SIMMSG; desc; specialize (SC0 l).
-      eapply max_value_le with (tm:=View.sc (View.unwrap released)); eauto; ins.
-      exists z; splits; eauto.
-
-- red; ins.
-  assert (RFHBF_: b0 = d \/
-        (exists c, clos_refl rf b0 c /\ hb acts sb rmw' rf c d /\ is_sc_fence d)).
-    destruct RFHBF as [X|[c [RF' [HB' F]]]]; auto.
-    right; exists c; splits; try edone.
-    destruct RF' as [?|[X|Y]]; unfold singl_rel in *; desc; subst; try by econs.
-    eby exfalso; eapply max_elt_hb.
-    eapply gstep_hb_a in HB'; eauto 2.
-    intro; subst; eapply max_elt_sc; eauto.
-  clear RFHBF.
-  destruct SC as [SC|]; cycle 1; unfold sc_ext in *; desc; subst.
-  by unfold is_sc_wf in *; destruct a as [??[]]; desf; ins.
-  destruct HB0 as [|HB0]; subst; eauto 3.
-  desc; apply HB in HB0; clear HB.
-  destruct HB0 as [|HB0]; eauto 4.
-  assert (a0=a); subst.
-    by unfold Relation_Operators.union, sb_ext, seq, eqv_rel, singl_rel in *; desf; eauto.
-  eapply mo_doma in MO; try edone.
-  by destruct a as [??[]]; ins.
+- eby eapply new_G_read_coherentSC.
 - eapply new_G_read_NoPromises; try edone.
   by intro; subst; eauto with acts.
 Qed.
@@ -511,7 +528,8 @@ eapply GMsim_helper with
   * rewrite IdentMap.gsspec in TID0; desf; ins.
     eby rewrite THREAD_ID in *.
 - ins; eapply max_value_same_set; try edone.
-  by ins; rewrite gstep_S_tm_other; eauto with acts.
+  ins; rewrite gstep_S_tm_other; eauto.
+  by destruct a as [??[]]; ins.
 - eapply memory_step_nonwrite; eauto.
   eapply new_G_read_coherent; eauto.
   rewrite THREAD_ID in *; eauto.
@@ -677,8 +695,7 @@ assert (forall b, loc b = loc a -> loc b = Some l).
   by ins; unfold loc in *; destruct a as [??[]]; desf.
 
 destruct WRITABLE; desc; red in SIM_TVIEW; desc; red in CUR; desc.
-specialize (CUR_UR l); specialize (CUR_RW l); specialize (CUR_SC l).
-clear SC1. (* this assumption is redundant *)
+specialize (CUR_UR l); specialize (CUR_RW l).
 cdes COH.
 red; splits; eauto.
 - red; ins; destruct MO as [MO1|MO2].
@@ -758,80 +775,56 @@ all: try by eapply UPDATE; splits; eauto 2.
   by rewrite <- TF; done.
   by eapply Time.le_lteq; eauto.
 }
-- red; ins.
-  eapply gstep_hb_a in HB0; try edone; cycle 1.
-  eby intro; subst; eapply FRESH; eapply rf_actb.
-  destruct SC as [SCo|SCn]; cycle 1.
-  eby unfold sc_ext in *; desc; subst e; eapply FRESH; eapply hb_acta.
-  assert (a <> d).
-    eby intro; subst; eapply FRESH; eapply sc_acta.
-  assert (RFHBF_: b = d \/
-          (exists c, clos_refl rf' b c /\ hb acts sb rmw rf' c d /\ is_sc_fence d)).
-    destruct RFHBF as [X|[c [RF' [HB' F]]]]; auto.
-    right; exists c; splits; try edone.
-    eapply gstep_hb_a in HB'; eauto.
-  clear RFHBF.
-  destruct MO as [?|MO]; eauto 2.
-  destruct MO; desc; subst; unfold clos_refl in *; desf; auto.
-  eby eapply FRESH; eapply hb_acta.
-  all: eby eapply FRESH; eapply rf_acta.
-- red; ins.
 
-  assert (a <> d).
-    destruct SC; unfold sc_ext in *; desc; intro; subst; eapply FRESH; try edone.
-    eby eapply sc_acta.
-
-  assert (RFHBF_: b = d \/
-          (exists c, clos_refl rf' b c /\ hb acts sb rmw rf' c d /\ is_sc_fence d)).
-    destruct RFHBF as [X|[c [RF' [HB' F]]]]; auto.
-    right; exists c; splits; try edone.
-    eapply gstep_hb_a in HB'; eauto.
-  clear RFHBF.
+- red; ins.
 
   assert (MO': mo a0 b \/ a0=a /\ In b acts /\ is_write b /\ 
       loc b = loc a /\ Time.lt to (f_to b)).
     destruct MO as [?|MO]; auto.
     destruct MO; auto; desc; subst b.
-    exfalso; destruct RFHBF_ as [A|B]; auto; desc.
-    destruct B; try subst c.
-    eby eapply FRESH; eapply hb_acta.
+    destruct RF; cycle 1; exfalso.
     eby eapply FRESH; eapply rf_acta.
+    eby subst c; eapply max_elt_hb.
   clear MO.
-
-  destruct (classic (e=a)) as [EQ|NEW]; subst.
-  * destruct SC as [?|SC].
-    eby eapply FRESH; eapply sc_actb.
-    unfold sc_ext in *; desc.
-    destruct HB0 as [HB0|HB0]; cycle 1; try subst a0; desc.
-    by destruct a as [??[]]; ins.
-    destruct MO' as [?|MO]; desc.
-    eby eapply FRESH; eapply mo_acta.
-    assert (rfhbsc_opt acts sb rmw rf' l b d).
-     by red; unfold clos_refl, eqv_rel, seq; desf; eauto 15.
-    eapply max_value_lt with (tm:= sc_map); eauto.
-    by eapply SC2; destruct a as [??[]]; unfold is_sc_wf in *; ins; desf.
-    by eexists d,d; splits; red; eauto.
-  * destruct SC as [SC|?]; cycle 1.
-    by unfold sc_ext in *; desc; subst; auto.
-    destruct HB0 as [?|HB0]; try subst a0; desc.
-    by destruct MO' as [MO'|?]; desc; eauto 3.
-    apply HB in HB0; destruct HB0 as [[?|[??]]|?]; desc.
-    + destruct MO' as [MO'|?]; desc; eauto 4.
-    eby subst a0; eapply FRESH; eapply hb_actb.
-    + unfold sb_ext, eqv_rel, seq in *; desc; subst z0 z a0.
-      destruct MO' as [?|MO']; desc.
-      eby eapply FRESH; eapply mo_acta.
-      eapply max_value_lt with (tm:= View.rlx (TView.cur tview)); eauto.
-      eexists x,x; splits.
-      left; unfold c_cur, rwr, urr, rfhbsc_opt, clos_refl, eqv_rel, seq in *; desf; eauto 30.
-      by splits; try eexists; eauto.
-    + unfold sb_ext, eqv_rel, seq in *; desc; subst z0 z a0.
-      destruct MO' as [?|MO']; desc.
-      eby eapply FRESH; eapply mo_acta.
-      eapply max_value_lt with (tm:= View.rlx (TView.cur tview)); eauto.
-      eexists e, e; splits.
-      left; unfold c_cur, rwr, urr, rfhbsc_opt, clos_refl, eqv_rel, seq in *; desf; eauto 30.
-      splits; try eexists; eauto.
+  apply HB in HB0.
+  apply unionA in HB0.
+  destruct HB0 as [HB0|X]; cycle 1.
+  assert (d=a); subst.
+    by unfold Relation_Operators.union, sb_ext, singl_rel, eqv_rel, seq in X; desf.
+  unfold sc_ext, seq in SC; red in SC.
+  destruct SC as [SC|SC]; desc; 
+    [eapply sc_doma in SC; eauto|]; destruct a as [??[]]; desf; ins.
+  destruct SC as [SC|X]; cycle 1; unfold sc_ext in *; desc; subst.
+  by unfold is_sc_wf in *; destruct a as [??[]]; desf; ins.
+  apply HB in HB'.
+  apply unionA in HB'.
+  destruct HB' as [HB'|HB'].
+    desf; [by eapply Csc; eauto|].
+    destruct RF'; [|eby apply FRESH; eapply rf_acta]; subst f.
+    eby apply FRESH; eapply hb_actb.
+  assert (f=a); subst.
+    by unfold Relation_Operators.union, sb_ext, singl_rel, eqv_rel, seq in HB'; desf.
+  destruct RF' as [RF'|RF']; subst; cycle 1.
+    eby apply FRESH; eapply rf_actb.
+  destruct MO'; desc; [eby apply FRESH; eapply mo_acta|].
+  assert (M: exists z, clos_refl (hb acts sb rmw rf') e z /\ sb_ext acts a z a).
+    by unfold Relation_Operators.union, seq in HB'; unfold clos_refl; desf; eauto.
+  clear HB'; desc.
+  assert (rfhbsc_opt acts sb rmw rf' l b d). 
+    repeat eexists; splits; try done.
+  by destruct a as [??[]]; ins; desf.
+  right; exists c; splits; eauto.
+  repeat eexists; splits; try edone.
+  eby eapply sc_doma.
+  assert (urr acts sb rmw rf' sc l b z).
+    exists d; splits; eauto.
+    exists e; splits; eauto.
+    right; exists e; splits; eauto.
+    red; splits; try edone.
+    eby eapply sc_domb.
+  unfold sb_ext, eqv_rel, seq in M0; desc; subst z0 z1.
+  eapply max_value_lt with (tm:= View.rlx (TView.cur tview)); eauto.
+  by exists z,z; splits; vauto.
 - eby eapply new_G_non_read_NoPromises.
 Qed.
 
@@ -960,8 +953,11 @@ eapply GMsim_helper with
   rewrite IdentMap.gsspec in TID0; desf; ins; try edone.
   pattern to at 2; erewrite <- upds with (b:=to).
   rewrite <- THREAD_ID; eapply tview_step_write; eauto.
-* ins; pattern to at 2; erewrite <- upds with (b:=to).
-  eapply sc_map_step_write; eauto.
+* ins; eapply max_value_same_set, gstep_S_tm_other; eauto.
+  eapply max_value_new_f; eauto.
+  ins; unfold upd; desf.
+  by apply acts_S_tm in H4.
+  by destruct a as [??[]]; ins.
 * ins; eapply memory_step_write; eauto.
   eapply WF_OP_ST.
   rewrite !upds.
@@ -1135,7 +1131,8 @@ assert (forall l0, max_value f_to
     (S_tm (a :: acts G) (sb G +++ sb_ext (acts G) a) (rmw G) 
      (rf G +++ singl_rel b a) l0) (LocFun.find l0 sc_map)).
 { ins; eapply max_value_same_set; try edone.
-  by ins; rewrite gstep_S_tm_other; eauto 3 with acts. }
+  ins; rewrite gstep_S_tm_other; eauto.
+  by destruct a as [??[]]; ins. }
 
 assert (sim_tview f_to (a :: acts G) (sb G +++ sb_ext (acts G) a) 
   (rmw G) (rf G +++ singl_rel b a) (sc G +++ sc_ext (acts G) a)
@@ -1212,8 +1209,12 @@ eapply GMsim_helper with
   all: pattern to_w at 2; erewrite <- upds with (a:=a0) (b:=to_w). 
   all: rewrite <- THREAD_ID0.
   all: eapply tview_step_write; eauto.
-* ins; pattern to_w at 2; erewrite <- upds with (b:=to_w).
-  eapply sc_map_step_write with (acts:=a:: acts G); eauto.
+* ins; eapply max_value_same_set, gstep_S_tm_other with (acts:= a:: acts G); eauto.
+  ins; eapply max_value_same_set, gstep_S_tm_other with (acts:= acts G); eauto.
+  eapply max_value_new_f; eauto.
+  by intros ? K; apply updo; intro; subst; apply acts_S_tm in K; eauto.
+  by destruct a as [??[]]; ins.
+  by destruct a0 as [??[]]; ins.
 * eapply memory_step_update with (prev:=a); try edone. 
   by right.
   by eapply WF_OP_ST. 
@@ -1298,24 +1299,15 @@ intro; subst d; eapply max_elt_hb; eauto.
 eapply gstep_hb_a in HB; eauto 3;
 desf; red in SC; unfold sc_ext in *; desf; eauto 3.
 all: try eby apply FRESH; eapply hb_acta.
-eapply gstep_hb_a in RFHBF0; eauto 2.
-by eapply Cscr; eauto.
+eapply gstep_hb_a in HB'; eauto 2.
+red in RF'; desf.
 all: try eby intro; subst; apply FRESH; eapply sc_acta.
 all: try eby intro; subst; apply FRESH; eapply rf_actb.
-- red; ins.
-assert (hb (a :: acts) (sb +++ sb_ext acts a) rmw' rf' e a0 -> hb acts sb rmw' rf' e a0).
-  eapply gstep_hb_a; eauto 3.
-  eby intro; subst; apply FRESH; eapply mo_acta.
-
-assert (forall c g, sc d g /\ hb (a :: acts) (sb +++ sb_ext acts a) rmw' rf' c d ->
-  hb acts sb rmw' rf' c d).
-  ins; desc; eapply gstep_hb_a; eauto 3.
-  eby intro; subst; apply FRESH; eapply sc_acta.
- desf; red in SC; unfold sc_ext in *; desf.
-all: try by eapply Csc; eauto 7.
-all: try eby apply FRESH; eapply mo_acta.
-all: try by eapply max_elt_hb; eauto.
+all: try eby intro; subst; apply FRESH; eapply mo_acta.
+eapply max_elt_hb in HB'; eauto.
 - eby eapply new_G_non_read_NoPromises.
+Grab Existential Variables.
+done.
 Qed.
 
 Lemma GMsim_fence ts G tid lang st1 st2 lc1 lc2 threads sc_map mem sc_map' 

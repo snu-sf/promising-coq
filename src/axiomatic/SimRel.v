@@ -494,7 +494,7 @@ Definition sim_rel rel i :=
   << REL_UR: forall l' l, max_value f_to (t_rel urr acts sb rmw rf sc i l' l) 
     (LocFun.find l (LocFun.find l' rel).(View.pln)) >> /\
   << REL_UR: forall l' l, max_value f_to (t_rel rwr acts sb rmw rf sc i l' l) 
-    (LocFun.find l (LocFun.find l' rel).(View.rlx)) >>. 
+    (LocFun.find l (LocFun.find l' rel).(View.rlx)) >>.
 
 Definition sim_cur cur i :=
   << CUR_UR: forall l, max_value f_to (t_cur urr acts sb rmw rf sc i l) 

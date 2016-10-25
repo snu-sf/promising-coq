@@ -67,8 +67,7 @@ Section Consistency.
     clos_refl hb.
 
   Definition rwr l := 
-    urr l +++ <| fun x => is_write x /\ loc x = Some l |> ;; 
-    <| fun y => ~ is_rlx_rw y |> ;; rf ;; clos_refl hb.
+    urr l +++ <| fun x => is_write x /\ loc x = Some l |> ;; rf ;; clos_refl hb.
 
   Definition c_rel i l' tmr :=  
     tmr ;; 
@@ -918,7 +917,7 @@ Proof.
   unfold rwr, seq, eqv_rel in *; desc.
   destruct RW; desc; [by eapply Coherent_urr_rel; eauto|].
   eapply rel_hb_mo in REL; destruct REL as (d & K & L).
-  eapply basic_coherence_lemma with (a:=d) (b:=b) (c:=z1) (d:=d); eauto; vauto.
+  eapply basic_coherence_lemma with (a:=d) (b:=b) (c:=z0) (d:=d); eauto; vauto.
     by red in L; cdes COH; cdes WF; cdes WF_MO; desf; eauto.
   eapply clos_refl_seq_clos_refl; eauto using hb_trans.
 Qed.
@@ -1230,45 +1229,44 @@ Add Parametric Morphism : (CoherentWR) with signature
   eq ==> same_relation ==> same_relation ==> same_relation ==> same_relation ==> iff as CoherentWR_more.
 Proof.
   intros; unfold CoherentWR; unnw.
-  rewrite H, H0, H2. 
-(* rewrite H1.
- *)Admitted.
+  rewrite H, H0, H1, H2; reflexivity.
+Qed.
 
 Add Parametric Morphism : (CoherentRR) with signature 
   eq ==> same_relation ==> same_relation ==> same_relation ==> same_relation ==> iff as CoherentRR_more.
 Proof.
   intros; unfold CoherentRR; unnw.
-(*  rewrite H, H0, H1, H2; reflexivity. *)
-Admitted.
+  rewrite H, H0, H1, H2; reflexivity. 
+Qed.
 
 Add Parametric Morphism : (CoherentRR') with signature 
   eq ==> same_relation ==> same_relation ==> same_relation ==> same_relation ==> iff as CoherentRR'_more.
 Proof.
   intros; unfold CoherentRR'; unnw.
-(*  rewrite H, H0, H1, H2; reflexivity. *)
-Admitted.
+  rewrite H, H0, H1, H2; reflexivity.
+Qed.
 
 Add Parametric Morphism : (CoherentRFR) with signature 
   eq ==> same_relation ==> same_relation ==> same_relation ==> same_relation ==> iff 
       as CoherentRFR_more.
 Proof.
   intros; unfold CoherentRFR; unnw.
-(*  rewrite H, H0, H1, H2; reflexivity. *)
-Admitted.
+  rewrite H, H0, H1, H2; reflexivity.
+Qed.
 
 Add Parametric Morphism : (Atomicity) with signature 
   same_relation ==> same_relation ==> same_relation ==> iff as Atomicity_more.
 Proof.
   intros; unfold Atomicity; unnw.
-(*  rewrite H, H0, H1; reflexivity. *)
-Admitted.
+  rewrite H, H0, H1; reflexivity.
+Qed.
 
 Add Parametric Morphism : (CoherentSC) with signature 
   eq ==> same_relation ==> same_relation ==> same_relation ==> same_relation ==> same_relation ==> iff as CoherentSC_more.
 Proof.
   intros; unfold CoherentSC; unnw.
-(*  rewrite H, H0, H1, H2, H3; reflexivity. *)
-Admitted.
+  rewrite H, H0, H1, H2, H3; reflexivity.
+Qed.
 
 Add Parametric Morphism : (NoPromises) with signature 
   same_relation ==> same_relation ==> same_relation ==> iff as NoPromises_more.
