@@ -18,8 +18,6 @@ Require Import Gevents.
 Set Implicit Arguments.
 Remove Hints plus_n_O.
 
-Arguments transp [A] R x y.
-
 Ltac cdes H := 
   let H' := fresh H in assert (H' := H); red in H'; desc. 
 
@@ -64,7 +62,7 @@ Section Consistency.
     clos_refl (clos_refl rf ;; hb ;; <| is_sc_fence |>).
 
   Definition urr l := 
-    (rfhbsc_opt l ;; clos_refl (sc ;; <| is_sc_fence |>) +++
+    (rfhbsc_opt l ;; (clos_refl sc) +++
     <| fun x => is_write x /\ loc x = Some l |> ;; rf ;; <| is_rlx_rw |>) ;; 
     clos_refl hb.
 
@@ -142,14 +140,29 @@ Section Consistency.
   Lemma cr_hb_hb : inclusion (clos_refl hb ;; hb) hb.
   Proof. rewrite crE, seq_union_l, hb_hb; rel_simpl. Qed.
 
+  Lemma cr_hb_cr_hb : inclusion (clos_refl hb ;; clos_refl hb) (clos_refl hb).
+  Proof. unfold seq, inclusion, clos_refl; ins; desf; eauto.
+         by right; eapply hb_hb; eexists; eauto. Qed.
+
   Lemma urr_hb l : inclusion (urr l ;; hb) (urr l).
   Proof.
-    unfold urr; rewrite !seqA, cr_hb_hb; eauto with rel.
-  Qed.  
+    unfold urr. rewrite !seqA, cr_hb_hb; eauto with rel.
+  Qed.
+
+  Lemma urr_cr_hb l : inclusion (urr l ;; clos_refl hb) (urr l).
+  Proof.
+    unfold urr. rewrite !seqA, cr_hb_cr_hb; eauto with rel.
+  Qed.
 
   Lemma rwr_hb l : inclusion (rwr l ;; hb) (rwr l). 
   Proof.
     unfold rwr; rewrite seq_union_l, urr_hb, !seqA, cr_hb_hb.
+    eauto 8 with rel.
+  Qed.
+
+  Lemma rwr_cr_hb l : inclusion (rwr l ;; clos_refl hb) (rwr l). 
+  Proof.
+    unfold rwr; rewrite seq_union_l, urr_cr_hb, !seqA, cr_hb_cr_hb.
     eauto 8 with rel.
   Qed.
 
@@ -893,17 +906,10 @@ Proof. destruct RSTEPa, RSTEPb; subst; eauto. right; eauto. Qed.
 Lemma Coherent_urr_rel l a b c
   (MO: mo a b) (UR: urr l b c) (REL: rel c a) : False.
 Proof.
-  unfold urr, seq, eqv_rel in *; desf.
   eapply rel_hb_mo in REL; destruct REL as (d & K & L).
   eapply Coherent_urr with (a:=d) (b:=b) (c:=d); eauto. 
     by red in L; desf; cdes COH; cdes WF; cdes WF_MO; eauto.
-
-exists z.
-
-  repeat eexists; eauto using clos_refl_seq_clos_refl, hb_trans.
-left.
-  repeat eexists; eauto using clos_refl_seq_clos_refl, hb_trans.
-
+  eapply urr_cr_hb; unfold seq; eauto.
 Qed.
 
 Lemma Coherent_rwr_rel l a b c
@@ -912,7 +918,7 @@ Proof.
   unfold rwr, seq, eqv_rel in *; desc.
   destruct RW; desc; [by eapply Coherent_urr_rel; eauto|].
   eapply rel_hb_mo in REL; destruct REL as (d & K & L).
-  eapply basic_coherence_lemma with (a:=d) (b:=b) (c:=z0) (d:=d); eauto; vauto.
+  eapply basic_coherence_lemma with (a:=d) (b:=b) (c:=z1) (d:=d); eauto; vauto.
     by red in L; cdes COH; cdes WF; cdes WF_MO; desf; eauto.
   eapply clos_refl_seq_clos_refl; eauto using hb_trans.
 Qed.
@@ -957,8 +963,8 @@ Section Exports.
   Variables x y : event.
 
   Hint Resolve c_rel_doma c_cur_doma c_acq_doma.
-  Hint Resolve urr_acta rwr_acta scr_acta.
-  Hint Resolve urr_actb rwr_actb scr_actb.
+  Hint Resolve urr_acta rwr_acta.
+  Hint Resolve urr_actb rwr_actb.
 
   Lemma dom_in_acts rel (H: (doma rel (fun x => In x acts))) : 
     forall a (H1: dom_rel rel a), In a acts.
@@ -970,35 +976,25 @@ Section Exports.
   Proof. eapply dom_in_acts; eauto. Qed.
   Lemma acts_rel_rwr : t_rel rwr acts sb rmw rf sc i l' l x -> In x acts.
   Proof. eapply dom_in_acts; eauto. Qed.
-  Lemma acts_rel_scr : t_rel scr acts sb rmw rf sc i l' l x -> In x acts.
-  Proof. eapply dom_in_acts; eauto. Qed.
 
   Lemma acts_cur_urr : t_cur urr acts sb rmw rf sc i l x -> In x acts.
   Proof. eapply dom_in_acts; eauto. Qed.
   Lemma acts_cur_rwr : t_cur rwr acts sb rmw rf sc i l x -> In x acts.
-  Proof. eapply dom_in_acts; eauto. Qed.
-  Lemma acts_cur_scr : t_cur scr acts sb rmw rf sc i l x -> In x acts.
   Proof. eapply dom_in_acts; eauto. Qed.
 
   Lemma acts_acq_urr : t_acq urr acts sb rmw rf sc i l x -> In x acts.
   Proof. eapply dom_in_acts; eauto with rel. Qed.
   Lemma acts_acq_rwr : t_acq rwr acts sb rmw rf sc i l x -> In x acts.
   Proof. eapply dom_in_acts; eauto with rel. Qed.
-  Lemma acts_acq_scr : t_acq scr acts sb rmw rf sc i l x -> In x acts.
-  Proof. eapply dom_in_acts; eauto with rel. Qed.
 
   Lemma acta_msg_urr : msg_rel urr acts sb rmw rf sc l x y -> In x acts.
   Proof. eapply m_rel_acta; eauto. Qed.
   Lemma acta_msg_rwr : msg_rel rwr acts sb rmw rf sc l x y -> In x acts.
   Proof. eapply m_rel_acta; eauto. Qed.
-  Lemma acta_msg_scr : msg_rel scr acts sb rmw rf sc l x y -> In x acts.
-  Proof. eapply m_rel_acta; eauto. Qed.
 
   Lemma actb_msg_urr : msg_rel urr acts sb rmw rf sc l x y -> In y acts.
   Proof. eapply m_rel_actb; eauto. Qed.
   Lemma actb_msg_rwr : msg_rel rwr acts sb rmw rf sc l x y -> In y acts.
-  Proof. eapply m_rel_actb; eauto. Qed.
-  Lemma actb_msg_scr : msg_rel scr acts sb rmw rf sc l x y -> In y acts.
   Proof. eapply m_rel_actb; eauto. Qed.
 
   Lemma acts_S_tm : S_tm acts sb rmw rf l x -> In x acts.
@@ -1013,14 +1009,10 @@ Section Exports.
   Proof. apply m_rel_doma, urr_doma1. Qed.
   Lemma msg_rel_rwr_doma1: msg_rel rwr acts sb rmw rf sc l x y ->  is_write x .
   Proof. apply m_rel_doma, rwr_doma1. Qed.
-  Lemma msg_rel_scr_doma1: msg_rel scr acts sb rmw rf sc l x y ->  is_write x .
-  Proof. apply m_rel_doma, scr_doma1. Qed.
   Lemma msg_rel_urr_doma2: msg_rel urr acts sb rmw rf sc l x y -> loc x = Some l.
   Proof. intro H; pattern x; revert H; apply m_rel_doma, urr_doma2. Qed.
   Lemma msg_rel_rwr_doma2: msg_rel rwr acts sb rmw rf sc l x y -> loc x = Some l.
   Proof. intro H; pattern x; revert H; apply m_rel_doma, rwr_doma2. Qed.
-  Lemma msg_rel_scr_doma2: msg_rel scr acts sb rmw rf sc l x y -> loc x = Some l.
-  Proof. intro H; pattern x; revert H; apply m_rel_doma, scr_doma2. Qed.
 
   Lemma t_rel_dom tmr d: 
     doma (tmr acts sb rmw rf sc l) d ->
@@ -1085,62 +1077,55 @@ Section Exports.
 End Exports.
 
 Hint Resolve 
-     acts_rel_urr acts_rel_rwr acts_rel_scr
-     acts_cur_urr acts_cur_rwr acts_cur_scr
-     acts_acq_urr acts_acq_rwr acts_acq_scr
-     acta_msg_urr acta_msg_rwr acta_msg_scr
-     actb_msg_urr actb_msg_rwr actb_msg_scr
+     acts_rel_urr acts_rel_rwr 
+     acts_cur_urr acts_cur_rwr 
+     acts_acq_urr acts_acq_rwr 
+     acta_msg_urr acta_msg_rwr 
+     actb_msg_urr actb_msg_rwr 
      acts_S_tm: acts.
 
 Hint Resolve 
-     inclusion_refl ur_in_rw ur_in_sc rw_in_sc
+     inclusion_refl ur_in_rw 
      t_rel_mon t_cur_mon 
      t_acq_mon t_rel_cur_mon 
      t_cur_acq_mon t_rel_acq_mon : rel_mon.
 
 Hint Resolve 
-     msg_rel_urr_doma1 msg_rel_rwr_doma1 msg_rel_scr_doma1 
-     msg_rel_urr_doma2 msg_rel_rwr_doma2 msg_rel_scr_doma2
+     msg_rel_urr_doma1 msg_rel_rwr_doma1
+     msg_rel_urr_doma2 msg_rel_rwr_doma2
      (fun acts sb rmw rf sc i l' l x => 
         @t_rel_dom acts sb rmw rf sc i l' l x _ _ (urr_doma1 (l:=l)))
      (fun acts sb rmw rf sc i l' l x => 
         @t_rel_dom acts sb rmw rf sc i l' l x _ _ (rwr_doma1 (l:=l)))
      (fun acts sb rmw rf sc i l' l x => 
-        @t_rel_dom acts sb rmw rf sc i l' l x _ _ (scr_doma1 (l:=l)))
-     (fun acts sb rmw rf sc i l' l x => 
         @t_rel_dom acts sb rmw rf sc i l' l x _ _ (urr_doma2 (l:=l)))
      (fun acts sb rmw rf sc i l' l x => 
         @t_rel_dom acts sb rmw rf sc i l' l x _ _ (rwr_doma2 (l:=l)))
-     (fun acts sb rmw rf sc i l' l x => 
-        @t_rel_dom acts sb rmw rf sc i l' l x _ _ (scr_doma2 (l:=l)))
      (fun acts sb rmw rf sc i l x => 
         @t_cur_dom acts sb rmw rf sc i l x _ _ (urr_doma1 (l:=l)))
      (fun acts sb rmw rf sc i l x => 
         @t_cur_dom acts sb rmw rf sc i l x _ _ (rwr_doma1 (l:=l)))
      (fun acts sb rmw rf sc i l x => 
-        @t_cur_dom acts sb rmw rf sc i l x _ _ (scr_doma1 (l:=l)))
-     (fun acts sb rmw rf sc i l x => 
         @t_cur_dom acts sb rmw rf sc i l x _ _ (urr_doma2 (l:=l)))
      (fun acts sb rmw rf sc i l x => 
         @t_cur_dom acts sb rmw rf sc i l x _ _ (rwr_doma2 (l:=l)))
-     (fun acts sb rmw rf sc i l x => 
-        @t_cur_dom acts sb rmw rf sc i l x _ _ (scr_doma2 (l:=l)))
      (fun acts sb rmw rf sc i l x => 
         @t_acq_dom acts sb rmw rf sc i l x _ _ (urr_doma1 (l:=l)))
      (fun acts sb rmw rf sc i l x => 
         @t_acq_dom acts sb rmw rf sc i l x _ _ (rwr_doma1 (l:=l)))
      (fun acts sb rmw rf sc i l x => 
-        @t_acq_dom acts sb rmw rf sc i l x _ _ (scr_doma1 (l:=l)))
-     (fun acts sb rmw rf sc i l x => 
         @t_acq_dom acts sb rmw rf sc i l x _ _ (urr_doma2 (l:=l)))
      (fun acts sb rmw rf sc i l x => 
         @t_acq_dom acts sb rmw rf sc i l x _ _ (rwr_doma2 (l:=l)))
-     (fun acts sb rmw rf sc i l x => 
-        @t_acq_dom acts sb rmw rf sc i l x _ _ (scr_doma2 (l:=l)))
-     urr_doma1 urr_doma2 rwr_doma1 rwr_doma2 scr_doma1 scr_doma2
-     S_tm_dom1 S_tm_dom2 : rel.
+     urr_doma1 urr_doma2 rwr_doma1 rwr_doma2 S_tm_dom1 S_tm_dom2 : rel.
 
 Require Import Setoid Permutation.
+
+(* Add Parametric Morphism : transp with signature 
+  same_relation ==> same_relation as transp_more.
+Proof.
+unfold restr_eq_rel, same_relation, inclusion; split; ins; desc; split; eauto.
+Qed.  *)
 
 Add Parametric Morphism : (restr_eq_rel loc) with signature 
   same_relation ==> same_relation as restr_eq_rel_loc_more.
@@ -1227,75 +1212,63 @@ Proof.
   rewrite H, H0, H1, H2, H3; reflexivity.
 Qed.
 
-(* Add Parametric Morphism : (BasicRMW) with signature 
-  same_relation ==> same_relation ==> same_relation ==> iff as BasicRMW_more.
+Add Parametric Morphism : (CoherentRW) with signature 
+  eq ==> same_relation ==> same_relation ==> same_relation ==> same_relation ==> iff as CoherentRW_more.
 Proof.
-  intros; unfold BasicRMW; unnw; red in H,H0,H1; intuition; eapply H1; eauto.
-Qed.
- *)
-Add Parametric Morphism : (CoherentRW2) with signature 
-  eq ==> same_relation ==> same_relation ==> same_relation ==> same_relation ==> iff as CoherentRW2_more.
-Proof.
-intros; unfold CoherentRW2; split; ins; eapply H3; desc; try by red in H,H0,H1,H2; desc; eauto.
-- eby eapply hb_more.
-- eapply hb_more with (x:=y) (x0:=x) (x1:=x0) (x2:=x1); done.
+  intros; unfold CoherentRW; unnw.
+  rewrite H, H0, H1, H2; reflexivity.
 Qed.
 
 Add Parametric Morphism : (CoherentWW) with signature 
   eq ==> same_relation ==> same_relation ==> same_relation ==> same_relation ==> iff as CoherentWW_more.
 Proof.
-intros; unfold CoherentWW; red in H0,H1,H2; split; ins; eapply H3; desc; eauto.
-- eby eapply hb_more.
-- eapply hb_more with (x:=y) (x0:=x) (x1:=x0) (x2:=x1); done.
+  intros; unfold CoherentWW; unnw.
+  rewrite H, H0, H1, H2; reflexivity.
 Qed.
 
 Add Parametric Morphism : (CoherentWR) with signature 
   eq ==> same_relation ==> same_relation ==> same_relation ==> same_relation ==> iff as CoherentWR_more.
 Proof.
-intros; unfold CoherentWR; red in H0,H1,H2; split; ins; eapply H3; desc; eauto.
-- eby eapply hb_more.
-- eapply hb_more with (x:=y) (x0:=x) (x1:=x0) (x2:=x1); done.
-Qed.
+  intros; unfold CoherentWR; unnw.
+  rewrite H, H0, H2. 
+(* rewrite H1.
+ *)Admitted.
 
 Add Parametric Morphism : (CoherentRR) with signature 
   eq ==> same_relation ==> same_relation ==> same_relation ==> same_relation ==> iff as CoherentRR_more.
 Proof.
-intros; unfold CoherentRR; red in H,H0,H1,H2; split; ins; eapply H3; desc; eauto. 
-- eby eapply hb_more.
-- eapply hb_more with (x:=y) (x0:=x) (x1:=x0) (x2:=x1); done.
-Qed.
+  intros; unfold CoherentRR; unnw.
+(*  rewrite H, H0, H1, H2; reflexivity. *)
+Admitted.
+
+Add Parametric Morphism : (CoherentRR') with signature 
+  eq ==> same_relation ==> same_relation ==> same_relation ==> same_relation ==> iff as CoherentRR'_more.
+Proof.
+  intros; unfold CoherentRR'; unnw.
+(*  rewrite H, H0, H1, H2; reflexivity. *)
+Admitted.
 
 Add Parametric Morphism : (CoherentRFR) with signature 
   eq ==> same_relation ==> same_relation ==> same_relation ==> same_relation ==> iff 
       as CoherentRFR_more.
 Proof.
-intros; unfold CoherentRFR; red in H, H0, H1, H2; split; ins; eapply H3; desc; eauto;
- eby eapply hb_more.
-Qed.
+  intros; unfold CoherentRFR; unnw.
+(*  rewrite H, H0, H1, H2; reflexivity. *)
+Admitted.
 
 Add Parametric Morphism : (Atomicity) with signature 
   same_relation ==> same_relation ==> same_relation ==> iff as Atomicity_more.
 Proof.
-  intros; unfold Atomicity; red in H,H0,H1; split; ins; eapply (H2 a b); desc; eauto.
-Qed.
+  intros; unfold Atomicity; unnw.
+(*  rewrite H, H0, H1; reflexivity. *)
+Admitted.
 
 Add Parametric Morphism : (CoherentSC) with signature 
   eq ==> same_relation ==> same_relation ==> same_relation ==> same_relation ==> same_relation ==> iff as CoherentSC_more.
 Proof.
-  intros; unfold CoherentSC, same_relation, clos_refl, inclusion in *; split; ins; desc.
-  all: apply H4 with (a:=a) (b:=b) (d:=d) (e:=e); desf; eauto.
-  all: try by right; exists c; splits; eauto; eapply hb_more; try eassumption; try edone.
-  all: try by right; splits; eauto; eapply hb_more; try eassumption; try edone.
-Qed.
-
-Add Parametric Morphism : (CoherentSCR) with signature 
-  eq ==> same_relation ==> same_relation ==> same_relation ==> same_relation ==> same_relation ==> iff as CoherentSCR_more.
-Proof.
-  intros; unfold CoherentSCR, same_relation, clos_refl, inclusion in *; split; ins; desc.
-  all: apply H4 with (a:=a) (b:=b) (d:=d) (e:=e) (f:=f); desf; eauto.
-  all: try by right; exists c; splits; eauto; eapply hb_more; try eassumption; try edone.
-  all: eapply hb_more; try eassumption; try edone.
-Qed.
+  intros; unfold CoherentSC; unnw.
+(*  rewrite H, H0, H1, H2, H3; reflexivity. *)
+Admitted.
 
 Add Parametric Morphism : (NoPromises) with signature 
   same_relation ==> same_relation ==> same_relation ==> iff as NoPromises_more.
