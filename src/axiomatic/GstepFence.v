@@ -191,7 +191,7 @@ Proof.
     split; repeat apply inclusion_union_l; eauto 8 with rel mon.
   }
   rewrite (gstep_sc COH GSTEP); relsimp.
-  rewrite (seq_sc_ext_max_r); eauto with rel rel_max; relsimp.
+rewrite (seq_sc_ext_max_r); eauto with rel rel_max; relsimp.
   rewrite gstep_hb_fence; try done; relsimp.
   rewrite gstep_rfhbsc_opt_fence; try done; relsimp.
   rewrite (gstep_rf_nonread COH GSTEP); try edone; relsimp.
@@ -372,39 +372,49 @@ Proof.
   unfold t_rel, S_tm, S_tmr, c_rel, urr, rfhbsc_opt.
   rewrite !eqv_join, !seqA, !dom_seq_eqv2; ins.
   split; cycle 1.
-    intros (z & y & D & <- & K).
-    eexists a, y; split; ins; exists a; repeat eexists; eauto.
-    destruct (classic (y = a)); subst; vauto.
-     cdes GSTEP; right; unfold seq, eqv_rel; eauto.
-     exists a; splits; eauto; apply SC_AT_END; eauto.
-     unfold clos_refl at 1, seq, eqv_rel in D; desf; subst; eauto with acts.
+- intros (z & y & D & <- & K).
+    eexists a, a. split; ins.
+   left; repeat eexists; eauto.
+   destruct (classic (y = a)); subst; vauto.
+    cdes GSTEP; right; unfold seq, eqv_rel; eauto.
+    apply SC_AT_END; eauto.
+    unfold clos_refl at 1, seq, eqv_rel in D; desf; subst; eauto with acts.
        by simpls; desf; eauto.
-     eapply hb_actb in D0; eauto.
-     by simpl in D0; desf; eauto; congruence.
-  rewrite (crE (sc' ;; _)); relsimp.
-  rewrite (crE (_ ;; _)) at 1; relsimp.
-  rewrite !dom_union; intro X; desf; revert X. 
-    intros (z & y & D & <- & K); desc; clear K0.
-    exists a, a; split; ins. 
-    destruct (classic (x = a)); subst; vauto; right.
-    exists x; split; vauto; exists a; split; vauto.
-    destruct (classic (y = a)); desf. 
-      red in D; desf. 
-    eby exfalso; eapply gstep_not_init.
-    all: try eby exfalso; eapply init_not_rel.
+    eapply hb_actb in D0; eauto.
+    by simpl in D0; desf; eauto; congruence.
+  by exists a; repeat eexists; eauto.
+- rewrite !(crE (_ ;; _)); relsimp.
+  rewrite seq_eqvK.
+  rewrite !dom_union; intro X; desf; revert X; rewrite !dom_seq_eqv2; ins.
+  * right; exists a; apply seqA; eapply seq_eqv_r; split; try done.
+    exists x; splits; vauto.
+    unfold dom_rel, clos_refl, eqv_rel, seq in *; desc; eauto.
+    destruct H2; try by eapply sc_doma in H2; eauto; destruct x as [??[]]; ins.
+    subst z z0.
+    destruct H7; try eby exfalso; eapply init_not_rel.
+    destruct (classic (y = a)); try subst y. 
+    by destruct H3; vauto.
     eapply clos_refl_seq_step; eauto using hb_trans.
     eapply sb_in_hb; cdes GSTEP; apply SB_AT_END; eauto.
-    { destruct D; subst; eauto.
+    { destruct H3; subst; eauto.
       by destruct H1; subst; eauto; exfalso; auto.
+      eapply hb_actb in H3; eauto.
+      by destruct H3; subst; eauto; exfalso; auto. }
+  * unfold dom_rel, clos_refl, eqv_rel, seq in *; desc; eauto 10.
+  * right.
+    unfold dom_rel, clos_refl, eqv_rel, seq in *; desc; subst.
+    exists a, z0; splits; auto.
+    exists a; splits; auto.
+    destruct (classic (y = a)); try subst y.
+    by destruct H4; vauto; destruct a as [??[]]; ins.
+    destruct H8; try eby exfalso; eapply init_not_rel.
+    eapply clos_refl_seq_step; eauto using hb_trans.
+    eapply sb_in_hb; cdes GSTEP; apply SB_AT_END; vauto.
+    { eapply rf_actb in H2; eauto.
+      destruct H4; subst; eauto.
+      by destruct H2; subst; eauto; exfalso; auto.
       eapply hb_actb in H4; eauto.
       by destruct H4; subst; eauto; exfalso; auto. }
-    red; eauto with acts.
-    rewrite <- 2!seqA, seqA with (r1 := clos_refl rf').
-    intros (? & m & A & _).
-    exists m, m; split; vauto.
-    unfold seq, eqv_rel in *; desf; eauto with acts.
-    by intros (? & m & A & ? & B & _); eapply sc_doma in B; eauto;
-       rewrite seq_eqv_r; red; eauto.
 Qed.
 
 Lemma gstep_S_tm_wscfence (SC: is_sc_fence a) (NRA: ~ is_acq a) l x :
@@ -433,20 +443,16 @@ Proof.
   rewrite <- dom_rel_sb_ext with (acts:=acts); eauto using rwr_actb.
   unfold S_tmr, rwr, rwr, urr; relsimp.
   rewrite ?dom_union, !dom_seq_eqv2; ins.
-  rewrite (crE (sc ;; _)); relsimp.
   autorewrite with rel_dom.
   unfold rfhbsc_opt; relsimp.
   rewrite !dom_seq_eqv2; ins.
   rewrite (crE (clos_refl rf;; hb acts sb rmw rf;; <| is_sc_fence |>)) at 3; relsimp.
   rewrite (crE rf) at 3; relsimp.
   autorewrite with rel_dom.
-  unfold dom_rel; split; intro K; desf; eauto 25.
-  by left; right; left; unfold seq, eqv_rel in *; desf; 
-     eauto using clos_refl_seq_clos_refl, r_refl, hb_trans. 
-  by left; right; unfold seq, eqv_rel in *; desf; 
-     eauto 8 using clos_refl_seq_clos_refl, r_refl, hb_trans. 
-  by destruct K as (m & A & (? & B & _)); eapply sc_doma in B; eauto;
-     left; left; splits; ins; exists m; apply seq_eqv_r; split; ins.
+  unfold dom_rel; split; intro K; desf; 
+    try by unfold clos_refl, eqv_rel, seq in *; desf; eauto 15.
+  destruct K as [x' [[X|X] K]]; subst; eauto.
+  by eapply sc_doma in X; eauto; destruct x as [??[]]; ins.
 Qed.
 
 Lemma gstep_S_tm_sscfence (SC: is_sc_fence a) (ACQ: is_acq a) l x :
@@ -472,17 +478,18 @@ Proof.
   rewrite <- !seqA, !dom_rel_sb_ext, !seqA, dom_seq_eqv2;
     eauto 15 using rf_actb, hb_actb, seq_domb, eqv_domb, seq_eqv_domb, seq_r_domb.
   unfold S_tmr, t_acq, c_acq, rwr, urr; relsimp.
-  rewrite (crE (sc ;; _)); relsimp.
+  rewrite (crE sc); relsimp. 
   autorewrite with rel_dom.
   unfold rfhbsc_opt; relsimp.
   rewrite !dom_seq_eqv2; ins.
   rewrite seq_eqv_r.
   unfold dom_rel; split; intro K; desf; eauto 20.
-  by right; left; left; exists y, x; vauto.
+  by right; left; left; left; exists y, x; vauto.
   by destruct K as (m & A & B); destruct A as [->|A]; desf; eauto;
      left; eexists; split; eauto; unfold seq, eqv_rel in A; desf; auto with acts.
   by destruct K as (m & A & (? & B & _)); eapply sc_doma in B; eauto;
      left; splits; ins; exists m; apply seq_eqv_r; split; ins.
+  by unfold clos_refl, eqv_rel, seq in *; desf; eauto 20.
 Qed.
 
 
@@ -590,17 +597,12 @@ Section NonSCfences.
 
 Hypothesis (NSC: ~ is_sc a).
 
-Let non_sc_wf : ~ is_sc_wf a.
-Proof.
-  auto with acts.
-Qed.
-
 Let non_sc_fence : ~ is_sc_fence a.
 Proof.
   auto with acts.
 Qed.
 
-Hint Resolve non_sc_wf .
+Hint Resolve non_sc_fence .
 
 Lemma gstep_sc_ext_rafence :
   sc_ext acts a <--> (fun _ _ => False).
@@ -665,7 +667,7 @@ Proof.
           (thread y = thread a \/ is_init y));
     desc; eauto 16.
     exploit c_cur_actb; try eassumption; eauto using urr_actb.
-    by unfold c_cur, urr, rfhbsc_opt, seq, eqv_rel in *; desf; eauto.
+    unfold c_cur, urr, rfhbsc_opt, seq, eqv_rel, union in H; desf; eauto.
 
   assert (In y acts /\ is_write x /\ loc x = Some l' /\ 
           (thread y = thread a \/ is_init y));
