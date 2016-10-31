@@ -349,7 +349,7 @@ Proof.
   eapply seq_mori in C; eauto using rf_mon, rmw_mon.
   assert (IMM': immediate mo0 x y).
     split; [by eapply rf_rmw_mo in C; eauto|].
-    red in C; desc; intros; cdes COH'; eapply Cat;
+    red in C; desc; intros; cdes COH'; rewrite Atomicityalt in *; eapply Cat;
      try exact C; try exact C0; eauto.
   clear C; destruct IMM' as [C IMM'].
   cdes WF'; cdes WF_MO. 
@@ -389,7 +389,8 @@ Proof.
       unfold seq; intro; desc.  
       eapply rf_mon in H; eauto.
       eapply rmw_mon in H0; eauto.
-      by cdes COH'; eapply Cat with (a:= x) (b:= a) (c := y); eauto. 
+      by cdes COH'; rewrite Atomicityalt in *; 
+        eapply Cat with (a:= x) (b:= a) (c := y); eauto. 
     }
     eby eapply ffrom_helper.
     by ins; desc; eapply sim_mem_lt; eauto.
@@ -441,12 +442,16 @@ Proof.
     by unfold TimeMap.bot; eapply Time.bot_spec.
   }
 
+  assert (WRITABLE: TView.writable
+    (TView.cur (Local.tview {| Local.tview := tview; Local.promises := Memory.bot |}))
+    (Configuration.sc op_st) l (f_to' a) o).
+    by cdes GSTEP; desf; red in TVIEW; desc; eapply Writable_full; 
+      eauto using TimeFacts.le_lt_lt, Time.bot_spec, in_eq.
+
   desc; eexists _,_,_,mem',_,_,_; splits; eauto.
   - econs; [|eapply Local.step_write]; eauto.
     econstructor; eauto.
-    + cdes GSTEP; desf; red in TVIEW; desc; eapply Writable_full; 
-      eauto using TimeFacts.le_lt_lt, Time.bot_spec, in_eq.
-    + esplits; ss. apply Memory.bot_nonsynch_loc.
+    esplits; ss. apply Memory.bot_nonsynch_loc.
   - exists f_from', f_to'; splits; try done.
     * eapply tview_step_write; eauto.
     * ins; eapply max_value_new_f.
@@ -457,7 +462,10 @@ Proof.
       by ins; eapply F_TO; apply acts_S_tm in H0.
       destruct a as [??[]]; ins.
     * eapply memory_step_write; eauto.
-      destruct WF_OP_ST; done.
+      by destruct WF_OP_ST.
+      all: left; eapply TimeFacts.le_lt_lt; destruct WRITABLE; try edone.
+      destruct LWF; etransitivity;  [apply REL | apply REL_CUR].
+      destruct LWF; etransitivity; [apply REL_CUR | vauto].
     * clear H.
       cdes GSTEP; ins; subst.
       exploit mo_acta; try exact MO; try eassumption.
@@ -575,7 +583,8 @@ Proof.
       unfold seq; intro; desc.  
       eapply rf_mon in H; eauto.
       eapply rmw_mon in H0; eauto.
-      by cdes COH'; eapply Cat with (a:= x) (b:= a_w) (c := y); eauto. 
+      by cdes COH'; rewrite Atomicityalt in *;
+        eapply Cat with (a:= x) (b:= a_w) (c := y); eauto. 
     }
     eby eapply ffrom_helper.
     by ins; desc; eapply sim_mem_lt; eauto.
@@ -621,7 +630,7 @@ Proof.
     desf; specialize (SIM_MEMw l); desc.
     destruct msg2; eapply SIMCELL in H; desf.
     destruct (TimeFacts.le_lt_dec (f_to' b0) (f_to' a_w)).
-    * cdes COH'.
+    * cdes COH'. rewrite Atomicityalt in *.
       eapply Cat with (a:=b) (b:=b0) (c:=a_w); eauto.
       eapply wf_mo_tot with (acts:=acts0); eauto 2.
       by eapply COH'.
@@ -666,7 +675,16 @@ Proof.
     eby eapply msg_rel_rwr_doma2.
     unfold msg_rel, m_rel, seq in *; desc.
     by intro; eapply Coherent_rwr_rel; try edone.
+    by left; eapply TimeFacts.le_lt_lt; eauto.
   }
+
+  assert (WRITABLE: TView.writable (TView.cur (TView.read_tview tview l (fto b) rel o_r))
+    (Configuration.sc op_st) l (f_to' a_w) o_w).
+    {
+    cdes GSTEPw; desf; red in TVIEW; desc; eapply Writable_full; 
+          eauto using TimeFacts.le_lt_lt, Time.bot_spec, in_eq.
+    by rewrite SAME_THREAD; eapply TVIEWw.
+    }
 
     desc; eexists _,_,_,mem',_,_,_; splits; eauto.
     - econs; [|eapply Local.step_update]; eauto.
@@ -674,10 +692,7 @@ Proof.
         red in TVIEW; red in SIMMSG; desc.
         eapply Readable_full with (acts':=acts1) ;eauto. 
       * econstructor; eauto.
-        + cdes GSTEPw; desf; red in TVIEW; desc; eapply Writable_full; 
-            eauto using TimeFacts.le_lt_lt, Time.bot_spec, in_eq.
-          by rewrite SAME_THREAD; eapply TVIEWw.
-        + by esplits; ss; apply Memory.bot_nonsynch_loc.
+        by esplits; ss; apply Memory.bot_nonsynch_loc.
     - exists (upd ffrom a_w (fto b)), f_to'; splits; try done.
     * ins; rewrite updo; try done.
       by intro; subst; cdes GSTEPw; eapply FRESH; cdes GSTEPr; vauto.
@@ -698,18 +713,29 @@ Proof.
       intro; destruct a_r as [??[]]; ins.
       intro; destruct a_w as [??[]]; ins.
     * eapply memory_step_update with (acts:=acts1); eauto; try rewrite upds; try done.
-      + ins; rewrite updo; try done.
+      { ins; rewrite updo; try done.
         eby intro; subst; cdes GSTEPw; eapply FRESH.
-      + by destruct WF_OP_ST.
-      + eby rewrite SAME_THREAD.
-      + red in SIM_MEMw; desc.
+      }
+      by destruct WF_OP_ST.
+      eby rewrite SAME_THREAD.
+      { red in SIM_MEMw; desc.
         specialize (SIM_MEMw l); desc.
         specialize (SIMCELL (fto b) (ffrom b) v_r rel E); desc.
         red in SIMCELL4; desc.
         assert (b=b0); subst; try done.
         eapply monotone_injective with (acts:= acts1) (f:= fto); try edone.
         by eapply COHmid.
-   * clear H.
+      }
+      all: left; eapply TimeFacts.le_lt_lt; destruct WRITABLE; try edone.
+      all: unfold TView.read_tview.
+      all: simpl; unfold TimeMap.join; rewrite !Time.join_assoc.
+      all: etrans; [ |eapply Time.join_l].
+      all: destruct LWF.
+      by etransitivity;  [apply REL | apply REL_CUR].
+      by etransitivity;  [apply REL_CUR | vauto].
+      by etransitivity;  [apply CUR | vauto].
+      by vauto.
+   * clear H WRITABLE.
      cdes GSTEPw; ins; subst.
      exploit mo_acta; try exact MO; try eassumption.
      exploit mo_actb; try exact MO; try eassumption.
@@ -733,7 +759,7 @@ Proof.
        eapply gstep_mo; eauto; try congruence.
        by intro X; apply NRMW, (gstep_rf_rmw COHmid GSTEPw); vauto.
        by intro; subst; cdes GSTEPw; auto.
-   * clear H; cdes GSTEPw; subst; ins; desf.
+   * clear H WRITABLE; cdes GSTEPw; subst; ins; desf.
       + exfalso; apply NRMW.
         exists b, a_r; splits; eauto.
         eby eapply rf_mon.
@@ -824,8 +850,8 @@ Proof.
   cut (proof_obligation ax_st (exec ax_st') op_st (Some i) lang st st').
   {
     intro X; exploit X; eauto; clear X; ins; desc.
-       by eapply TIME; eauto.
-       by destruct WF_OP_ST; destruct WF; eapply THREADS; eauto.
+      by eapply TIME; eauto.
+      by destruct WF_OP_ST, WF; eapply THREADS; eauto.
     eexists _,i,_.
     apply foo; [|intro CSTEP].
   -  econstructor; try edone; try apply Thread.step_program; eauto.

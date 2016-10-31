@@ -693,7 +693,7 @@ Proof.
           (thread y = thread a \/ is_init y));
     desc; eauto 16.
     exploit c_cur_actb; try eassumption; eauto using rwr_actb.
-    by unfold c_cur, rwr, union, urr, rfhbsc_opt, seq, eqv_rel in *; desf; eauto.
+    by unfold c_cur, rwr, urr, rfhbsc_opt, seq, eqv_rel, union in *; desf; eauto.
 
   assert (In y acts /\ is_write x /\ loc x = Some l' /\ 
           (thread y = thread a \/ is_init y));

@@ -103,6 +103,13 @@ Section Consistency.
   Lemma hb_trans : transitive hb.
   Proof. vauto. Qed.
 
+  Lemma urr_refl l : forall x (IN: In x acts) (WRITE: is_write x) 
+                      (LOC: loc x = Some l), (urr l) x x.
+  Proof.
+  ins; exists x; splits; vauto.
+  left; repeat (ins; exists x; splits; vauto).
+  Qed.
+
   Lemma ur_in_rw l : inclusion (urr l) (rwr l).
   Proof. vauto. Qed.
 
@@ -582,7 +589,7 @@ Definition Coherent :=
   << Cww : CoherentWW >> /\
   << Cwr : CoherentWR >> /\
   << Crr : CoherentRR >> /\
-  << Crr : CoherentRR' >> /\
+  << Crr' : CoherentRR' >> /\
   << Crfr : CoherentRFR >> /\
   << Cat : Atomicity >> /\
   << Csc : CoherentSC >> /\
@@ -615,6 +622,70 @@ Lemma wf_mo_tot (WF_MO: WfMO) a b l
   (LOCa: loc a = Some l) (LOCb: loc b = Some l)
   (NMO: ~ mo a b) (NEQ: a <> b) : mo b a.
 Proof. cdes WF_MO; eapply MO_TOT in NEQ; desf; eauto. Qed.
+
+(******************************************************************************)
+(** ** Alternative presentation  *)
+(******************************************************************************)
+
+Lemma CoherentRWalt : CoherentRW <->
+  forall a b (MO: mo a b) c (RF: rf b c) (HB: hb c a), False.
+Proof.
+unfold CoherentRW, irreflexive, seq.
+split; ins; desf; eauto 8.
+Qed.
+
+Lemma CoherentWWalt : CoherentWW <->
+  forall a b (MO: mo a b) (HB: hb b a), False.
+Proof.
+unfold CoherentWW, irreflexive, seq.
+split; ins; desf; eauto 8.
+Qed.
+
+Lemma CoherentWRalt : CoherentWR <->
+  forall a b (MO: mo a b) c (HB: hb b c) (RF: rf a c), False.
+Proof.
+unfold CoherentWR, irreflexive, seq.
+split; ins; desf; eauto 8.
+Qed.
+
+Lemma CoherentRRalt : CoherentRR <->
+  forall a b (MO: mo a b) c (RF: rf b c) d (HB: hb c d) 
+      (RLX: is_rlx_rw c) (RF': rf a d), False.
+Proof.
+unfold CoherentRR, irreflexive, seq, eqv_rel, transp.
+split; ins; desf; eauto 12.
+Qed.
+
+Lemma CoherentRR'alt : CoherentRR' <->
+  forall a b (MO: mo a b) c (RF: rf b c) d (HB: hb c d) 
+      (RLX: is_rlx_rw d) (RF': rf a d), False.
+Proof.
+unfold CoherentRR', irreflexive, seq, eqv_rel, transp.
+split; ins; desf; eauto 12.
+Qed.
+
+Lemma CoherentRFRalt : CoherentRFR <->
+  forall a b (MO: mo a b) c (RF: rf b c) d (HB: hb c d) 
+      (FSC: is_sc_fence d) e (HB: hb d e) (RF': rf a e), False.
+Proof.
+unfold CoherentRFR, irreflexive, seq, eqv_rel, transp.
+split; ins; desf; eauto 20.
+Qed.
+
+Lemma Atomicityalt : Atomicity <->
+  forall a b (MO: mo a b) c (MO': mo b c) d (RMW: rmw d c) (RF: rf a d), False.
+Proof.
+unfold Atomicity, irreflexive, seq, eqv_rel, transp.
+split; ins; desf; eauto 20.
+Qed.
+
+Lemma CoherentSCalt : CoherentSC <->
+  forall a b c d e f (MO: mo a b) (RF: clos_refl rf b c) (HB: hb c d) 
+         (SC: sc d e) (HB': hb e f) (RF': clos_refl rf a f), False.
+Proof.
+unfold CoherentSC, irreflexive, seq, eqv_rel, clos_refl, transp.
+split; ins; desf; eauto 20.
+Qed.
 
 (******************************************************************************)
 (** ** Basic properties *)

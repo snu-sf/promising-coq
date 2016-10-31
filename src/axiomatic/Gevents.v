@@ -168,7 +168,7 @@ Hint Resolve  read_non_write read_non_fence write_non_read fence_non_read
 (** ** Initialization *)
 (******************************************************************************)
 
-  Definition init_event l := Event 0 None (Astore l 0 Ordering.relaxed).
+  Definition init_event l := Event 0 None (Astore l 0 Ordering.plain).
   Definition is_init a := exists l, a = init_event l.
   Definition is_proper a := exists i_a, thread a = Some i_a.
   Definition init_pair a b := is_init a /\ is_proper b.
@@ -188,7 +188,7 @@ Proof. split; intro H; unfold is_proper in *; desc; subst; ins; exists i_a; cong
 Lemma init_is_write a (A: is_init a) : is_write a.
 Proof. unfold is_init in *; desc; destruct a; destruct lb; ins. Qed.
 
-Lemma init_is_rlx a (A: is_init a) : is_rlx_rw a.
+Lemma init_not_rlx a (A: is_init a) : ~ is_rlx_rw a.
 Proof. unfold is_init, init_event, is_rlx_rw in *; desc. 
 destruct a; destruct lb; ins; desf. Qed.
 
@@ -208,7 +208,7 @@ Lemma same_init a b (A: is_init a) (B: is_init b) (LOC: loc a = loc b) :  a=b.
 Proof. unfold is_init,init_event,loc,lab in *; desf. Qed.
 
 Hint Resolve  init_not_proper proper_non_init init_proper_thread thread_proper 
-  init_is_write init_is_rlx init_not_acq init_not_rel init_not_sc : acts.
+  init_is_write init_not_rlx init_not_acq init_not_rel init_not_sc : acts.
 
 (******************************************************************************)
 (** ** Decidable equality *)
