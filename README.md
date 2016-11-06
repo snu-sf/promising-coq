@@ -1,5 +1,11 @@
 # A Promising Semantics for Relaxed-Memory Concurrency
 
+Jeehoon Kang, Chung-Kil Hur, Ori Lahav, Viktor Vafeiadis, Derek Dreyer.
+
+Proceedings of the 44th ACM SIGPLAN-SIGACT Symposium on Principles of Programming Languages ([POPL 2017](http://conf.researchr.org/home/POPL-2017)).
+
+Please visit the [project website](http://sf.snu.ac.kr/promise-concurrency/) for more information.
+
 ## Build
 
 - Requirement: [Coq 8.5pl2](https://coq.inria.fr/download), Make, Rsync.
