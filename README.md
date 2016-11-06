@@ -39,7 +39,8 @@
     + Strengthening: `sim_stmts_instr` (`SimTrace.v`)
     + Reorderings: `reorder_sim_stmts` (`Reorder.v`) and `reorder_release_fenceF_sim_stmts` (`ReorderRelFence.v`)
     + Merges: `Merge.v`
-    + Unused Plain Read Elimination: `unused_load_sim_stmts` (`UnusedLoad.v`)
+    + Unused Plain Read Elimination: `elim_load_sim_stmts` (`ElimLoad.v`)
+    + Read Introduction: `intro_load_sim_stmts` (`IntroLoad.v`)
     + Spliting acquire loads/updates and release writes/updates:
         `split_acquire_sim_stmts` (`SplitAcq.v`), `split_release_sim_stmts` (`SplitRel.v`), `split_acqrel_sim_stmts` (`SplitAcqRel.v`)
       These are used for the soundness proof of compilation to Power.

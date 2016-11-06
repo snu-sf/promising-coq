@@ -48,7 +48,7 @@ Set Implicit Arguments.
  * `x_rlx` will allow the loop to run forever.
  *)
 
-Lemma unused_read
+Lemma elim_read
       lc0 mem0
       loc ord
       (ORD: Ordering.le ord Ordering.plain)
@@ -71,7 +71,7 @@ Proof.
     + apply TViewFacts.read_tview_incr.
 Qed.
 
-Lemma unused_load_sim_stmts
+Lemma elim_load_sim_stmts
       r loc ord
       (ORD: Ordering.le ord Ordering.plain):
   sim_stmts (RegFile.eq_except (RegSet.singleton r))
@@ -80,7 +80,7 @@ Lemma unused_load_sim_stmts
             (RegFile.eq_except (RegSet.singleton r)).
 Proof.
   pcofix CIH. ii. subst. pfold. ii. splits.
-  { exploit unused_read; eauto. i. des.
+  { exploit elim_read; eauto. i. des.
     exploit sim_local_read; eauto; try refl. i. des.
     esplits.
     - econs 2; eauto. econs.
