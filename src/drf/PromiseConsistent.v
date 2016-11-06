@@ -83,7 +83,7 @@ Proof.
   inv STEP. ii.
   destruct (Memory.get loc0 ts promises2) as [[]|] eqn:X.
   - apply CONS in X. eapply TimeFacts.le_lt_lt; eauto.
-    s. etrans; [|apply Time.join_l]. etrans; [|apply Time.join_l]. refl.
+    s. etrans; [|apply Time.join_l]. refl.
   - destruct msg. inv WRITE.
     exploit Memory.promise_promises_get1; eauto. i. des.
     exploit fulfill_unset_promises; eauto. i. des. subst.
@@ -106,7 +106,7 @@ Qed.
 
 Lemma ordering_relaxed_dec
       ord:
-  Ordering.le ord Ordering.relaxed \/ Ordering.le Ordering.acqrel ord.
+  Ordering.le ord Ordering.relaxed \/ Ordering.le Ordering.strong_relaxed ord.
 Proof. destruct ord; auto. Qed.
 
 Lemma step_promise_consistent
@@ -180,7 +180,9 @@ Proof.
   inv STEP. exploit CONS; eauto. s. i.
   apply TimeFacts.join_lt_des in x. des.
   apply TimeFacts.join_lt_des in AC. des.
-  revert BC0. unfold TimeMap.singleton, LocFun.add. condtac; ss.
+  revert BC0. unfold View.singleton_ur_if. condtac; ss.
+  - unfold TimeMap.singleton, LocFun.add. condtac; ss.
+  - unfold TimeMap.singleton, LocFun.add. condtac; ss.
 Qed.
 
 Lemma promise_consistent_promise_write
@@ -195,8 +197,7 @@ Proof.
   - inv STEP. inv WRITE. destruct m.
     exploit CONS; eauto. i. ss.
     apply TimeFacts.join_lt_des in x. des.
-    apply TimeFacts.join_lt_des in AC. des.
-    left. revert BC0. unfold TimeMap.singleton, LocFun.add. condtac; ss.
+    left. revert BC. unfold TimeMap.singleton, LocFun.add. condtac; ss.
   - inv STEP. inv WRITE. destruct m.
     exploit Memory.promise_promises_get1; eauto. i. des.
     exploit fulfill_unset_promises; eauto. i. des. subst. refl.

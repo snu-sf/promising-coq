@@ -63,28 +63,12 @@ Lemma write_write_tview
       (WF0: TView.wf tview0):
   TView.le
     (TView.write_tview (TView.write_tview tview0 sc0 loc ts1 ord)
-                         (TView.write_sc sc0 loc ts1 ord)
+                         sc0
                          loc ts2 ord)
     (TView.write_tview tview0 sc0 loc ts2 ord).
 Proof.
-  econs; viewtac;
-    (repeat (condtac; aggrtac));
-    (try by apply WF0).
-  - econs; viewtac. unfold TView.write_sc. condtac; aggrtac.
-  - econs; viewtac. unfold TView.write_sc. condtac; aggrtac.
-  - econs; viewtac. unfold TView.write_sc. condtac; aggrtac.
-Qed.
-
-Lemma write_write_sc
-      loc ts1 ts2 ord
-      (TS: Time.lt ts1 ts2)
-      sc0:
-  TimeMap.le
-    (TView.write_sc (TView.write_sc sc0 loc ts1 ord)
-                     loc ts2 ord)
-    (TView.write_sc sc0 loc ts2 ord).
-Proof.
-  unfold TView.write_sc. repeat (condtac; aggrtac).
+  econs; repeat (try condtac; aggrtac).
+  all: try by apply WF0.
 Qed.
 
 Lemma read_fence_read_fence_tview

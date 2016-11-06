@@ -40,7 +40,6 @@ Section Graph_steps_other.
   Hint Resolve rfhbsc_opt_mon: mon.
   Hint Resolve urr_mon: mon.
   Hint Resolve rwr_mon: mon.
-  Hint Resolve scr_mon: mon.
   Hint Resolve S_tmr_mon: mon.
 
   Hint Resolve wmax_elt_eqv : rel.
@@ -53,7 +52,6 @@ Section Graph_steps_other.
   Hint Resolve wmax_elt_rfhbsc_opt : rel_max.
   Hint Resolve wmax_elt_urr : rel_max.
   Hint Resolve wmax_elt_rwr : rel_max.
-  Hint Resolve wmax_elt_scr : rel_max.
 
   Hint Resolve 
      gstep_r_a gstep_seq_wde_a gstep_eqv_rel_a gstep_union_a
@@ -67,7 +65,6 @@ Section Graph_steps_other.
   Hint Resolve gstep_rfhbsc_opt_a : rel_max.
   Hint Resolve gstep_urr_a : rel_max.
   Hint Resolve gstep_rwr_a : rel_max.
-  Hint Resolve gstep_scr_a : rel_max.
   Hint Resolve gstep_m_rel_a : rel_max.
   Hint Resolve gstep_c_rel_a : rel_max.
   Hint Resolve gstep_c_cur_a : rel_max.
@@ -105,15 +102,6 @@ Proof.
   eapply same_relation_exp, gstep_m_rel_nonwrite; 
     eauto with mon rel_max.
 Qed.
-
-Lemma gstep_msg_rel_scr_nonwrite (W: ~ is_write a) l x y :
-  msg_rel scr acts' sb' rmw' rf' sc' l x y <-> 
-  msg_rel scr acts sb rmw rf sc l x y.
-Proof.
-  eapply same_relation_exp, gstep_m_rel_nonwrite; 
-    eauto with mon rel_max.
-Qed.
-
 
 (** Easy cases when the thread views do not change *)
 
@@ -192,22 +180,21 @@ Proof.
     eauto with rel rel_max.
 Qed.
 
-(** The global view changes only by SC writes and fences. *)
+(** The global view changes only by SC fences. *)
 
-Lemma gstep_S_tmr_other (N: is_read a \/ ~ is_sc a) l :
+Lemma gstep_S_tmr_other (N: ~ is_sc_fence a) l :
   S_tmr acts' sb' rmw' rf' l <-->
   S_tmr acts sb rmw rf l.
 Proof.
-  assert (M: is_read a /\ ~ is_fence a /\ ~ (is_write a /\ loc a = Some l) \/ ~ is_sc a). 
-    by desf; eauto; left; destruct a as [??[]]; intuition; ins.
-  clear N; unfold S_tmr.
+  assert (M: ~ is_fence a \/ ~ is_sc a).
+    by destruct a as [??[]]; intuition; ins.
+  unfold S_tmr.
   rewrite (gstep_rfhbsc_opt_nonscfence COH GSTEP); relsimp.
     by apply union_eq_helper2; rewrite !eqv_join; unfold eqv_rel; red; ins; desc; subst x y; 
        desf; eauto with acts.
-  by destruct a as [??[]]; ins; destruct ow; ins; desf.
 Qed.
 
-Lemma gstep_S_tm_other (N: is_read a \/ ~ is_sc a) l x :
+Lemma gstep_S_tm_other (N: ~ is_sc_fence a) l x :
   S_tm acts' sb' rmw' rf' l x <->
   S_tm acts sb rmw rf l x.
 Proof.
@@ -242,15 +229,6 @@ Lemma gstep_t_acq_rwr_nonread (NR: ~ is_read a) l x :
   t_acq rwr acts' sb' rmw' rf' sc' (thread a) l x <->
   t_cur rwr acts' sb' rmw' rf' sc' (thread a) l x \/
   t_acq rwr acts sb rmw rf sc (thread a) l x.
-Proof.
-  unfold t_cur, t_acq, msg_rel; rewrite gstep_c_acq_nonread, dom_union; 
-    eauto with rel rel_max mon.
-Qed.
-
-Lemma gstep_t_acq_scr_nonread (NR: ~ is_read a) l x :
-  t_acq scr acts' sb' rmw' rf' sc' (thread a) l x <->
-  t_cur scr acts' sb' rmw' rf' sc' (thread a) l x \/
-  t_acq scr acts sb rmw rf sc (thread a) l x.
 Proof.
   unfold t_cur, t_acq, msg_rel; rewrite gstep_c_acq_nonread, dom_union; 
     eauto with rel rel_max mon.

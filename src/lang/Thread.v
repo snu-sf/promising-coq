@@ -230,20 +230,19 @@ Module Local.
       (RELEASED: released = TView.write_released lc1.(tview) sc1 loc to releasedm ord)
       (WRITABLE: TView.writable lc1.(tview).(TView.cur) sc1 loc to ord)
       (WRITE: Memory.write lc1.(promises) mem1 loc from to val released promises2 mem2 kind)
-      (RELEASE: Ordering.le Ordering.acqrel ord ->
+      (RELEASE: Ordering.le Ordering.strong_relaxed ord ->
                 Memory.nonsynch_loc loc lc1.(promises) /\
                 kind = Memory.op_kind_add):
       write_step lc1 sc1 mem1 loc from to val releasedm released ord
                  (mk (TView.write_tview lc1.(tview) sc1 loc to ord) promises2)
-                 (TView.write_sc sc1 loc to ord)
-                 mem2 kind
+                 sc1 mem2 kind
   .
 
   Inductive fence_step (lc1:t) (sc1:TimeMap.t) (ordr ordw:Ordering.t): forall (lc2:t) (sc2:TimeMap.t), Prop :=
   | fence_step_intro
       tview2
       (READ: TView.read_fence_tview lc1.(tview) ordr = tview2)
-      (RELEASE: Ordering.le Ordering.acqrel ordw -> Memory.nonsynch lc1.(promises)):
+      (RELEASE: Ordering.le Ordering.strong_relaxed ordw -> Memory.nonsynch lc1.(promises)):
       fence_step lc1 sc1 ordr ordw (mk (TView.write_fence_tview tview2 sc1 ordw) lc1.(promises)) (TView.write_fence_sc tview2 sc1 ordw)
   .
 
@@ -352,7 +351,7 @@ Module Local.
     splits; eauto.
     - econs; ss.
     - apply TViewFacts.write_tview_incr. auto.
-    - apply TViewFacts.write_sc_incr.
+    - refl.
     - inv WRITE. inv PROMISE; auto.
   Qed.
 

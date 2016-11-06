@@ -48,7 +48,7 @@ Set Implicit Arguments.
  * `x_rlx` will allow the loop to run forever.
  *)
 
-Lemma unused_read
+Lemma elim_read
       lc0 mem0
       loc ord
       (ORD: Ordering.le ord Ordering.plain)
@@ -60,7 +60,7 @@ Proof.
   destruct lc0.
   assert (exists from val released, Memory.get loc ((TView.cur tview).(View.pln) loc) mem0 = Some (from, Message.mk val released)).
   { inv WF. ss. inv TVIEW_CLOSED. inv CUR.
-    exploit UR; eauto.
+    exploit PLN; eauto.
   }
   des. inv MEM. exploit CLOSED; eauto. i. des.
   esplits. econs; s; eauto.
@@ -71,7 +71,7 @@ Proof.
     + apply TViewFacts.read_tview_incr.
 Qed.
 
-Lemma unused_load_sim_stmts
+Lemma elim_load_sim_stmts
       r loc ord
       (ORD: Ordering.le ord Ordering.plain):
   sim_stmts (RegFile.eq_except (RegSet.singleton r))
@@ -80,7 +80,7 @@ Lemma unused_load_sim_stmts
             (RegFile.eq_except (RegSet.singleton r)).
 Proof.
   pcofix CIH. ii. subst. pfold. ii. splits.
-  { exploit unused_read; eauto. i. des.
+  { exploit elim_read; eauto. i. des.
     exploit sim_local_read; eauto; try refl. i. des.
     esplits.
     - econs 2; eauto. econs.

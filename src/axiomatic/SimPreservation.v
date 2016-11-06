@@ -41,6 +41,7 @@ Proof.
 unfold sim_tview, sim_cur, sim_acq, sim_rel in *; desf; splits; ins.
 all: eapply max_value_new_f; eauto.
 all: ins; apply F; eauto with acts.
+all: desf; eauto with acts.
 Qed.
 
 Lemma sim_tview_other_threads acts sb rmw rf mo sc acts' sb' rmw' rf' mo' sc'
@@ -56,10 +57,17 @@ all: eapply max_value_same_set.
 all: try match goal with
        | [|- max_value _ _ _] => eapply max_value_new_f with (f:=f); eauto with acts
      end.
-all: ins; try eapply gstep_t_cur_other;  
+all: ins. 
+all: try eapply gstep_t_cur_other;  
      try eapply gstep_t_acq_other;  
-     try eapply gstep_t_rel_other;  
-     eauto 2 using gstep_urr_a, gstep_rwr_a, gstep_scr_a, urr_mon, rwr_mon, scr_mon.
+     eauto using gstep_urr_a, gstep_rwr_a, urr_mon, rwr_mon.
+all: desf; eauto with acts.
+all: split; intro H; destruct H; desc; auto.
+all: try by left; 
+      eapply gstep_t_rel_other with (acts':=acts'); 
+      eauto using gstep_urr_a, gstep_rwr_a, urr_mon, rwr_mon.
+all: right; splits; cdes GSTEP; auto; rewrite ACT_STEP in *; vauto.
+all: by destruct H0; congruence.
 Qed.
 
 (******************************************************************************)
@@ -86,8 +94,6 @@ assert (RLXa: is_rlx_rw a <-> Ordering.le Ordering.relaxed o).
   by destruct a; ins; desf.
 assert (ACQa: is_acq a <-> Ordering.le Ordering.acqrel o).
   by destruct a; ins; desf.
-assert (SCa: is_sc a <-> Ordering.le Ordering.seqcst o).
-  by destruct a; ins; desf.
 
 assert (~ is_fence a /\ ~ is_write a /\ is_read a).
   by destruct a; ins; desf.
@@ -96,7 +102,7 @@ destruct tview; simpl.
 red in TVIEW; desc; red in CUR; red in ACQ; red in REL; desc.
 red in SIM_MSG; desc.
 unfold sim_tview, sim_acq, sim_cur, sim_rel; splits; ins.
-
+all: unfold View.singleton_ur_if.
 all: try rewrite LocFun.add_spec; desf.
 all: ins.
 all: try rewrite !tm_join_bot.
@@ -110,22 +116,19 @@ all: try match goal with
        | [|- max_value _ _ _ ] => eapply max_value_singleton; eauto end.
 all: simpl.
 all: try by intro x; split; [intro K; pattern x; exact K|].
-all: intro x.
+all: try intro x.
 
-all: try (rewrite (gstep_t_cur_urr_read COH GSTEP b RFb); split; ins; desf; try by eauto; try by (exfalso; eauto)).
-all: try (rewrite (gstep_t_cur_rwr_read COH GSTEP b RFb); split; ins; desf; try by eauto; try by (exfalso; eauto)).
-all: try (rewrite (gstep_t_cur_scr_read COH GSTEP b RFb); split; ins; desf; try by eauto; try by (exfalso; eauto)).
-all: try (rewrite (gstep_t_acq_urr_read COH GSTEP b RFb); split; ins; desf; try by eauto; try by (exfalso; eauto)).
-all: try (rewrite (gstep_t_acq_rwr_read COH GSTEP b RFb); split; ins; desf; try by eauto; try by (exfalso; eauto)).
-all: try (rewrite (gstep_t_acq_scr_read COH GSTEP b RFb); split; ins; desf; try by eauto; try by (exfalso; eauto)).
+all: try (rewrite (gstep_t_cur_urr_read COH GSTEP b RFb); split; ins; desf; try by eauto 10; try by (exfalso; eauto)).
+all: try (rewrite (gstep_t_cur_rwr_read COH GSTEP b RFb); split; ins; desf; try by eauto 10; try by (exfalso; eauto)).
+all: try (rewrite (gstep_t_acq_urr_read COH GSTEP b RFb); split; ins; desf; try by eauto 10; try by (exfalso; eauto)).
+all: try (rewrite (gstep_t_acq_rwr_read COH GSTEP b RFb); split; ins; desf; try by eauto 10; try by (exfalso; eauto)).
 
-
-rewrite (gstep_t_rel_other GSTEP _ _ (gstep_urr_a COH GSTEP (l:=_)) 
+by exfalso; destruct o; vauto.
+all: try rewrite (gstep_t_rel_other GSTEP _ _ (gstep_urr_a COH GSTEP (l:=_)) 
                            (urr_mon GSTEP (l:=_))); auto.
-rewrite (gstep_t_rel_other GSTEP _ _ (gstep_rwr_a COH GSTEP (l:=_)) 
+all: try rewrite (gstep_t_rel_other GSTEP _ _ (gstep_rwr_a COH GSTEP (l:=_)) 
                            (rwr_mon GSTEP (l:=_))); auto.
-rewrite (gstep_t_rel_other GSTEP _ _ (gstep_scr_a COH GSTEP (l:=_)) 
-                           (scr_mon GSTEP (l:=_))); auto.
+all: by cdes GSTEP; rewrite ACT_STEP; split; ins; desf; eauto 8.
 Qed.
 
 Lemma memory_step_nonwrite acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0
@@ -151,10 +154,9 @@ splits.
   unfold sim_mem_helper in *; desc; splits; eauto.
   by red in GSTEP; desc; rewrite ACT_STEP; right.
   unfold sim_msg in *; desc; splits; eauto.
-  all: ins.
-  all: eapply max_value_same_set; try edone.
-  all: simpl; eauto using gstep_msg_rel_urr_nonwrite, gstep_msg_rel_rwr_nonwrite, 
-  gstep_msg_rel_scr_nonwrite.
+  all: ins; eapply max_value_same_set; try edone; ins; split; ins; desf; vauto; left.
+  all: try eby eapply gstep_msg_rel_urr_nonwrite with (acts:=acts) (acts':=acts0).
+  all: try eby eapply gstep_msg_rel_rwr_nonwrite with (acts:=acts) (acts':=acts0).
 - ins; apply UPDATES; try done.
   eapply gstep_rf_rmw_nonwrite with (rf:=rf) in RF_RMW; eauto.
 Qed.
@@ -174,16 +176,17 @@ Lemma tview_step_write acts sb rmw rf mo sc sc_map acts0 sb0 rmw0 rf0 mo0 sc0
   (MON : monotone mo0 f'):
   sim_tview f' acts0 sb0 rmw0 rf0 sc0 (TView.write_tview tview sc_map l (f' a) o) (thread a).
 Proof.
+assert (X: forall x, In x acts -> In x acts0).
+  by cdes GSTEP; rewrite ACT_STEP in *; ins; desf; auto.
+
+assert (XX: forall x, In x acts0 -> In x acts \/ a = x).
+  by cdes GSTEP; rewrite ACT_STEP in *; ins; desf; auto.
 
 assert (WRITE: is_write a).
   eauto with acts.
 assert (NR: ~ is_read a).
   eauto with acts.
 
-assert (SCa: Ordering.le Ordering.seqcst o <-> is_sc a).
-  by destruct a; ins; desf.
-assert (SCa': Ordering.le Ordering.seqcst o <-> is_sc_wf a).
-  by rewrite SCa; eauto 7 with acts.
 assert (RAa: Ordering.le Ordering.acqrel o <-> is_rel a).
   by destruct a; ins; desf.
 
@@ -207,63 +210,34 @@ all: try match goal with
            try eapply max_value_new_f with (f':=f'); eauto with acts
          | [|- max_value _ _ _ ] => eapply max_value_singleton; eauto
        end.
+all: try by ins; desf; eauto 4 with acts.
 all: simpl.
 all: try by intro x; split; [intro K; pattern x; exact K|].
 all: intro x.
 
 all: clear 
-  CUR_UR CUR_RW CUR_SC
-  ACQ_UR ACQ_RW ACQ_SC
-  REL_UR REL_UR0 REL_UR1.
+  CUR_UR CUR_RW 
+  ACQ_UR ACQ_RW 
+  REL_UR REL_RW.
 
   all: try rewrite (gstep_t_acq_urr_nonread COH GSTEP NR).  
   all: try rewrite (gstep_t_acq_rwr_nonread COH GSTEP NR).  
-  all: try rewrite (gstep_t_acq_scr_nonread COH GSTEP NR).  
   all: try rewrite (gstep_t_cur_urr_write COH GSTEP WRITE).
   all: try rewrite (gstep_t_cur_rwr_write COH GSTEP WRITE).
-  all: try rewrite (gstep_t_cur_scr_write COH GSTEP WRITE).
   all: try rewrite (gstep_t_rel_urr_write COH GSTEP WRITE).
   all: try rewrite (gstep_t_rel_rwr_write COH GSTEP WRITE).
-  all: try rewrite (gstep_t_rel_scr_write COH GSTEP WRITE).
   all: split; ins; desf; eauto 3 with acts.
   all: try by exfalso; eauto with acts.
   all: eauto 10 with rel.
   all: eauto using inclusion_refl2 with rel_mon.
-Qed.
 
-Lemma sc_map_step_write acts sb rmw rf mo sc sc_map acts0 sb0 rmw0 rf0 mo0 sc0
-  (COH : Coherent acts sb rmw rf mo sc)
-  f (MONOTONE : monotone mo f)
-  (SIM_SC_MAP : forall l, max_value f (S_tm acts sb rmw rf l) (LocFun.find l sc_map))
-  prev a l v o (LABa : lab a = Astore l v o)
-  (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 prev a)
-  f' (F : forall b, In b acts -> f' b = f b)
-  (MON : monotone mo0 f'):
-  forall l0, max_value f' (S_tm acts0 sb0 rmw0 rf0 l0)
-     (LocFun.find l0 (TView.write_sc sc_map l (f' a) o)).
-Proof.
-assert (WRITE: is_write a).
-  eauto with acts.
-assert (SCa: Ordering.le Ordering.seqcst o <-> is_sc a).
-  by destruct a; ins; desf.
-    ins.
-    unfold TView.write_sc; desf; ins.
-    all: try rewrite !tm_find_join.
-    all: try rewrite !tm_find_singleton; desf; ins.
-    all: try rewrite time_join_bot.
-    all: try eapply max_value_join.
-    all: try match goal with
-             | [|- max_value _ _ (LocFun.find _ _)] => eapply max_value_same_set;
-               try eapply max_value_new_f with (f':=f'); eauto with acts
-             | [|- max_value _ _ _ ] => eapply max_value_singleton; eauto
-           end.
-    all: ins.
-    all: rewrite gstep_S_tm_write; eauto.
-    all: split; ins; desf; eauto.
-    all: try by (exfalso; eauto).
-    right; splits; eauto.
-    by destruct x; ins; desf.
-    by destruct a; ins; desf; exfalso; unfold loc in *; ins; desf; auto.
+  all: try by apply XX in H0; desf; eauto 8.
+  all: try by right; splits; eauto; cdes GSTEP; rewrite ACT_STEP; vauto.
+  all: destruct (classic (a=x)); eauto; left; exists x, x; splits; eauto; vauto.
+  2: eapply ur_in_rw.
+  all: exists x; splits; eauto; left; exists x; splits; eauto.
+  all :exists x; splits; try red; eauto.
+  all: exists x; splits; eauto; red; splits; eauto; apply XX in H0; tauto.
 Qed.
 
 Lemma memory_write0 mem mem' l from t v rel l0 t0
@@ -348,49 +322,45 @@ Lemma memory_step_write_cell_eq acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0
   ffrom ffrom' (F_FROM : forall b, In b acts -> ffrom' b = ffrom b)
   f f' (F : forall b, In b acts -> f' b = f b) (MON: monotone mo0 f')
   v0 rel mem (CLOSED: Memory.closed mem)
-  sc_map (SIM_SC_MAP : forall l, max_value f (S_tm acts sb rmw rf l) (LocFun.find l sc_map))
+  sc_map 
   tview (SIM_TVIEW : sim_tview f acts sb rmw rf sc tview (thread a))
   (FROM: Time.lt (ffrom' a) (f' a))
   mem' (ADD: Memory.write Memory.bot mem l (ffrom' a) (f' a) v 
           (TView.write_released tview sc_map l (f' a) None o)
      Memory.bot mem' Memory.op_kind_add)
-  (GET: Memory.get l (f' a) mem' = Some (ffrom' a, Message.mk v0 rel)):
+  (GET: Memory.get l (f' a) mem' = Some (ffrom' a, Message.mk v0 rel))
+  (EXpln: Time.le (LocFun.find l (View.pln ((TView.rel tview) l))) (f' a)) 
+  (EXrlx: Time.le (LocFun.find l (View.rlx ((TView.rel tview) l))) (f' a)) 
+  (COH' : Coherent acts0 sb0 rmw0 rf0 mo0 sc0) :
   exists b, In b acts0 /\ is_write b /\ loc b = Some l /\
     ffrom' b = ffrom' a /\ f' b = f' a /\ sim_mem_helper f' acts0 sb0 rmw0 rf0 sc0 b (ffrom' a) v0 rel.(View.unwrap).
 Proof.
-desc; subst.
-  exists a; splits; eauto with acts.
-  by red in GSTEP; desc; rewrite ACT_STEP; vauto.
-  by unfold loc; destruct (lab a); ins; desf.
-  apply Memory.write_get2 in ADD; eauto using Memory.bot_le.
-  2: by apply Memory.bot_finite.
-  2: by destruct CLOSED. 
 
-ins.
+assert (XX'pln: Time.join (LocFun.find l (View.pln ((TView.rel tview) l))) (f' a) = f' a).
+{ clear -EXpln.
+apply TimeFacts.antisym; try by eapply Time.join_r.
+apply Time.join_spec; vauto. }
 
-assert(LocFun.add l (if Ordering.le Ordering.acqrel o
-then View.join (View.join (TView.cur tview) (View.singleton_ur l (f' a)))
-(if Ordering.le Ordering.seqcst o then
-{| View.pln := TimeMap.bot; View.rlx := TimeMap.bot; View.sc := sc_map |}
-else View.bot) else TView.rel tview l) 
-(TView.rel tview) l= LocFun.find l (LocFun.add l
-(if Ordering.le Ordering.acqrel o then
-View.join (View.join (TView.cur tview) (View.singleton_ur l (f' a)))
-(if Ordering.le Ordering.seqcst o then
-{| View.pln := TimeMap.bot; View.rlx := TimeMap.bot; View.sc := sc_map |}
-else View.bot) else TView.rel tview l) (TView.rel tview))).  done.
+assert (XX'rlx: Time.join (LocFun.find l (View.rlx ((TView.rel tview) l))) (f' a) = f' a).
+{ clear -EXrlx.
+apply TimeFacts.antisym; try by eapply Time.join_r.
+apply Time.join_spec; vauto. }
+
+exists a; splits; eauto with acts.
+by red in GSTEP; desc; rewrite ACT_STEP; vauto.
+by unfold loc; destruct (lab a); ins; desf.
+apply Memory.write_get2 in ADD; eauto using Memory.bot_le.
+2: by apply Memory.bot_finite.
+2: by destruct CLOSED. 
+
 unfold TView.write_released, TView.write_tview in ADD. simpl in ADD.
-rewrite H in ADD. clear H.
-
 rewrite View.join_bot_l in ADD.
-destruct tview; simpl.
+unfold LocFun.add in ADD; ins.
+destruct (LocSet.Facts.eq_dec l l); try done.
+destruct tview; simpl in *.
 red in SIM_TVIEW; desc; red in CUR; red in ACQ; red in REL; desc.
 unfold sim_tview, sim_acq, sim_cur, sim_rel; splits; ins.
 
-assert (SCa: Ordering.le Ordering.seqcst o <-> is_sc a).
-  by destruct a; ins; desf.
-assert (SCa': Ordering.le Ordering.seqcst o <-> is_sc_wf a).
-  by rewrite SCa; eauto 7 with acts.
 assert (RAa: Ordering.le Ordering.acqrel o <-> is_rel a).
   by destruct a; ins; desf.
 assert (RLXa: Ordering.le Ordering.relaxed o <-> is_rlx_rw a).
@@ -401,55 +371,86 @@ assert (W: is_write a).
   by destruct a as [??[]]; ins.
 
 rewrite GET in ADD.
-clear GET ACQ_UR ACQ_RW ACQ_SC CLOSED.
+clear GET ACQ_UR ACQ_RW CLOSED.
 
-red; splits; try done.
+red; splits; auto.
 by unfold val, lab in *; destruct a; destruct lb; desf.
-by auto.
+
+assert (YYpln: is_rlx_rw a -> max_value f'
+  (fun a0 : event =>
+   msg_rel urr acts0 sb0 rmw0 rf0 sc0 l a0 a \/ is_rlx_rw a /\ loc a = Some l /\ a0 = a)
+  (f' a)).
+  { red; unnw.
+  split. ins; desf; vauto.
+  destruct (classic (a=a0)); vauto.
+  left.
+  eapply MON.
+  eapply wf_mo_tot; cdes GSTEP; cdes WF'; eauto; vauto.
+  by eapply acta_msg_urr; eauto.
+  by eapply msg_rel_urr_doma1; eauto.
+  by eapply msg_rel_urr_doma2; eauto.
+  intro; destruct INa; desc.
+  eapply Coherent_urr_rel with (acts:=(a :: acts)); try edone.
+  right; exists a; split; eauto; vauto.
+  }
+
+assert (YYrlx: is_rlx_rw a -> max_value f'
+  (fun a0 : event =>
+   msg_rel rwr acts0 sb0 rmw0 rf0 sc0 l a0 a \/ is_rlx_rw a /\ loc a = Some l /\ a0 = a)
+  (f' a)).
+  { red; unnw.
+  split. ins; desf; vauto.
+  destruct (classic (a=a0)); vauto.
+  left.
+  eapply MON.
+  eapply wf_mo_tot; cdes GSTEP; cdes WF'; eauto; vauto.
+  by eapply acta_msg_rwr; eauto.
+  by eapply msg_rel_rwr_doma1; eauto.
+  by eapply msg_rel_rwr_doma2; eauto.
+  intro; destruct INa; desc.
+  eapply Coherent_rwr_rel with (acts:=(a :: acts)); try edone.
+  right; exists a; split; eauto; vauto.
+  }
+
 red; splits; intro l0.
 
 all: specialize (CUR_UR l0).
 all: specialize (CUR_RW l0).
-all: specialize (CUR_SC l0).
 all: specialize (REL_UR l l0).
-all: specialize (REL_UR0 l l0).
-all: specialize (REL_UR1 l l0).
-all: specialize (SIM_SC_MAP l0).
+all: specialize (REL_RW l l0).
 all: eapply max_value_new_f with (f:=f) (f':=f') in CUR_UR;
      try by intro; ins; eauto 4 with acts.
 all: eapply max_value_new_f with (f:=f) (f':=f') in CUR_RW;
      try by intro; ins; eauto 4 with acts.
-all: eapply max_value_new_f with (f:=f) (f':=f') in CUR_SC;
-     try by intro; ins; eauto 4 with acts.
 all: eapply max_value_new_f with (f:=f) (f':=f') in REL_UR;
      try by intro; ins; eauto 4 with acts.
-all: eapply max_value_new_f with (f:=f) (f':=f') in REL_UR0;
+all: eapply max_value_new_f with (f:=f) (f':=f') in REL_RW;
      try by intro; ins; eauto 4 with acts.
-all: eapply max_value_new_f with (f:=f) (f':=f') in REL_UR1;
-     try by intro; ins; eauto 4 with acts.
-all: eapply max_value_new_f with (f:=f) (f':=f') in SIM_SC_MAP;
-     try by intro; ins; eauto 4 with acts.
-
-all: try rewrite !LocFun.add_spec; desf.
+all: try by ins; desf; eauto 4 with acts.
+all: desf; simpl.
 all: try rewrite !LocFun.add_spec; desf.
 all: ins.
+all: try rewrite !LocFun.add_spec; desf.
 all: try rewrite !tm_join_bot.
 all: try rewrite !tm_find_join.
 all: try rewrite !tm_find_singleton; desf.
 all: try rewrite !time_join_bot.
 all: try rewrite tm_find_bot.
+all: try by rewrite XX'pln; eauto.
+all: try by rewrite XX'rlx; eauto.
 all: do 2 (try match goal with 
   | [|- max_value _ _ (Time.join _ _)] => eapply max_value_join end).
+
 all: try match goal with
          | [|- max_value _ _ (LocFun.find _ _)] => eapply max_value_same_set; eauto
          | [|- max_value _ _ Time.bot] => eapply max_value_empty; eauto 
          | [|- max_value _ _ _ ] => eapply max_value_singleton; eauto  end.
 all: simpl.
 all: try by intro x; split; [intro K; pattern x; exact K|].
-all: intro x.
+
+all: intro x; simpl.
 all: try rewrite (gstep_msg_rel_urr_write COH GSTEP W LOC_A).
 all: try rewrite (gstep_msg_rel_rwr_write COH GSTEP W LOC_A).
-all: try rewrite (gstep_msg_rel_scr_write COH GSTEP W LOC_A).
 all: try split; intro; des; subst; eauto 4.
 all: try by (exfalso; eauto).
 all: eauto 9.
@@ -459,8 +460,6 @@ all: try match goal with
              cdes GSTEP; eapply actb_msg_urr in H; try done; eauto
            | H: msg_rel rwr _ _ _ _ _ _ _ _ |- _ =>
              cdes GSTEP; eapply actb_msg_rwr in H; try done; eauto
-           | H: msg_rel scr _ _ _ _ _ _ _ _ |- _ =>
-             cdes GSTEP; eapply actb_msg_scr in H; try done; eauto
          end.
 all: try by exfalso; congruence.
 all: try by exfalso; destruct o; ins; desf; eauto 3.
@@ -480,7 +479,7 @@ Lemma memory_step_write_cell_neq acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0
   (ADD: Memory.write Memory.bot mem l (ffrom' a) (f' a) v 
           (TView.write_released tview sc_map l (f' a) released_r o) Memory.bot mem' Memory.op_kind_add)
   (GET: Memory.get l0 to mem' = Some (from0, Message.mk v0 rel0))
-  (NEQ: ~ ((l=l0 /\ f' a = to /\ ffrom' a = from0))):
+  (NEQ: ~ ((l=l0 /\ f' a = to /\ ffrom' a = from0))) :
   exists b, In b acts0 /\ is_write b /\ loc b = Some l0 /\
     ffrom' b = from0 /\ f' b = to /\ sim_mem_helper f' acts0 sb0 rmw0 rf0 sc0 b from0 v0 rel0.(View.unwrap).
 Proof.
@@ -499,41 +498,55 @@ Proof.
   unfold sim_msg in *; desc; splits; eauto. 
   all: ins.
   all: eapply max_value_same_set; try edone.
-  all: try eapply max_value_new_f with (f':=f'); try edone. 
-  all: simpl; eauto 4 with acts.
-  by ins; cdes GSTEP; rewrite (gstep_msg_rel_urr_write COH GSTEP W LOC_A); 
-     split; ins; desf; eauto.
-  by ins; cdes GSTEP; rewrite (gstep_msg_rel_rwr_write COH GSTEP W LOC_A); 
-     split; ins; desf; eauto.
-  by ins; cdes GSTEP; rewrite (gstep_msg_rel_scr_write COH GSTEP W LOC_A); 
-     split; ins; desf; eauto.
+  all: try eapply max_value_new_f with (f':=f'); try edone.
+  all: ins; desf; eauto 8 with acts.
+  all: try by ins; cdes GSTEP; rewrite (gstep_msg_rel_urr_write COH GSTEP W LOC_A); 
+       split; ins; desf; eauto.
+  all: try by ins; cdes GSTEP; rewrite (gstep_msg_rel_rwr_write COH GSTEP W LOC_A); 
+       split; ins; desf; eauto.
+Qed.
+
+Lemma join_rr x l r : Time.le x r -> Time.le x (Time.join l r).
+  ins; etransitivity; eauto using Time.join_r.
 Qed.
 
 Lemma memory_step_update_cell_eq acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 
   (COH : Coherent acts sb rmw rf mo sc) 
    a l v o (LABa: lab a = Astore l v o) prev c (RF: rf c prev)
-v_r o_r (LABprev: lab prev = Aload l v_r o_r)
+  v_r o_r (LABprev: lab prev = Aload l v_r o_r)
   (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 prev a)
   ffrom ffrom' (F_FROM : forall b, In b acts -> ffrom' b = ffrom b)
   f f' (F : forall b, In b acts -> f' b = f b) (MON: monotone mo0 f')
   rel mem (CLOSED: Memory.closed mem)
-  sc_map (SIM_SC_MAP : forall l, max_value f (S_tm acts sb rmw rf l) (LocFun.find l sc_map))
-  tview released_r
-tview_r
-(TVIEW_R: tview_r = TView.read_tview tview l (f c) released_r o_r)
+  sc_map
+  tview released_r tview_r
+  (TVIEW_R: tview_r = TView.read_tview tview l (f c) released_r o_r)
   (SIM_TVIEW : sim_tview f acts sb rmw rf sc  tview_r  (thread a))
   (FROM: Time.lt (ffrom' a) (f' a))
-  v0 mem'
-  (ADD : Memory.write Memory.bot mem l (f c) (f' a) v
-          (TView.write_released tview_r
-             sc_map
+  v0 mem' (ADD : Memory.write Memory.bot mem l (f c) (f' a) v
+          (TView.write_released tview_r sc_map
              l (f' a) released_r o) Memory.bot mem' Memory.op_kind_add)
   (GET: Memory.get l (f' a) mem' = Some (ffrom' a, Message.mk v0 rel))
-  (SIMMSG : sim_msg f acts sb rmw rf sc c (View.unwrap released_r)):
+  (SIMMSG : sim_msg f acts sb rmw rf sc c (View.unwrap released_r))
+  (EXpln: Time.le (LocFun.find l (View.pln ((TView.rel tview) l))) (f' a)) 
+  (EXrlx: Time.le (LocFun.find l (View.rlx ((TView.rel tview) l))) (f' a)) 
+  (EXcur_pln: Time.le (LocFun.find l (View.pln (TView.cur tview))) (f' a))
+  (EXcur_rlx: Time.le (LocFun.find l (View.rlx (TView.cur tview))) (f' a))
+  (COH' : Coherent acts0 sb0 rmw0 rf0 mo0 sc0) :
   exists b, In b acts0 /\ is_write b /\ loc b = Some l /\
     ffrom' b = ffrom' a /\ f' b = (f' a) /\ sim_mem_helper f' acts0 sb0 rmw0 rf0 sc0 b (ffrom' a) v0 rel.(View.unwrap).
 Proof.
-subst; ins.
+  assert (XX'pln: Time.join (LocFun.find l (View.pln ((TView.rel tview) l))) (f' a) = f' a).
+  { clear -EXpln.
+  apply TimeFacts.antisym; try by eapply Time.join_r.
+  apply Time.join_spec; vauto. }
+
+  assert (XX'rlx: Time.join (LocFun.find l (View.rlx ((TView.rel tview) l))) (f' a) = f' a).
+  { clear -EXrlx.
+  apply TimeFacts.antisym; try by eapply Time.join_r.
+  apply Time.join_spec; vauto. }
+
+  subst; ins.
   exists a; splits; eauto with acts.
   by red in GSTEP; desc; rewrite ACT_STEP; vauto.
   by unfold loc; destruct (lab a); ins; desf.
@@ -541,32 +554,23 @@ subst; ins.
   2: by apply Memory.bot_finite.
   2: by destruct CLOSED. 
 
-assert(
- LocFun.add l (if Ordering.le Ordering.acqrel o then View.join (View.join (View.join (View.join (TView.cur tview) (View.singleton_rw l (f c))) (if Ordering.le Ordering.acqrel o_r then View.unwrap released_r else View.bot)) (View.singleton_ur l (f' a))) (if Ordering.le Ordering.seqcst o then {| View.pln := TimeMap.bot; View.rlx := TimeMap.bot; View.sc := sc_map |} else View.bot) else TView.rel tview l) (TView.rel tview) l = LocFun.find l (LocFun.add l (if Ordering.le Ordering.acqrel o then View.join (View.join (View.join (View.join (TView.cur tview) (View.singleton_rw l (f c))) (if Ordering.le Ordering.acqrel o_r then View.unwrap released_r else View.bot)) (View.singleton_ur l (f' a))) (if Ordering.le Ordering.seqcst o then {| View.pln := TimeMap.bot; View.rlx := TimeMap.bot; View.sc := sc_map |} else View.bot) else TView.rel tview l) (TView.rel tview) )
-). done.
 unfold TView.write_released, TView.write_tview in ADD. simpl in ADD.
-rewrite H in ADD. clear H.
 rewrite GET in ADD.
 inversion ADD.
 subst v0 rel.
 rewrite H0 in *.
-(* rewrite View.join_bot_l in ADD. *)
 destruct tview; simpl.
 red in SIM_TVIEW; desc; red in CUR; red in ACQ; red in REL; desc.
 unfold sim_tview, sim_acq, sim_cur, sim_rel; splits; ins.
 
-clear H0 GET ACQ_UR ACQ_RW ACQ_SC CLOSED.
+clear H0 GET ACQ_UR ACQ_RW CLOSED.
 
 assert (forall z, rf z prev -> z = c).
   by intros; cdes COH; cdes WF; eapply WF_RF; eauto.
-
 assert (prev <> a).
   eby intro; subst; destruct a as [??[]].
-
-assert (SCa: Ordering.le Ordering.seqcst o <-> is_sc a).
-  by destruct a; ins; desf.
-assert (SCa': Ordering.le Ordering.seqcst o <-> is_sc_wf a).
-  by rewrite SCa; eauto 7 with acts.
+assert (INc: In c acts).
+  by eapply rf_acta in RF; eauto.
 assert (RAa: Ordering.le Ordering.acqrel o <-> is_rel a).
   by destruct a; ins; desf.
 assert (RLXa: Ordering.le Ordering.relaxed o <-> is_rlx_rw a).
@@ -575,85 +579,187 @@ assert (LOC_A: loc a = Some l).
   by unfold Gevents.loc; destruct (lab a); ins; desf.
 assert (W: is_write a). 
   by destruct a as [??[]]; ins.
+assert (RAprev: Ordering.le Ordering.acqrel o_r <-> is_acq prev).
+  by destruct prev; ins; desf.
+assert (RLXprev: Ordering.le Ordering.relaxed o_r <-> is_rlx_rw prev).
+  by destruct prev; ins; desf.
+assert (WRITEc: is_write c).
+  by eapply rf_doma in RF; eauto.
+assert (loc c = Some l).
+  by eapply loceq_rf in RF; eauto; destruct prev; ins; desf.
 
 red in SIMMSG; desc.
 
-red; splits; try done.
+red; splits; auto.
 by unfold val, lab in *; destruct a; destruct lb; desf.
-by auto.
-red; splits; intro l0.
 
-all: specialize (UR l0).
-all: specialize (RW l0).
-all: specialize (SC l0).
-all: specialize (CUR_UR l0).
-all: specialize (CUR_RW l0).
-all: specialize (CUR_SC l0).
-all: specialize (REL_UR l l0).
-all: specialize (REL_UR0 l l0).
-all: specialize (REL_UR1 l l0).
-all: specialize (SIM_SC_MAP l0).
-all: eapply max_value_new_f with (f:=f) (f':=f') in UR;
-     try by intro; ins; eauto 4 with acts.
-all: eapply max_value_new_f with (f:=f) (f':=f') in RW;
-     try by intro; ins; eauto 4 with acts.
-all: eapply max_value_new_f with (f:=f) (f':=f') in SC;
-     try by intro; ins; eauto 4 with acts.
-all: eapply max_value_new_f with (f:=f) (f':=f') in CUR_UR;
-     try by intro; ins; eauto 4 with acts.
-all: eapply max_value_new_f with (f:=f) (f':=f') in CUR_RW;
-     try by intro; ins; eauto 4 with acts.
-all: eapply max_value_new_f with (f:=f) (f':=f') in CUR_SC;
-     try by intro; ins; eauto 4 with acts.
-all: eapply max_value_new_f with (f:=f) (f':=f') in REL_UR;
-     try by intro; ins; eauto 4 with acts.
-all: eapply max_value_new_f with (f:=f) (f':=f') in REL_UR0;
-     try by intro; ins; eauto 4 with acts.
-all: eapply max_value_new_f with (f:=f) (f':=f') in REL_UR1;
-     try by intro; ins; eauto 4 with acts.
-all: eapply max_value_new_f with (f:=f) (f':=f') in SIM_SC_MAP;
-     try by intro; ins; eauto 4 with acts.
+assert (YYpln: is_rlx_rw a -> max_value f'
+  (fun a0 : event =>
+   msg_rel urr acts0 sb0 rmw0 rf0 sc0 l a0 a \/ is_rlx_rw a /\ loc a = Some l /\ a0 = a)
+  (f' a)).
+  { red; unnw.
+  clear REL_RW REL_UR CUR_RW CUR_UR.
+  split; ins; desf; vauto.
+  destruct (classic (a=a0)); vauto.
+  left.
+  eapply MON.
+  eapply wf_mo_tot; cdes GSTEP; cdes WF'; eauto; vauto.
+  by eapply acta_msg_urr; eauto.
+  by eapply msg_rel_urr_doma1; eauto.
+  by eapply msg_rel_urr_doma2; eauto.
+  intro; destruct INa; desc.
+  eapply Coherent_urr_rel with (acts:=(a :: acts)); try edone.
+  right; exists a; split; eauto; vauto.
+  } 
+
+assert (YYrlx: is_rlx_rw a -> max_value f'
+  (fun a0 : event =>
+   msg_rel rwr acts0 sb0 rmw0 rf0 sc0 l a0 a \/ is_rlx_rw a /\ loc a = Some l /\ a0 = a)
+  (f' a)).
+  { red; unnw.
+  clear REL_RW REL_UR CUR_RW CUR_UR.
+  split. ins; desf; vauto.
+  destruct (classic (a=a0)); vauto.
+  left.
+  eapply MON.
+  eapply wf_mo_tot; cdes GSTEP; cdes WF'; eauto; vauto.
+  by eapply acta_msg_rwr; eauto.
+  by eapply msg_rel_rwr_doma1; eauto.
+  by eapply msg_rel_rwr_doma2; eauto.
+  intro; destruct INa; desc.
+  eapply Coherent_rwr_rel with (acts:=(a :: acts)); try edone.
+  right; exists a; split; eauto; vauto.
+  }
+
+assert (ZZpln: Time.le (LocFun.find l (View.pln (View.unwrap released_r))) (f' a)).
+  { etransitivity; try eby left.
+  specialize (UR l).
+  red in UR; desc; destruct MAX as [MAX0|MAX1]; desc.
+  by rewrite MAX1; eapply Time.bot_spec.
+  etransitivity; try edone.
+  destruct (classic (c=a_max)); vauto.
+  destruct INam; desc; vauto.
+  assert (INa_max: In a_max acts).
+    by eapply acta_msg_urr; eauto.
+  rewrite <- !F; try done.
+  left; eapply MON.
+  eapply wf_mo_tot; cdes GSTEP; cdes WF'; eauto; vauto.
+  by eapply msg_rel_urr_doma1; eauto.
+  by eapply msg_rel_urr_doma2; eauto.
+  intro MO.
+  unfold msg_rel, m_rel, seq in *; desc.
+  eapply gstep_mo with (acts:=acts) in MO; try edone; try by (intro; subst; eauto).
+  eapply Coherent_urr_rel with (acts:=acts); try edone.
+  } 
+
+assert (ZZrlx: Time.le (LocFun.find l (View.rlx (View.unwrap released_r))) (f' a)).
+  { etransitivity; try eby left.
+  specialize (RW l).
+  red in RW; desc; destruct MAX as [MAX0|MAX1]; desc.
+  by rewrite MAX1; eapply Time.bot_spec.
+  etransitivity; try edone.
+  destruct (classic (c=a_max)); vauto.
+  destruct INam; desc; vauto.
+  assert (INa_max: In a_max acts).
+    by eapply acta_msg_rwr; eauto.
+  rewrite <- !F; try done.
+  left; eapply MON.
+  eapply wf_mo_tot; cdes GSTEP; cdes WF'; eauto; vauto.
+  by eapply msg_rel_rwr_doma1; eauto.
+  by eapply msg_rel_rwr_doma2; eauto.
+  intro MO.
+  unfold msg_rel, m_rel, seq in *; desc.
+  eapply gstep_mo with (acts:=acts) in MO; try edone; try by (intro; subst; eauto).
+  eapply Coherent_rwr_rel with (acts:=acts); try edone.
+  } 
 
 
+assert (ZZ: forall A (P Q: A -> Prop), (forall x, P x /\ Q x) -> (forall x, P x) /\ (forall x, Q x)).
+  by clear; split; ins; specialize (H x); desf.
 
-all: try rewrite !LocFun.add_spec in *; desf.
-all: try rewrite !LocFun.add_spec; desf.
-all: ins.
-all: try rewrite !tm_join_bot in *.
-all: try rewrite !tm_find_join in *.
-all: try rewrite !tm_find_singleton in *; desf.
-all: try rewrite !time_join_bot in *.
-all: try rewrite tm_find_bot in *.
-all: do 1 (try match goal with 
-  | [|- max_value _ _ (Time.join _ _)] => eapply max_value_join; try edone end).
-all: try match goal with
-         | [|- max_value _ _ (LocFun.find _ _)] => eapply max_value_same_set; eauto
-         | [|- max_value _ _ Time.bot] => eapply max_value_empty; eauto end.
-all: do 2 (try match goal with 
-  | [|- max_value _ _ (Time.join _ _)] => eapply max_value_join; try edone end).
-all: try eapply max_value_singleton; eauto.
-all: simpl.
-all: try by intro x; split; [intro K; pattern x; exact K|].
-all: intro x.
-all: try rewrite (gstep_msg_rel_urr_write COH GSTEP W LOC_A).
-all: try rewrite (gstep_msg_rel_rwr_write COH GSTEP W LOC_A).
-all: try rewrite (gstep_msg_rel_scr_write COH GSTEP W LOC_A).
+apply ZZ; intro l0.
 
-all: try split; intro; des; subst; eauto 4.
-all: try by match goal with 
-           | H: msg_rel urr _ _ _ _ _ _ _ _ |- _ =>
-             cdes GSTEP; eapply actb_msg_urr in H; try done; eauto 2
-           | H: msg_rel rwr _ _ _ _ _ _ _ _ |- _ =>
-             cdes GSTEP; eapply actb_msg_rwr in H; try done; eauto 2
-           | H: msg_rel scr _ _ _ _ _ _ _ _ |- _ =>
-             cdes GSTEP; eapply actb_msg_scr in H; try done; eauto 2
-         end.
-all: try by (exfalso; eauto 3).
-all: try by replace c with z; eauto 2.
-all: eauto 15.
-all: eauto using inclusion_refl2 with rel_mon.
-all: try by exfalso; congruence.
-all: try by exfalso; destruct o; ins; desf; eauto 3.
+unfold LocFun.add; rewrite Loc.eq_dec_eq.
+destruct (classic (l0 = l)).
+
+- subst.
+  destruct (classic (is_rlx_rw a)); cycle 1.
+  {
+  destruct o; ins; try (by exfalso; ins; desf; eauto 3).
+  desf; rewrite tm_find_bot in *; split; eapply max_value_empty; eauto.
+  all: intro x; try rewrite (gstep_msg_rel_urr_write COH GSTEP W LOC_A).
+  all: try rewrite (gstep_msg_rel_rwr_write COH GSTEP W LOC_A).
+  all: intro X; desf.
+  all: try by cdes GSTEP; eapply actb_msg_urr in X; try done; eauto 2.
+  all: try by cdes GSTEP; eapply actb_msg_rwr in X; try done; eauto 2.
+  all: try by exfalso; destruct o_r; ins; desf; eauto 3.
+  } 
+  split; match goal with 
+    [|- max_value _ _ ?x] => replace x with (f' a); auto
+  end.
+  all: unfold View.singleton_ur_if, View.singleton_ur.
+  all: desf; simpls.
+  all: try rewrite !tm_find_join in *.
+  all: try rewrite !tm_find_join in *.
+  all: try rewrite !tm_find_singleton in *; desf.
+  all: try rewrite !time_join_bot in *.
+  all: try rewrite tm_find_bot in *.
+  all: apply TimeFacts.antisym.
+  all: eauto 8 using join_rr, Time.join_r.
+  all: try (by exfalso; auto).
+  all: repeat apply Time.join_spec; vauto.
+- specialize (UR l0).
+  specialize (RW l0).
+  specialize (CUR_UR l0).
+  specialize (CUR_RW l0).
+  specialize (REL_UR l l0).
+  specialize (REL_RW l l0).
+  eapply max_value_new_f with (f:=f) (f':=f') in UR;
+      try by intro; ins; desf; eauto 4 with acts.
+  eapply max_value_new_f with (f:=f) (f':=f') in RW;
+      try by intro; ins; desf; eauto 4 with acts.
+  eapply max_value_new_f with (f:=f) (f':=f') in CUR_UR;
+      try by intro; ins; desf; eauto 4 with acts.
+  eapply max_value_new_f with (f:=f) (f':=f') in CUR_RW;
+      try by intro; ins; desf; eauto 4 with acts.
+  eapply max_value_new_f with (f:=f) (f':=f') in REL_UR;
+      try by intro; ins; desf; eauto 4 with acts.
+  eapply max_value_new_f with (f:=f) (f':=f') in REL_RW;
+      try by intro; ins; desf; eauto 4 with acts.
+
+  unfold View.singleton_ur_if, View.singleton_ur.
+  unfold LocFun.add; desf; simpls.
+  all: rewrite !tm_find_join in *.
+  all: try rewrite !tm_find_singleton in *; desf.
+  all: try rewrite !time_join_bot in *.
+  all: try rewrite tm_find_bot in *.
+  all: splits.
+
+
+  all: do 1 (try match goal with 
+    | [|- max_value _ _ (Time.join _ _)] => eapply max_value_join; try edone end).
+  all: try match goal with
+           | [|- max_value _ _ Time.bot] => eapply max_value_empty; eauto end.
+
+  all: simpl.
+  all: try by intro x; split; [intro K; pattern x; exact K|].
+  all: intro x.
+  all: try rewrite (gstep_msg_rel_urr_write COH GSTEP W LOC_A).
+  all: try rewrite (gstep_msg_rel_rwr_write COH GSTEP W LOC_A).
+  all: try by exfalso; destruct o_r; ins; desf; eauto 3.
+  all: try split; intro; des; subst; eauto 4.
+  all: try by exfalso; congruence.
+  all: try by match goal with 
+             | H: msg_rel urr _ _ _ _ _ _ _ _ |- _ =>
+               cdes GSTEP; eapply actb_msg_urr in H; try done; eauto 2
+             | H: msg_rel rwr _ _ _ _ _ _ _ _ |- _ =>
+               cdes GSTEP; eapply actb_msg_rwr in H; try done; eauto 2
+           end.
+  all: try by (exfalso; eauto 3).
+  all: try by replace c with z; eauto 3.
+  all: try by exfalso; destruct o; ins; desf; eauto 3.
+  all: eauto using inclusion_refl2 with rel_mon.
+  all: eauto 10.
 Qed.
 
 Lemma memory_step_write acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a
@@ -668,17 +774,19 @@ Lemma memory_step_write acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a
   sc_map (SIM_SC_MAP : forall l, max_value fto (S_tm acts sb rmw rf l) (LocFun.find l sc_map))
   tview (SIM_TVIEW : sim_tview fto acts sb rmw rf sc tview (thread a))
   mem' (ADD: Memory.write Memory.bot mem l (ffrom' a) (fto' a) v 
-  (TView.write_released tview sc_map l (fto' a) None o)
- Memory.bot mem' Memory.op_kind_add):
+  (TView.write_released tview sc_map l (fto' a) None o) Memory.bot mem' Memory.op_kind_add)
+  (EXpln: Time.le (LocFun.find l (View.pln ((TView.rel tview) l))) (fto' a)) 
+  (EXrlx: Time.le (LocFun.find l (View.rlx ((TView.rel tview) l))) (fto' a)) 
+  (COH' : Coherent acts0 sb0 rmw0 rf0 mo0 sc0) :
   sim_mem ffrom' fto' acts0 sb0 rmw0 rf0 sc0 mem'.
 Proof.
 red; ins.
 specialize (SIM_MEM l0); desc; splits; ins.
-- eapply memory_step_write_dom; eauto.
+- eapply memory_step_write_dom with (acts:=acts); eauto.
 - destruct (classic (l=l0 /\ fto' a = to /\ ffrom' a = from)); desc; subst.
-  by eapply memory_step_write_cell_eq; eauto.
-  by eapply memory_step_write_cell_neq; eauto.
-- eapply memory_step_write_rmw with (prev:=a); eauto.
+   by eapply memory_step_write_cell_eq with (acts:=acts); eauto.
+   eapply memory_step_write_cell_neq with (acts:=acts); eauto.
+- eapply memory_step_write_rmw with (acts:=acts) (prev:=a); eauto.
   by unfold loc; ins; desf.
   eby ins.
 Qed.
@@ -702,17 +810,22 @@ Lemma memory_step_update acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 prev a
           (TView.write_released (TView.read_tview tview l (fto b) released_r o_r) sc_map
              l (fto' a) released_r o) Memory.bot mem' Memory.op_kind_add)
   (SIMMSG : sim_msg fto acts sb rmw rf sc b (View.unwrap released_r))
-  (FROM': ffrom' a = fto b) :
+  (FROM': ffrom' a = fto b) 
+  (EXpln: Time.le (LocFun.find l (View.pln ((TView.rel tview) l))) (fto' a)) 
+  (EXrlx: Time.le (LocFun.find l (View.rlx ((TView.rel tview) l))) (fto' a)) 
+  (EXcur_pln: Time.le (LocFun.find l (View.pln (TView.cur tview))) (fto' a))
+  (EXcur_rlx: Time.le (LocFun.find l (View.rlx (TView.cur tview))) (fto' a))
+  (COH' : Coherent acts0 sb0 rmw0 rf0 mo0 sc0) :
   sim_mem ffrom' fto' acts0 sb0 rmw0 rf0 sc0 mem'.
 Proof.
 red; ins.
 specialize (SIM_MEM l0); desc; splits; ins.
-eapply memory_step_write_dom; eauto.
+- eapply memory_step_write_dom with (acts:=acts); eauto.
 - destruct (classic (l=l0 /\ fto' a = to /\ ffrom' a = from)); desc; subst.
-  by eapply memory_step_update_cell_eq; eauto.
- eapply memory_step_write_cell_neq; eauto.
- eby rewrite FROM'; edone.
-- eapply memory_step_write_rmw with (prev:=prev); try edone.
+  by eapply memory_step_update_cell_eq with (acts:=acts); eauto.
+  eapply memory_step_write_cell_neq with (acts:=acts); eauto.
+  eby rewrite FROM'; edone.
+- eapply memory_step_write_rmw with (prev:=prev) (acts:=acts); try edone.
   by unfold loc; ins; desf.
   ins; replace b with c; try done.
   eby cdes COH; cdes WF; eapply WF_RF.
@@ -728,21 +841,35 @@ Lemma tview_step_scfence acts sb rmw rf mo sc sc_map acts0 sb0 rmw0 rf0 mo0 sc0
   (SIM_SC_MAP : forall l : Loc.t, max_value f (S_tm acts sb rmw rf l) (LocFun.find l sc_map))
   a o_r o_w (LABa : lab a = Afence o_r o_w)
   (SC: is_sc a)
-  (*IS_ACQ: is_acq a*)
   (GSTEP : gstep acts sb rmw rf mo sc acts0 sb0 rmw0 rf0 mo0 sc0 a a)
   tview (TVIEW: sim_tview f acts sb rmw rf sc tview (thread a))
   (WF: TView.wf tview) :
   sim_tview f acts0 sb0 rmw0 rf0 sc0 (TView.write_fence_tview
      (TView.read_fence_tview tview o_r) sc_map o_w) (thread a).
 Proof.
+
+  assert (X: forall x l', In x acts0 /\ is_write x /\ loc x = Some l' /\
+      thread x = thread a -> rfhbsc_opt acts0 sb0 rmw0 rf0 l' x a).
+  {
+  ins; desc.
+  exists x; splits; vauto.
+  exists x; splits; vauto.
+  destruct (classic (x=a)); vauto.
+  right; exists x; splits; vauto; exists a; splits; vauto.
+  eapply sb_in_hb; eauto.
+  cdes GSTEP; eapply SB_AT_END; eauto.
+  rewrite ACT_STEP in H; destruct H; vauto.  }
+
   assert (FENCE: is_fence a).
     by destruct a; ins; desf.
   assert (NR: ~ is_read a).
     eauto with acts.
+  assert (SCFENCE: is_sc_fence a).
+    by destruct a; ins; desf.
 
   assert (SCa: Ordering.le Ordering.seqcst o_w).
      by destruct a; ins; desf.
-  assert (SCa': Ordering.le Ordering.seqcst o_w <-> is_sc_wf a).
+  assert (SCa': Ordering.le Ordering.seqcst o_w <-> is_sc_fence a).
     by rewrite SCa; eauto 7 with acts.
   assert (RAa: Ordering.le Ordering.acqrel o_r <-> is_acq a).
      by destruct a; ins; desf.
@@ -756,37 +883,33 @@ Proof.
   simpl; rewrite SCa, RAr; simpl.
 desf.
 {
-  assert (K: forall l, 
+    assert (K: forall l, 
           max_value f (S_tm acts0 sb0 rmw0 rf0 l)
-           (LocFun.find l (TimeMap.join sc_map (View.sc acq)))).
+           (LocFun.find l (TimeMap.join sc_map (View.rlx acq)))).
     cdes TVIEW; cdes ACQ0; ins. 
     ins; rewrite !tm_find_join.
     ins; eapply max_value_join; [eapply SIM_SC_MAP| |]; eauto.
-    intro; rewrite gstep_S_tm_scfence; eauto; split; ins; desf; 
+    intro; rewrite gstep_S_tm_scfence; eauto. split; ins; desf; 
     eauto using inclusion_refl2 with rel_mon.
 
   unfold sim_tview, sim_acq, sim_cur, sim_rel; splits; ins; desf.
 
-
-all: try rewrite TimeMap.le_join_r with (r := TimeMap.join _ _).
-all: try eapply max_value_same_set; try apply K; 
-     eauto using gstep_t_cur_urr_scfence,
-     gstep_t_cur_rwr_scfence,
-     gstep_t_cur_scr_scfence,
-     gstep_t_acq_urr_scfence,
-     gstep_t_acq_rwr_scfence,
-     gstep_t_acq_scr_scfence,
-     gstep_t_rel_urr_scfence,
-     gstep_t_rel_rwr_scfence,
-     gstep_t_rel_scr_scfence.
-all: try etransitivity; [|by apply TimeMap.join_r]; vauto.
-by destruct ACQ; etransitivity; eauto.
-by destruct ACQ; eauto.
-}
+  all: try rewrite TimeMap.le_join_r with (r := TimeMap.join _ _).
+  all: try eapply max_value_same_set; try apply K; 
+       eauto using gstep_t_cur_urr_scfence,
+       gstep_t_cur_rwr_scfence,
+       gstep_t_acq_urr_scfence,
+       gstep_t_acq_rwr_scfence.
+  by etransitivity; [|by apply TimeMap.join_r]; vauto; destruct ACQ; eauto.
+  by etransitivity; [|by apply TimeMap.join_r]; vauto; destruct ACQ; eauto.
+  1: ins; rewrite gstep_t_rel_urr_scfence; eauto.
+  2: ins; rewrite gstep_t_rel_rwr_scfence; eauto.
+  all: split; ins; desf; auto; exists a, a; split; vauto; eauto.
+} 
 {
   assert (K: forall l, 
           max_value f (S_tm acts0 sb0 rmw0 rf0 l)
-           (LocFun.find l (TimeMap.join sc_map (View.sc cur)))).
+           (LocFun.find l (TimeMap.join sc_map (View.rlx cur)))).
     cdes TVIEW; cdes CUR0; ins. 
     ins; rewrite !tm_find_join.
     ins; eapply max_value_join; [eapply SIM_SC_MAP| |]; eauto.
@@ -795,28 +918,26 @@ by destruct ACQ; eauto.
 
   red in TVIEW; ins; desf; red in ACQ0; desf.
   unfold sim_tview, sim_acq, sim_cur, sim_rel; splits; ins; desf.
-all: try match goal with 
+  all: try match goal with 
        |- max_value _ (t_acq _ _ _ _ _ _ _ _) _ => 
          rewrite tm_find_join; eapply max_value_join; eauto
      end.
-all: try eapply max_value_same_set; try apply K;
+  all: try eapply max_value_same_set; try apply K;
      eauto using gstep_t_cur_urr_scfence,
      gstep_t_cur_rwr_scfence,
-     gstep_t_cur_scr_scfence,
      gstep_t_acq_urr_scfence,
      gstep_t_acq_rwr_scfence,
-     gstep_t_acq_scr_scfence,
      gstep_t_rel_urr_scfence,
-     gstep_t_rel_rwr_scfence,
-     gstep_t_rel_scr_scfence.
+     gstep_t_rel_rwr_scfence.
   all: intro.
   all: try rewrite (gstep_t_acq_urr_nonread COH GSTEP NR), or_comm.
   all: try rewrite (gstep_t_acq_rwr_nonread COH GSTEP NR), or_comm.
-  all: try rewrite (gstep_t_acq_scr_nonread COH GSTEP NR), or_comm.
-  all: apply or_more; ins;
+  all: try by apply or_more; ins;
      eauto using gstep_t_cur_urr_scfence,
-     gstep_t_cur_rwr_scfence,
-     gstep_t_cur_scr_scfence.
+     gstep_t_cur_rwr_scfence.
+  1: ins; rewrite gstep_t_rel_urr_scfence; eauto.
+  2: ins; rewrite gstep_t_rel_rwr_scfence; eauto.
+  all: split; ins; desf; auto; exists a, a; split; vauto; eauto.
 }
 Qed.
 
@@ -831,6 +952,13 @@ Lemma tview_step_rafence acts sb rmw rf mo sc sc_map acts0 sb0 rmw0 rf0 mo0 sc0
   sim_tview f acts0 sb0 rmw0 rf0 sc0 (TView.write_fence_tview
      (TView.read_fence_tview tview o_r) sc_map o_w) (thread a).
 Proof.
+
+assert (X1: forall x, In x acts0 /\ is_write x -> In x acts).
+{ ins; cdes GSTEP; rewrite ACT_STEP in H; destruct H; vauto.
+destruct x as [??[]]; ins. }
+
+assert (X2: forall x, In x acts -> In x acts0).
+{ ins; eapply act_mon; vauto. }
 
   assert (FENCE: is_fence a).
     by destruct a; ins; desf.
@@ -867,18 +995,18 @@ Proof.
   all: intro x.
   all: try rewrite (gstep_t_acq_urr_nonread COH GSTEP NR).
   all: try rewrite (gstep_t_acq_rwr_nonread COH GSTEP NR).
-  all: try rewrite (gstep_t_acq_scr_nonread COH GSTEP NR).
   all: try rewrite (gstep_t_cur_urr_rafence COH GSTEP FENCE).
   all: try rewrite (gstep_t_cur_rwr_rafence COH GSTEP FENCE).
-  all: try rewrite (gstep_t_cur_scr_rafence COH GSTEP FENCE).
   all: try rewrite (gstep_t_rel_urr_rafence COH GSTEP FENCE).
   all: try rewrite (gstep_t_rel_rwr_rafence COH GSTEP FENCE).
-  all: try rewrite (gstep_t_rel_scr_rafence COH GSTEP FENCE).
   all: ins.
-  all: try (split; ins; desf; eauto 3).
+
+  all: try (split; ins; desf; eauto 4).
   all: try by exfalso; eauto.
   all: eauto using inclusion_refl2 with rel_mon.
-  all: eauto 8 using inclusion_refl2 with rel_mon.
+  all: eauto 10 using inclusion_refl2 with rel_mon.
+  all: exists x, x; split; try apply ur_in_rw; try apply urr_refl; 
+        eauto; try exists x; splits; vauto.
 Qed.
 
 Lemma sc_map_step_fence acts sb rmw rf mo sc sc_map acts0 sb0 rmw0 rf0 mo0 sc0
@@ -893,7 +1021,7 @@ Lemma sc_map_step_fence acts sb rmw rf mo sc sc_map acts0 sb0 rmw0 rf0 mo0 sc0
 Proof.
   assert (SCa: Ordering.le Ordering.seqcst o_w <-> is_sc a).
     by destruct a; ins; desf; destruct o_w; ins; desf.
-  assert (SCa': Ordering.le Ordering.seqcst o_w <-> is_sc_wf a).
+  assert (SCa': Ordering.le Ordering.seqcst o_w <-> is_sc_fence a).
     by rewrite SCa; eauto 7 with acts.
   assert (RAa: Ordering.le Ordering.acqrel o_r <-> is_acq a).
     by destruct a; ins; desf.
@@ -901,6 +1029,9 @@ Proof.
     by destruct a; ins; desf.
   assert(F : is_fence a).
     by eauto with acts.
+  assert(Fsc : is_fence a /\ is_sc a <-> is_sc_fence a).
+    by split; destruct a; ins; desf.
+
   red in TVIEW; desc; clear REL; red in CUR; red in ACQ; desc.
   intro; unfold TView.write_fence_sc, TView.read_fence_tview; simpl; desf; ins.
   all: try rewrite !cap_join_bot.
@@ -915,9 +1046,9 @@ Proof.
              | [|- max_value _ _ (LocFun.find _ _)] => 
                eapply max_value_same_set; eauto with acts
              | [|- max_value _ _ _ ] => eapply max_value_singleton; eauto end.
-  by intro; rewrite gstep_S_tm_scfence; eauto; split; ins; desf;
+   intro; rewrite gstep_S_tm_scfence; eauto; split; ins; desf;
     eauto using inclusion_refl2 with rel_mon.
   by intro; rewrite gstep_S_tm_scfence; eauto; split; ins; desf;
     eauto using inclusion_refl2 with rel_mon; exfalso; eauto.
-  by intro; eapply gstep_S_tm_other; eauto. 
+   intro; eapply gstep_S_tm_other; eauto.
 Qed.

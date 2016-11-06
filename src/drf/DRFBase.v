@@ -23,10 +23,6 @@ Set Implicit Arguments.
 Hint Constructors Thread.program_step.
 Hint Constructors Thread.step.
 
-Lemma ordering_relaxed_dec
-      ord:
-  Ordering.le ord Ordering.relaxed \/ Ordering.le Ordering.acqrel ord.
-Proof. destruct ord; auto. Qed.
 
 Inductive union {A} {E} (step: E -> A -> A -> Prop) (c1 c2: A) : Prop :=
 | step_evt_intro e

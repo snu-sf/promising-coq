@@ -32,36 +32,35 @@ Require Import Setoid Permutation.
 Lemma coherent_initial G (INIT: initial_exec G) : 
   Coherent (acts G) (sb G) (rmw G) (rf G) (mo G) (sc G).
 Proof.
-destruct INIT; red; splits; red; splits; try red; splits; ins; eauto.
+unfold Coherent; splits; try rewrite CoherentRWalt;
+try rewrite CoherentWWalt; try rewrite CoherentWRalt;
+try rewrite CoherentRRalt; try rewrite CoherentRR'alt;
+try rewrite CoherentRFRalt; try rewrite Atomicityalt; try rewrite CoherentSCalt.
+all: destruct INIT; desc.
+red; splits; red; splits; try red; splits; ins; eauto.
+all: ins.
+all: try by exfalso; eapply SB; eauto.
+all: try by exfalso; eapply RMW; eauto.
+all: try by exfalso; eapply RF; eauto.
+all: try by exfalso; eapply MO; eauto.
+all: try by exfalso; eapply SC; eauto.
 all: try by specialize (ACTS a); tauto.
-all: try by exfalso; specialize (SB a b); tauto.
-all: try by exfalso; specialize (RMW a b); tauto.
-all: try by exfalso; specialize (RF a b); tauto.
-all: try by exfalso; specialize (RF a c); tauto.
-all: try by exfalso; specialize (MO a b); tauto.
-all: try by exfalso; specialize (SC a b); tauto.
 by unfold init_pair in *; desc; eapply proper_non_init in INIT0; 
 specialize (ACTS b); tauto.
-by intro; ins; eapply SB; eauto.
-by intro; ins; exfalso; eapply SB; eauto.
 by exfalso; eapply proper_non_init in PROPERa; specialize (ACTS a); tauto.
 { apply read_non_write in READ.
   assert (is_init b -> is_write b).
   by eapply init_is_write.
   specialize (ACTS b).
   tauto. }
-by intro; ins; eapply MO; eauto.
-by intro; ins; exfalso; eapply MO; eauto.
-{ intro; ins; desc.
+{ desc.
   exfalso.
   apply NEQ.
   apply same_init.
   specialize (ACTS a); tauto.
   specialize (ACTS b); tauto.
   congruence. }
-by intro; ins; eapply SC; eauto.
-by intro; ins; exfalso; eapply SC; eauto.
-{ intro; ins; desc.
+{ desc.
   apply ACTS, init_not_sc in IWa.
   exfalso; eauto with acts. }
 { intros x H. apply t_step_rt in H; desc.
@@ -97,7 +96,7 @@ red; splits; try done.
     apply find_mapD in TID; desf.
     unfold Local.init in *; ins.
     red; splits; red; splits; ins.
-    all:rewrite tm_find_bot in *.
+    all: rewrite tm_find_bot in *.
     all: unfold t_cur, t_acq, t_rel, dom_rel, c_cur, c_acq, c_rel, seq, eqv_rel in *; desc; subst.
     all: try by eapply max_value_empty; ins; intro X; desc;
       eapply init_not_rel; try edone; eapply ACTS, scr_actb; eauto.
@@ -106,22 +105,41 @@ red; splits; try done.
     all: try by eapply max_value_empty; ins; intro X; desc;
       eapply init_not_rel; try edone; eapply ACTS, urr_actb; eauto.
     all: unfold max_value; splits.
-    all: try by ins; right.
-    all: right.
-    all: repeat (exists (init_event l); splits).
-    all: try match goal with
-         | [|- scr _ _ _ _ _ _ _ _] => left     end.
-    all: try match goal with
-         | [|- rwr _ _ _ _ _ _ _ _] => left     end.
-    all: repeat (exists (init_event l); splits).
-    all: try by econs.
-    all: unfold eqv_rel; splits; eauto.
-    all: try by apply ACTS; red; eauto.
-    all: try by right; red; eauto.
+    all: ins; vauto.
+    + right; splits; ins.
+      exists (init_event l); splits; vauto.
+      exists (init_event l), (init_event l); splits; vauto.
+      eapply urr_refl; try apply ACTS; vauto.
+    + right; splits; ins.
+      exists (init_event l); splits; vauto.
+      exists (init_event l), (init_event l); splits; vauto.
+      eapply ur_in_rw, urr_refl; try apply ACTS; vauto.
+    + right; splits; ins. 
+      exists (init_event l); splits; vauto.
+      exists (init_event l), (init_event l); splits; vauto.
+      eapply urr_refl; try apply ACTS; vauto.
+      exists (init_event l); splits; vauto.
+    + right; splits; ins. 
+      exists (init_event l); splits; vauto.
+      exists (init_event l), (init_event l); splits; vauto.
+      eapply ur_in_rw, urr_refl; try apply ACTS; vauto.
+      exists (init_event l); splits; vauto.
+    + left; splits; vauto.
+      ins; intro; desf.
+      try eapply urr_actb in H0; eauto; apply ACTS in H0.
+      eby eapply init_not_rel.
+      all: try eby eapply urr_actb, ACTS in H0; eauto; eapply init_not_rel.
+      by eapply ACTS in H1; unfold is_init, init_event in *; desc; vauto.
+    + left; splits; vauto.
+      ins; intro; desf.
+      try eapply rwr_actb in H0; eauto; apply ACTS in H0.
+      eby eapply init_not_rel.
+      all: try eby eapply rwr_actb, ACTS in H0; eauto; eapply init_not_rel.
+      by eapply ACTS in H1; unfold is_init, init_event in *; desc; vauto.
   * ins; rewrite tm_find_bot in *.
     eapply max_value_empty; ins; intro X; desc.
     unfold S_tm, dom_rel, seq, eqv_rel in *; desc; subst.
-    eapply init_not_sc, sc_wf_is_sc; try edone.
+    eapply init_not_sc.
     eapply ACTS, S_tmr_actb; eauto.
     eby eapply S_tmr_domb.
   * red; splits; ins.
@@ -137,10 +155,8 @@ red; splits; try done.
     red; splits; ins; rewrite tm_find_bot in *.
     all: eapply max_value_empty; ins; intro X; desc.
     all: unfold msg_rel, m_rel, rel, seq, eqv_rel  in *; desf.
-    all: eapply init_not_rel; try edone; eapply ACTS.
-    by eapply urr_actb; eauto.
-    by eapply rwr_actb; eauto.
-    by eapply scr_actb; eauto.
+    eapply init_not_rel; try edone; eapply ACTS; eapply urr_actb; eauto.
+    eapply init_not_rel; try edone; eapply ACTS; eapply rwr_actb; eauto.
 Qed.
 
 Lemma sim_initial_MG :

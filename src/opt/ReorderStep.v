@@ -70,15 +70,12 @@ Lemma future_fulfill_step
 Proof.
   assert (TVIEW: TView.write_tview (Local.tview lc1) sc1 loc to ord = TView.write_tview (Local.tview lc1) sc1' loc to ord).
   { unfold TView.write_tview. repeat (condtac; viewtac). }
-  assert (SC_EQ: sc1' = TView.write_sc sc1' loc to ord).
-  { i. unfold TView.write_sc. apply TimeMap.antisym; repeat (condtac; aggrtac). }
   inversion STEP. subst lc2 sc2.
-  rewrite TVIEW. rewrite SC_EQ at 3. econs; eauto.
-  - etrans; eauto. unfold TView.write_released. condtac; econs. apply View.join_spec.
+  rewrite TVIEW. econs; eauto.
+  - etrans; eauto. unfold TView.write_released. condtac; econs. repeat apply View.join_spec.
     + rewrite <- View.join_l. apply View.unwrap_opt_le. auto.
-    + rewrite <- View.join_r. rewrite TVIEW. refl.
+    + rewrite <- ? View.join_r. rewrite TVIEW. refl.
   - econs; try apply WRITABLE.
-    i. destruct ord; inversion H; inversion ORD.
 Qed.
 
 
@@ -88,7 +85,7 @@ Lemma reorder_read_read
       lc0 mem0
       lc1
       lc2
-      (LOC: loc1 = loc2 -> Ordering.le ord1 Ordering.plain)
+      (LOC: loc1 = loc2 -> Ordering.le ord1 Ordering.plain /\ Ordering.le ord2 Ordering.plain)
       (ORD2: Ordering.le ord2 Ordering.relaxed)
       (WF0: Local.wf lc0 mem0)
       (MEM0: Memory.closed mem0)
@@ -104,11 +101,12 @@ Proof.
     eapply TViewFacts.readable_mon; try apply READABLE0; eauto; try refl.
     apply TViewFacts.read_tview_incr.
   - refine (Local.read_step_intro _ _ _ _ _); eauto.
-    + s. unfold TView.read_tview.
+    + s. unfold View.singleton_ur_if.
       econs; repeat (try condtac; try splits; aggrtac; eauto; try apply READABLE;
                      unfold TimeMap.singleton, LocFun.add in *).
-      *  specialize (LOC eq_refl). viewtac.
-      * specialize (LOC eq_refl). viewtac.
+      * specialize (LOC eq_refl). des. viewtac.
+      * specialize (LOC eq_refl). des. viewtac.
+      * specialize (LOC eq_refl). des. viewtac.
     + apply TView.antisym; apply ReorderTView.read_read_tview;
         (try by apply WF0);
         (try by eapply MEM0; eauto).
@@ -196,7 +194,6 @@ Proof.
   - econs; eauto.
     s. inv READABLE.
     econs; repeat (try condtac; aggrtac; try apply WF0; eauto; unfold TimeMap.singleton).
-      by destruct ord1, ord2; inv H; inv COND; inv ORD.
   - s. econs; s.
     + apply ReorderTView.read_write_tview; try apply WF0; auto.
     + apply SimPromises.sem_bot.
@@ -350,7 +347,7 @@ Proof.
     econs; try exact REMOVE; eauto.
     + etrans; eauto. unfold TView.write_released. s. condtac; econs.
       repeat (try condtac; aggrtac).
-    + s. unfold TView.read_tview.
+    + s. unfold View.singleton_ur_if.
       econs; repeat (try condtac; try splits; aggrtac; eauto; try apply WRITABLE;
                      unfold TimeMap.singleton, LocFun.add in *);
         (try by inv WRITABLE; eapply TimeFacts.le_lt_lt; eauto; aggrtac).
@@ -390,6 +387,7 @@ Lemma reorder_fulfill_fulfill
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
+      (REL1_WF: View.opt_wf releasedm1)
       (REL2_WF: View.opt_wf releasedm2)
       (REL2_CLOSED: Memory.closed_opt_view releasedm2 mem0)
       (STEP1: fulfill_step lc0 sc0 loc1 from1 to1 val1 releasedm1 released1 ord1 lc1 sc1)
@@ -408,23 +406,18 @@ Proof.
   - econs; eauto.
     + etrans; eauto. unfold TView.write_released. s. condtac; econs.
       repeat (try condtac; aggrtac; try apply WF0).
-      econs; try by viewtac. s.
-      rewrite <- ? TimeMap.join_r. apply TViewFacts.write_sc_incr.
     + eapply TViewFacts.writable_mon; eauto; try refl.
       * apply TViewFacts.write_tview_incr. apply WF0.
-      * apply TViewFacts.write_sc_incr.
   - econs; eauto.
     + etrans; eauto. unfold TView.write_released. s. condtac; econs.
       repeat (try condtac; aggrtac; try apply WF0).
     + inv WRITABLE. econs; i.
       * eapply TimeFacts.le_lt_lt; [|apply TS].
         repeat (try condtac; viewtac; unfold TimeMap.singleton in *).
-      * eapply TimeFacts.le_lt_lt; [|apply SC1; auto]. viewtac.
-      * eapply TimeFacts.le_lt_lt; [|apply SC2; auto]. viewtac.
   - s. econs; ss.
     + apply ReorderTView.write_write_tview; auto. apply WF0.
     + apply SimPromises.sem_bot.
-  - apply ReorderTView.write_write_sc; auto.
+  - refl.
 Qed.
 
 Lemma reorder_fulfill_write
@@ -690,7 +683,7 @@ Proof.
   inversion STEP. inv WRITE. hexploit MemoryFacts.promise_get1_diff; try exact PROMISE; eauto.
   { ii. inv H. congr. }
   i. des.
-  esplits; eauto; try refl.
+  esplits; try exact STEP10; eauto; try refl.
   inv STEP9. econs; eauto.
 Qed.
 
@@ -833,16 +826,15 @@ Proof.
   esplits.
   - econs; eauto.
     + etrans; eauto. unfold TView.write_released. condtac; econs.
-      apply View.join_spec.
+      repeat apply View.join_spec.
       * rewrite <- View.join_l. refl.
-      * rewrite <- View.join_r.
-        apply TViewFacts.write_tview_mon; eauto; try refl.
+      * rewrite <- ? View.join_r.
+        eapply TViewFacts.write_tview_mon; eauto; try refl.
         { etrans.
           - apply TViewFacts.write_fence_tview_incr. apply WF0.
           - apply TViewFacts.write_fence_tview_mon; try refl; try apply WF0.
             apply TViewFacts.read_fence_tview_incr. apply WF0.
         }
-        { apply TViewFacts.write_fence_sc_incr. }
     + eapply TViewFacts.writable_mon; eauto; try refl.
       * etrans.
         { apply TViewFacts.read_fence_tview_incr. apply WF0. }
@@ -871,6 +863,8 @@ Proof.
     + apply TViewFacts.write_fence_sc_mon; [|refl|refl].
       apply ReorderTView.read_fence_write_tview; auto. apply WF0.
     + eapply ReorderTView.write_fence_write_sc; auto.
+Grab Existential Variables.
+  { apply TimeMap.bot. }
 Qed.
 
 Lemma reorder_fence_write

@@ -467,12 +467,14 @@ Variable acts : list event.
 Variables sb rmw rf mo sc : relation event.
 
 Definition sim_msg b  rel :=
-  << UR: forall l, max_value f_to (fun a => msg_rel urr acts sb rmw rf sc l a b) 
+  << UR: forall l, max_value f_to 
+               (fun a => msg_rel urr acts sb rmw rf sc l a b \/
+                         is_rlx_rw b /\ loc b = Some l /\ a = b) 
                              (LocFun.find l rel.(View.pln)) >> /\
-  << RW: forall l, max_value f_to (fun a => msg_rel rwr acts sb rmw rf sc l a b) 
-                             (LocFun.find l rel.(View.rlx)) >> /\
-  << SC: forall l, max_value f_to (fun a => msg_rel scr acts sb rmw rf sc l a b) 
-                             (LocFun.find l rel.(View.sc)) >>.
+  << RW: forall l, max_value f_to 
+               (fun a => msg_rel rwr acts sb rmw rf sc l a b \/
+                         is_rlx_rw b /\ loc b = Some l /\ a = b) 
+                             (LocFun.find l rel.(View.rlx)) >>.
 
 Definition sim_mem_helper b from v rel :=
   << VAL: Some v = (val b) >> /\
@@ -493,28 +495,26 @@ Definition sim_mem mem :=
                 exists m, Memory.get l (f_to b) mem = Some (f_to a, m) >>.
 
 Definition sim_rel rel i :=
-  << REL_UR: forall l' l, max_value f_to (t_rel urr acts sb rmw rf sc i l' l) 
+  << REL_UR: forall l' l, max_value f_to 
+    (fun a => t_rel urr acts sb rmw rf sc i l' l a \/ 
+            l = l' /\ In a acts /\ is_write a /\ loc a = Some l' /\ thread a = i)
     (LocFun.find l (LocFun.find l' rel).(View.pln)) >> /\
-  << REL_UR: forall l' l, max_value f_to (t_rel rwr acts sb rmw rf sc i l' l) 
-    (LocFun.find l (LocFun.find l' rel).(View.rlx)) >> /\
-  << REL_UR: forall l' l, max_value f_to (t_rel scr acts sb rmw rf sc i l' l) 
-    (LocFun.find l (LocFun.find l' rel).(View.sc)) >>.
+  << REL_RW: forall l' l, max_value f_to 
+    (fun a => t_rel rwr acts sb rmw rf sc i l' l a \/ 
+            l = l' /\ In a acts /\ is_write a /\ loc a = Some l' /\ thread a = i)
+    (LocFun.find l (LocFun.find l' rel).(View.rlx)) >>.
 
 Definition sim_cur cur i :=
   << CUR_UR: forall l, max_value f_to (t_cur urr acts sb rmw rf sc i l) 
     (LocFun.find l cur.(View.pln)) >> /\
   << CUR_RW: forall l, max_value f_to (t_cur rwr acts sb rmw rf sc i l) 
-    (LocFun.find l cur.(View.rlx)) >> /\
-  << CUR_SC: forall l, max_value f_to (t_cur scr acts sb rmw rf sc i l) 
-    (LocFun.find l cur.(View.sc)) >>.
+    (LocFun.find l cur.(View.rlx)) >>.
 
 Definition sim_acq acq i :=
   << ACQ_UR: forall l, max_value f_to (t_acq urr acts sb rmw rf sc i l) 
     (LocFun.find l acq.(View.pln)) >> /\
   << ACQ_RW: forall l, max_value f_to (t_acq rwr acts sb rmw rf sc i l) 
-    (LocFun.find l acq.(View.rlx)) >> /\
-  << ACQ_SC: forall l, max_value f_to (t_acq scr acts sb rmw rf sc i l) 
-    (LocFun.find l acq.(View.sc)) >>.
+    (LocFun.find l acq.(View.rlx)) >>.
 
 Definition sim_tview tview i :=
   << CUR: sim_cur tview.(TView.cur) i >> /\

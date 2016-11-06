@@ -40,6 +40,7 @@ Module Ordering.
   Inductive t :=
   | plain
   | relaxed
+  | strong_relaxed
   | acqrel
   | seqcst
   .
@@ -51,6 +52,9 @@ Module Ordering.
 
     | relaxed, _ => true
     | _, relaxed => false
+
+    | strong_relaxed, _ => true
+    | _, strong_relaxed => false
 
     | acqrel, _ => true
     | _, acqrel => false
@@ -74,6 +78,9 @@ Module Ordering.
 
     | relaxed, _ => rhs
     | _, relaxed => lhs
+
+    | strong_relaxed, _ => rhs
+    | _, strong_relaxed => lhs
 
     | acqrel, _ => rhs
     | _, acqrel => lhs
