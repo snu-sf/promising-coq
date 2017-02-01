@@ -393,17 +393,14 @@ Section GstepLemmas.
     cdes WF'; cdes WF_SB0.
     specialize (SB_TID0 x y H).
     desf; try by exploit SB_INIT; eauto.
-    exploit sb_actb; eauto.
-    exploit sb_acta; eauto.
-    ins; desf; try subst x; try subst y.
-    by exfalso; auto.
-    by exfalso; auto.
+    forward eapply SB_ACTa0; eauto.
+    ins; desf; try subst x.
     by exfalso; eapply SB_IRR0; eapply SB_T0; eauto.
-    exploit SB_TOT; eauto.
-    ins; desf; eauto.
-    intro; subst x; eauto.
-    intro; desf; eauto.
-    exfalso; eauto.
+    assert (sb x y \/ sb y x).
+      eapply SB_TOT; eauto.
+      by intro; subst x; eauto.
+    desf; auto.
+    by exfalso; eapply SB_IRR0; eapply SB_T0; eauto.
   Qed.
 
   Lemma gstep_rmw_a : gstep_a rmw rmw'.
@@ -525,7 +522,8 @@ Proof.
   desf; ins.
   cdes WF_RF; cdes WF_MO; cdes INC.
   exploit (RF_TOT a). by left; eauto. eauto with acts.
-  intros; desc. exploit rf_lv; try edone; intro; desc.
+  intros; desc. 
+  forward eapply rf_lv with (rf:=rf'); try edone; intro; desc.
   eexists; splits; eauto.
   apply RF_ACTa in x0; destruct x0; eauto.
   exfalso; subst; destruct (lab a0); ins.
@@ -631,9 +629,10 @@ Proof.
   exists y; splits; eauto.
   desf.
   - left; splits. congruence. 
-  - right; splits; try done. eapply init_events_wf2; eauto.
-    intro. eapply init_proper_thread; eauto.
+  - right; splits; try done.
   - right; splits; eauto.
+    eapply init_events_wf2; eauto.
+    intro. eapply init_proper_thread; eauto.
   - exfalso. eapply init_not_proper with (a:=z0); eauto.
 Qed.
 
