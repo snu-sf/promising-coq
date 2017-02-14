@@ -172,7 +172,7 @@ Section Invariant.
       { i. des. inv SEM. congr. }
       condtac; ss.
       { guardH o. i. des. inv SEM.
-        exploit Memory.split_get0; eauto. i. des.
+        exploit Memory.split_get0; try exact MEM; eauto. i. des.
         esplits; eauto.
       }
       i. esplits; eauto.

@@ -300,7 +300,7 @@ Proof.
         { auto. }
       * econs 2. econs 2. econs; [|econs 4]; eauto.
         { econs. econs. s. rewrite ? Const.add_0_r. eauto. }
-        { eapply merge_write_read1; try apply STEP_SRC; eauto. }
+        { eapply merge_write_read1; try apply STEP2; eauto. }
       * auto.
       * etrans; eauto.
       * etrans; eauto.

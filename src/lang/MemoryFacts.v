@@ -75,7 +75,7 @@ Module MemoryFacts.
     - erewrite Memory.split_o; eauto. repeat condtac; ss.
       + des. subst. congr.
       + guardH o. des. subst. i. inv GET.
-        exploit Memory.split_get0; eauto. i. des. esplits; eauto.
+        exploit Memory.split_get0; try exact MEM; eauto. i. des. esplits; eauto.
       + i. esplits; eauto.
     - erewrite Memory.lower_o; eauto. condtac; ss.
       + des. subst. congr.
