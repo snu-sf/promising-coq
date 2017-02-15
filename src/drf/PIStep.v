@@ -685,7 +685,7 @@ Proof.
   { inv WF. auto. }
   { ii. destruct (ThreadEvent.is_promising e0) eqn:E0; [by destruct e0|].
     ii; hexploit pi_wf_small_step_is_reading; try exact WF2; eauto.
-    i. hexploit pi_wf_small_step_is_promising; eauto.
+    i. hexploit pi_wf_small_step_is_promising; try exact STEPT; eauto.
   }
   { apply rtcn_rtc in A23. inv A12.
     exploit pi_step_except_small_step; eauto. i. destruct cST3. ss.
@@ -698,7 +698,7 @@ Proof.
   }
   i. destruct cST3. subst. des.
   { destruct (ThreadEvent.is_promising e0) eqn:E0; subst.
-    - exploit IH; try exact A23; eauto.
+    - exploit IH; try exact A23; try exact WF; eauto.
       { econs; econs; eauto; ii; by des; destruct e2', e0. }
       i. des. esplits; try exact STEPS; eauto.
     - assert (EQ: e2' = e0). 
@@ -749,7 +749,7 @@ Proof.
   }
 
   exploit IH; try exact STEP2'; eauto.
-  { eapply pi_step_future; eauto. }
+  { eapply pi_step_future; try exact WF; eauto. }
   i. des. esplits; [|econs; try exact STEPS0|]; eauto; omega.
 Qed.
 

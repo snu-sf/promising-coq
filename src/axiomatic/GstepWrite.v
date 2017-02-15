@@ -399,10 +399,10 @@ Proof.
   rewrite gstep_urr_write; try edone; relsimp.
   rewrite gstep_sb_ext_helper_w2; ins.
   split; repeat apply inclusion_union_l; eauto 12 with rel.
-    red; unfold seq, eqv_rel; ins; desf; try (by destruct a as [??[]]);
+  red; unfold seq, eqv_rel; ins; desf; try (by destruct y as [??[]]);
     by right; eauto.
-  rewrite <- inclusion_union_r2, !eqv_join; unfold eqv_rel; red; ins; desf. 
-  subst y; splits; ins; tauto.
+  rewrite <- inclusion_union_r2, !eqv_join; unfold eqv_rel; red; 
+  ins; desf; splits; auto.
 Qed.
 
 Lemma gstep_c_rel_rwr_write l l' :
@@ -416,10 +416,10 @@ Proof.
   rewrite gstep_rwr_write; try edone; relsimp.
   rewrite gstep_sb_ext_helper_w2; ins.
   split; repeat apply inclusion_union_l; eauto 12 with rel.
-    red; unfold seq, eqv_rel; ins; desf; try (by destruct a as [??[]]);
+    red; unfold seq, eqv_rel; ins; desf; try (by destruct y as [??[]]);
     by right; eauto.
   rewrite <- inclusion_union_r2, !eqv_join; unfold eqv_rel; red; ins; desf. 
-  subst y; splits; ins; tauto.
+  splits; auto.
 Qed.
 
 Lemma gstep_t_rel_urr_write l' l x :

@@ -341,7 +341,7 @@ Proof.
   intros K K'; cdes GSTEP; desf; ins; desf.
   by cdes WF'; exfalso; eapply WF_MO; eauto.
   assert (P: is_proper y).
-    by eapply no_mo_to_init; eauto.
+    by eapply no_mo_to_init with (mo:=mo0); eauto.
   destruct (classic (exists x : event, (rf;; rmw) x y)) as [C|]; desc; eauto.
   assert (INx: In x acts).
     by eapply seq_doma in C; [|eapply rf_acta]; eauto. 
