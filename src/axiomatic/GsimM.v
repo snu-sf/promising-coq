@@ -1054,7 +1054,7 @@ red; splits; try done.
        red; splits; eauto.
        eby eapply no_rmw_from_init.
        eby eapply rmw_acta.
-    + unfold singl_rel, sb_ext, eqv_rel, seq in *; desf; eauto; subst z0 z b a; left.
+    + unfold singl_rel, sb_ext, eqv_rel, seq in *; desf; eauto; left.
        eapply SB_AT_END; eauto.
        by left; congr.
        eby destruct SB3; subst.
