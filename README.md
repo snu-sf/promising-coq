@@ -8,7 +8,7 @@ Please visit the [project website](http://sf.snu.ac.kr/promise-concurrency/) for
 
 ## Build
 
-- Requirement: [Coq 8.6](https://coq.inria.fr/download), Make, Rsync.
+- Requirement: [Coq 8.7](https://coq.inria.fr/download), Make, Rsync.
 
 - Initialization
 

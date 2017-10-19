@@ -25,12 +25,12 @@ Section Respectful7.
   .
   Hint Constructors sound7.
 
-  Structure respectful7 (clo: rel -> rel) : Prop :=
-  | respectful7_intro
-      (MON: monotone7 clo)
-      (RESPECTFUL:
-         forall l r (LE: l <7= r) (GF: l <7= gf r),
-           clo l <7= gf (clo r)).
+  Structure respectful7 (clo: rel -> rel) : Prop := respectful7_intro {
+    MON: monotone7 clo;
+    RESPECTFUL:
+      forall l r (LE: l <7= r) (GF: l <7= gf r),
+        clo l <7= gf (clo r);
+  }.
   Hint Constructors respectful7.
 
   Inductive grespectful7 (r: rel) e1 e2 e3 e4 e5 e6 e7: Prop :=
@@ -71,7 +71,7 @@ Section Respectful7.
       unfold rr in *; des; eauto 10 using gf_mon. }
     induction n; i; [by s; eauto using gf_mon|].
     ss; des; [by eauto using gf_mon|].
-    eapply gf_mon; [eapply RESPECTFUL; [|apply IHn|]|]; inst; s; eauto.
+    eapply gf_mon; [eapply RESPECTFUL0; [|apply IHn|]|]; inst; s; eauto.
   Qed.
 
   Lemma respectful7_compose
@@ -82,10 +82,10 @@ Section Respectful7.
   Proof.
     i. destruct RES1, RES2.
     econs.
-    - ii. eapply MON; eauto.
-    - i. eapply RESPECTFUL; [| |apply PR].
-      + i. eapply MON0; eauto.
-      + i. eapply RESPECTFUL0; eauto.
+    - ii. eapply MON0; eauto.
+    - i. eapply RESPECTFUL0; [| |apply PR].
+      + i. eapply MON1; eauto.
+      + i. eapply RESPECTFUL1; eauto.
   Qed.
 
   Lemma grespectful7_respectful7: respectful7 grespectful7.
@@ -124,7 +124,7 @@ Section Respectful7.
   Proof.
     intro r; pcofix CIH; i; pfold.
     eapply gf_mon, grespectful7_compose, grespectful7_respectful7.
-    destruct grespectful7_respectful7; eapply RESPECTFUL, PR; i; [by apply grespectful7_incl; eauto|].
+    destruct grespectful7_respectful7; eapply RESPECTFUL0, PR; i; [by apply grespectful7_incl; eauto|].
     punfold PR0.
       by eapply gfgres7_mon; eauto; i; destruct PR1; eauto.
   Qed.
@@ -176,12 +176,12 @@ Section Respectful7.
     econs 2; eauto.
   Qed.
 
-  Structure weak_respectful7 (clo: rel -> rel) : Prop :=
-  | weak_respectful7_intro
-      (MON: monotone7 clo)
-      (RESPECTFUL:
-         forall l r (LE: l <7= r) (GF: l <7= gf r),
-           clo l <7= gf (rclo7 clo r)).
+  Structure weak_respectful7 (clo: rel -> rel) : Prop := weak_respectful7_intro {
+    WEAK_MON: monotone7 clo;
+    WEAK_RESPECTFUL:
+      forall l r (LE: l <7= r) (GF: l <7= gf r),
+        clo l <7= gf (rclo7 clo r);
+  }.
   Hint Constructors weak_respectful7.
 
   Lemma weak_respectful7_respectful7
@@ -192,7 +192,7 @@ Section Respectful7.
     induction PR; i.
     - eapply gf_mon; eauto. i.
       apply rclo7_incl. auto.
-    - exploit RESPECTFUL; [|apply H|apply CLOR'|].
+    - exploit WEAK_RESPECTFUL0; [|apply H|apply CLOR'|].
       + i. eapply rclo7_mon; eauto.
       + i. eapply gf_mon; eauto.
         apply rclo7_rclo7; auto.

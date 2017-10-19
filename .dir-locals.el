@@ -14,4 +14,5 @@
                                 (rec ,(pre "src/hahn") "cmem")
                                 (rec ,(pre "src/while") "cmem")
                                ))))
-              (coq-prog-args . ("-emacs-U")))))
+              ;; (coq-prog-args . ("-emacs-U"))
+              )))

@@ -27,12 +27,12 @@ Section Respectful9.
   .
   Hint Constructors sound9.
 
-  Structure respectful9 (clo: rel -> rel) : Prop :=
-  | respectful9_intro
-      (MON: monotone9 clo)
-      (RESPECTFUL:
-         forall l r (LE: l <9= r) (GF: l <9= gf r),
-           clo l <9= gf (clo r)).
+  Structure respectful9 (clo: rel -> rel) : Prop := respectful9_intro {
+    MON: monotone9 clo;
+    RESPECTFUL:
+      forall l r (LE: l <9= r) (GF: l <9= gf r),
+        clo l <9= gf (clo r);
+  }.
   Hint Constructors respectful9.
 
   Inductive grespectful9 (r: rel) e1 e2 e3 e4 e5 e6 e7 e8 e9: Prop :=
@@ -73,7 +73,7 @@ Section Respectful9.
       unfold rr in *; des; eauto 10 using gf_mon. }
     induction n; i; [by s; eauto using gf_mon|].
     ss; des; [by eauto using gf_mon|].
-    eapply gf_mon; [eapply RESPECTFUL; [|apply IHn|]|]; inst; s; eauto.
+    eapply gf_mon; [eapply RESPECTFUL0; [|apply IHn|]|]; inst; s; eauto.
   Qed.
 
   Lemma respectful9_compose
@@ -84,10 +84,10 @@ Section Respectful9.
   Proof.
     i. destruct RES1, RES2.
     econs.
-    - ii. eapply MON; eauto.
-    - i. eapply RESPECTFUL; [| |apply PR].
-      + i. eapply MON0; eauto.
-      + i. eapply RESPECTFUL0; eauto.
+    - ii. eapply MON0; eauto.
+    - i. eapply RESPECTFUL0; [| |apply PR].
+      + i. eapply MON1; eauto.
+      + i. eapply RESPECTFUL1; eauto.
   Qed.
 
   Lemma grespectful9_respectful9: respectful9 grespectful9.
@@ -126,7 +126,7 @@ Section Respectful9.
   Proof.
     intro r; pcofix CIH; i; pfold.
     eapply gf_mon, grespectful9_compose, grespectful9_respectful9.
-    destruct grespectful9_respectful9; eapply RESPECTFUL, PR; i; [by apply grespectful9_incl; eauto|].
+    destruct grespectful9_respectful9; eapply RESPECTFUL0, PR; i; [by apply grespectful9_incl; eauto|].
     punfold PR0.
       by eapply gfgres9_mon; eauto; i; destruct PR1; eauto.
   Qed.
@@ -178,12 +178,12 @@ Section Respectful9.
     econs 2; eauto.
   Qed.
 
-  Structure weak_respectful9 (clo: rel -> rel) : Prop :=
-  | weak_respectful9_intro
-      (MON: monotone9 clo)
-      (RESPECTFUL:
-         forall l r (LE: l <9= r) (GF: l <9= gf r),
-           clo l <9= gf (rclo9 clo r)).
+  Structure weak_respectful9 (clo: rel -> rel) : Prop := weak_respectful9_intro {
+    WEAK_MON: monotone9 clo;
+    WEAK_RESPECTFUL:
+      forall l r (LE: l <9= r) (GF: l <9= gf r),
+        clo l <9= gf (rclo9 clo r);
+  }.
   Hint Constructors weak_respectful9.
 
   Lemma weak_respectful9_respectful9
@@ -194,7 +194,7 @@ Section Respectful9.
     induction PR; i.
     - eapply gf_mon; eauto. i.
       apply rclo9_incl. auto.
-    - exploit RESPECTFUL; [|apply H|apply CLOR'|].
+    - exploit WEAK_RESPECTFUL0; [|apply H|apply CLOR'|].
       + i. eapply rclo9_mon; eauto.
       + i. eapply gf_mon; eauto.
         apply rclo9_rclo9; auto.
