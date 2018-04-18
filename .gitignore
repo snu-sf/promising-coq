@@ -2,6 +2,7 @@ _CoqProject
 Makefile.coq
 Makefile.coq.conf
 .build
+.coqdeps.d
 
 *.vo
 *.vio
