@@ -8,7 +8,12 @@ Please visit the [project website](http://sf.snu.ac.kr/promise-concurrency/) for
 
 ## Build
 
-- Requirement: [Coq 8.8.2](https://coq.inria.fr/download), Make, Rsync.
+- Requirement: [Coq 8.8.2](https://coq.inria.fr/download), opam, Make, Rsync.
+
+- Installing dependencies with opam
+
+        opam repo add coq-released https://coq.inria.fr/opam/released
+        opam install coq-paco
 
 - Initialization
 
