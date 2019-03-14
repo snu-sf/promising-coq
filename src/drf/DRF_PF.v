@@ -1,7 +1,7 @@
 Require Import Omega.
 Require Import RelationClasses.
 
-Require Import paco.
+From Paco Require Import paco.
 Require Import sflib.
 
 Require Import Axioms.

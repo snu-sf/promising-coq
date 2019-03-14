@@ -3,8 +3,7 @@ Require Import Bool.
 Require Import List.
 
 Require Import sflib.
-Require Import paco.
-Require Import respectful5.
+From Paco Require Import paco.
 
 Require Import Basic.
 Require Import Event.
