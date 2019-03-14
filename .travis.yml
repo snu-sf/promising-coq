@@ -1,0 +1,38 @@
+dist: trusty
+sudo: required
+language: c
+cache:
+  apt: true
+  directories:
+  - $HOME/.opam
+addons:
+  apt:
+    sources:
+    - avsm
+    packages:
+    - opam
+    - aspcud
+env:
+  global:
+  - NJOBS=1
+  - PACO="2.0.3"
+
+  matrix:
+  - TEST_TARGET="8.8.2"
+
+before_script:
+  - ./ci/keep_alive.sh &
+
+install:
+  - opam init -j ${NJOBS} --compiler=${COMPILER} -n -y
+  - eval $(opam config env)
+  - opam config var root
+  - opam install -y --verbose -j ${NJOBS} coq.${TEST_TARGET} && opam pin add coq ${TEST_TARGET} -y
+  - opam repo add coq-released https://coq.inria.fr/opam/released
+  - opam install -y --verbose -j ${NJOBS} coq-paco.${PACO} && opam pin add coq-paco ${PACO} -y
+
+
+script:
+  - eval $(opam config env)
+  - opam config var root
+  - make -j ${NJOBS}
