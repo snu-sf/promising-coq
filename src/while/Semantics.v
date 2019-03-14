@@ -8,7 +8,7 @@ Require Import Syntax.
 Require Import Language.
 
 Require Import sflib.
-Require Import paco.
+From Paco Require Import paco.
 
 Set Implicit Arguments.
 

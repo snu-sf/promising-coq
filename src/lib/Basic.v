@@ -8,7 +8,7 @@ Require Import FMapFacts.
 Require Import MSetList.
 
 Require Import sflib.
-Require Import paco.
+From Paco Require Import paco.
 
 Require Import DataStructure.
 

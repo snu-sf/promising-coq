@@ -3,7 +3,7 @@ Require Import Bool.
 Require Import List.
 
 Require Import sflib.
-Require Import paco.
+From Paco Require Import paco.
 
 Require Import Axioms.
 Require Import Basic.

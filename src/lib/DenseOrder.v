@@ -5,7 +5,7 @@ Require Import PArith.
 Require Import FMapPositive.
 
 Require Import sflib.
-Require Import paco.
+From Paco Require Import paco.
 
 Require Import Axioms.
 Require Import Basic.

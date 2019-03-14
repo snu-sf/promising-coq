@@ -1,5 +1,5 @@
 Require Import sflib.
-Require Import paco.
+From Paco Require Import paco.
 
 Require Import Basic.
 Require Import Event.
