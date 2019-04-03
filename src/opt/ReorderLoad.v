@@ -276,7 +276,7 @@ Proof.
   pcofix CIH. i. pfold. ii. ss. splits; ss; ii.
   - inv TERMINAL_TGT. inv PR; ss.
   - exploit sim_load_mon; eauto. i. des.
-    exploit sim_load_future; try apply x8; eauto. i. des.
+    exploit sim_load_future; try apply x0; eauto. i. des.
     esplits; eauto.
   - esplits; eauto.
     inv PR. inv READ. inv LOCAL. ss.

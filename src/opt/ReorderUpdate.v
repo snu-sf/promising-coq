@@ -72,7 +72,7 @@ Inductive sim_update: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (sc
     (RMW: RegFile.eval_rmw rs rmw1 vr1 = (vret1, vw1))
     (REORDER: reorder_update r1 l1 rmw1 or1 ow1 i2)
     (READ: Local.read_step lc1_src mem1_src l1 from1 vr1 releasedr1 or1 lc2_src)
-    (FULFILL: match vw1 with 
+    (FULFILL: match vw1 with
               | Some val => fulfill_step lc2_src sc1_src l1 from1 to1 val releasedr1 releasedw1 ow1 lc3_src sc3_src 
               | None => lc3_src = lc2_src /\ sc3_src = sc1_src
               end)
@@ -495,10 +495,10 @@ Proof.
   pcofix CIH. i. pfold. ii. ss. splits; ss; ii.
   - inv TERMINAL_TGT. inv PR; ss.
   - exploit sim_update_mon; eauto. i. des.
-    exploit sim_update_future; try apply x8; eauto. i. des.
+    exploit sim_update_future; try apply x0; eauto. i. des.
     esplits; eauto.
   - exploit sim_update_mon; eauto. i.
-    inversion x8. subst. i.
+    inversion x0. subst. i.
     exploit (progress_program_step (RegFun.add r1 (fst (RegFile.eval_rmw rs rmw1 vr1)) rs) i2 nil); eauto. i. des.
     destruct th2. exploit sim_update_step; eauto.
     { rewrite RMW in *. ss. econs 2. eauto. }

@@ -481,7 +481,7 @@ Qed.
 Lemma sim_stmts_nil sim_regs:
   sim_stmts sim_regs [] [] sim_regs.
 Proof.
-  ii. pupto9_init. pupto9 ctx_weak_respectful.
+  ii. pupto9_init. pupto9 ctx_weak_respectful. auto.
 Qed.
 
 Lemma sim_stmts_seq

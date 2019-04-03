@@ -264,10 +264,10 @@ Proof.
   pcofix CIH. i. pfold. ii. ss. splits; ss; ii.
   - inv TERMINAL_TGT. inv PR; ss.
   - exploit sim_store_mon; eauto. i. des.
-    exploit sim_store_future; try apply x8; eauto. i. des.
+    exploit sim_store_future; try apply x0; eauto. i. des.
     esplits; eauto.
   - exploit sim_store_mon; eauto. i.
-    inversion x8. subst. i.
+    inversion x0. subst. i.
     exploit (progress_program_step rs i2 nil); eauto. i. des.
     destruct th2. exploit sim_store_step; eauto.
     { econs 2. eauto. }
