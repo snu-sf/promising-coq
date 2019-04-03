@@ -35,4 +35,4 @@ install:
 script:
   - eval $(opam config env)
   - opam config var root
-  - make -j ${NJOBS}
+  - make build -j ${NJOBS}
