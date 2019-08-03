@@ -8,7 +8,7 @@ Please visit the [project website](http://sf.snu.ac.kr/promise-concurrency/) for
 
 ## Build
 
-- Requirement: [Coq 8.8.2](https://coq.inria.fr/download), opam, Make, Rsync.
+- Requirement: [Coq 8.9.1](https://coq.inria.fr/download), opam, Make, Rsync.
 
 - Installing dependencies with opam
 
@@ -73,12 +73,6 @@ Please visit the [project website](http://sf.snu.ac.kr/promise-concurrency/) for
         * Adequacy (Thread): `sim_thread_sim` (`AdequacyThread.v`).  From the thread simulation to the configuration simulation.
         * Composition: `sim_compose` (`Composition.v`).  "horizontally" composing configuration simulations for disjoint configurations.
         * Compatibility: `sim_stmts_*` (`Compatibility.v`).
-
-- `src/axiomatic`: definition of an axiomatic semantics, which is equivalent to our promise-free machine.
-  This equivalence result is a stepping-stone for the compilation to TSO and Power (Section 5.2).
-    + `model.v` and `Machine.v`: Definition of the axiomatic machine.
-    + `SimRel.v`: Definition of the simulation relation.
-    + `MsimG.v`, `GsimM.v`: the operational machine (`M`) simulates the axiomatic one (`G`), and vice versa.
 
 - `src/drf`: DRF Theorems (Section 5.3)
     + Promise-Free DRF (Theorem 1): `drf_pf` (`DRF_PF.v`)
