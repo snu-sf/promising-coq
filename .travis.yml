@@ -18,7 +18,7 @@ env:
   - PACO="2.0.3"
 
   matrix:
-  - TEST_TARGET="8.8.2"
+  - TEST_TARGET="8.9.1"
 
 before_script:
   - ./ci/keep_alive.sh &
