@@ -325,8 +325,8 @@ Lemma sim_acqrel_sim_thread:
 Proof.
   pcofix CIH. i. pfold. ii. ss. splits; ss; ii.
   - inv TERMINAL_TGT. inv PR; ss.
-  - exploit sim_acqrel_mon; eauto. i. des.
-    exploit sim_acqrel_future; try apply x8; eauto. i. des.
+  - exploit sim_acqrel_mon; eauto. i.
+    exploit sim_acqrel_future; try apply x0; eauto. i. des.
     esplits; eauto.
   - esplits; eauto.
     inv PR. eapply sim_local_memory_bot; eauto.

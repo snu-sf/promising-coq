@@ -191,28 +191,28 @@ Module SyntaxNotations.
   Notation "'IF' cond 'THEN' c1 'ELSE' c2" := (Stmt.ite cond c1 c2) (at level 43).
   Notation "'DO' c 'WHILE' cond" := (Stmt.dowhile c cond) (at level 43).
 
-  Program Definition example1: list Stmt.t := [
-    DO [
-      SKIP;
-      LOAD %r"r1" ::= %l"flag" @ ar;
-      LET %r"r2" ::= NOT %r"r1"
-    ] WHILE (%r"r2" ADD 0);
-    LOAD %r"r3" ::= %l"x" @ rlx
-  ].
+  (* Program Definition example1: list Stmt.t := [ *)
+  (*   DO [ *)
+  (*     SKIP; *)
+  (*     LOAD %r"r1" ::= %l"flag" @ ar; *)
+  (*     LET %r"r2" ::= NOT %r"r1" *)
+  (*   ] WHILE (%r"r2" ADD 0); *)
+  (*   LOAD %r"r3" ::= %l"x" @ rlx *)
+  (* ]. *)
 
-  Program Definition example2: list Stmt.t := [
-    DO [
-      SKIP;
-      LOAD %r"r1" ::= %l"flag" @ rlx;
-      LET %r"r2" ::= NOT %r"r1"
-    ] WHILE (%r"r2" MUL 1);
-    FENCE @ ar, rlx;
-    LOAD %r"r3" ::= %l"x" @ rlx;
-    SYSCALL %r"r4" ::= [%r"r3"; 3; 4]
-  ].
+  (* Program Definition example2: list Stmt.t := [ *)
+  (*   DO [ *)
+  (*     SKIP; *)
+  (*     LOAD %r"r1" ::= %l"flag" @ rlx; *)
+  (*     LET %r"r2" ::= NOT %r"r1" *)
+  (*   ] WHILE (%r"r2" MUL 1); *)
+  (*   FENCE @ ar, rlx; *)
+  (*   LOAD %r"r3" ::= %l"x" @ rlx; *)
+  (*   SYSCALL %r"r4" ::= [%r"r3"; 3; 4] *)
+  (* ]. *)
 
-  Program Definition example3: list Stmt.t := [
-    FETCH_ADD %r"r1" ::= %l"x", 1 @ rlx, rlx;
-    CAS %r"r1" ::= %l"x", 1, 2 @ rlx, rlx
-  ].
+  (* Program Definition example3: list Stmt.t := [ *)
+  (*   FETCH_ADD %r"r1" ::= %l"x", 1 @ rlx, rlx; *)
+  (*   CAS %r"r1" ::= %l"x", 1, 2 @ rlx, rlx *)
+  (* ]. *)
 End SyntaxNotations.
