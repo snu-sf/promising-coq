@@ -13,14 +13,13 @@ Please visit the [project website](http://sf.snu.ac.kr/promise-concurrency/) for
 - Installing dependencies with opam
 
         opam repo add coq-released https://coq.inria.fr/opam/released
-        opam install coq-paco
+        opam install coq-paco.2.0.3
 
 - Initialization
 
         git clone https://github.com/snu-sf/promising-coq.git
         cd promising-coq
-        git submodule init
-        git submodule update
+        git submodule update --init --recursive
 
 - `make`: quickly build without checking the proofs.
 
