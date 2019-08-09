@@ -1,6 +1,3 @@
-[submodule "lib/sflib"]
-  path = lib/sflib
-  url = https://github.com/snu-sf/sflib.git
 [submodule "lib/promising-lib"]
 	path = lib/promising-lib
 	url = https://github.com/snu-sf/promising-lib.git
