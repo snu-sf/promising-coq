@@ -13,12 +13,6 @@ Set Implicit Arguments.
 Import ListNotations.
 
 
-Module Loc := Ident.
-Module LocSet := IdentSet.
-Module LocMap := IdentMap.
-Module LocFun := IdentFun.
-
-
 Module Const := Nat.
 
 
