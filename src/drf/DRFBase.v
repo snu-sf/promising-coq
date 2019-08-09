@@ -6,6 +6,8 @@ Require Import sflib.
 Require Import Axioms.
 Require Import Basic.
 Require Import DataStructure.
+Require Import Loc.
+
 Require Import Time.
 Require Import Event.
 Require Import Language.
@@ -48,7 +50,6 @@ Lemma with_pre_rtc_union
 Proof.
   ginduction STEPS; s; i; subst; eauto.
   i. etrans; eauto.
-  econs 2; [|reflexivity]. eauto.
 Qed.
 
 Lemma rtc_union_with_pre

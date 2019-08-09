@@ -8,6 +8,8 @@ Require Import Axioms.
 Require Import Basic.
 Require Import DataStructure.
 Require Import DenseOrder.
+Require Import Loc.
+
 Require Import Event.
 Require Import Time.
 Require Import View.
@@ -574,8 +576,7 @@ Module Memory.
     i. inv H. exploit op_get1; eauto. i. des.
     exploit IHLE; eauto. i. des.
     esplits; eauto.
-    - etrans; eauto.
-    - etrans; eauto.
+    etrans; eauto.
   Qed.
 
 

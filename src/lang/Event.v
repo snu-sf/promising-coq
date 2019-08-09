@@ -7,6 +7,8 @@ Require Import Omega.
 Require Import sflib.
 
 Require Import Basic.
+Require Import Loc.
+
 Require Import Time.
 
 Set Implicit Arguments.

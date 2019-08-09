@@ -6,6 +6,8 @@ Require Import sflib.
 From Paco Require Import paco.
 
 Require Import Basic.
+Require Import Loc.
+
 Require Import Event.
 Require Import Language.
 Require Import Time.

@@ -6,6 +6,8 @@ Require Import sflib.
 Require Import Axioms.
 Require Import Basic.
 Require Import DataStructure.
+Require Import Loc.
+
 Require Import Time.
 Require Import Event.
 Require Import Language.

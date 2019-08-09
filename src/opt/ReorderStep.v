@@ -7,6 +7,8 @@ From Paco Require Import paco.
 
 Require Import Basic.
 Require Import DenseOrder.
+Require Import Loc.
+
 Require Import Event.
 Require Import Language.
 Require Import Time.

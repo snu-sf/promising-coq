@@ -7,6 +7,8 @@ From Paco Require Import paco.
 Require Import Axioms.
 Require Import Basic.
 Require Import DataStructure.
+Require Import Loc.
+
 Require Import Event.
 Require Import Time.
 Require Import Language.

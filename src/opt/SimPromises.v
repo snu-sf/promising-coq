@@ -10,6 +10,8 @@ Require Import Axioms.
 Require Import Basic.
 Require Import Event.
 Require Import DenseOrder.
+Require Import Loc.
+
 Require Import Time.
 Require Import Language.
 Require Import View.

@@ -8,6 +8,8 @@ From Paco Require Import paco.
 
 Require Import Axioms.
 Require Import Basic.
+Require Import Loc.
+
 Require Import Event.
 Require Import DenseOrder.
 Require Import Time.

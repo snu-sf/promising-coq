@@ -4,6 +4,8 @@ Require Import List.
 Require Import sflib.
 
 Require Import Basic.
+Require Import Loc.
+
 Require Import Event.
 
 Set Implicit Arguments.

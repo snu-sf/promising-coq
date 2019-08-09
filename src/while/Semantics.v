@@ -3,6 +3,8 @@ Require Import RelationClasses.
 Require Import Basic.
 Require Import Axioms.
 Require Import List.
+Require Import Loc.
+
 Require Import Event.
 Require Import Syntax.
 Require Import Language.
