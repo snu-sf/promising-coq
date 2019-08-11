@@ -1,15 +1,15 @@
 Require Import RelationClasses.
 
-Require Import Basic.
-Require Import Axioms.
+From PromisingLib Require Import Basic.
+From PromisingLib Require Import Axioms.
 Require Import List.
-Require Import Loc.
+From PromisingLib Require Import Loc.
 
 Require Import Event.
 Require Import Syntax.
 Require Import Language.
 
-Require Import sflib.
+From sflib Require Import sflib.
 From Paco Require Import paco.
 
 Set Implicit Arguments.

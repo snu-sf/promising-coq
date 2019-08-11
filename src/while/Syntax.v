@@ -1,10 +1,10 @@
 Require Import RelationClasses.
 Require Import List.
 
-Require Import sflib.
+From sflib Require Import sflib.
 
-Require Import Basic.
-Require Import Loc.
+From PromisingLib Require Import Basic.
+From PromisingLib Require Import Loc.
 
 Require Import Event.
 

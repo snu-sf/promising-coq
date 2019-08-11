@@ -1,13 +1,13 @@
 Require Import Omega.
 Require Import RelationClasses.
 
-Require Import sflib.
+From sflib Require Import sflib.
 From Paco Require Import paco.
 
-Require Import Axioms.
-Require Import Basic.
-Require Import DataStructure.
-Require Import Loc.
+From PromisingLib Require Import Axioms.
+From PromisingLib Require Import Basic.
+From PromisingLib Require Import DataStructure.
+From PromisingLib Require Import Loc.
 
 Require Import Time.
 Require Import Event.

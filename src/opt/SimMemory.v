@@ -1,17 +1,17 @@
 Require Import RelationClasses.
-Require Import Basics.
+From PromisingLib Require Import Basic.
 Require Import Bool.
 Require Import List.
 
-Require Import sflib.
+From sflib Require Import sflib.
 From Paco Require Import paco.
 
-Require Import Axioms.
-Require Import Basic.
-Require Import Loc.
+From PromisingLib Require Import Axioms.
+From PromisingLib Require Import Basic.
+From PromisingLib Require Import Loc.
 
 Require Import Event.
-Require Import DenseOrder.
+From PromisingLib Require Import DenseOrder.
 Require Import Time.
 Require Import Language.
 Require Import View.
