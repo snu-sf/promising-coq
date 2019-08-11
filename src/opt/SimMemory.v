@@ -1,5 +1,4 @@
 Require Import RelationClasses.
-From PromisingLib Require Import Basic.
 Require Import Bool.
 Require Import List.
 

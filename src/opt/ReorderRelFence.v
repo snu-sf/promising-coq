@@ -1,5 +1,4 @@
 From PromisingLib Require Import Axioms.
-From PromisingLib Require Import Basic.
 Require Import Bool.
 Require Import List.
 
