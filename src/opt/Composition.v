@@ -9,7 +9,7 @@ From PromisingLib Require Import Basic.
 From PromisingLib Require Import Loc.
 
 Require Import Event.
-Require Import Language.
+From PromisingLib Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
@@ -37,11 +37,11 @@ Section Compose.
   Qed.
 
   Lemma compose_forall P:
-    (forall tid lang st th (TH: IdentMap.find tid (Threads.compose ths1 ths2) = Some (existT Language.state lang st, th)),
+    (forall tid lang st th (TH: IdentMap.find tid (Threads.compose ths1 ths2) = Some (existT _ lang st, th)),
         (P tid lang st th):Prop) <->
-    (forall tid lang st th (TH: IdentMap.find tid ths1 = Some (existT Language.state lang st, th)),
+    (forall tid lang st th (TH: IdentMap.find tid ths1 = Some (existT _ lang st, th)),
         (P tid lang st th):Prop) /\
-    (forall tid lang st th (TH: IdentMap.find tid ths2 = Some (existT Language.state lang st, th)),
+    (forall tid lang st th (TH: IdentMap.find tid ths2 = Some (existT _ lang st, th)),
         (P tid lang st th):Prop).
   Proof.
     econs; i.
@@ -60,11 +60,11 @@ Section Compose.
   Qed.
 
   Lemma compose_forall_rev P:
-    (forall tid lang st th (TH: IdentMap.find tid ths1 = Some (existT Language.state lang st, th)),
+    (forall tid lang st th (TH: IdentMap.find tid ths1 = Some (existT _ lang st, th)),
         (P tid lang st th):Prop) ->
-    (forall tid lang st th (TH: IdentMap.find tid ths2 = Some (existT Language.state lang st, th)),
+    (forall tid lang st th (TH: IdentMap.find tid ths2 = Some (existT _ lang st, th)),
         (P tid lang st th):Prop) ->
-    (forall tid lang st th (TH: IdentMap.find tid (Threads.compose ths1 ths2) = Some (existT Language.state lang st, th)),
+    (forall tid lang st th (TH: IdentMap.find tid (Threads.compose ths1 ths2) = Some (existT _ lang st, th)),
         (P tid lang st th):Prop).
   Proof.
     i. apply compose_forall; auto.

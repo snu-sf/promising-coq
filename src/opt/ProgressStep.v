@@ -7,7 +7,7 @@ From Paco Require Import paco.
 From PromisingLib Require Import Basic.
 From PromisingLib Require Import DenseOrder.
 Require Import Event.
-Require Import Language.
+From PromisingLib Require Import Language.
 Require Import Time.
 Require Import View.
 Require Import Cell.

@@ -7,7 +7,7 @@ From PromisingLib Require Import Loc.
 
 Require Import Event.
 Require Import Syntax.
-Require Import Language.
+From PromisingLib Require Import Language.
 
 From sflib Require Import sflib.
 From Paco Require Import paco.

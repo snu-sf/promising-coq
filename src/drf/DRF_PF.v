@@ -11,7 +11,7 @@ From PromisingLib Require Import Loc.
 
 Require Import Time.
 Require Import Event.
-Require Import Language.
+From PromisingLib Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
@@ -60,12 +60,14 @@ Proof.
       rewrite ? IdentMap.Facts.map_o.
       match goal with
       | [|- context[IdentMap.find ?k ?m]] =>
-        destruct (IdentMap.find k m) eqn:X
+        destruct (@UsualFMapPositive.UsualPositiveMap'.find (@sigT _ (@Language.syntax ProgramEvent.t)) k m) eqn:X
       end; ss.
     + i. esplits; eauto. ii. inv H.
       unfold Threads.init in *.
       rewrite IdentMap.Facts.map_o in TID.
-      destruct (IdentMap.find tid s) eqn:X; ss. inv TID.
+      destruct (@UsualFMapPositive.UsualPositiveMap'.find
+                  (@sigT _ (@Language.syntax ProgramEvent.t)) tid s) eqn:X; ss.
+      inv TID.
       apply inj_pair2 in H1. subst. ss.
       rewrite Memory.bot_get in *. ss.
     + i. esplits; eauto.
@@ -75,7 +77,9 @@ Proof.
     s. i.
     exploit small_steps_promise_decr; eauto. s. i. des.
     unfold Threads.init in FIND1. erewrite IdentMap.Facts.map_o in *.
-    destruct (IdentMap.find tid s) eqn:X; ss. inv FIND1. ss.
+    destruct (@UsualFMapPositive.UsualPositiveMap'.find
+                (@sigT _ (@Language.syntax ProgramEvent.t)) tid s) eqn:X; ss.
+    inv FIND1. ss.
     rewrite Memory.bot_get in *. ss.
   - apply Configuration.init_consistent.
 Qed.
@@ -127,7 +131,8 @@ Lemma init_has_promise s:
 Proof.
   ii. inv H.
   ss. unfold Threads.init in *. rewrite IdentMap.Facts.map_o in *.
-  destruct (IdentMap.find tid s) as [[]|] eqn:X; ss. inv FIND. ss.
+  destruct (@UsualFMapPositive.UsualPositiveMap'.find
+              (@sigT _ (@Language.syntax ProgramEvent.t)) tid s) as [[]|] eqn:X; ss. inv FIND. ss.
   rewrite Memory.bot_get in *. ss.
 Qed.
 
@@ -139,7 +144,7 @@ Proof.
   ii. inv H.
   inv SIM. inv WF. rewrite THS in *. clear -FIND GET.
   rewrite IdentMap.Facts.map_o in *.
-  destruct (IdentMap.find tid c2.(Configuration.threads)) as [[]|] eqn:X; ss. inv FIND. ss.
+  destruct (UsualFMapPositive.UsualPositiveMap'.find tid (Configuration.threads c2)) as [[]|] eqn:X; ss. inv FIND. ss.
   rewrite Memory.bot_get in *. ss.
 Qed.
 

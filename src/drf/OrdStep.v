@@ -10,7 +10,7 @@ From PromisingLib Require Import Loc.
 
 Require Import Time.
 Require Import Event.
-Require Import Language.
+From PromisingLib Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
@@ -22,7 +22,7 @@ Require Import SmallStep.
 Set Implicit Arguments.
 
 
-Inductive ord_thread_step (ord:Ordering.t) (lang:Language.t) (e:ThreadEvent.program_t): forall (e1 e2:Thread.t lang), Prop :=
+Inductive ord_thread_step (ord:Ordering.t) (lang:language) (e:ThreadEvent.program_t): forall (e1 e2:Thread.t lang), Prop :=
 | ra_thread_step_intro
     st1 lc1 sc1 mem1
     st2 lc2 sc2 mem2

@@ -4,7 +4,7 @@ From Paco Require Import paco.
 From PromisingLib Require Import Axioms.
 From PromisingLib Require Import Basic.
 Require Import Event.
-Require Import Language.
+From PromisingLib Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
@@ -20,7 +20,7 @@ Set Implicit Arguments.
 
 
 Section SimulationThread.
-  Variable (lang_src lang_tgt:Language.t).
+  Variable (lang_src lang_tgt:language).
 
   Definition SIM_TERMINAL :=
     forall (st_src:lang_src.(Language.state)) (st_tgt:lang_tgt.(Language.state)), Prop.

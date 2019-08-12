@@ -12,7 +12,7 @@ From PromisingLib Require Import Loc.
 
 Require Import Event.
 Require Import Time.
-Require Import Language.
+From PromisingLib Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
@@ -28,7 +28,7 @@ Set Implicit Arguments.
 
 Definition ThreadsProp :=
   forall (tid:Ident.t)
-    (lang:Language.t)
+    (lang:language)
     (st:lang.(Language.state)),
     Prop.
 
@@ -330,7 +330,8 @@ Section Invariant.
     econs.
     - ii. unfold Configuration.init in FIND. ss.
       unfold Threads.init in FIND. rewrite IdentMap.Facts.map_o in FIND.
-      destruct ((UsualFMapPositive.UsualPositiveMap'.find tid program)) eqn:X; inv FIND.
+      destruct (@UsualFMapPositive.UsualPositiveMap'.find
+                  (@sigT _ (@Language.syntax ProgramEvent.t)) tid program) eqn:X; inv FIND.
       apply inj_pair2 in H1. subst. destruct s. ss.
       eapply TH; eauto.
     - ii. cut (x0 = LocFun.init 0); [by i; subst|].

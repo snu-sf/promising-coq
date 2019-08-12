@@ -12,7 +12,7 @@ From PromisingLib Require Import Loc.
 Require Import Event.
 From PromisingLib Require Import DenseOrder.
 Require Import Time.
-Require Import Language.
+From PromisingLib Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.

@@ -6,7 +6,7 @@ From Paco Require Import paco.
 
 From PromisingLib Require Import Basic.
 Require Import Event.
-Require Import Language.
+From PromisingLib Require Import Language.
 Require Import Time.
 Require Import View.
 Require Import Cell.

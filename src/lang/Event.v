@@ -8,6 +8,7 @@ From sflib Require Import sflib.
 
 From PromisingLib Require Import Basic.
 From PromisingLib Require Import Loc.
+From PromisingLib Require Import Language.
 
 Require Import Time.
 
@@ -174,3 +175,6 @@ Module ProgramEvent.
       ord (syscall e) (syscall e)
   .
 End ProgramEvent.
+
+
+Definition language: Type := Language.t ProgramEvent.t.

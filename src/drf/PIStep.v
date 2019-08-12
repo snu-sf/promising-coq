@@ -10,7 +10,7 @@ From PromisingLib Require Import Loc.
 
 Require Import Time.
 Require Import Event.
-Require Import Language.
+From PromisingLib Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
@@ -62,7 +62,7 @@ Inductive pi_step_except withprm (tid_except:Ident.t) cST1 cST2: Prop :=
 .
 Hint Constructors pi_step_except.
 
-Definition remove_promise (th: {lang : Language.t & Language.state lang} * Local.t) :=
+Definition remove_promise (th: {lang : language & Language.state lang} * Local.t) :=
   (th.(fst), Local.mk th.(snd).(Local.tview) Memory.bot).
 
 Inductive pi_wf cmp: Configuration.t*Configuration.t -> Prop :=

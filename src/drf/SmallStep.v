@@ -10,7 +10,7 @@ From PromisingLib Require Import Loc.
 
 Require Import Time.
 Require Import Event.
-Require Import Language.
+From PromisingLib Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
@@ -274,7 +274,7 @@ Lemma thread_step_small_step_aux
 Proof.
   exploit thread_step_small_step; eauto.
   { eapply IdentMap.Facts.add_eq_o. eauto. }
-  rewrite (IdentMap.add_add_eq tid (existT Language.state lang st2, lc2)). eauto.
+  rewrite (IdentMap.add_add_eq tid (existT _ lang st2, lc2)). eauto.
 Qed.
 
 Lemma rtc_thread_step_rtc_small_step_aux
@@ -367,7 +367,7 @@ Lemma tau_pf_step_small_step_aux
 Proof.
   exploit tau_pf_step_small_step; eauto.
   { eapply IdentMap.Facts.add_eq_o. eauto. }
-  rewrite (IdentMap.add_add_eq tid (existT Language.state lang st2, lc2)). eauto.
+  rewrite (IdentMap.add_add_eq tid (existT _ lang st2, lc2)). eauto.
 Qed.
 
 Lemma rtc_tau_pf_step_rtc_small_step_aux
