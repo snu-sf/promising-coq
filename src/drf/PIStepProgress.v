@@ -68,7 +68,7 @@ Proof.
   clear CONSIS. i. des.
   exploit (PI_RACEFREE cS3 ord ord0).
   { etrans. 
-    - eapply rtc_implies; [by i; econs; eapply PR|].
+    - eapply rtc_implies; [by i; econs; eapply H|].
       by eapply pi_steps_small_steps_fst in PI_STEPS; eauto.
     - eapply rtc_implies, STEPS. by econs; eauto.
   }
@@ -442,7 +442,7 @@ Proof.
   exploit with_pre_rtc_tau; eauto. i. des.
   exploit pi_consistent_small_step_pi.
   5: instantiate (2 := (_, _)). 5: exact STEP0. all: eauto using consistent_promise_consistent_th.
-  { eapply rtc_implies, x2. i. inv PR. econs. eauto. }
+  { eapply rtc_implies, x2. i. inv H. econs. eauto. }
   { inv WF. eauto using consistent_promise_consistent_th. }
   i. des. esplits; eauto.
 Qed.

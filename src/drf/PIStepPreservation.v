@@ -719,7 +719,7 @@ Proof.
   { eapply rtc_pi_step_future; eauto.
     eapply pi_steps_lift_except_pi_steps in STEPS_LIFT.
     eapply rtc_implies, STEPS_LIFT.
-    i. inv PR. eauto. }
+    i. inv H. eauto. }
 
   assert (WF4: pi_wf loctmeq (cS4, cT4)).
   { inv PSTEP. inv USTEP. eapply pi_step_future; eauto. }
@@ -994,7 +994,7 @@ Proof.
 
   exploit rtc_pi_step_future; [eauto|..].
   { reflexivity. }
-  { eapply rtc_implies, STEP. i. inv PR. eauto. }
+  { eapply rtc_implies, STEP. i. inv H. eauto. }
   i; des. clear FUTURES FUTURET.
 
   destruct (Ident.eq_dec tid0 tid); cycle 1.

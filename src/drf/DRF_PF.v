@@ -73,7 +73,7 @@ Proof.
     + i. esplits; eauto.
   - econs. i.
     exploit pi_steps_all_small_steps_all_snd.
-    { eapply rtc_implies; try exact STEPS. i. inv PR. econs. eauto. }
+    { eapply rtc_implies; try exact STEPS. i. inv H. econs. eauto. }
     s. i.
     exploit small_steps_promise_decr; eauto. s. i. des.
     unfold Threads.init in FIND1. erewrite IdentMap.Facts.map_o in *.
@@ -104,7 +104,7 @@ Proof.
     (try eapply rtc_implies; try apply tau_union);
     eauto.
   { eapply rtc_implies; try apply STEPS. i.
-    inv PR. econs. eauto.
+    inv H. econs. eauto.
   }
   s. i. des.
   exploit pi_step_future; eauto. s. i. des.
@@ -121,7 +121,7 @@ Proof.
   eapply pf_racefree_steps; eauto.
   etrans.
   - eapply rtc_implies; [|apply x1]; eauto.
-    i. inv PR. econs. eauto.
+    i. inv H. econs. eauto.
   - inv x2; eauto.
     econs 2; [|econs 1]. econs. eauto.
 Qed.

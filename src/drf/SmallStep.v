@@ -423,7 +423,7 @@ Proof.
   exploit thread_step_small_step_aux; eauto. i. des.
   esplits; eauto.
   eapply rtc_small_step_future; try exact WF1.
-  eapply rtc_implies, x0. i. inv PR. eauto.
+  eapply rtc_implies, x0. i. inv H. eauto.
 Qed.
 
 Lemma small_step_find

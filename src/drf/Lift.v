@@ -413,7 +413,7 @@ Proof.
   destruct y, z.
   exploit pi_step_lifting_aux; eauto.
   { eapply rtc_pi_step_future; eauto.
-    eapply rtc_implies, PISTEP. i. inv PR. eauto. }
+    eapply rtc_implies, PISTEP. i. inv H0. eauto. }
   intro STEP'; des.
 
   esplits.
@@ -821,14 +821,14 @@ Proof.
   exploit pi_step_lift_except_future; try apply USTEP; eauto.
   { eapply rtc_pi_step_future; eauto.
     eapply rtc_implies, (@pi_steps_lift_except_pi_steps (_,_) (_,_)), PI_STEPS.
-    i. inv PR. eauto. }
+    i. inv H. eauto. }
   i; des. destruct lst1.
 
   exploit conf_update_memory_wf; [|eauto|eauto| |].
   { eapply rtc_pi_step_future; eauto.
     etrans.
     - eapply rtc_implies, (@pi_steps_lift_except_pi_steps (_,_) (_,_)), PI_STEPS.
-      i. inv PR. eauto.
+      i. inv H. eauto.
     - s. econs 2; [|reflexivity]. inv USTEP. eauto. }
   { eauto. }
   intro X. inv X. inv WFT. inv WF1.
@@ -837,7 +837,7 @@ Proof.
     eapply rtc_pi_step_future; eauto.
     etrans.
     { eapply rtc_implies, (@pi_steps_lift_except_pi_steps (_,_) (_,_)), PI_STEPS.
-      i; inv PR; eauto. }
+      i; inv H; eauto. }
     ss. inv USTEP.
     econs 2; [|reflexivity]. eauto.
   }
