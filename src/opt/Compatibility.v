@@ -293,12 +293,15 @@ Qed.
 Hint Resolve ctx_mon.
 
 
-Lemma ctx_weak_respectful: weak_respectful9 (@_sim_thread lang lang) ctx.
+Lemma ctx_wcompat: wcompatible9 (@_sim_thread lang lang) ctx.
 Proof.
+  assert (MON: monotone9 (@_sim_thread lang lang)).
+  (* paco tactics do not work well without this *)
+  { eapply _sim_thread_mon; eauto. }
   econs; auto. i. destruct PR.
   - (* incl *)
     eapply _sim_thread_mon; eauto.
-    apply rclo9_incl.
+    i. gbase. auto.
   - (* nil *)
     ii.
     inversion LOCAL. apply SimPromises.sem_bot_inv in PROMISES; auto.
@@ -325,10 +328,10 @@ Proof.
     + eauto.
     + eauto.
     + eauto.
-    + apply rclo9_step. apply ctx_nil; auto.
+    + gclo. eapply ctx_nil; auto.
   - (* seq *)
     ii. ss.
-    exploit GF; try apply SIM1; try apply SC; eauto. i. des.
+    exploit SIM1; try apply SC; eauto. i. des.
     splits; s; ii.
     { inv TERMINAL_TGT. destruct stmts1_tgt, stmts2_tgt; inv H0.
       exploit TERMINAL; try by econs. i. des.
@@ -337,8 +340,7 @@ Proof.
       destruct st2_src. inv TERMINAL_SRC. ss. subst.
       exploit Thread.rtc_tau_step_future; eauto. s. i. des.
       inv TERMINAL0. ss. subst.
-      exploit SIM2; eauto. intro LC2.
-      exploit GF; try apply LC2; try apply SC0; eauto. s. i. des.
+      exploit SIM2; try apply SC0; eauto. s. i. des.
       exploit TERMINAL0; try by econs. i. des.
       destruct st2_src, lc2_src. inv TERMINAL_SRC. ss. subst.
       esplits; cycle 1; eauto.
@@ -359,11 +361,10 @@ Proof.
       destruct st2_src, lc2_src. inv TERMINAL_SRC. ss. subst.
       exploit Thread.rtc_tau_step_future; eauto. s. i. des.
       inv TERMINAL0. ss. subst.
-      exploit SIM2; eauto. intro LC2.
-      exploit GF; try apply SC0; eauto. i. des.
+      exploit SIM2; try apply SC0; eauto. i. des.
       exploit STEP0; eauto. i. des.
       esplits; cycle 1; eauto.
-      * apply rclo9_incl. auto.
+      * gbase. auto.
       * eapply rtc_internal_step_seq in STEPS.
         etrans; [apply STEPS|eauto].
     + destruct st3_tgt, lc3_tgt.
@@ -373,11 +374,10 @@ Proof.
       esplits; [M|M| | | |]; Mskip eauto.
       * eapply rtc_internal_step_seq. eauto.
       * eapply opt_step_seq. eauto.
-      * apply rclo9_step. eapply ctx_seq; eauto.
-        { apply rclo9_incl. eauto. }
-        { eapply _sim_stmts_mon; try apply rclo9_incl; eauto.
-          eapply _sim_stmts_mon; try apply LE; eauto.
-        }
+      * gclo. eapply ctx_seq; eauto.
+        { gbase. eauto. }
+        { eapply _sim_stmts_mon; cycle 1; eauto.
+          i. gstep. eapply _sim_thread_mon; eauto. i. gbase. auto. }
   - (* ite *)
     ii.
     inversion LOCAL. exploit SimPromises.sem_bot_inv; eauto. i.
@@ -402,11 +402,11 @@ Proof.
       esplits; try apply SC; eauto.
       { econs 2. econs 1. econs; eauto. }
       { eauto. }
-      { apply rclo9_step. eapply ctx_ite; eauto.
-        - eapply _sim_stmts_mon; try apply rclo9_incl; eauto.
-          eapply _sim_stmts_mon; try apply LE; eauto.
-        - eapply _sim_stmts_mon; try apply rclo9_incl; eauto.
-          eapply _sim_stmts_mon; try apply LE; eauto.
+      { gclo. eapply ctx_ite; eauto.
+        - eapply _sim_stmts_mon; cycle 1; eauto.
+          i. gstep. eapply _sim_thread_mon; eauto. i. gbase. auto.
+        - eapply _sim_stmts_mon; cycle 1; eauto.
+          i. gstep. eapply _sim_thread_mon; eauto. i. gbase. auto.
       }
     + (* ite *)
       inv STEP. inv LOCAL0; inv STATE; ss.
@@ -417,8 +417,8 @@ Proof.
       { s. rewrite ? app_nil_r.
         exploit COND; eauto. intro C. rewrite C.
         destruct (RegFile.eval_expr rs_tgt cond_tgt).
-        - apply rclo9_incl. apply LE. apply SIM1; ss.
-        - apply rclo9_incl. apply LE. apply SIM2; ss.
+        - gstep. eapply _sim_thread_mon; try apply SIM1; ss. i. gbase. auto.
+        - gstep. eapply _sim_thread_mon; try apply SIM2; ss. i. gbase. auto.
       }
   - (* dowhile *)
     ii.
@@ -444,9 +444,9 @@ Proof.
       esplits; try apply SC; eauto.
       { econs 2. econs 1. econs; eauto. }
       { eauto. }
-      { apply rclo9_step. apply ctx_dowhile; auto.
-        - eapply _sim_stmts_mon; try apply rclo9_incl; eauto.
-          eapply _sim_stmts_mon; try apply LE; eauto.
+      { gclo. eapply ctx_dowhile; eauto.
+        eapply _sim_stmts_mon; cycle 1; eauto.
+        i. gstep. eapply _sim_thread_mon; eauto. i. gbase. auto.
       }
     + (* dowhile *)
       inv STEP. inv LOCAL0; inv STATE; ss.
@@ -454,13 +454,13 @@ Proof.
       esplits; try apply SC; eauto.
       { econs 2. econs 2. econs; [|econs 1]; eauto. econs; eauto. }
       { eauto. }
-      { apply rclo9_step. eapply ctx_seq.
-        { apply rclo9_incl. apply LE. apply SIM; ss. }
-        ii. apply rclo9_step. eapply ctx_ite; eauto.
-        - ii. apply rclo9_step. eapply ctx_dowhile; eauto.
-          eapply _sim_stmts_mon; try apply rclo9_incl; eauto.
-          eapply _sim_stmts_mon; try apply LE; eauto.
-        - ii. apply rclo9_base; auto.
+      { gclo. eapply ctx_seq; eauto.
+        { gstep. eapply _sim_thread_mon; try apply SIM; ss. i. gbase. auto. }
+        ii. gclo. eapply ctx_ite; eauto.
+        - ii. gclo. eapply ctx_dowhile; eauto.
+          eapply _sim_stmts_mon; cycle 1; eauto.
+          i. gstep. eapply _sim_thread_mon; eauto. i. gbase. auto.
+        - ii. gclo; auto.
       }
 Qed.
 
@@ -482,7 +482,7 @@ Qed.
 Lemma sim_stmts_nil sim_regs:
   sim_stmts sim_regs [] [] sim_regs.
 Proof.
-  ii. pupto9_init. pupto9 ctx_weak_respectful. eauto.
+  ii. ginit; [apply ctx_wcompat|]. gclo. eauto.
 Qed.
 
 Lemma sim_stmts_seq
@@ -493,10 +493,10 @@ Lemma sim_stmts_seq
       (SIM2: sim_stmts sim_regs1 stmts2_src stmts2_tgt sim_regs2):
   sim_stmts sim_regs0 (stmts1_src ++ stmts2_src) (stmts1_tgt ++ stmts2_tgt) sim_regs2.
 Proof.
-  ii. pupto9_init. pupto9 ctx_weak_respectful.
-  econs 3.
-  - pupto9_final. apply SIM1; auto.
-  - ii. pupto9_final. apply SIM2; auto.
+  ii. ginit; [apply ctx_wcompat|].
+  gclo. econs 3.
+  - gfinal. right. apply SIM1; auto.
+  - ii. gfinal. right. apply SIM2; auto.
 Qed.
 
 Lemma sim_stmts_ite
@@ -508,10 +508,10 @@ Lemma sim_stmts_ite
       (SIM2: sim_stmts sim_regs0 stmts2_src stmts2_tgt sim_regs1):
   sim_stmts sim_regs0 [Stmt.ite cond_src stmts1_src stmts2_src] [Stmt.ite cond_tgt stmts1_tgt stmts2_tgt] sim_regs1.
 Proof.
-  ii. pupto9_init. pupto9 ctx_weak_respectful.
-  econs 4; eauto.
-  - ii. pupto9_final. apply SIM1; auto.
-  - ii. pupto9_final. apply SIM2; auto.
+  ii. ginit; [apply ctx_wcompat|].
+  gclo. econs 4; eauto.
+  - ii. gfinal. right. apply SIM1; auto.
+  - ii. gfinal. right. apply SIM2; auto.
 Qed.
 
 Lemma sim_stmts_dowhile
@@ -522,6 +522,6 @@ Lemma sim_stmts_dowhile
       (SIM: sim_stmts sim_regs stmts_src stmts_tgt sim_regs):
   sim_stmts sim_regs [Stmt.dowhile stmts_src cond_src] [Stmt.dowhile stmts_tgt cond_tgt] sim_regs.
 Proof.
-  ii. pupto9_init. pupto9 ctx_weak_respectful.
-  econs 5; eauto. ii. pupto9_final. apply SIM; auto.
+  ii. ginit; [apply ctx_wcompat|].
+  gclo. econs 5; eauto. ii. gfinal. right. apply SIM; auto.
 Qed.
