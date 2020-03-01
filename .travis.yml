@@ -18,7 +18,8 @@ env:
   - PACO="2.0.3"
 
   matrix:
-  - TEST_TARGET="8.9.1"
+  - COMPILER="4.07.1"
+    TEST_TARGET="8.9.1"
 
 before_script:
   - ./ci/keep_alive.sh &
@@ -35,4 +36,4 @@ install:
 script:
   - eval $(opam config env)
   - opam config var root
-  - make -j ${NJOBS}
+  - make build -j ${NJOBS}
