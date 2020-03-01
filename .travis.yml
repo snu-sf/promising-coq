@@ -18,7 +18,8 @@ env:
   - PACO="2.0.3"
 
   matrix:
-  - TEST_TARGET="8.9.1"
+  - COMPILER="4.07.1"
+    TEST_TARGET="8.9.1"
 
 before_script:
   - ./ci/keep_alive.sh &
@@ -29,10 +30,12 @@ install:
   - opam config var root
   - opam install -y --verbose -j ${NJOBS} coq.${TEST_TARGET} && opam pin add coq ${TEST_TARGET} -y
   - opam repo add coq-released https://coq.inria.fr/opam/released
+  - opam remote add coq-promising -k git https://github.com/snu-sf/promising-opam-coq-archive
   - opam install -y --verbose -j ${NJOBS} coq-paco.${PACO} && opam pin add coq-paco ${PACO} -y
-
+  - opam install coq-sflib
+  - opam install coq-promising-lib
 
 script:
   - eval $(opam config env)
   - opam config var root
-  - make -j ${NJOBS}
+  - make build -j ${NJOBS}
