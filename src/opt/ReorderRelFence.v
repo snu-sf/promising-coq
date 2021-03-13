@@ -50,8 +50,8 @@ Inductive reorder_release_fenceF: forall (i2:Instr.t), Prop :=
     reorder_release_fenceF (Instr.fence Ordering.acqrel Ordering.plain)
 .
 
-Inductive sim_release_fenceF: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (sc1_src:TimeMap.t) (mem1_src:Memory.t)
-                        (st_tgt:lang.(Language.state)) (lc_tgt:Local.t) (sc1_tgt:TimeMap.t) (mem1_tgt:Memory.t), Prop :=
+Inductive sim_release_fenceF: forall (st_src:(Language.state lang)) (lc_src:Local.t) (sc1_src:TimeMap.t) (mem1_src:Memory.t)
+                        (st_tgt:(Language.state lang)) (lc_tgt:Local.t) (sc1_tgt:TimeMap.t) (mem1_tgt:Memory.t), Prop :=
 | sim_relese_fenceF_intro
     rs
     none_for

@@ -573,7 +573,7 @@ Module SimPromises.
         none_for inv
         lc_src mem1_src mem2_src
         lc_tgt mem1_tgt
-        (INV1: sem none_for inv lc_src.(Local.promises) lc_tgt.(Local.promises))
+        (INV1: sem none_for inv (Local.promises lc_src) (Local.promises lc_tgt))
         (MEM1: sim_memory mem1_src mem1_tgt)
         (FUTURE_SRC: Memory.future mem1_src mem2_src)
         (WF1_SRC: Local.wf lc_src mem1_src)

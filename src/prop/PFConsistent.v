@@ -31,14 +31,14 @@ Set Implicit Arguments.
 
 Definition pf_consistent lang (e:Thread.t lang): Prop :=
   forall sc1 mem1
-    (FUTURE: Memory.future e.(Thread.memory) mem1)
-    (FUTURE: TimeMap.le e.(Thread.sc) sc1)
-    (WF: Local.wf e.(Thread.local) mem1)
+    (FUTURE: Memory.future (Thread.memory e) mem1)
+    (FUTURE: TimeMap.le (Thread.sc e) sc1)
+    (WF: Local.wf (Thread.local e) mem1)
     (SC: Memory.closed_timemap sc1 mem1)
     (MEM: Memory.closed mem1),
   exists e2,
-    <<STEPS: rtc (tau (Thread.step true)) (Thread.mk lang e.(Thread.state) e.(Thread.local) sc1 mem1) e2>> /\
-    <<PROMISES: e2.(Thread.local).(Local.promises) = Memory.bot>>.
+    <<STEPS: rtc (tau (Thread.step true)) (Thread.mk lang (Thread.state e) (Thread.local e) sc1 mem1) e2>> /\
+    <<PROMISES: (Local.promises (Thread.local e2)) = Memory.bot>>.
 
 Lemma consistent_pf_consistent:
   Thread.consistent <2= pf_consistent.

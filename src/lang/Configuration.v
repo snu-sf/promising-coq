@@ -34,17 +34,17 @@ Hint Constructors opt.
 
 
 Module Threads.
-  Definition syntax := IdentMap.t {lang:language & lang.(Language.syntax)}.
-  Definition t := IdentMap.t ({lang:language & lang.(Language.state)} * Local.t).
+  Definition syntax := IdentMap.t {lang:language & (Language.syntax lang)}.
+  Definition t := IdentMap.t ({lang:language & (Language.state lang)} * Local.t).
 
   Definition init (s:syntax): t :=
     IdentMap.map
-      (fun s => (existT _ _ (s.(projT1).(Language.init) s.(projT2)), Local.init))
+      (fun s => (existT _ _ ((Language.init (projT1 s)) (projT2 s)), Local.init))
       s.
 
   Definition is_terminal (ths:t): Prop :=
     forall tid lang st lc (FIND: IdentMap.find tid ths = Some (existT _ lang st, lc)),
-      <<STATE: lang.(Language.is_terminal) st>> /\
+      <<STATE: (Language.is_terminal lang) st>> /\
       <<THREAD: Local.is_terminal lc>>.
 
   Inductive wf (ths:t) (mem:Memory.t): Prop :=
@@ -133,7 +133,7 @@ Module Threads.
   | is_promised_intro
       lang st lc from msg
       (TID: IdentMap.find tid threads = Some (existT _ lang st, lc))
-      (PROMISES: Memory.get loc to lc.(Local.promises) = Some (from, msg))
+      (PROMISES: Memory.get loc to (Local.promises lc) = Some (from, msg))
   .
 End Threads.
 
@@ -147,17 +147,17 @@ Module Configuration.
 
   Definition init (s:Threads.syntax): t := mk (Threads.init s) TimeMap.bot Memory.init.
 
-  Definition is_terminal (conf:t): Prop := Threads.is_terminal conf.(threads).
+  Definition is_terminal (conf:t): Prop := Threads.is_terminal (threads conf).
 
   Inductive wf (conf:t): Prop :=
   | wf_intro
-      (WF: Threads.wf conf.(threads) conf.(memory))
-      (SC: Memory.closed_timemap conf.(sc) conf.(memory))
-      (MEM: Memory.closed conf.(memory))
+      (WF: Threads.wf (threads conf) (memory conf))
+      (SC: Memory.closed_timemap (sc conf) (memory conf))
+      (MEM: Memory.closed (memory conf))
   .
 
   Definition consistent (conf:t): Prop :=
-    Threads.consistent conf.(threads) conf.(sc) conf.(memory).
+    Threads.consistent (threads conf) (sc conf) (memory conf).
 
   Lemma init_wf syn: wf (init syn).
   Proof.
@@ -175,11 +175,11 @@ Module Configuration.
   Inductive step: forall (e:option Event.t) (tid:Ident.t) (c1 c2:t), Prop :=
   | step_intro
       pf e tid c1 lang st1 lc1 e2 st3 lc3 sc3 memory3
-      (TID: IdentMap.find tid c1.(threads) = Some (existT _ lang st1, lc1))
-      (STEPS: rtc (@Thread.tau_step _) (Thread.mk _ st1 lc1 c1.(sc) c1.(memory)) e2)
+      (TID: IdentMap.find tid (threads c1) = Some (existT _ lang st1, lc1))
+      (STEPS: rtc (@Thread.tau_step _) (Thread.mk _ st1 lc1 (sc c1) (memory c1)) e2)
       (STEP: Thread.step pf e e2 (Thread.mk _ st3 lc3 sc3 memory3))
       (CONSISTENT: Thread.consistent (Thread.mk lang st3 lc3 sc3 memory3)):
-      step (ThreadEvent.get_event e) tid c1 (mk (IdentMap.add tid (existT _ _ st3, lc3) c1.(threads)) sc3 memory3)
+      step (ThreadEvent.get_event e) tid c1 (mk (IdentMap.add tid (existT _ _ st3, lc3) (threads c1)) sc3 memory3)
   .
 
   Definition opt_step := opt step.
@@ -189,8 +189,8 @@ Module Configuration.
   Inductive has_promise (c:t): Prop :=
   | has_promise_intro
       tid st lc loc from to msg
-      (FIND: IdentMap.find tid c.(threads) = Some (st, lc))
-      (GET: Memory.get loc to lc.(Local.promises) = Some (from, msg))
+      (FIND: IdentMap.find tid (threads c) = Some (st, lc))
+      (GET: Memory.get loc to (Local.promises lc) = Some (from, msg))
   .
 
   Ltac simplify :=
@@ -218,8 +218,8 @@ Module Configuration.
         (CONSISTENT1: consistent c1):
     <<WF2: wf c2>> /\
     <<CONSISTENT2: consistent c2>> /\
-    <<SC_FUTURE: TimeMap.le c1.(sc) c2.(sc)>> /\
-    <<MEM_FUTURE: Memory.future c1.(memory) c2.(memory)>>.
+    <<SC_FUTURE: TimeMap.le (sc c1) (sc c2)>> /\
+    <<MEM_FUTURE: Memory.future (memory c1) (memory c2)>>.
   Proof.
     inv WF1. inv WF. inv STEP. s.
     exploit THREADS; ss; eauto. i.
@@ -251,14 +251,14 @@ Module Configuration.
   Lemma step_disjoint
         e tid c1 c2 ths
         (STEP: step e tid c1 c2)
-        (DISJOINT: Threads.disjoint c1.(threads) ths)
+        (DISJOINT: Threads.disjoint (threads c1) ths)
         (WF1: wf c1)
         (CONSISTENT1: consistent c1)
-        (WF: wf (mk ths c1.(sc) c1.(memory)))
-        (CONSISTENT: consistent (mk ths c1.(sc) c1.(memory))):
-      <<DISJOINT: Threads.disjoint c2.(threads) ths>> /\
-      <<WF: wf (mk ths c2.(sc) c2.(memory))>> /\
-      <<CONSISTENT: consistent (mk ths c2.(sc) c2.(memory))>>.
+        (WF: wf (mk ths (sc c1) (memory c1)))
+        (CONSISTENT: consistent (mk ths (sc c1) (memory c1))):
+      <<DISJOINT: Threads.disjoint (threads c2) ths>> /\
+      <<WF: wf (mk ths (sc c2) (memory c2))>> /\
+      <<CONSISTENT: consistent (mk ths (sc c2) (memory c2))>>.
   Proof.
     inv STEP. ss.
     exploit Thread.rtc_tau_step_future; eauto.
@@ -315,8 +315,8 @@ Module Configuration.
         (CONSISTENT1: consistent c1):
     <<WF2: wf c2>> /\
     <<CONSISTENT2: consistent c2>> /\
-    <<SC_FUTURE: TimeMap.le c1.(sc) c2.(sc)>> /\
-    <<MEM_FUTURE: Memory.future c1.(memory) c2.(memory)>>.
+    <<SC_FUTURE: TimeMap.le (sc c1) (sc c2)>> /\
+    <<MEM_FUTURE: Memory.future (memory c1) (memory c2)>>.
   Proof.
     inv STEP.
     - splits; auto; refl.
@@ -326,14 +326,14 @@ Module Configuration.
   Lemma opt_step_disjoint
         e tid c1 c2 ths
         (STEP: opt_step e tid c1 c2)
-        (DISJOINT: Threads.disjoint c1.(threads) ths)
+        (DISJOINT: Threads.disjoint (threads c1) ths)
         (WF1: wf c1)
         (CONSISTENT1: consistent c1)
-        (WF: wf (mk ths c1.(sc) c1.(memory)))
-        (CONSISTENT: consistent (mk ths c1.(sc) c1.(memory))):
-      <<DISJOINT: Threads.disjoint c2.(threads) ths>> /\
-      <<WF: wf (mk ths c2.(sc) c2.(memory))>> /\
-      <<CONSISTENT: consistent (mk ths c2.(sc) c2.(memory))>>.
+        (WF: wf (mk ths (sc c1) (memory c1)))
+        (CONSISTENT: consistent (mk ths (sc c1) (memory c1))):
+      <<DISJOINT: Threads.disjoint (threads c2) ths>> /\
+      <<WF: wf (mk ths (sc c2) (memory c2))>> /\
+      <<CONSISTENT: consistent (mk ths (sc c2) (memory c2))>>.
   Proof.
     inv STEP.
     - splits; auto; refl.
@@ -347,8 +347,8 @@ Module Configuration.
         (CONSISTENT1: consistent c1):
     <<WF2: wf c2>> /\
     <<CONSISTENT2: consistent c2>> /\
-    <<SC_FUTURE: TimeMap.le c1.(sc) c2.(sc)>> /\
-    <<MEM_FUTURE: Memory.future c1.(memory) c2.(memory)>>.
+    <<SC_FUTURE: TimeMap.le (sc c1) (sc c2)>> /\
+    <<MEM_FUTURE: Memory.future (memory c1) (memory c2)>>.
   Proof.
     revert CONSISTENT1. induction STEPS; i.
     - splits; auto; refl.
@@ -361,14 +361,14 @@ Module Configuration.
   Lemma rtc_step_disjoint
         c1 c2 ths
         (STEPS: rtc tau_step c1 c2)
-        (DISJOINT: Threads.disjoint c1.(threads) ths)
+        (DISJOINT: Threads.disjoint (threads c1) ths)
         (WF1: wf c1)
         (CONSISTENT1: consistent c1)
-        (WF: wf (mk ths c1.(sc) c1.(memory)))
-        (CONSISTENT: consistent (mk ths c1.(sc) c1.(memory))):
-      <<DISJOINT: Threads.disjoint c2.(threads) ths>> /\
-      <<WF: wf (mk ths c2.(sc) c2.(memory))>> /\
-      <<CONSISTENT: consistent (mk ths c2.(sc) c2.(memory))>>.
+        (WF: wf (mk ths (sc c1) (memory c1)))
+        (CONSISTENT: consistent (mk ths (sc c1) (memory c1))):
+      <<DISJOINT: Threads.disjoint (threads c2) ths>> /\
+      <<WF: wf (mk ths (sc c2) (memory c2))>> /\
+      <<CONSISTENT: consistent (mk ths (sc c2) (memory c2))>>.
   Proof.
     revert DISJOINT CONSISTENT1 CONSISTENT. induction STEPS; auto. i. inv H.
     exploit step_future; eauto. i. des.

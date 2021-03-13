@@ -25,8 +25,8 @@ Set Implicit Arguments.
 
 Inductive fulfilled c l f t msg :=
 | fulfilled_intro
-    (GET: Memory.get l t c.(Configuration.memory) = Some (f, msg))
-    (FULFILLED: forall tid, ~ Threads.is_promised tid l t c.(Configuration.threads))
+    (GET: Memory.get l t (Configuration.memory c) = Some (f, msg))
+    (FULFILLED: forall tid, ~ Threads.is_promised tid l t (Configuration.threads c))
 .
 
 Lemma writing_small_step_fulfilled_forward

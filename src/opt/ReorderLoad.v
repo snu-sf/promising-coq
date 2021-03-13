@@ -59,8 +59,8 @@ Inductive reorder_load r1 l1 o1: forall (i2:Instr.t), Prop :=
     reorder_load r1 l1 o1 (Instr.fence or2 ow2)
 .
 
-Inductive sim_load: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (sc1_src:TimeMap.t) (mem1_src:Memory.t)
-                      (st_tgt:lang.(Language.state)) (lc_tgt:Local.t) (sc1_tgt:TimeMap.t) (mem1_tgt:Memory.t), Prop :=
+Inductive sim_load: forall (st_src:(Language.state lang)) (lc_src:Local.t) (sc1_src:TimeMap.t) (mem1_src:Memory.t)
+                      (st_tgt:(Language.state lang)) (lc_tgt:Local.t) (sc1_tgt:TimeMap.t) (mem1_tgt:Memory.t), Prop :=
 | sim_load_intro
     r1 l1 ts1 v1 released1 o1 i2 rs
     lc1_src sc1_src mem1_src

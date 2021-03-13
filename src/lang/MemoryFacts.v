@@ -138,7 +138,7 @@ Module MemoryFacts.
   Proof.
     inv LE; cycle 1.
     { inv H. rewrite GET1 in GET2. inv GET2. ss. }
-    destruct (m l).(Cell.WF). exfalso.
+    destruct (Cell.WF (m l)). exfalso.
     assert (t1 <> t2).
     { ii. subst. eapply Time.lt_strorder. eauto. }
     eapply DISJOINT; try exact H0; eauto.
@@ -205,7 +205,7 @@ Module MemoryFacts.
   (GET: Memory.get loc to mem = Some (from, Message.mk val (Some released))):
     Time.lt from to.
   Proof.
-    destruct (mem loc).(Cell.WF). exploit VOLUME; eauto. i. des; ss. inv x.
+    destruct (Cell.WF (mem loc)). exploit VOLUME; eauto. i. des; ss. inv x.
     inv CLOSED. rewrite INHABITED in GET. inv GET.
   Qed.
 End MemoryFacts.

@@ -26,8 +26,8 @@ Set Implicit Arguments.
 Lemma write_step_promise
       lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind
       (STEP: Local.write_step lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind)
-      (PROMISES: lc1.(Local.promises) = Memory.bot):
-  lc2.(Local.promises) = Memory.bot.
+      (PROMISES: (Local.promises lc1) = Memory.bot):
+  (Local.promises lc2) = Memory.bot.
 Proof.
   inv STEP. rewrite PROMISES in *. s.
   apply Memory.ext. i. rewrite Memory.bot_get.
@@ -50,8 +50,8 @@ Lemma program_step_promise
       st1 lc1 sc1 mem1
       st2 lc2 sc2 mem2
       (STEP: Thread.program_step e (Thread.mk lang st1 lc1 sc1 mem1) (Thread.mk lang st2 lc2 sc2 mem2))
-      (PROMISES: lc1.(Local.promises) = Memory.bot):
-  lc2.(Local.promises) = Memory.bot.
+      (PROMISES: (Local.promises lc1) = Memory.bot):
+  (Local.promises lc2) = Memory.bot.
 Proof.
   inv STEP. inv LOCAL; ss; try by inv LOCAL0.
   - eapply write_step_promise; eauto.
@@ -80,7 +80,7 @@ Lemma progress_promise_step
   exists promises2 mem2,
     Local.promise_step lc1 mem1 loc (Memory.max_ts loc mem1) to val
                        (TView.write_released (Local.tview lc1) sc1 loc to releasedm ord)
-                       (Local.mk lc1.(Local.tview) promises2) mem2 Memory.op_kind_add.
+                       (Local.mk (Local.tview lc1) promises2) mem2 Memory.op_kind_add.
 Proof.
   exploit (@Memory.add_exists_max_ts
              mem1 loc to val
@@ -131,7 +131,7 @@ Lemma progress_write_step
       (MEM1: Memory.closed mem1)
       (WF_REL: View.opt_wf releasedm)
       (CLOSED_REL: Memory.closed_opt_view releasedm mem1)
-      (PROMISES1: Ordering.le Ordering.strong_relaxed ord -> Memory.nonsynch_loc loc lc1.(Local.promises)):
+      (PROMISES1: Ordering.le Ordering.strong_relaxed ord -> Memory.nonsynch_loc loc (Local.promises lc1)):
   exists released lc2 sc2 mem2,
     Local.write_step lc1 sc1 mem1 loc (Memory.max_ts loc mem1) to val releasedm released ord lc2 sc2 mem2 Memory.op_kind_add.
 Proof.
@@ -151,7 +151,7 @@ Qed.
 Lemma progress_fence_step
       lc1 sc1
       ordr ordw
-      (PROMISES1: Ordering.le Ordering.strong_relaxed ordw -> Memory.nonsynch lc1.(Local.promises)):
+      (PROMISES1: Ordering.le Ordering.strong_relaxed ordw -> Memory.nonsynch (Local.promises lc1)):
   exists lc2 sc2,
     Local.fence_step lc1 sc1 ordr ordw lc2 sc2.
 Proof.

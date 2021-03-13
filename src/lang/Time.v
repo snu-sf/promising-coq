@@ -47,8 +47,8 @@ Module Interval <: UsualOrderedType.
 
   Inductive mem (interval:t) (x:Time.t): Prop :=
   | mem_intro
-      (FROM: Time.lt interval.(fst) x)
-      (TO: Time.le x interval.(snd))
+      (FROM: Time.lt (fst interval) x)
+      (TO: Time.le x (snd interval))
   .
 
   Lemma mem_dec i x: {mem i x} + {~ mem i x}.
@@ -63,8 +63,8 @@ Module Interval <: UsualOrderedType.
 
   Inductive le (lhs rhs:t): Prop :=
   | le_intro
-      (FROM: Time.le rhs.(fst) lhs.(fst))
-      (TO: Time.le lhs.(snd) rhs.(snd))
+      (FROM: Time.le (fst rhs) (fst lhs))
+      (TO: Time.le (snd lhs) (snd rhs))
   .
 
   Lemma le_mem lhs rhs x

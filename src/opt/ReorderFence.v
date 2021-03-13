@@ -49,8 +49,8 @@ Inductive reorder_fence (or1 ow1:Ordering.t): forall (i2:Instr.t), Prop :=
     reorder_fence or1 ow1 (Instr.update r2 l2 rmw2 or2 ow2)
 .
 
-Inductive sim_fence: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (sc1_src:TimeMap.t) (mem1_src:Memory.t)
-                       (st_tgt:lang.(Language.state)) (lc_tgt:Local.t) (sc1_tgt:TimeMap.t) (mem1_tgt:Memory.t), Prop :=
+Inductive sim_fence: forall (st_src:(Language.state lang)) (lc_src:Local.t) (sc1_src:TimeMap.t) (mem1_src:Memory.t)
+                       (st_tgt:(Language.state lang)) (lc_tgt:Local.t) (sc1_tgt:TimeMap.t) (mem1_tgt:Memory.t), Prop :=
 | sim_fence_intro
     or1 ow1 i2 rs
     lc1_src sc1_src mem1_src

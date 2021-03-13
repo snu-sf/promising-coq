@@ -40,15 +40,15 @@ Inductive split_release: forall (i1 i2:Instr.t), Prop :=
     split_release (Instr.update r l rmw or Ordering.acqrel) (Instr.update r l rmw or Ordering.strong_relaxed)
 .
 
-Inductive sim_released: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (sc1_src:TimeMap.t) (mem1_src:Memory.t)
-                          (st_tgt:lang.(Language.state)) (lc_tgt:Local.t) (sc1_tgt:TimeMap.t) (mem1_tgt:Memory.t), Prop :=
+Inductive sim_released: forall (st_src:(Language.state lang)) (lc_src:Local.t) (sc1_src:TimeMap.t) (mem1_src:Memory.t)
+                          (st_tgt:(Language.state lang)) (lc_tgt:Local.t) (sc1_tgt:TimeMap.t) (mem1_tgt:Memory.t), Prop :=
 | sim_released_intro
     i_src i_tgt rs
     lc1_src sc1_src mem1_src
     lc1_tgt sc1_tgt mem1_tgt
     (SPLIT: split_release i_src i_tgt)
     (LOCAL: sim_local lc1_src lc1_tgt)
-    (RELEASED: forall l, View.le lc1_tgt.(Local.tview).(TView.cur) (lc1_tgt.(Local.tview).(TView.rel) l))
+    (RELEASED: forall l, View.le (TView.cur (Local.tview lc1_tgt)) ((TView.rel (Local.tview lc1_tgt)) l))
     (SC: TimeMap.le sc1_src sc1_tgt)
     (MEMORY: sim_memory mem1_src mem1_tgt)
     (WF_SRC: Local.wf lc1_src mem1_src)
@@ -142,7 +142,7 @@ Lemma sim_local_fulfill_released
       (WF_RELM_TGT: View.opt_wf releasedm_tgt)
       (STEP_TGT: fulfill_step lc1_tgt sc1_tgt loc from to val releasedm_tgt released Ordering.strong_relaxed lc2_tgt sc2_tgt)
       (LOCAL1: sim_local lc1_src lc1_tgt)
-      (RELEASED1: View.le lc1_tgt.(Local.tview).(TView.cur) (View.join (lc1_tgt.(Local.tview).(TView.rel) loc) (View.singleton_ur loc to)))
+      (RELEASED1: View.le (TView.cur (Local.tview lc1_tgt)) (View.join ((TView.rel (Local.tview lc1_tgt)) loc) (View.singleton_ur loc to)))
       (SC1: TimeMap.le sc1_src sc1_tgt)
       (MEM1: sim_memory mem1_src mem1_tgt)
       (WF1_SRC: Local.wf lc1_src mem1_src)
@@ -159,14 +159,14 @@ Proof.
   inv STEP_TGT.
   assert (RELT_LE:
    View.opt_le
-     (TView.write_released lc1_src.(Local.tview) sc1_src loc to releasedm_src Ordering.acqrel)
-     (TView.write_released lc1_tgt.(Local.tview) sc2_tgt loc to releasedm_tgt Ordering.strong_relaxed)).
+     (TView.write_released (Local.tview lc1_src) sc1_src loc to releasedm_src Ordering.acqrel)
+     (TView.write_released (Local.tview lc1_tgt) sc2_tgt loc to releasedm_tgt Ordering.strong_relaxed)).
   { unfold TView.write_released, TView.write_tview. ss. viewtac;
       try econs; repeat (condtac; aggrtac); try apply WF1_TGT.
     rewrite <- View.join_r. etrans; eauto. apply LOCAL1.
   }
   assert (RELT_WF:
-   View.opt_wf (TView.write_released lc1_src.(Local.tview) sc1_src loc to releasedm_src Ordering.acqrel)).
+   View.opt_wf (TView.write_released (Local.tview lc1_src) sc1_src loc to releasedm_src Ordering.acqrel)).
   { unfold TView.write_released. condtac; econs.
     repeat (try condtac; viewtac; try apply WF1_SRC).
   }
@@ -205,7 +205,7 @@ Lemma sim_local_write_released
       (RELM_TGT_CLOSED: Memory.closed_opt_view releasedm_tgt mem1_tgt)
       (STEP_TGT: Local.write_step lc1_tgt sc1_tgt mem1_tgt loc from to val releasedm_tgt released_tgt Ordering.strong_relaxed lc2_tgt sc2_tgt mem2_tgt kind)
       (LOCAL1: sim_local lc1_src lc1_tgt)
-      (RELEASED1: View.le lc1_tgt.(Local.tview).(TView.cur) (View.join (lc1_tgt.(Local.tview).(TView.rel) loc) (View.singleton_ur loc to)))
+      (RELEASED1: View.le (TView.cur (Local.tview lc1_tgt)) (View.join ((TView.rel (Local.tview lc1_tgt)) loc) (View.singleton_ur loc to)))
       (SC1: TimeMap.le sc1_src sc1_tgt)
       (MEM1: sim_memory mem1_src mem1_tgt)
       (WF1_SRC: Local.wf lc1_src mem1_src)

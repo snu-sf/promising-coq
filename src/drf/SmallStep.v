@@ -168,9 +168,9 @@ Qed.
 Inductive small_step (withprm: bool) (tid:Ident.t) (e:ThreadEvent.t) (c1:Configuration.t): forall (c2:Configuration.t), Prop :=
 | small_step_intro
     lang pf st1 st2 lc1 ths2 lc2 sc2 memory2
-    (TID: IdentMap.find tid c1.(Configuration.threads) = Some (existT _ lang st1, lc1))
-    (STEP: Thread.step pf e (Thread.mk _ st1 lc1 c1.(Configuration.sc) c1.(Configuration.memory)) (Thread.mk _ st2 lc2 sc2 memory2))
-    (THS2: ths2 = IdentMap.add tid (existT _ _ st2, lc2) c1.(Configuration.threads))
+    (TID: IdentMap.find tid (Configuration.threads c1) = Some (existT _ lang st1, lc1))
+    (STEP: Thread.step pf e (Thread.mk _ st1 lc1 (Configuration.sc c1) (Configuration.memory c1)) (Thread.mk _ st2 lc2 sc2 memory2))
+    (THS2: ths2 = IdentMap.add tid (existT _ _ st2, lc2) (Configuration.threads c1))
     (PFREE: orb withprm pf)
   :
   small_step withprm tid e c1 (Configuration.mk ths2 sc2 memory2)
@@ -211,8 +211,8 @@ Lemma small_step_future
       (WF1: Configuration.wf c1)
       (STEP: small_step withprm e tid c1 c2):
   <<WF2: Configuration.wf c2>> /\
-  <<FUTURE: Memory.future c1.(Configuration.memory) c2.(Configuration.memory)>> /\
-  <<SC_FUTURE: TimeMap.le  c1.(Configuration.sc) c2.(Configuration.sc)>>.
+  <<FUTURE: Memory.future (Configuration.memory c1) (Configuration.memory c2)>> /\
+  <<SC_FUTURE: TimeMap.le  (Configuration.sc c1) (Configuration.sc c2)>>.
 Proof.
   inv WF1. inv WF. inv STEP. ss. clear PFREE.
   exploit THREADS; ss; eauto. i.
@@ -237,8 +237,8 @@ Lemma rtc_small_step_future
       (WF1: Configuration.wf c1)
       (STEP: rtc (small_step_all withprm) c1 c2):
   <<WF2: Configuration.wf c2>> /\
-  <<FUTURE: Memory.future c1.(Configuration.memory) c2.(Configuration.memory)>> /\
-  <<SC_FUTURE: TimeMap.le  c1.(Configuration.sc) c2.(Configuration.sc)>>.
+  <<FUTURE: Memory.future (Configuration.memory c1) (Configuration.memory c2)>> /\
+  <<SC_FUTURE: TimeMap.le  (Configuration.sc c1) (Configuration.sc c2)>>.
 Proof.
   revert WF1. induction STEP; i.
   - splits; eauto; reflexivity.
@@ -280,11 +280,11 @@ Qed.
 Lemma rtc_thread_step_rtc_small_step_aux
       lang tid threads
       th1 th2
-      (TID: IdentMap.find tid threads = Some (existT _ lang th1.(Thread.state), th1.(Thread.local)))
+      (TID: IdentMap.find tid threads = Some (existT _ lang (Thread.state th1), (Thread.local th1)))
       (STEP: (rtc (@Thread.all_step lang)) th1 th2):
   rtc (small_step_evt true tid)
-      (Configuration.mk threads th1.(Thread.sc) th1.(Thread.memory))
-      (Configuration.mk (IdentMap.add tid (existT _ lang th2.(Thread.state), th2.(Thread.local)) threads) th2.(Thread.sc) th2.(Thread.memory)).
+      (Configuration.mk threads (Thread.sc th1) (Thread.memory th1))
+      (Configuration.mk (IdentMap.add tid (existT _ lang (Thread.state th2), (Thread.local th2)) threads) (Thread.sc th2) (Thread.memory th2)).
 Proof.
   revert threads TID. induction STEP; i.
   - apply rtc_refl. f_equal. apply IdentMap.eq_leibniz. ii.
@@ -313,11 +313,11 @@ Qed.
 Lemma rtc_tau_thread_step_rtc_tau_small_step_aux
       lang tid threads
       th1 th2
-      (TID: IdentMap.find tid threads = Some (existT _ lang th1.(Thread.state), th1.(Thread.local)))
+      (TID: IdentMap.find tid threads = Some (existT _ lang (Thread.state th1), (Thread.local th1)))
       (STEP: (rtc (@Thread.tau_step lang)) th1 th2):
   rtc (tau (small_step true tid))
-      (Configuration.mk threads th1.(Thread.sc) th1.(Thread.memory))
-      (Configuration.mk (IdentMap.add tid (existT _ lang th2.(Thread.state), th2.(Thread.local)) threads) th2.(Thread.sc) th2.(Thread.memory)).
+      (Configuration.mk threads (Thread.sc th1) (Thread.memory th1))
+      (Configuration.mk (IdentMap.add tid (existT _ lang (Thread.state th2), (Thread.local th2)) threads) (Thread.sc th2) (Thread.memory th2)).
 Proof.
   revert threads TID. induction STEP; i.
   - apply rtc_refl. f_equal. apply IdentMap.eq_leibniz. ii.
@@ -373,11 +373,11 @@ Qed.
 Lemma rtc_tau_pf_step_rtc_small_step_aux
       lang tid threads
       th1 th2
-      (TID: IdentMap.find tid threads = Some (existT _ lang th1.(Thread.state), th1.(Thread.local)))
+      (TID: IdentMap.find tid threads = Some (existT _ lang (Thread.state th1), (Thread.local th1)))
       (STEP: (rtc (tau (@Thread.step lang true))) th1 th2):
   rtc (small_step_evt false tid)
-      (Configuration.mk threads th1.(Thread.sc) th1.(Thread.memory))
-      (Configuration.mk (IdentMap.add tid (existT _ lang th2.(Thread.state), th2.(Thread.local)) threads) th2.(Thread.sc) th2.(Thread.memory)).
+      (Configuration.mk threads (Thread.sc th1) (Thread.memory th1))
+      (Configuration.mk (IdentMap.add tid (existT _ lang (Thread.state th2), (Thread.local th2)) threads) (Thread.sc th2) (Thread.memory th2)).
 Proof.
   revert threads TID. induction STEP; i.
   - apply rtc_refl. f_equal. apply IdentMap.eq_leibniz. ii.
@@ -430,7 +430,7 @@ Lemma small_step_find
       tid1 tid2 c1 c2 e withprm
       (STEP: small_step withprm tid1 e c1 c2)
       (TID: tid1 <> tid2):
-  IdentMap.find tid2 c1.(Configuration.threads) = IdentMap.find tid2 c2.(Configuration.threads).
+  IdentMap.find tid2 (Configuration.threads c1) = IdentMap.find tid2 (Configuration.threads c2).
 Proof.
   inv STEP. s.
   rewrite IdentMap.gso; eauto.
@@ -440,7 +440,7 @@ Lemma rtc_small_step_find
       tid1 tid2 c1 c2 withprm
       (STEP: rtc (small_step_evt withprm tid1) c1 c2)
       (TID: tid1 <> tid2):
-  IdentMap.find tid2 c1.(Configuration.threads) = IdentMap.find tid2 c2.(Configuration.threads).
+  IdentMap.find tid2 (Configuration.threads c1) = IdentMap.find tid2 (Configuration.threads c2).
 Proof.
   induction STEP; auto. 
   inv H. rewrite <-IHSTEP.
@@ -450,10 +450,10 @@ Qed.
 Lemma thread_step_tview_le
      lang pf e (t1 t2: @Thread.t lang)
      (STEP: Thread.step pf e t1 t2)
-     (LOCALWF: Local.wf t1.(Thread.local) t1.(Thread.memory))
-     (SCWF: Memory.closed_timemap t1.(Thread.sc) t1.(Thread.memory))
-     (MEMWF: Memory.closed t1.(Thread.memory)):
-  TView.le t1.(Thread.local).(Local.tview) t2.(Thread.local).(Local.tview).
+     (LOCALWF: Local.wf (Thread.local t1) (Thread.memory t1))
+     (SCWF: Memory.closed_timemap (Thread.sc t1) (Thread.memory t1))
+     (MEMWF: Memory.closed (Thread.memory t1)):
+  TView.le (Local.tview (Thread.local t1)) (Local.tview (Thread.local t2)).
 Proof.
   eapply Thread.step_future; eauto.
 Qed.
@@ -461,10 +461,10 @@ Qed.
 Lemma rtc_small_step_tview_le
      c1 c2 tid lst1 lst2 lc1 lc2 withprm
      (STEPS: rtc (small_step_evt withprm tid) c1 c2)
-     (THREAD1: IdentMap.find tid c1.(Configuration.threads) = Some (lst1, lc1))
-     (THREAD2: IdentMap.find tid c2.(Configuration.threads) = Some (lst2, lc2))
+     (THREAD1: IdentMap.find tid (Configuration.threads c1) = Some (lst1, lc1))
+     (THREAD2: IdentMap.find tid (Configuration.threads c2) = Some (lst2, lc2))
      (WF: Configuration.wf c1):
-  TView.le lc1.(Local.tview) lc2.(Local.tview).
+  TView.le (Local.tview lc1) (Local.tview lc2).
 Proof.
   ginduction STEPS; i.
   - rewrite THREAD1 in THREAD2. depdes THREAD2. reflexivity.
@@ -483,7 +483,7 @@ Lemma small_step_write_lt
       (STEP: small_step withprm tid e c c1)
       (EVENT: ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord))
       (THREAD: IdentMap.find tid (Configuration.threads c) = Some (lst, lc)):
-  Time.lt (lc.(Local.tview).(TView.cur).(View.rlx) loc) ts.
+  Time.lt ((TView.cur (Local.tview lc)).(View.rlx) loc) ts.
 Proof.
   inv STEP. rewrite THREAD in TID. inv TID.
   inv STEP0; inv STEP; ss. inv LOCAL; ss; inv EVENT.
@@ -496,11 +496,11 @@ Qed.
 Lemma small_step_promise_decr
       tid tid' loc ts e c1 c2 lst2 lc2 from2 msg2
       (STEPT: small_step false tid e c1 c2)
-      (FIND2: IdentMap.find tid' c2.(Configuration.threads) = Some (lst2,lc2))
-      (PROMISES: Memory.get loc ts lc2.(Local.promises) = Some (from2, msg2)):
+      (FIND2: IdentMap.find tid' (Configuration.threads c2) = Some (lst2,lc2))
+      (PROMISES: Memory.get loc ts (Local.promises lc2) = Some (from2, msg2)):
   exists lst1 lc1 from1 msg1,
-  <<FIND1: IdentMap.find tid' c1.(Configuration.threads) = Some (lst1,lc1)>> /\
-  <<PROMISES: Memory.get loc ts lc1.(Local.promises) = Some (from1, msg1)>>.
+  <<FIND1: IdentMap.find tid' (Configuration.threads c1) = Some (lst1,lc1)>> /\
+  <<PROMISES: Memory.get loc ts (Local.promises lc1) = Some (from1, msg1)>>.
 Proof.
   inv STEPT; ss.
   revert FIND2. rewrite IdentMap.gsspec. condtac.
@@ -534,10 +534,10 @@ Qed.
 Corollary small_step_promise_decr_bot
       tid tid' e c1 c2 lst1 lc1 lst2 lc2
       (STEPT: small_step false tid e c1 c2)
-      (FIND1: IdentMap.find tid' c1.(Configuration.threads) = Some (lst1,lc1))
-      (FIND2: IdentMap.find tid' c2.(Configuration.threads) = Some (lst2,lc2))
-      (PROMISES: lc1.(Local.promises) = Memory.bot):
-  lc2.(Local.promises) = Memory.bot.
+      (FIND1: IdentMap.find tid' (Configuration.threads c1) = Some (lst1,lc1))
+      (FIND2: IdentMap.find tid' (Configuration.threads c2) = Some (lst2,lc2))
+      (PROMISES: (Local.promises lc1) = Memory.bot):
+  (Local.promises lc2) = Memory.bot.
 Proof.
   apply Memory.ext. i. setoid_rewrite Cell.bot_get.
   destruct (Memory.get loc ts (Local.promises lc2)) as [[from msg]|] eqn: EQ; eauto.
@@ -550,11 +550,11 @@ Qed.
 Lemma small_steps_promise_decr
       tid' loc ts c1 c2 lst2 lc2 from2 msg2
       (STEPT: rtc (small_step_all false) c1 c2)
-      (FIND2: IdentMap.find tid' c2.(Configuration.threads) = Some (lst2,lc2))
-      (PROMISES: Memory.get loc ts lc2.(Local.promises) = Some (from2, msg2)):
+      (FIND2: IdentMap.find tid' (Configuration.threads c2) = Some (lst2,lc2))
+      (PROMISES: Memory.get loc ts (Local.promises lc2) = Some (from2, msg2)):
   exists lst1 lc1 from1 msg1,
-  <<FIND1: IdentMap.find tid' c1.(Configuration.threads) = Some (lst1,lc1)>> /\
-  <<PROMISES: Memory.get loc ts lc1.(Local.promises) = Some (from1, msg1)>>.
+  <<FIND1: IdentMap.find tid' (Configuration.threads c1) = Some (lst1,lc1)>> /\
+  <<PROMISES: Memory.get loc ts (Local.promises lc1) = Some (from1, msg1)>>.
 Proof.
   move STEPT at top. revert_until STEPT.
   apply rtc_reverse in STEPT. induction STEPT.

@@ -32,10 +32,10 @@ Section SimWhole.
             (c1_src c1_tgt:Configuration.t): Prop :=
   | _sim_whole_intro
       (TERMINAL:
-         forall (TERMINAL_TGT: Threads.is_terminal c1_tgt.(Configuration.threads)),
+         forall (TERMINAL_TGT: Threads.is_terminal (Configuration.threads c1_tgt)),
          exists c2_src,
            <<STEPS: rtc (union (step_src None)) c1_src c2_src>> /\
-           <<TERMINAL_SRC: Threads.is_terminal c2_src.(Configuration.threads)>>)
+           <<TERMINAL_SRC: Threads.is_terminal (Configuration.threads c2_src)>>)
       (STEP:
          forall e tid_tgt c3_tgt
            (STEP_TGT: step_tgt e tid_tgt c1_tgt c3_tgt),

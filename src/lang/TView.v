@@ -31,18 +31,18 @@ Module TView <: JoinableType.
 
   Inductive wf (tview:t): Prop :=
   | wf_intro
-      (REL: forall loc, View.wf (tview.(rel) loc))
-      (CUR: View.wf tview.(cur))
-      (ACQ: View.wf tview.(acq))
-      (REL_CUR: forall loc, View.le (tview.(rel) loc) tview.(cur))
-      (CUR_ACQ: View.le tview.(cur) tview.(acq))
+      (REL: forall loc, View.wf ((rel tview) loc))
+      (CUR: View.wf (cur tview))
+      (ACQ: View.wf (acq tview))
+      (REL_CUR: forall loc, View.le ((rel tview) loc) (cur tview))
+      (CUR_ACQ: View.le (cur tview) (acq tview))
   .
 
   Inductive closed (tview:t) (mem:Memory.t): Prop :=
   | closed_intro
-      (REL: forall loc, Memory.closed_view (tview.(rel) loc) mem)
-      (CUR: Memory.closed_view tview.(cur) mem)
-      (ACQ: Memory.closed_view tview.(acq) mem)
+      (REL: forall loc, Memory.closed_view ((rel tview) loc) mem)
+      (CUR: Memory.closed_view (cur tview) mem)
+      (ACQ: Memory.closed_view (acq tview) mem)
   .
 
   Lemma bot_wf: wf bot.
@@ -78,9 +78,9 @@ Module TView <: JoinableType.
 
   Inductive le_ (lhs rhs:t): Prop :=
   | le_intro
-      (REL: forall (loc:Loc.t), View.le (LocFun.find loc lhs.(rel)) (LocFun.find loc rhs.(rel)))
-      (CUR: View.le lhs.(cur) rhs.(cur))
-      (ACQ: View.le lhs.(acq) rhs.(acq))
+      (REL: forall (loc:Loc.t), View.le (LocFun.find loc (rel lhs)) (LocFun.find loc (rel rhs)))
+      (CUR: View.le (cur lhs) (cur rhs))
+      (ACQ: View.le (acq lhs) (acq rhs))
   .
   Definition le := le_.
 
@@ -93,9 +93,9 @@ Module TView <: JoinableType.
   Qed.
 
   Definition join (lhs rhs:t): t :=
-    mk (fun loc => View.join (lhs.(rel) loc) (rhs.(rel) loc))
-       (View.join lhs.(cur) rhs.(cur))
-       (View.join lhs.(acq) rhs.(acq)).
+    mk (fun loc => View.join ((rel lhs) loc) ((rel rhs) loc))
+       (View.join (cur lhs) (cur rhs))
+       (View.join (acq lhs) (acq rhs)).
 
   Lemma join_comm lhs rhs: join lhs rhs = join rhs lhs.
   Proof.
@@ -143,78 +143,78 @@ Module TView <: JoinableType.
   Inductive readable
             (view1:View.t) (loc:Loc.t) (ts:Time.t) (released:option View.t) (ord:Ordering.t): Prop :=
   | readable_intro
-      (PLN: Time.le (view1.(View.pln) loc) ts)
+      (PLN: Time.le ((View.pln view1) loc) ts)
       (RLX: Ordering.le Ordering.relaxed ord ->
-            Time.le (view1.(View.rlx) loc) ts)
+            Time.le ((View.rlx view1) loc) ts)
   .
 
   Definition read_tview
              (tview1:t) (loc:Loc.t) (ts:Time.t) (released:option View.t) (ord:Ordering.t): t :=
-    mk tview1.(rel)
+    mk (rel tview1)
        (View.join
           (View.join
-             tview1.(cur)
+             (cur tview1)
              (View.singleton_ur_if (Ordering.le Ordering.relaxed ord) loc ts))
-          (if Ordering.le Ordering.acqrel ord then released.(View.unwrap) else View.bot))
+          (if Ordering.le Ordering.acqrel ord then (View.unwrap released) else View.bot))
        (View.join
           (View.join
-             tview1.(acq)
+             (acq tview1)
              (View.singleton_ur_if (Ordering.le Ordering.relaxed ord) loc ts))
-          (if Ordering.le Ordering.relaxed ord then released.(View.unwrap) else View.bot)).
+          (if Ordering.le Ordering.relaxed ord then (View.unwrap released) else View.bot)).
 
   Inductive writable
             (view1:View.t) (sc1:TimeMap.t) (loc:Loc.t) (ts:Time.t) (ord:Ordering.t): Prop :=
   | writable_intro
-      (TS: Time.lt (view1.(View.rlx) loc) ts)
+      (TS: Time.lt ((View.rlx view1) loc) ts)
   .
 
   Definition write_tview
              (tview1:t) (sc1:TimeMap.t) (loc:Loc.t) (ts:Time.t) (ord:Ordering.t): t :=
     let cur2 := View.join
-                  tview1.(cur)
+                  (cur tview1)
                   (View.singleton_ur loc ts)
     in
     let acq2 := View.join
-                  tview1.(acq)
+                  (acq tview1)
                   (View.singleton_ur loc ts)
     in
     let rel2 := LocFun.add loc
-                     (if Ordering.le Ordering.acqrel ord then cur2 else View.join (tview1.(rel) loc) (View.singleton_ur loc ts))
-                  tview1.(rel)
+                     (if Ordering.le Ordering.acqrel ord then cur2 else View.join ((rel tview1) loc) (View.singleton_ur loc ts))
+                  (rel tview1)
     in
     mk rel2 cur2 acq2.
 
   Definition write_released tview sc loc ts releasedm ord :=
     if Ordering.le Ordering.relaxed ord
     then Some (View.join
-                 releasedm.(View.unwrap)
-                 ((write_tview tview sc loc ts ord).(rel) loc))
+                 (View.unwrap releasedm)
+                 ((rel (write_tview tview sc loc ts ord)) loc))
     else None.
 
   Definition read_fence_tview
              (tview1:t) (ord:Ordering.t): t :=
-    mk tview1.(rel)
+    mk (rel tview1)
                 (if Ordering.le Ordering.acqrel ord
-                 then tview1.(acq)
-                 else tview1.(cur))
-                tview1.(acq).
+                 then (acq tview1)
+                 else (cur tview1))
+                (acq tview1).
 
   Definition write_fence_sc
              (tview1:t) (sc1:TimeMap.t) (ord:Ordering.t): TimeMap.t :=
     if Ordering.le Ordering.seqcst ord
-    then TimeMap.join sc1 tview1.(cur).(View.rlx)
+    then TimeMap.join sc1 (View.rlx (cur tview1))
     else sc1.
 
   Definition write_fence_tview
              (tview1:t) (sc1:TimeMap.t) (ord:Ordering.t): t :=
     let sc2 := write_fence_sc tview1 sc1 ord in
-	  let cur2 := if Ordering.le Ordering.seqcst ord then View.mk sc2 sc2 else tview1.(cur)
+	  let cur2 := if Ordering.le Ordering.seqcst ord then View.mk sc2 sc2 else (cur tview1)
 	  in
 	  let acq2 := View.join
-                  tview1.(acq)
+                  (acq tview1)
 				          (if Ordering.le Ordering.seqcst ord then View.mk sc2 sc2 else View.bot)
 	  in
-	  let rel2 := fun l => if Ordering.le Ordering.acqrel ord then cur2 else (tview1.(rel) l)
+	  let rel2 := fun l => if Ordering.le Ordering.acqrel ord then cur2 else ((rel tview1) l)
     in
     mk rel2 cur2 acq2.
 
@@ -234,7 +234,7 @@ Module TViewFacts.
   Lemma rlx_le_view_le
         c tm
         (WF: View.wf c)
-        (SC: TimeMap.le c.(View.rlx) tm):
+        (SC: TimeMap.le (View.rlx c) tm):
     View.le c (View.mk tm tm).
   Proof.
     econs; auto.
@@ -271,19 +271,19 @@ Module TViewFacts.
              apply Memory.closed_view_bot
            | [|- Memory.closed_timemap TimeMap.bot ?m] =>
              apply Memory.closed_timemap_bot
-           | [WF: TView.wf ?c |- View.le (?c.(TView.rel) ?l) ?c.(TView.cur)] =>
+           | [WF: TView.wf ?c |- View.le ((TView.rel ?c) ?l) (TView.cur ?c)] =>
              apply WF
-           | [WF: TView.wf ?c |- View.le (?c.(TView.rel) ?l) ?c.(TView.acq)] =>
+           | [WF: TView.wf ?c |- View.le ((TView.rel ?c) ?l) (TView.acq ?c)] =>
              etrans; apply WF
-           | [WF: TView.wf ?c |- View.le ?c.(TView.cur) ?c.(TView.acq)] =>
+           | [WF: TView.wf ?c |- View.le (TView.cur ?c) (TView.acq ?c)] =>
              apply WF
-           | [WF: View.wf ?c |- TimeMap.le ?c.(View.pln) ?c.(View.rlx)] =>
+           | [WF: View.wf ?c |- TimeMap.le (View.pln ?c) (View.rlx ?c)] =>
              apply WF
            | [WF: View.opt_wf ?released |- View.wf (View.unwrap ?released)] =>
              apply View.unwrap_opt_wf
            | [WF: View.opt_le ?rel1 ?rel2 |- View.le (View.unwrap ?rel1) (View.unwrap ?rel2)] =>
              apply View.unwrap_opt_le
-           | [WF: Memory.closed_opt_view ?view ?mem |- Memory.closed_view ?view.(View.unwrap) ?mem] =>
+           | [WF: Memory.closed_opt_view ?view ?mem |- Memory.closed_view (View.unwrap ?view) ?mem] =>
              apply Memory.unwrap_closed_opt_view
            | [|- View.opt_wf None] =>
              econs

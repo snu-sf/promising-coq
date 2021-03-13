@@ -60,7 +60,7 @@ Qed.
 Lemma singleton_is_terminal
       tid lang st lc:
   Threads.is_terminal (IdentMap.singleton tid (existT _ _ st, lc)) <->
-  <<STATE: lang.(Language.is_terminal) st>> /\
+  <<STATE: (Language.is_terminal lang) st>> /\
   <<THREAD: Local.is_terminal lc>>.
 Proof.
   econs; intro X.

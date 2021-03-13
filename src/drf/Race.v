@@ -34,8 +34,8 @@ Set Implicit Arguments.
 
 Inductive Configuration_program_event c tid e : Prop :=
 | configuration_program_event_intro lang st st' lc
-    (TH: IdentMap.find tid c.(Configuration.threads) = Some (existT _ lang st, lc))
-    (STATE: lang.(Language.step) e st st').
+    (TH: IdentMap.find tid (Configuration.threads c) = Some (existT _ lang st, lc))
+    (STATE: (Language.step lang) e st st').
 Hint Constructors Configuration_program_event.
 
 Inductive race_condition e1 e2 ord1 ord2 : Prop :=

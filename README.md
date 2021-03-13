@@ -8,15 +8,14 @@ Please visit the [project website](http://sf.snu.ac.kr/promise-concurrency/) for
 
 ## Build
 
-- Requirement: [Coq 8.9.1](https://coq.inria.fr/download), opam, Make, Rsync.
+- Requirement: [Coq 8.13.1](https://coq.inria.fr/download), opam.
 
 - Installing dependencies with opam
 
         opam repo add coq-released https://coq.inria.fr/opam/released
-        opam remote add coq-promising -k git https://github.com/snu-sf/promising-opam-coq-archive
-        opam install coq-paco.4.0.0
-        opam install coq-sflib
-        opam install coq-promising-lib
+        opam repo add coq-sflib -k git https://github.com/snu-sf/sf-opam-coq-archive.git
+        opam repo add coq-promising -k git https://github.com/snu-sf/promising-opam-coq-archive.git#8.13
+        opam install coq-paco.4.0.4 coq-sflib coq-promising-lib
 
 - Initialization
 

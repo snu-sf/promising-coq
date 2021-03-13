@@ -31,13 +31,13 @@ Set Implicit Arguments.
 Inductive fulfill_step (lc1:Local.t) (sc1:TimeMap.t) (loc:Loc.t) (from to:Time.t) (val:Const.t) (releasedm released:option View.t) (ord:Ordering.t): forall (lc2:Local.t) (sc2:TimeMap.t), Prop :=
 | step_fulfill
     promises2
-    (REL_LE: View.opt_le (TView.write_released lc1.(Local.tview) sc1 loc to releasedm ord) released)
+    (REL_LE: View.opt_le (TView.write_released (Local.tview lc1) sc1 loc to releasedm ord) released)
     (REL_WF: View.opt_wf released)
-    (WRITABLE: TView.writable lc1.(Local.tview).(TView.cur) sc1 loc to ord)
-    (REMOVE: Memory.remove lc1.(Local.promises) loc from to val released promises2)
+    (WRITABLE: TView.writable (TView.cur (Local.tview lc1)) sc1 loc to ord)
+    (REMOVE: Memory.remove (Local.promises lc1) loc from to val released promises2)
     (TIME: Time.lt from to):
     fulfill_step lc1 sc1 loc from to val releasedm released ord
-                 (Local.mk (TView.write_tview lc1.(Local.tview) sc1 loc to ord) promises2)
+                 (Local.mk (TView.write_tview (Local.tview lc1) sc1 loc to ord) promises2)
                  sc1
 .
 
@@ -74,9 +74,9 @@ Lemma write_promise_fulfill
   exists lc1,
     <<STEP1: Local.promise_step lc0 mem0 loc from to val released lc1 mem2 kind>> /\
     <<STEP2: fulfill_step lc1 sc0 loc from to val releasedm released ord lc2 sc2>> /\
-    <<REL: released = TView.write_released lc0.(Local.tview) sc0 loc to releasedm ord>> /\
+    <<REL: released = TView.write_released (Local.tview lc0) sc0 loc to releasedm ord>> /\
     <<ORD: Ordering.le Ordering.strong_relaxed ord ->
-           Memory.nonsynch_loc loc lc0.(Local.promises) /\
+           Memory.nonsynch_loc loc (Local.promises lc0) /\
            kind = Memory.op_kind_add>>.
 Proof.
   exploit Local.write_step_future; eauto. i. des.
@@ -124,7 +124,7 @@ Lemma promise_fulfill_write
       (REL_WF: View.opt_wf releasedm)
       (REL_CLOSED: Memory.closed_opt_view releasedm mem0)
       (ORD: Ordering.le Ordering.strong_relaxed ord ->
-            Memory.nonsynch_loc loc lc0.(Local.promises) /\
+            Memory.nonsynch_loc loc (Local.promises lc0) /\
             kind = Memory.op_kind_add)
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
@@ -133,7 +133,7 @@ Lemma promise_fulfill_write
     <<STEP: Local.write_step lc0 sc0 mem0 loc from to val releasedm released' ord lc2 sc2 mem2' kind>> /\
     <<REL_LE: View.opt_le released' released>> /\
     <<MEM: sim_memory mem2' mem2>> /\
-    <<REL: released' = TView.write_released lc0.(Local.tview) sc0 loc to releasedm ord>>.
+    <<REL: released' = TView.write_released (Local.tview lc0) sc0 loc to releasedm ord>>.
 Proof.
   exploit Local.promise_step_future; eauto. i. des.
   inv PROMISE. inv FULFILL. ss.
@@ -156,12 +156,12 @@ Lemma promise_fulfill_write_exact
       (REL_WF: View.opt_wf releasedm)
       (REL_CLOSED: Memory.closed_opt_view releasedm mem0)
       (ORD: Ordering.le Ordering.strong_relaxed ord ->
-            Memory.nonsynch_loc loc lc0.(Local.promises) /\
+            Memory.nonsynch_loc loc (Local.promises lc0) /\
             kind = Memory.op_kind_add)
       (WF0: Local.wf lc0 mem0)
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
-      (REL: released = TView.write_released lc0.(Local.tview) sc0 loc to releasedm ord):
+      (REL: released = TView.write_released (Local.tview lc0) sc0 loc to releasedm ord):
   Local.write_step lc0 sc0 mem0 loc from to val releasedm released ord lc2 sc2 mem2 kind.
 Proof.
   exploit Local.promise_step_future; eauto. i. des.
@@ -176,7 +176,7 @@ Lemma fulfill_step_promises_diff
       lc1 sc1 loc1 from to val releasedm released ord lc2 sc2 loc2
       (LOC: loc1 <> loc2)
       (FULFILL: fulfill_step lc1 sc1 loc1 from to val releasedm released ord lc2 sc2):
-  lc1.(Local.promises) loc2 = lc2.(Local.promises) loc2.
+  (Local.promises lc1) loc2 = (Local.promises lc2) loc2.
 Proof.
   inv FULFILL. inv REMOVE. unfold LocFun.add. s.
   condtac; [congr|]. auto.

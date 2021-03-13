@@ -36,8 +36,8 @@ Inductive can_fulfill (tid: Ident.t) loc ts (c1 c4: Configuration.t) : Prop :=
     c2 c3 e ord lst2 lc2 from2 msg2 from val rel
     (STEPS: rtc (small_step_evt false tid) c1 c2)
     (STEP: small_step false tid e c2 c3)
-    (THREAD: IdentMap.find tid c2.(Configuration.threads) = Some (lst2, lc2))
-    (PROMISE: Memory.get loc ts lc2.(Local.promises) = Some (from2, msg2))
+    (THREAD: IdentMap.find tid (Configuration.threads c2) = Some (lst2, lc2))
+    (PROMISE: Memory.get loc ts (Local.promises lc2) = Some (from2, msg2))
     (EVENT: ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord))
     (ORD: Ordering.le ord Ordering.relaxed)
     (STEPS: rtc (small_step_evt false tid) c3 c4):
@@ -48,8 +48,8 @@ Inductive can_fulfill_promises (tid: Ident.t) : Configuration.t -> Prop :=
 | can_fulfill_promises_step
     c1
     (FULFILL: forall lst1 lc1 loc ts from msg
-                (THREAD: IdentMap.find tid c1.(Configuration.threads) = Some (lst1, lc1))
-                (PROMISE: Memory.get loc ts lc1.(Local.promises) = Some (from, msg)),
+                (THREAD: IdentMap.find tid (Configuration.threads c1) = Some (lst1, lc1))
+                (PROMISE: Memory.get loc ts (Local.promises lc1) = Some (from, msg)),
               exists c2,
               <<FULFILL1: can_fulfill tid loc ts c1 c2>> /\
               <<FULFILL2: can_fulfill_promises tid c2>>):
@@ -60,10 +60,10 @@ Hint Constructors can_fulfill_promises.
 Lemma rtc_small_step_fulfill
       tid loc ts c1 lst1 lc1 c2 lst2 lc2 from msg 
       (STEPS: rtc (small_step_evt false tid) c1 c2)
-      (FIND1: IdentMap.find tid c1.(Configuration.threads) = Some (lst1, lc1))
-      (GET1: Memory.get loc ts lc1.(Local.promises) = Some (from, msg))
-      (FIND2: IdentMap.find tid c2.(Configuration.threads) = Some (lst2, lc2))
-      (GET2: Memory.get loc ts lc2.(Local.promises) = None):
+      (FIND1: IdentMap.find tid (Configuration.threads c1) = Some (lst1, lc1))
+      (GET1: Memory.get loc ts (Local.promises lc1) = Some (from, msg))
+      (FIND2: IdentMap.find tid (Configuration.threads c2) = Some (lst2, lc2))
+      (GET2: Memory.get loc ts (Local.promises lc2) = None):
   can_fulfill tid loc ts c1 c2.
 Proof.
   ginduction STEPS; i; subst.
@@ -71,7 +71,7 @@ Proof.
     by rewrite GET1 in GET2. 
   }
   inv H. inv USTEP. ss. rewrite FIND1 in TID. depdes TID.
-  destruct (Memory.get loc ts lc3.(Local.promises)) eqn: PRM.
+  destruct (Memory.get loc ts (Local.promises lc3)) eqn: PRM.
   - destruct p as [t m].
     rewrite IdentMap.gss in IHSTEPS.
     exploit IHSTEPS; eauto.
@@ -84,10 +84,10 @@ Qed.
 Lemma can_fulfill_lt
       tid loc ts c1 c3 lst1 lc1 from msg
       (FULFILL: can_fulfill tid loc ts c1 c3)
-      (FIND: IdentMap.find tid c1.(Configuration.threads) = Some (lst1, lc1))
-      (PROMISE: Memory.get loc ts lc1.(Local.promises) = Some (from, msg))
+      (FIND: IdentMap.find tid (Configuration.threads c1) = Some (lst1, lc1))
+      (PROMISE: Memory.get loc ts (Local.promises lc1) = Some (from, msg))
       (WF: Configuration.wf c1):
-  Time.lt (lc1.(Local.tview).(TView.cur).(View.rlx) loc) ts.
+  Time.lt ((TView.cur (Local.tview lc1)).(View.rlx) loc) ts.
 Proof.
   destruct FULFILL.
   inv STEP.
@@ -105,10 +105,10 @@ Qed.
 Lemma rtc_small_step_unset_fulfill
       tid loc ts c1 lst1 lc1 c2 lst2 lc2 from msg 
       (STEPS: rtc (small_step_evt false tid) c1 c2)
-      (FIND1: IdentMap.find tid c1.(Configuration.threads) = Some (lst1, lc1))
-      (GET1: Memory.get loc ts lc1.(Local.promises) = Some (from, msg))
-      (FIND2: IdentMap.find tid c2.(Configuration.threads) = Some (lst2, lc2))
-      (GET2: Memory.get loc ts lc2.(Local.promises) = None):
+      (FIND1: IdentMap.find tid (Configuration.threads c1) = Some (lst1, lc1))
+      (GET1: Memory.get loc ts (Local.promises lc1) = Some (from, msg))
+      (FIND2: IdentMap.find tid (Configuration.threads c2) = Some (lst2, lc2))
+      (GET2: Memory.get loc ts (Local.promises lc2) = None):
   can_fulfill tid loc ts c1 c2.
 Proof.
   ginduction STEPS; i; subst.
@@ -116,7 +116,7 @@ Proof.
     by rewrite GET1 in GET2. 
   }
   inv H. inv USTEP. ss. rewrite FIND1 in TID. depdes TID.
-  destruct (Memory.get loc ts lc3.(Local.promises)) eqn: PRM.
+  destruct (Memory.get loc ts (Local.promises lc3)) eqn: PRM.
   - destruct p as [t m].
     rewrite IdentMap.gss in IHSTEPS.
     exploit IHSTEPS; eauto.
@@ -172,7 +172,7 @@ Lemma write_step_tview_mon
       lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind
       (WF1: TView.wf (Local.tview lc1))
       (STEP: Local.write_step lc1 sc1 mem1 loc from to val releasedm released ord lc2 sc2 mem2 kind):
-  TView.le lc1.(Local.tview) lc2.(Local.tview).
+  TView.le (Local.tview lc1) (Local.tview lc2).
 Proof.
   inv STEP. ss. apply TViewFacts.write_tview_incr. auto.
 Qed.
@@ -199,7 +199,7 @@ Lemma key_lemma_time_lt:
     Ordering.le Ordering.acqrel ordr -> False.
 Proof.
   intros loc ts k cM4' lc4 com4' prm3' sc2 memory2 loc0 ts0 from valr valw relr relw ordr m1' ordw0 releasedw lc2 WF tsw valw0 kind TIMELT LOCAL1 LOCAL2 PMREL ORDR.
-  assert (COM: TView.le lc2.(Local.tview) lc4.(Local.tview)).
+  assert (COM: TView.le (Local.tview lc2) (Local.tview lc4)).
   { eapply write_step_tview_mon; eauto. }
   assert (LT: Time.lt ((TView.cur (Local.tview lc2)).(View.rlx) loc) ts).
   { eapply TimeFacts.le_lt_lt; eauto. apply COM. }
@@ -207,7 +207,7 @@ Proof.
   erewrite Memory.op_get2 in GET; eauto. inv GET.
   apply TimeFacts.join_lt_des in LT. des.
   revert BC. rewrite ORDR.
-  s. destruct relw.(View.unwrap). ss.
+  s. destruct (View.unwrap relw). ss.
   unfold lift_timemap. condtac; [|congr]. i.
   apply TimeFacts.join_lt_des in BC. des.
   eapply Time.lt_strorder. eauto.
@@ -225,9 +225,10 @@ Lemma key_lemma_time_lt2:
             (TimeMap.join
                yy
                (View.rlx
-                  (if Ordering.le Ordering.acqrel ordr
-                   then lift_opt_view loc ts relw
-                   else None).(View.unwrap))) (TimeMap.singleton loc0 tsw))
+                  (View.unwrap
+                     (if Ordering.le Ordering.acqrel ordr
+                      then lift_opt_view loc ts relw
+                      else None)))) (TimeMap.singleton loc0 tsw))
          xx loc) ts -> False.
 Proof.
   intros.
@@ -235,7 +236,7 @@ Proof.
   apply TimeFacts.join_lt_des in AC. des.
   apply TimeFacts.join_lt_des in AC0. des.
   revert BC1. rewrite H. s.
-  destruct relw.(View.unwrap). ss.
+  destruct (View.unwrap relw). ss.
   unfold lift_timemap. condtac; [|congr]. i.
   apply TimeFacts.join_lt_des in BC1. des.
   eapply Time.lt_strorder. eauto.
@@ -337,7 +338,7 @@ Proof.
   inv STEP; [inv STEP0|inv STEP0; inv LOCAL]; inv EVTR.
   - inv LOCAL0. erewrite Memory.op_get2 in GET; eauto. inv GET.
     ss. apply TimeFacts.join_lt_des in TIMELT. des. revert BC.
-    rewrite ORDR. unfold lift_view. destruct relw.(View.unwrap). ss.
+    rewrite ORDR. unfold lift_view. destruct (View.unwrap relw). ss.
     unfold lift_timemap. condtac; [|congr]. i.
     apply TimeFacts.join_lt_des in BC. des.
     eapply Time.lt_strorder. eauto.
@@ -485,7 +486,7 @@ Proof.
       inv WFT. inv WF. exploit THREADS; eauto. intro X. inv X. ss.
       exploit PROMISES; eauto. i.
       destruct (Time.eq_dec to1 to2); cycle 1.
-      { destruct (Configuration.memory cM4' loc0).(Cell.WF). splits.
+      { destruct (Cell.WF (Configuration.memory cM4' loc0)). splits.
         - eapply DISJOINT0; eauto.
         - ii. inv H. congr.
       }
@@ -529,7 +530,7 @@ Proof.
       inv WFT. inv WF. exploit THREADS; eauto. intro X. inv X. ss.
       exploit PROMISES; eauto. i.
       destruct (Time.eq_dec to1 to2); cycle 1.
-      { destruct (Configuration.memory cM4' loc0).(Cell.WF). splits.
+      { destruct (Cell.WF (Configuration.memory cM4' loc0)). splits.
         - eapply DISJOINT0; eauto.
         - ii. inv H. congr.
       }
@@ -653,26 +654,26 @@ Lemma key_lemma
       (THREAD2 : IdentMap.find tid (Configuration.threads cT2) = Some (lst2, lc2))
       (PROMISE2 : Memory.get loc ts (Local.promises lc2) = Some (from2, msg2))
       cSTM3
-      (STEPS_LIFT : rtc (pi_step_lift_except loc ts tid) (cS2, cT2, cT2.(Configuration.memory)) cSTM3)
-      (PRCONS: forall tid0, promise_consistent_th tid0 cSTM3.(fst).(snd)):
+      (STEPS_LIFT : rtc (pi_step_lift_except loc ts tid) (cS2, cT2, (Configuration.memory cT2)) cSTM3)
+      (PRCONS: forall tid0, promise_consistent_th tid0 (snd (fst cSTM3))):
   exists msgs,
-  <<EQMEM: mem_eqrel (lift_view_le loc ts msgs) cSTM3.(fst).(snd).(Configuration.memory) cSTM3.(snd)>> /\
-  <<IN: Memory.get loc ts cSTM3.(fst).(snd).(Configuration.memory) <> None>> /\
+  <<EQMEM: mem_eqrel (lift_view_le loc ts msgs) (snd (fst cSTM3)).(Configuration.memory) (snd cSTM3)>> /\
+  <<IN: Memory.get loc ts (snd (fst cSTM3)).(Configuration.memory) <> None>> /\
   <<MSGS: forall loc' to' (IN: List.In (loc', to') msgs),
-          (exists from msg, fulfilled cSTM3.(fst).(snd) loc' from to' msg) /\
+          (exists from msg, fulfilled (snd (fst cSTM3)) loc' from to' msg) /\
           loc' <> loc /\
           to' <> Time.bot>> /\
   <<MAIN:
     forall cM4 pre
-      (PI_STEPS : with_pre (small_step false tid) (conf_update_memory cSTM3.(fst).(snd) cSTM3.(snd)) pre cM4)
+      (PI_STEPS : with_pre (small_step false tid) (conf_update_memory (snd (fst cSTM3)) (snd cSTM3)) pre cM4)
       (PRCONSIS: forall tid0, promise_consistent_th tid0 cM4)
       lst4 lc4
       (THREAD4 : IdentMap.find tid (Configuration.threads cM4) = Some (lst4, lc4))
-      (PROM: Memory.get loc ts lc4.(Local.promises) <> None),
+      (PROM: Memory.get loc ts (Local.promises lc4) <> None),
     <<NORDPRM: ~ is_reading_writing_promise_except tid cM4>> /\
     <<NOMSG: pre_in_msgs pre msgs>> /\
     exists cS4 pre',
-    <<STEPS: with_pre (pi_step false tid) (cSTM3.(fst).(fst), conf_update_memory cSTM3.(fst).(snd) cSTM3.(snd)) pre' (cS4,cM4)>> /\
+    <<STEPS: with_pre (pi_step false tid) ((fst (fst cSTM3)), conf_update_memory (snd (fst cSTM3)) (snd cSTM3)) pre' (cS4,cM4)>> /\
     <<EQPRE: pre = pi_pre_proj pre'>> >>.
 Proof.
   assert (WF2: pi_wf loctmeq (cS2,cT2)).
@@ -749,10 +750,10 @@ Proof.
       (exists cS3' cM3' lst3' com3' com4' prm3',
        <<STEPS3: rtc (pi_step_evt false tid) (cS3, conf_update_memory cT3 M3) (cS3',cM3')>> /\
        <<PRCONSIS3: forall tid0, promise_consistent_th tid0 cM3'>> /\
-       <<MEMLE: mem_eqlerel_lift loc ts prm3' e cM3'.(Configuration.memory) cM4'.(Configuration.memory)>> /\
-       <<SCLE: TimeMap.le cM3'.(Configuration.sc) cM4'.(Configuration.sc)>> /\
-       <<THS3: IdentMap.find tid cM3'.(Configuration.threads) = Some (lst3', Local.mk com3' prm3') >> /\
-       <<THS4: IdentMap.find tid cM4'.(Configuration.threads) = Some (lst3', Local.mk com4' prm3') >> /\
+       <<MEMLE: mem_eqlerel_lift loc ts prm3' e (Configuration.memory cM3') (Configuration.memory cM4')>> /\
+       <<SCLE: TimeMap.le (Configuration.sc cM3') (Configuration.sc cM4')>> /\
+       <<THS3: IdentMap.find tid (Configuration.threads cM3') = Some (lst3', Local.mk com3' prm3') >> /\
+       <<THS4: IdentMap.find tid (Configuration.threads cM4') = Some (lst3', Local.mk com4' prm3') >> /\
        <<COMLE: TView.le com3' com4' >>) /\
        <<NORDPRM: ~ is_reading_writing_promise_except tid cM4'>> /\
        (exists cS4' pre',
@@ -803,7 +804,7 @@ Proof.
 
   rename ms into cM4', es into cM5'.
 
-  destruct (Memory.get loc ts lc4.(Local.promises)) as [[from4 msg4]|] eqn: PROMEQ; [|done].
+  destruct (Memory.get loc ts (Local.promises lc4)) as [[from4 msg4]|] eqn: PROMEQ; [|done].
 
   assert (STEP2 := PSTEP0). inv PSTEP0. ss.
   rewrite IdentMap.gss in THREAD4. depdes THREAD4. destruct pf; ss.
@@ -858,7 +859,7 @@ Proof.
     - eapply PRCONSIS; eauto. by s; rewrite IdentMap.gss.
   }
 
-  exploit (@lift_step _ (Thread.mk _ st1 (Local.mk com3' prm3') cM3'.(Configuration.sc) cM3'.(Configuration.memory))); [apply STEP|..]; eauto.
+  exploit (@lift_step _ (Thread.mk _ st1 (Local.mk com3' prm3') (Configuration.sc cM3') (Configuration.memory cM3'))); [apply STEP|..]; eauto.
   { inv SEMI_WF3. inv WFT. inv WF0. s. eapply THREADS. eauto. }
   { inv SEMI_WF4. inv WFT. inv WF0. s. eapply THREADS. eauto. }
   { s. inv SEMI_WF3. inv WFT. eauto. }
@@ -895,7 +896,7 @@ Proof.
   (* Simulation exists *)
   destruct thS2 as [stx lcx scx mx]. ss. symmetry in ST. subst.
 
-  exploit (@MAIN (Configuration.mk (IdentMap.add tid (existT _ _ stx, lcx) cM3'.(Configuration.threads)) scx mx)); s; swap 1 3; swap 2 3.
+  exploit (@MAIN (Configuration.mk (IdentMap.add tid (existT _ _ stx, lcx) (Configuration.threads cM3')) scx mx)); s; swap 1 3; swap 2 3.
   { rewrite IdentMap.gss. eauto. }
   { eapply with_pre_trans.
     - apply STEPS3'.
@@ -982,11 +983,11 @@ Qed.
 Theorem pi_consistent_pi_step_pi_consistent
       cST1 cST2 tid
       (PI_CONSISTENT: pi_consistent cST1)
-      (CONSISTENT: Configuration.consistent cST1.(snd))
-      (PI_RACEFREE: pf_racefree cST1.(fst))
+      (CONSISTENT: Configuration.consistent (snd cST1))
+      (PI_RACEFREE: pf_racefree (fst cST1))
       (WF: pi_wf loctmeq cST1)
       (STEP: rtc (pi_step_evt true tid) cST1 cST2)
-      (CONSISTENT2: Configuration.consistent cST2.(snd)):
+      (CONSISTENT2: Configuration.consistent (snd cST2)):
   pi_consistent cST2.
 Proof.
   destruct cST1 as [cS1 cT1], cST2 as [cS2 cT2].

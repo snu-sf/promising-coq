@@ -29,7 +29,7 @@ Set Implicit Arguments.
 Definition ThreadsProp :=
   forall (tid:Ident.t)
     (lang:language)
-    (st:lang.(Language.state)),
+    (st:(Language.state lang)),
     Prop.
 
 Definition MemoryProp :=
@@ -45,7 +45,7 @@ Section Invariant.
     (SILENT:
        forall tid lang st1 st2
          (ST1: S tid lang st1)
-         (STEP: lang.(Language.step) ProgramEvent.silent st1 st2),
+         (STEP: (Language.step lang) ProgramEvent.silent st1 st2),
          S tid lang st2)
     (READ:
        forall tid lang st1 st2
@@ -53,13 +53,13 @@ Section Invariant.
          assign
          (ST1: S tid lang st1)
          (ASSIGN1: J assign /\ LocFun.find loc assign = val)
-         (STEP: lang.(Language.step) (ProgramEvent.read loc val ord) st1 st2),
+         (STEP: (Language.step lang) (ProgramEvent.read loc val ord) st1 st2),
          S tid lang st2)
     (WRITE:
        forall tid lang st1 st2
          loc val ord
          (ST1: S tid lang st1)
-         (STEP: lang.(Language.step) (ProgramEvent.write loc val ord) st1 st2),
+         (STEP: (Language.step lang) (ProgramEvent.write loc val ord) st1 st2),
          <<ST2: S tid lang st2>> /\
          <<ASSIGN2: forall assign, J assign -> J (LocFun.add loc val assign)>>)
     (UPDATE:
@@ -68,20 +68,20 @@ Section Invariant.
          assign
          (ST1: S tid lang st1)
          (ASSIGN1: J assign /\ LocFun.find loc assign = valr)
-         (STEP: lang.(Language.step) (ProgramEvent.update loc valr valw ordr ordw) st1 st2),
+         (STEP: (Language.step lang) (ProgramEvent.update loc valr valw ordr ordw) st1 st2),
          <<ST2: S tid lang st2>> /\
          <<ASSIGN2: forall assign, J assign -> J (LocFun.add loc valw assign)>>)
     (FENCE:
        forall tid lang st1 st2
          ordr ordw
          (ST1: S tid lang st1)
-         (STEP: lang.(Language.step) (ProgramEvent.fence ordr ordw) st1 st2),
+         (STEP: (Language.step lang) (ProgramEvent.fence ordr ordw) st1 st2),
          S tid lang st2)
     (SYSCALL:
        forall tid lang st1 st2
          e
          (ST1: S tid lang st1)
-         (STEP: lang.(Language.step) (ProgramEvent.syscall e) st1 st2),
+         (STEP: (Language.step lang) (ProgramEvent.syscall e) st1 st2),
          S tid lang st2)
   .
 
@@ -101,8 +101,8 @@ Section Invariant.
 
   Inductive sem (c:Configuration.t): Prop :=
   | sem_configuration_intro
-      (TH: sem_threads c.(Configuration.threads))
-      (MEM: sem_memory c.(Configuration.memory))
+      (TH: sem_threads (Configuration.threads c))
+      (MEM: sem_memory (Configuration.memory c))
   .
 
   Lemma sem_memory_read_step
@@ -229,14 +229,14 @@ Section Invariant.
   Lemma rtc_thread_step_sem
         tid lang
         th1 th2
-        (TH1: S tid lang th1.(Thread.state))
-        (MEM1: sem_memory th1.(Thread.memory))
-        (WF1: Local.wf th1.(Thread.local) th1.(Thread.memory))
-        (SC1: Memory.closed_timemap th1.(Thread.sc) th1.(Thread.memory))
-        (CLOSED1: Memory.closed th1.(Thread.memory))
+        (TH1: S tid lang (Thread.state th1))
+        (MEM1: sem_memory (Thread.memory th1))
+        (WF1: Local.wf (Thread.local th1) (Thread.memory th1))
+        (SC1: Memory.closed_timemap (Thread.sc th1) (Thread.memory th1))
+        (CLOSED1: Memory.closed (Thread.memory th1))
         (STEP: rtc (union (Thread.step true)) th1 th2):
-    <<TH2: S tid lang th2.(Thread.state)>> /\
-    <<MEM2: sem_memory th2.(Thread.memory)>>.
+    <<TH2: S tid lang (Thread.state th2)>> /\
+    <<MEM2: sem_memory (Thread.memory th2)>>.
   Proof.
     move STEP after TH1. revert_until STEP. induction STEP; ss.
     i. inv H.
@@ -323,7 +323,7 @@ Section Invariant.
         program
         (TH: forall tid lang syn
                (FIND: IdentMap.find tid program = Some (existT _ lang syn)),
-            S tid lang (lang.(Language.init) syn))
+            S tid lang ((Language.init lang) syn))
         (MEM: J (LocFun.init 0)):
     sem (Configuration.init program).
   Proof.
@@ -345,7 +345,7 @@ Section Invariant.
         program c
         (TH: forall tid lang syn
                (FIND: IdentMap.find tid program = Some (existT _ lang syn)),
-            S tid lang (lang.(Language.init) syn))
+            S tid lang ((Language.init lang) syn))
         (MEM: J (LocFun.init 0))
         (STEPS: rtc Configuration_step_evt (Configuration.init program) c):
     sem c.

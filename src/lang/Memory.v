@@ -71,9 +71,9 @@ Module Memory.
     destruct (Time.eq_dec to Time.bot).
     - subst. congr.
     - eapply x.
-      + apply Interval.mem_ub. destruct (lhs loc).(Cell.WF).
+      + apply Interval.mem_ub. destruct (Cell.WF (lhs loc)).
         exploit VOLUME; eauto. i. des; auto. inv x1. congr.
-      + apply Interval.mem_ub. destruct (rhs loc).(Cell.WF).
+      + apply Interval.mem_ub. destruct (Cell.WF (rhs loc)).
         exploit VOLUME; eauto. i. des; auto. inv x1. congr.
   Qed.
 
@@ -89,7 +89,7 @@ Module Memory.
   Proof.
     inv DISJOINT. exploit DISJOINT0; eauto. i. des.
     destruct (Time.le_lt_dec ts2 ts0).
-    - destruct (lhs loc).(Cell.WF). exploit VOLUME; eauto. i. des.
+    - destruct (Cell.WF (lhs loc)). exploit VOLUME; eauto. i. des.
       + inv x1. inv TS12.
       + eapply Time.lt_strorder. eapply TimeFacts.le_lt_lt; eauto.
     - eapply x.
@@ -150,8 +150,8 @@ Module Memory.
 
   Inductive closed_view (view:View.t) (mem:t): Prop :=
   | closed_view_intro
-      (PLN: closed_timemap view.(View.pln) mem)
-      (RLX: closed_timemap view.(View.rlx) mem)
+      (PLN: closed_timemap (View.pln view) mem)
+      (RLX: closed_timemap (View.rlx view) mem)
   .
 
   Inductive closed_opt_view: forall (view:option View.t) (mem:t), Prop :=
@@ -171,7 +171,7 @@ Module Memory.
   | closed_intro
       (CLOSED: forall loc from to val released (MSG: get loc to mem = Some (from, Message.mk val released)),
           <<WF: View.opt_wf released>> /\
-          <<TS: Time.le (released.(View.unwrap).(View.rlx) loc) to>> /\
+          <<TS: Time.le ((View.rlx (View.unwrap released)) loc) to>> /\
           <<CLOSED: closed_opt_view released mem>>)
       (INHABITED: inhabited mem)
   .
@@ -192,7 +192,7 @@ Module Memory.
         view mem
         (CLOSED: closed_opt_view view mem)
         (INHABITED: inhabited mem):
-    closed_view view.(View.unwrap) mem.
+    closed_view (View.unwrap view) mem.
   Proof.
     inv CLOSED; ss. apply closed_view_bot. ss.
   Qed.
@@ -284,7 +284,7 @@ Module Memory.
       loc from to val released kind
       (OP: op mem1 loc from to val released mem2 kind)
       (CLOSED: closed_opt_view released mem2)
-      (TS: Time.le (released.(View.unwrap).(View.rlx) loc) to)
+      (TS: Time.le ((View.rlx (View.unwrap released)) loc) to)
   .
 
   Definition future := rtc future_imm.
@@ -297,19 +297,19 @@ Module Memory.
   | promise_add
       (PROMISES: add promises1 loc from to val released promises2)
       (MEM: add mem1 loc from to val released mem2)
-      (TS: Time.le (released.(View.unwrap).(View.rlx) loc) to):
+      (TS: Time.le ((View.rlx (View.unwrap released)) loc) to):
       promise promises1 mem1 loc from to val released promises2 mem2 op_kind_add
   | promise_split
       ts3 val3 released3
       (PROMISES: split promises1 loc from to ts3 val val3 released released3 promises2)
       (MEM: split mem1 loc from to ts3 val val3 released released3 mem2)
-      (TS: Time.le (released.(View.unwrap).(View.rlx) loc) to):
+      (TS: Time.le ((View.rlx (View.unwrap released)) loc) to):
       promise promises1 mem1 loc from to val released promises2 mem2 (op_kind_split ts3 val3 released3)
   | promise_lower
       released0
       (PROMISES: lower promises1 loc from to val released0 released promises2)
       (MEM: lower mem1 loc from to val released0 released mem2)
-      (TS: Time.le (released.(View.unwrap).(View.rlx) loc) to):
+      (TS: Time.le ((View.rlx (View.unwrap released)) loc) to):
       promise promises1 mem1 loc from to val released promises2 mem2 (op_kind_lower released0)
   .
 
@@ -646,7 +646,7 @@ Module Memory.
         mem1 loc from to val released mem2
         (CLOSED: closed mem1)
         (REL_CLOSED: closed_opt_view released mem2)
-        (REL_TS: Time.le (released.(View.unwrap).(View.rlx) loc) to)
+        (REL_TS: Time.le ((View.rlx (View.unwrap released)) loc) to)
         (ADD: add mem1 loc from to val released mem2):
     closed mem2.
   Proof.
@@ -696,7 +696,7 @@ Module Memory.
         mem1 loc ts1 ts2 ts3 val2 val3 released2 released3 mem2
         (CLOSED: closed mem1)
         (REL_CLOSED: closed_opt_view released2 mem2)
-        (REL_TS: Time.le (released2.(View.unwrap).(View.rlx) loc) ts2)
+        (REL_TS: Time.le ((View.rlx (View.unwrap released2)) loc) ts2)
         (SPLIT: split mem1 loc ts1 ts2 ts3 val2 val3 released2 released3 mem2):
     closed mem2.
   Proof.
@@ -750,7 +750,7 @@ Module Memory.
         mem1 loc from to val released1 released2 mem2
         (CLOSED: closed mem1)
         (REL_CLOSED: closed_opt_view released2 mem2)
-        (REL_TS: Time.le (released2.(View.unwrap).(View.rlx) loc) to)
+        (REL_TS: Time.le ((View.rlx (View.unwrap released2)) loc) to)
         (LOWER: lower mem1 loc from to val released1 released2 mem2):
     closed mem2.
   Proof.
@@ -1028,7 +1028,7 @@ Module Memory.
         (CLOSED1: closed mem1)
         (CLOSED_REL: closed_opt_view released mem2)
         (OP: op mem1 loc from to val released mem2 kind)
-        (REL_TS: Time.le (released.(View.unwrap).(View.rlx) loc) to):
+        (REL_TS: Time.le ((View.rlx (View.unwrap released)) loc) to):
     <<CLOSED2: closed mem2>> /\
     <<FUTURE: future mem1 mem2>>.
   Proof.
@@ -1113,7 +1113,7 @@ Module Memory.
         des. subst. exfalso. inv MEM. inv ADD. eapply DISJOINT0; eauto.
         * apply Interval.mem_ub. auto.
         * apply Interval.mem_ub.
-          destruct (mem1 loc).(Cell.WF). exploit VOLUME; eauto. i. des; auto.
+          destruct (Cell.WF (mem1 loc)). exploit VOLUME; eauto. i. des; auto.
           inv x. inv TO.
     - splits.
       + inv DISJOINT. econs. i. revert GET1. erewrite split_o; eauto. repeat condtac; ss.
@@ -1140,7 +1140,7 @@ Module Memory.
           i. des. eapply x.
           { inv MEM. inv SPLIT. econs. eauto. left. auto. }
           { apply Interval.mem_ub.
-            destruct (mem1 loc).(Cell.WF). exploit VOLUME; eauto. i. des; auto.
+            destruct (Cell.WF (mem1 loc)). exploit VOLUME; eauto. i. des; auto.
             inv x1. inv MEM. inv SPLIT. inv TS12.
           }
         * guardH o. des. subst. exfalso. inv DISJOINT. exploit DISJOINT0; eauto.
@@ -1148,7 +1148,7 @@ Module Memory.
           i. des. eapply x.
           { apply Interval.mem_ub. inv MEM. inv SPLIT. etrans; eauto. }
           { apply Interval.mem_ub.
-            destruct (ctx loc).(Cell.WF). exploit VOLUME; eauto. i. des; auto.
+            destruct (Cell.WF (ctx loc)). exploit VOLUME; eauto. i. des; auto.
             inv x1. inv MEM. inv SPLIT. inv TS23.
           }
     - splits.
@@ -1394,7 +1394,7 @@ Module Memory.
         (CLOSED: closed mem1)
         (ADD: add mem1 loc from to val released mem2):
     <<CLOSED: closed_view (max_released mem1 loc to) mem2>> /\
-    <<REL_TS: Time.le ((max_released mem1 loc to).(View.rlx) loc) to>>.
+    <<REL_TS: Time.le ((View.rlx (max_released mem1 loc to)) loc) to>>.
   Proof.
     splits.
     - unfold max_released.
@@ -1413,7 +1413,7 @@ Module Memory.
         (CLOSED: closed mem1)
         (ADD: add mem1 loc from to val released mem2)
         (REL_CLOSED: closed_opt_view released mem2)
-        (REL_TS: Time.le (released.(View.unwrap).(View.rlx) loc) to):
+        (REL_TS: Time.le ((View.rlx (View.unwrap released)) loc) to):
     View.opt_le released (Some (max_released mem1 loc to)).
   Proof.
     inv REL_CLOSED; econs.
@@ -1477,7 +1477,7 @@ Module Memory.
         (LE_PROMISES1: le promises1 mem1)
         (ADD: add mem1 loc from to val released mem2)
         (REL: closed_opt_view released mem2)
-        (TS: Time.le (released.(View.unwrap).(View.rlx) loc) to):
+        (TS: Time.le ((View.rlx (View.unwrap released)) loc) to):
     exists promises2,
       promise promises1 mem1 loc from to val released promises2 mem2 op_kind_add.
   Proof.
@@ -1591,7 +1591,7 @@ Module Memory.
 
   Definition nonsynch_loc (loc:Loc.t) (mem:t): Prop :=
     forall f t msg (GET: get loc t mem = Some (f, msg)),
-      msg.(Message.released) = None.
+      (Message.released msg) = None.
 
   Definition nonsynch (mem:t): Prop :=
     forall loc, nonsynch_loc loc mem.

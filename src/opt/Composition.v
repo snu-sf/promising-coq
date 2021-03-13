@@ -338,17 +338,17 @@ Qed.
 Lemma compose_rtc_step1
       c1 c2 ths
       (STEPS: rtc Configuration.tau_step c1 c2)
-      (DISJOINT: Threads.disjoint c1.(Configuration.threads) ths)
+      (DISJOINT: Threads.disjoint (Configuration.threads c1) ths)
       (WF1: Configuration.wf c1)
-      (WF: Configuration.wf (Configuration.mk ths c1.(Configuration.sc) c1.(Configuration.memory)))
+      (WF: Configuration.wf (Configuration.mk ths (Configuration.sc c1) (Configuration.memory c1)))
       (CONSISTENT1: Configuration.consistent c1)
-      (CONSISTENT: Configuration.consistent (Configuration.mk ths c1.(Configuration.sc) c1.(Configuration.memory))):
+      (CONSISTENT: Configuration.consistent (Configuration.mk ths (Configuration.sc c1) (Configuration.memory c1))):
   <<STEPS: rtc Configuration.tau_step
-               (Configuration.mk (Threads.compose c1.(Configuration.threads) ths) c1.(Configuration.sc) c1.(Configuration.memory))
-               (Configuration.mk (Threads.compose c2.(Configuration.threads) ths) c2.(Configuration.sc) c2.(Configuration.memory))>> /\
-  <<DISJOINT': Threads.disjoint c2.(Configuration.threads) ths>> /\
-  <<WF': Configuration.wf (Configuration.mk ths c2.(Configuration.sc) c2.(Configuration.memory))>> /\
-  <<CONSISTENT': Configuration.consistent (Configuration.mk ths c2.(Configuration.sc) c2.(Configuration.memory))>>.
+               (Configuration.mk (Threads.compose (Configuration.threads c1) ths) (Configuration.sc c1) (Configuration.memory c1))
+               (Configuration.mk (Threads.compose (Configuration.threads c2) ths) (Configuration.sc c2) (Configuration.memory c2))>> /\
+  <<DISJOINT': Threads.disjoint (Configuration.threads c2) ths>> /\
+  <<WF': Configuration.wf (Configuration.mk ths (Configuration.sc c2) (Configuration.memory c2))>> /\
+  <<CONSISTENT': Configuration.consistent (Configuration.mk ths (Configuration.sc c2) (Configuration.memory c2))>>.
 Proof.
   revert CONSISTENT1 CONSISTENT. induction STEPS; auto. i. inv H.
   exploit Configuration.step_future; eauto. i. des.
@@ -362,17 +362,17 @@ Qed.
 Lemma compose_rtc_step2
       c1 c2 ths
       (STEPS: rtc Configuration.tau_step c1 c2)
-      (DISJOINT: Threads.disjoint ths c1.(Configuration.threads))
+      (DISJOINT: Threads.disjoint ths (Configuration.threads c1))
       (WF1: Configuration.wf c1)
-      (WF: Configuration.wf (Configuration.mk ths c1.(Configuration.sc) c1.(Configuration.memory)))
+      (WF: Configuration.wf (Configuration.mk ths (Configuration.sc c1) (Configuration.memory c1)))
       (CONSISTENT1: Configuration.consistent c1)
-      (CONSISTENT: Configuration.consistent (Configuration.mk ths c1.(Configuration.sc) c1.(Configuration.memory))):
+      (CONSISTENT: Configuration.consistent (Configuration.mk ths (Configuration.sc c1) (Configuration.memory c1))):
   <<STEPS: rtc Configuration.tau_step
-               (Configuration.mk (Threads.compose ths c1.(Configuration.threads)) c1.(Configuration.sc) c1.(Configuration.memory))
-               (Configuration.mk (Threads.compose ths c2.(Configuration.threads)) c2.(Configuration.sc) c2.(Configuration.memory))>> /\
-  <<DISJOINT': Threads.disjoint ths c2.(Configuration.threads)>> /\
-  <<WF': Configuration.wf (Configuration.mk ths c2.(Configuration.sc) c2.(Configuration.memory))>> /\
-  <<CONSISTENT': Configuration.consistent (Configuration.mk ths c2.(Configuration.sc) c2.(Configuration.memory))>>.
+               (Configuration.mk (Threads.compose ths (Configuration.threads c1)) (Configuration.sc c1) (Configuration.memory c1))
+               (Configuration.mk (Threads.compose ths (Configuration.threads c2)) (Configuration.sc c2) (Configuration.memory c2))>> /\
+  <<DISJOINT': Threads.disjoint ths (Configuration.threads c2)>> /\
+  <<WF': Configuration.wf (Configuration.mk ths (Configuration.sc c2) (Configuration.memory c2))>> /\
+  <<CONSISTENT': Configuration.consistent (Configuration.mk ths (Configuration.sc c2) (Configuration.memory c2))>>.
 Proof.
   revert CONSISTENT1 CONSISTENT. induction STEPS; auto. i. inv H.
   exploit Configuration.step_future; eauto. i. des.

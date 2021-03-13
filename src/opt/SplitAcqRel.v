@@ -33,10 +33,10 @@ Set Implicit Arguments.
 
 Definition local_acqrel (lc:Local.t) :=
   (Local.mk (TView.write_fence_tview
-               (TView.read_fence_tview lc.(Local.tview) Ordering.acqrel)
+               (TView.read_fence_tview (Local.tview lc) Ordering.acqrel)
                TimeMap.bot
                Ordering.acqrel)
-            lc.(Local.promises)).
+            (Local.promises lc)).
 
 Lemma sim_local_promise_acqrel
       lc1_src mem1_src
@@ -84,8 +84,8 @@ Lemma sim_local_fulfill_acqrel
       (ORD_TGT: Ordering.le ord_tgt Ordering.acqrel)
       (STEP_TGT: fulfill_step lc1_tgt sc1_tgt loc from to val releasedm_tgt released ord_tgt lc2_tgt sc2_tgt)
       (LOCAL1: sim_local lc1_src (local_acquired lc1_tgt))
-      (ACQUIRED1: View.le lc1_src.(Local.tview).(TView.cur)
-                          (View.join lc1_tgt.(Local.tview).(TView.cur) releasedm_tgt.(View.unwrap)))
+      (ACQUIRED1: View.le (TView.cur (Local.tview lc1_src))
+                          (View.join (TView.cur (Local.tview lc1_tgt)) (View.unwrap releasedm_tgt)))
       (SC1: TimeMap.le sc1_src sc1_tgt)
       (MEM1: sim_memory mem1_src mem1_tgt)
       (WF1_SRC: Local.wf lc1_src mem1_src)
@@ -102,8 +102,8 @@ Proof.
   inv STEP_TGT.
   assert (RELT_LE:
    View.opt_le
-     (TView.write_released lc1_src.(Local.tview) sc1_src loc to releasedm_src ord_src)
-     (TView.write_released lc1_tgt.(Local.tview) sc2_tgt loc to releasedm_tgt ord_tgt)).
+     (TView.write_released (Local.tview lc1_src) sc1_src loc to releasedm_src ord_src)
+     (TView.write_released (Local.tview lc1_tgt) sc2_tgt loc to releasedm_tgt ord_tgt)).
   { unfold TView.write_released, TView.write_tview. ss. viewtac.
     repeat (condtac; aggrtac;
             try match goal with
@@ -115,7 +115,7 @@ Proof.
     - etrans; [apply LOCAL1|]. aggrtac.
   }
   assert (RELT_WF:
-   View.opt_wf (TView.write_released lc1_src.(Local.tview) sc1_src loc to releasedm_src ord_src)).
+   View.opt_wf (TView.write_released (Local.tview lc1_src) sc1_src loc to releasedm_src ord_src)).
   { unfold TView.write_released. condtac; econs.
     repeat (try condtac; viewtac; try apply WF1_SRC).
   }
@@ -162,8 +162,8 @@ Lemma sim_local_write_acqrel
       (ORD_TGT: Ordering.le ord_tgt Ordering.acqrel)
       (STEP_TGT: Local.write_step lc1_tgt sc1_tgt mem1_tgt loc from to val releasedm_tgt released_tgt ord_tgt lc2_tgt sc2_tgt mem2_tgt kind)
       (LOCAL1: sim_local lc1_src (local_acquired lc1_tgt))
-      (ACQUIRED1: View.le lc1_src.(Local.tview).(TView.cur)
-                          (View.join lc1_tgt.(Local.tview).(TView.cur) releasedm_tgt.(View.unwrap)))
+      (ACQUIRED1: View.le (TView.cur (Local.tview lc1_src))
+                          (View.join (TView.cur (Local.tview lc1_tgt)) (View.unwrap releasedm_tgt)))
       (SC1: TimeMap.le sc1_src sc1_tgt)
       (MEM1: sim_memory mem1_src mem1_tgt)
       (WF1_SRC: Local.wf lc1_src mem1_src)
@@ -207,8 +207,8 @@ Inductive split_acqrel: forall (i1 i2:Instr.t), Prop :=
     split_acqrel (Instr.update r l rmw Ordering.acqrel ow) (Instr.update r l rmw Ordering.relaxed ow)
 .
 
-Inductive sim_acqrel: forall (st_src:lang.(Language.state)) (lc_src:Local.t) (sc1_src:TimeMap.t) (mem1_src:Memory.t)
-                        (st_tgt:lang.(Language.state)) (lc_tgt:Local.t) (sc1_tgt:TimeMap.t) (mem1_tgt:Memory.t), Prop :=
+Inductive sim_acqrel: forall (st_src:(Language.state lang)) (lc_src:Local.t) (sc1_src:TimeMap.t) (mem1_src:Memory.t)
+                        (st_tgt:(Language.state lang)) (lc_tgt:Local.t) (sc1_tgt:TimeMap.t) (mem1_tgt:Memory.t), Prop :=
 | sim_acqrel_intro
     rs
     lc1_src sc1_src mem1_src

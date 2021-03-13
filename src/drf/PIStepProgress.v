@@ -32,21 +32,21 @@ Set Implicit Arguments.
 Inductive is_reading_writing_promise_except tid c : Prop :=
 | is_reading_promise_except_intro
     e lang st1 st2 loc val ord tid' to'
-    (ST1: option_map fst (IdentMap.find tid c.(Configuration.threads)) = Some (existT _ lang st1))
-    (NOWR: lang.(Language.step) e st1 st2)
+    (ST1: option_map fst (IdentMap.find tid (Configuration.threads c)) = Some (existT _ lang st1))
+    (NOWR: (Language.step lang) e st1 st2)
     (RW: ProgramEvent.is_reading e = Some(loc, val, ord) \/ ProgramEvent.is_writing e = Some(loc, val, ord))
     (NEQ: tid' <> tid)
-    (PROM: Threads.is_promised tid' loc to' c.(Configuration.threads))
+    (PROM: Threads.is_promised tid' loc to' (Configuration.threads c))
 .
 
 Lemma pi_consistent_lang_step_pi_rw
       tid cST1 cST2
       (WF: pi_wf loctmeq cST1)
       (PI_CONSISTENT: pi_consistent cST1)
-      (PI_RACEFREE: pf_racefree cST1.(fst))
+      (PI_RACEFREE: pf_racefree (fst cST1))
       (PI_STEPS: rtc (pi_step_evt true tid) cST1 cST2)
-      (PRCONS: forall tid0, promise_consistent_th tid0 cST2.(snd)):
-  ~ is_reading_writing_promise_except tid cST2.(snd).
+      (PRCONS: forall tid0, promise_consistent_th tid0 (snd cST2)):
+  ~ is_reading_writing_promise_except tid (snd cST2).
 Proof.
   ii. inv H. inv PROM.
   inv PI_CONSISTENT. ss.
@@ -95,15 +95,15 @@ Lemma pi_consistent_small_step_pi_rw
       e tid cST1 cST2 cT3 withprm
       (WF: pi_wf loctmeq cST1)
       (PI_CONSISTENT: pi_consistent cST1)
-      (PI_RACEFREE: pf_racefree cST1.(fst))
+      (PI_RACEFREE: pf_racefree (fst cST1))
       (PI_STEPS: rtc (pi_step_evt true tid) cST1 cST2)
-      (STEP: small_step withprm tid e cST2.(snd) cT3)
+      (STEP: small_step withprm tid e (snd cST2) cT3)
       (PRCONS: forall tid0, promise_consistent_th tid0 cT3):
   forall loc from to val rel ord tid' ts
     (NEQ: tid <> tid')
     (RW: ThreadEvent.is_reading e = Some (loc, to, val, rel, ord) \/
          ThreadEvent.is_writing e = Some (loc, from, to, val, rel, ord)),
-  ~Threads.is_promised tid' loc ts cST2.(snd).(Configuration.threads).
+  ~Threads.is_promised tid' loc ts (Configuration.threads (snd cST2)).
 Proof.
   ii. guardH RW.
   eapply pi_consistent_lang_step_pi_rw; eauto.
@@ -120,11 +120,11 @@ Lemma pi_consistent_small_step_pi
       e tid cST1 cST2 cT3 withprm
       (WF: pi_wf loctmeq cST1)
       (PI_CONSISTENT: pi_consistent cST1)
-      (PI_RACEFREE: pf_racefree cST1.(fst))
+      (PI_RACEFREE: pf_racefree (fst cST1))
       (PI_STEPS: rtc (pi_step_evt true tid) cST1 cST2)
-      (STEP: small_step withprm tid e cST2.(snd) cT3)
+      (STEP: small_step withprm tid e (snd cST2) cT3)
       (FULFILL: promise_consistent_th tid cT3)
-      (PRCONSIS: forall tid0, promise_consistent_th tid0 cST1.(snd)):
+      (PRCONSIS: forall tid0, promise_consistent_th tid0 (snd cST1)):
   exists cS3, pi_step withprm tid e cST2 (cS3,cT3).
 Proof.
   destruct cST1 as [cS1 cT1], cST2 as [cS2 cT2].
@@ -206,7 +206,7 @@ Proof.
         inv WFT. inv WF1. exploit THREADS; eauto. i. inv x. ss.
         exploit PROMISES; eauto. i.
         destruct (Time.eq_dec to1 to2); cycle 1.
-        { destruct (Configuration.memory cT2 loc0).(Cell.WF). splits.
+        { destruct (Cell.WF (Configuration.memory cT2 loc0)). splits.
           - eapply DISJOINT0; eauto.
           - ii. inv H. congr.
         }
@@ -229,7 +229,7 @@ Proof.
         inv WFT. inv WF1. exploit THREADS; eauto. i. inv x.
         exploit PROMISES; eauto. i.
         destruct (Time.eq_dec to1 to2); cycle 1.
-        { destruct (Configuration.memory cT2 loc0).(Cell.WF). splits.
+        { destruct (Cell.WF (Configuration.memory cT2 loc0)). splits.
           - eapply DISJOINT0; eauto.
           - ii. inv H. congr.
         }
@@ -326,10 +326,10 @@ Lemma pi_consistent_rtc_small_step_pi
       tid cST1 cST2 withprm
       (WF: pi_wf loctmeq cST1)
       (PI_CONSISTENT: pi_consistent cST1)
-      (PI_RACEFREE: pf_racefree cST1.(fst))
+      (PI_RACEFREE: pf_racefree (fst cST1))
       (PI_STEPS: rtc (pi_step_evt true tid) cST1 cST2)
       cT3 pre
-      (STEP: with_pre (small_step withprm tid) cST2.(snd) pre cT3)
+      (STEP: with_pre (small_step withprm tid) (snd cST2) pre cT3)
       (FULFILL: forall tid0, promise_consistent_th tid0 cT3):
   exists cS3 pre', with_pre (pi_step withprm tid) cST2 pre' (cS3,cT3) /\ 
                    pre = pi_pre_proj pre'.
@@ -374,10 +374,10 @@ Lemma pi_consistent_rtc_ftau_small_step_pi
       (WF: pi_wf loctmeq cST1)
       (CONSISTENT: Configuration.consistent (snd cST1))
       (PI_CONSISTENT: pi_consistent cST1)
-      (PI_RACEFREE: pf_racefree cST1.(fst))
+      (PI_RACEFREE: pf_racefree (fst cST1))
       (PI_STEPS: rtc (pi_step_evt true tid) cST1 cST2)
       cT3 pre
-      (STEP: with_pre (ftau (small_step withprm tid)) cST2.(snd) pre cT3)
+      (STEP: with_pre (ftau (small_step withprm tid)) (snd cST2) pre cT3)
       (FULFILL: forall tid0, promise_consistent_th tid0 cT3):
   exists cS3 pre', with_pre (ftau (pi_step withprm tid)) cST2 pre' (cS3,cT3) /\
                    pre = pi_pre_proj pre'.
@@ -426,9 +426,9 @@ Theorem pi_consistent_step_pi
       cST1 cT3 e tid
       (WF: pi_wf loctmeq cST1)
       (PI_CONSISTENT: pi_consistent cST1)
-      (CONSISTENT: Configuration.consistent cST1.(snd))
-      (PI_RACEFREE: pf_racefree cST1.(fst))
-      (STEP: Configuration.step e tid cST1.(snd) cT3):
+      (CONSISTENT: Configuration.consistent (snd cST1))
+      (PI_RACEFREE: pf_racefree (fst cST1))
+      (STEP: Configuration.step e tid (snd cST1) cT3):
   exists cST2 cS3 te,
     <<STEPS: rtc (tau (pi_step true tid)) cST1 cST2>> /\
     <<STEP: (pi_step true tid te) cST2 (cS3,cT3)>> /\

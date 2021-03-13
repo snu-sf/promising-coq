@@ -45,7 +45,7 @@ Definition lift_view (l: Loc.t) (t: Time.t) (rel: View.t) : View.t :=
   end.
 
 Definition lift_opt_view (l: Loc.t) (t: Time.t) (rel: option View.t) : option View.t :=
-  Some (lift_view l t rel.(View.unwrap)).
+  Some (lift_view l t (View.unwrap rel)).
 
 Lemma lift_timemap_incr l t tm:
   TimeMap.le tm (lift_timemap l t tm).
@@ -220,8 +220,8 @@ Qed.
 Inductive pi_step_lift_except_aux l t (tid_except:Ident.t) e: (Configuration.t*Configuration.t*Memory.t) -> (Configuration.t*Configuration.t*Memory.t) -> Prop :=
 | pi_step_lift_except_intro tid cS1 cS2 cT1 cT2 M1 M2 lst lc
     (PI_STEP: pi_step false tid e (cS1,cT1) (cS2,cT2))
-    (FIND: IdentMap.find tid_except cT2.(Configuration.threads) = Some (lst,lc))
-    (MEM: lift_mem l t lc.(Local.promises) e M1 M2)
+    (FIND: IdentMap.find tid_except (Configuration.threads cT2) = Some (lst,lc))
+    (MEM: lift_mem l t (Local.promises lc) e M1 M2)
     (TID: tid <> tid_except):
   pi_step_lift_except_aux l t tid_except e (cS1,cT1,M1) (cS2,cT2,M2)
 .
@@ -231,14 +231,14 @@ Definition pi_step_lift_except l t tid_except := union (pi_step_lift_except_aux 
 Hint Unfold pi_step_lift_except.
 
 Definition lift_view_le l t (msgs: list (Loc.t*Time.t)) loc ts cap1 cap2 : Prop :=
-  cap1 = cap2 \/ (List.In (loc,ts) msgs /\ cap2 = Some (lift_view l t cap1.(View.unwrap))).
+  cap1 = cap2 \/ (List.In (loc,ts) msgs /\ cap2 = Some (lift_view l t (View.unwrap cap1))).
 Hint Unfold lift_view_le.
 
 Global Program Instance lift_view_le_PreOrder l t msgs loc ts : PreOrder (lift_view_le l t msgs loc ts).
 Next Obligation.
   ii. unfold lift_view_le in *.
   des; subst; eauto. s.
-  right. splits; ss. destruct (x.(View.unwrap)). s.
+  right. splits; ss. destruct ((View.unwrap x)). s.
   unfold lift_timemap. f_equal. f_equal.
   - extensionality y. destruct (LocSet.Facts.eq_dec l y); eauto.
     apply TimeFacts.antisym; repeat apply Time.join_spec;
@@ -254,12 +254,12 @@ Inductive mem_eqlerel_lift l t p e (m1 m2: Memory.t) : Prop :=
 .
 
 Definition conf_update_memory (c: Configuration.t) (m: Memory.t) : Configuration.t :=
- Configuration.mk c.(Configuration.threads) c.(Configuration.sc) m.
+ Configuration.mk (Configuration.threads c) (Configuration.sc c) m.
 
 Lemma pi_steps_lift_except_pi_steps
       cSTM1 cSTM2 l t tid
       (STEPS: rtc (pi_step_lift_except l t tid) cSTM1 cSTM2):
-  rtc (pi_step_except false tid) cSTM1.(fst) cSTM2.(fst).
+  rtc (pi_step_except false tid) (fst cSTM1) (fst cSTM2).
 Proof.
   induction STEPS; eauto.
   etrans; [|apply IHSTEPS].
@@ -269,8 +269,8 @@ Qed.
 Lemma rtc_pi_step_lift_except_find
       cSTM1 cSTM2 tid l t
       (STEPS: rtc (pi_step_lift_except l t tid) cSTM1 cSTM2):
-  IdentMap.find tid cSTM1.(fst).(fst).(Configuration.threads) = IdentMap.find tid cSTM2.(fst).(fst).(Configuration.threads) /\
-  IdentMap.find tid cSTM1.(fst).(snd).(Configuration.threads) = IdentMap.find tid cSTM2.(fst).(snd).(Configuration.threads).
+  IdentMap.find tid (fst (fst cSTM1)).(Configuration.threads) = IdentMap.find tid (fst (fst cSTM2)).(Configuration.threads) /\
+  IdentMap.find tid (snd (fst cSTM1)).(Configuration.threads) = IdentMap.find tid (snd (fst cSTM2)).(Configuration.threads).
 Proof.
   apply pi_steps_lift_except_pi_steps in STEPS.
   apply rtc_pi_step_except_find in STEPS. eauto.
@@ -292,7 +292,7 @@ Lemma write_step_lift_mem
       (DISJ: Local.disjoint lc0 lco):
   exists mem1',
     <<LIFT: forall e (E: ThreadEvent.is_writing e = Some (loc, from, to, val, released, ord)),
-      lift_mem l t lco.(Local.promises) e mem0' mem1'>> /\
+      lift_mem l t (Local.promises lco) e mem0' mem1'>> /\
     <<EQLEREL: mem_eqlerel mem1 mem1'>>.
 Proof.
   exploit write_promise_fulfill; eauto. i. des.
@@ -340,15 +340,15 @@ Qed.
 Lemma pi_step_lifting_aux
       tid cS1 cT1 cS2 cT2 M1 l t
       (PISTEP: pi_step_except false tid (cS1,cT1) (cS2,cT2))
-      (FIND: IdentMap.find tid cT2.(Configuration.threads) <> None)
+      (FIND: IdentMap.find tid (Configuration.threads cT2) <> None)
       (WF: pi_wf loctmeq (cS1,cT1))
-      (EQLEREL: mem_eqlerel cT1.(Configuration.memory) M1):
+      (EQLEREL: mem_eqlerel (Configuration.memory cT1) M1):
   exists M2,
   pi_step_lift_except l t tid (cS1,cT1,M1) (cS2,cT2,M2) /\
-  mem_eqlerel cT2.(Configuration.memory) M2.
+  mem_eqlerel (Configuration.memory cT2) M2.
 Proof.
   inv PISTEP. inv PI_STEP. assert (X:= USTEP). inv X.
-  destruct (IdentMap.find tid cT2.(Configuration.threads)) as [[]|]eqn: EQ; [|by exfalso; eauto].
+  destruct (IdentMap.find tid (Configuration.threads cT2)) as [[]|]eqn: EQ; [|by exfalso; eauto].
   inv STEPT.
   inv STEP; [inv STEP0|inv STEP0; inv LOCAL];
     try by esplits; s; eauto; econs; econs; eauto; ss.
@@ -391,12 +391,12 @@ Qed.
 Lemma rtc_pi_step_lifting_aux
       tid cST1 cST2 M1 l t
       (PISTEP: rtc (pi_step_except false tid) cST1 cST2)
-      (FIND: IdentMap.find tid cST2.(snd).(Configuration.threads) <> None)
+      (FIND: IdentMap.find tid (Configuration.threads (snd cST2)) <> None)
       (WF: pi_wf loctmeq cST1)
-      (EQLEREL: mem_eqlerel cST1.(snd).(Configuration.memory) M1):
+      (EQLEREL: mem_eqlerel (Configuration.memory (snd cST1)) M1):
   exists M2,
   rtc (pi_step_lift_except l t tid) (cST1,M1) (cST2,M2) /\
-  mem_eqlerel cST2.(snd).(Configuration.memory) M2.
+  mem_eqlerel (Configuration.memory (snd cST2)) M2.
 Proof.
   apply Operators_Properties.clos_rt_rt1n_iff,
         Operators_Properties.clos_rt_rtn1_iff in PISTEP.
@@ -425,9 +425,9 @@ Qed.
 Lemma pi_step_lifting
       tid cST1 cST2 l t
       (PI_STEPS: rtc (pi_step_except false tid) cST1 cST2)
-      (FIND: IdentMap.find tid cST2.(snd).(Configuration.threads) <> None)
+      (FIND: IdentMap.find tid (Configuration.threads (snd cST2)) <> None)
       (WF: pi_wf loctmeq cST1):
-  exists M2, rtc (pi_step_lift_except l t tid) (cST1,cST1.(snd).(Configuration.memory)) (cST2,M2).
+  exists M2, rtc (pi_step_lift_except l t tid) (cST1,(Configuration.memory (snd cST1))) (cST2,M2).
 Proof.
   exploit rtc_pi_step_lifting_aux; eauto; cycle 1.
   - i; des. eauto.
@@ -437,8 +437,8 @@ Qed.
 Lemma conf_update_memory_wf
       l t msgs cS1 cT1 M1
       (WF: pi_wf loctmeq (cS1,cT1))
-      (EQMEM: mem_eqrel (lift_view_le l t msgs) cT1.(Configuration.memory) M1)
-      (IN: Memory.get l t cT1.(Configuration.memory) <> None)
+      (EQMEM: mem_eqrel (lift_view_le l t msgs) (Configuration.memory cT1) M1)
+      (IN: Memory.get l t (Configuration.memory cT1) <> None)
       (MSGS: forall loc to (IN: List.In (loc, to) msgs),
           (exists from msg, fulfilled cT1 loc from to msg) /\
           loc <> l /\
@@ -462,7 +462,7 @@ Proof.
         { splits; auto. eapply mem_eqrel_closed_opt_view; eauto. }
         { des. subst. splits.
           - apply lift_opt_view_wf. auto.
-          - s. unfold lift_view. destruct (rel2.(View.unwrap)). ss.
+          - s. unfold lift_view. destruct ((View.unwrap rel2)). ss.
             unfold lift_timemap. condtac; ss. subst.
             exploit MSGS; eauto. i. des. congr.
           - eapply mem_eqrel_closed_opt_view; eauto.
@@ -484,8 +484,8 @@ Lemma small_step_write_closed
       (WF: Configuration.wf c)
       (STEP: small_step withprm tid e c c1)
       (EVENT: ThreadEvent.is_writing e = Some (loc, from, ts, val, rel, ord)):
-  <<CLOSED: Memory.closed_opt_view rel c1.(Configuration.memory)>> /\
-  <<TS: Time.le (rel.(View.unwrap).(View.rlx) loc) ts>>.
+  <<CLOSED: Memory.closed_opt_view rel (Configuration.memory c1)>> /\
+  <<TS: Time.le ((View.rlx (View.unwrap rel)) loc) ts>>.
 
 Proof.
   inv STEP. inv STEP0; [inv STEP|inv STEP; inv LOCAL]; inv EVENT.
@@ -506,7 +506,7 @@ Lemma small_step_false_normal
       (STEP: small_step false tid e c1 c2)
       (NONPROMISING: ThreadEvent.is_promising e = None)
       (NONWRITING: ThreadEvent.is_writing e = None):
-  c1.(Configuration.memory) = c2.(Configuration.memory).
+  (Configuration.memory c1) = (Configuration.memory c2).
 Proof.
   inv STEP. inv STEP0; [inv STEP|inv STEP; inv LOCAL]; inv PFREE; ss.
 Qed.
@@ -515,7 +515,7 @@ Lemma small_step_false_promising
       tid e c1 c2 loc from to val released kind
       (STEP: small_step false tid e c1 c2)
       (NONWRITING: e = ThreadEvent.promise loc from to val released kind):
-  Memory.op c1.(Configuration.memory) loc from to val released c2.(Configuration.memory) kind.
+  Memory.op (Configuration.memory c1) loc from to val released (Configuration.memory c2) kind.
 Proof.
   inv STEP. inv STEP0; inv STEP; inv PFREE; ss.
   apply promise_pf_inv in H0. des. subst. inv LOCAL.
@@ -526,7 +526,7 @@ Lemma small_step_false_writing
       tid e c1 c2 loc from to val released ord
       (STEP: small_step false tid e c1 c2)
       (WRITING: ThreadEvent.is_writing e = Some (loc, from, to, val, released, ord)):
-  exists kind, Memory.op c1.(Configuration.memory) loc from to val released c2.(Configuration.memory) kind.
+  exists kind, Memory.op (Configuration.memory c1) loc from to val released (Configuration.memory c2) kind.
 Proof.
   inv STEP. inv STEP0; [inv STEP|inv STEP; inv LOCAL]; inv PFREE; ss.
   - inv WRITING. inv LOCAL0. inv WRITE. inv PROMISE.
@@ -701,24 +701,24 @@ Qed.
 Lemma pi_step_lift_except_future
       l t msgs tid cS1 cT1 cS2 cT2 M1 M2 e
       (WF: pi_wf loctmeq (cS1,cT1))
-      (EQMEM: mem_eqrel (lift_view_le l t msgs) cT1.(Configuration.memory) M1)
-      (IN: Memory.get l t cT1.(Configuration.memory) <> None)
+      (EQMEM: mem_eqrel (lift_view_le l t msgs) (Configuration.memory cT1) M1)
+      (IN: Memory.get l t (Configuration.memory cT1) <> None)
       (PI_STEP: pi_step_lift_except_aux l t tid e (cS1,cT1,M1) (cS2,cT2,M2))
       (MSGS: forall loc to (IN: List.In (loc, to) msgs),
           (exists from msg, fulfilled cT1 loc from to msg) /\
           loc <> l /\
           to <> Time.bot)
 :
-  <<EQMEM: mem_eqrel (lift_view_le l t (msg_add l e msgs)) cT2.(Configuration.memory) M2>> /\
-  <<IN: Memory.get l t cT2.(Configuration.memory) <> None>> /\
+  <<EQMEM: mem_eqrel (lift_view_le l t (msg_add l e msgs)) (Configuration.memory cT2) M2>> /\
+  <<IN: Memory.get l t (Configuration.memory cT2) <> None>> /\
   <<MSGS: forall loc to (IN: List.In (loc, to) (msg_add l e msgs)),
           (exists from msg, fulfilled cT2 loc from to msg) /\
           loc <> l /\
           to <> Time.bot>> /\
   <<MEMFUT: Memory.future M1 M2>> /\
-  <<TIMELE: TimeMap.le cT1.(Configuration.sc) cT2.(Configuration.sc)>>.
+  <<TIMELE: TimeMap.le (Configuration.sc cT1) (Configuration.sc cT2)>>.
 Proof.
-  assert (EQMEM2: mem_eqrel (lift_view_le l t (msg_add l e msgs)) cT2.(Configuration.memory) M2).
+  assert (EQMEM2: mem_eqrel (lift_view_le l t (msg_add l e msgs)) (Configuration.memory cT2) M2).
   { inv PI_STEP. unfold lift_mem in MEM. unfold msg_add.
     destruct (ThreadEvent.is_writing e) as [[[[[[]]]]]|] eqn:X; cycle 1.
     { destruct (ThreadEvent.is_promising e) as [[]|] eqn:Y; cycle 1.
@@ -738,7 +738,7 @@ Proof.
     exploit mem_eqrel_memory_op; [|exact x0|exact PMREL|..]; eauto. i.
     eapply memory_op_mem_eqrel; eauto.
   }
-  assert (IN2: Memory.get l t cT2.(Configuration.memory) <> None).
+  assert (IN2: Memory.get l t (Configuration.memory cT2) <> None).
   { destruct (Memory.get l t (Configuration.memory cT1)) as [[? []]|] eqn:X; [|congr].
     inv PI_STEP. inv PI_STEP0. exploit small_step_future; eauto.
     { inv WF. auto. }
@@ -765,7 +765,7 @@ Proof.
       eapply lift_view_closed_opt_view; eauto.
       eapply small_step_future; eauto. inv WF. ss.
     + unfold lift_view_if. condtac; ss.
-      destruct o.(View.unwrap). ss. unfold lift_timemap. condtac; ss.
+      destruct (View.unwrap o). ss. unfold lift_timemap. condtac; ss.
       exfalso. apply n. auto.
   - inv PI_STEP0.
     eapply small_step_future; eauto.
@@ -785,22 +785,22 @@ Qed.
 Lemma rtc_pi_step_lift_except_future
       l t tid cS1 cT1 cSTM2 lst1 lc1
       (WF: pi_wf loctmeq (cS1,cT1))
-      (IN: Memory.get l t cT1.(Configuration.memory) <> None)
-      (PI_STEPS: rtc (pi_step_lift_except l t tid) (cS1,cT1,cT1.(Configuration.memory)) cSTM2)
-      (FIND: IdentMap.find tid cT1.(Configuration.threads) = Some (lst1,lc1)):
-  <<WF: exists msgs, pi_wf (lift_view_le l t msgs) (cSTM2.(fst).(fst),(conf_update_memory cSTM2.(fst).(snd) cSTM2.(snd)))>> /\
-  <<MEMFUT: Memory.future cT1.(Configuration.memory) cSTM2.(snd)>> /\
-  <<TIMELE: TimeMap.le cT1.(Configuration.sc) cSTM2.(fst).(snd).(Configuration.sc)>> /\
-  <<LOCWF: Local.wf lc1 cSTM2.(snd)>> /\
-  <<MEMCLOTM: Memory.closed_timemap (cSTM2.(fst).(snd).(Configuration.sc)) cSTM2.(snd)>> /\
-  <<MEMCLO: Memory.closed cSTM2.(snd)>>.
+      (IN: Memory.get l t (Configuration.memory cT1) <> None)
+      (PI_STEPS: rtc (pi_step_lift_except l t tid) (cS1,cT1,(Configuration.memory cT1)) cSTM2)
+      (FIND: IdentMap.find tid (Configuration.threads cT1) = Some (lst1,lc1)):
+  <<WF: exists msgs, pi_wf (lift_view_le l t msgs) ((fst (fst cSTM2)),(conf_update_memory (snd (fst cSTM2)) (snd cSTM2)))>> /\
+  <<MEMFUT: Memory.future (Configuration.memory cT1) (snd cSTM2)>> /\
+  <<TIMELE: TimeMap.le (Configuration.sc cT1) (snd (fst cSTM2)).(Configuration.sc)>> /\
+  <<LOCWF: Local.wf lc1 (snd cSTM2)>> /\
+  <<MEMCLOTM: Memory.closed_timemap ((snd (fst cSTM2)).(Configuration.sc)) (snd cSTM2)>> /\
+  <<MEMCLO: Memory.closed (snd cSTM2)>>.
 Proof.
-  apply (@proj2 (<<EQMEM: exists msgs, mem_eqrel (lift_view_le l t msgs) cSTM2.(fst).(snd).(Configuration.memory) cSTM2.(snd) /\
+  apply (@proj2 (<<EQMEM: exists msgs, mem_eqrel (lift_view_le l t msgs) (snd (fst cSTM2)).(Configuration.memory) (snd cSTM2) /\
                  <<MSGS: forall loc to (IN: List.In (loc, to) msgs),
-                         (exists from msg, fulfilled cSTM2.(fst).(snd) loc from to msg) /\
+                         (exists from msg, fulfilled (snd (fst cSTM2)) loc from to msg) /\
                          loc <> l /\
                          to <> Time.bot>> >> /\
-                 <<IN: Memory.get l t cSTM2.(fst).(snd).(Configuration.memory) <> None>>)).
+                 <<IN: Memory.get l t (snd (fst cSTM2)).(Configuration.memory) <> None>>)).
   revert FIND.
   apply Operators_Properties.clos_rt_rt1n_iff,
         Operators_Properties.clos_rt_rtn1_iff in PI_STEPS.
@@ -1180,17 +1180,17 @@ Qed.
 Lemma lift_step
       lang (thS1 thT1 thT2: @Thread.t lang) eT l t e
       (STEP: Thread.step true eT thT1 thT2)
-      (ST: thS1.(Thread.state) = thT1.(Thread.state))
-      (WFS1: Local.wf thS1.(Thread.local) thS1.(Thread.memory))
-      (WFT1: Local.wf thT1.(Thread.local) thT1.(Thread.memory))
-      (SCS1: Memory.closed_timemap thS1.(Thread.sc) thS1.(Thread.memory))
-      (SCT1: Memory.closed_timemap thT1.(Thread.sc) thT1.(Thread.memory))
-      (MEMS1: Memory.closed thS1.(Thread.memory))
-      (MEMT1: Memory.closed thT1.(Thread.memory))
-      (COM: TView.le thS1.(Thread.local).(Local.tview) thT1.(Thread.local).(Local.tview))
-      (PRM: thS1.(Thread.local).(Local.promises) = thT1.(Thread.local).(Local.promises))
-      (SC: TimeMap.le thS1.(Thread.sc) thT1.(Thread.sc))
-      (MEM: mem_eqlerel_lift l t thT1.(Thread.local).(Local.promises) e thS1.(Thread.memory) thT1.(Thread.memory))
+      (ST: (Thread.state thS1) = (Thread.state thT1))
+      (WFS1: Local.wf (Thread.local thS1) (Thread.memory thS1))
+      (WFT1: Local.wf (Thread.local thT1) (Thread.memory thT1))
+      (SCS1: Memory.closed_timemap (Thread.sc thS1) (Thread.memory thS1))
+      (SCT1: Memory.closed_timemap (Thread.sc thT1) (Thread.memory thT1))
+      (MEMS1: Memory.closed (Thread.memory thS1))
+      (MEMT1: Memory.closed (Thread.memory thT1))
+      (COM: TView.le (Local.tview (Thread.local thS1)) (Local.tview (Thread.local thT1)))
+      (PRM: (Local.promises (Thread.local thS1)) = (Local.promises (Thread.local thT1)))
+      (SC: TimeMap.le (Thread.sc thS1) (Thread.sc thT1))
+      (MEM: mem_eqlerel_lift l t (Local.promises (Thread.local thT1)) e (Thread.memory thS1) (Thread.memory thT1))
 :
   (exists loc ts from val relr relw ordr ordw,
    <<EVTR: ThreadEvent.is_reading eT = Some (loc, ts, val, relr, ordr)>> /\
@@ -1203,12 +1203,12 @@ Lemma lift_step
   \/
   (exists eS thS2,
    <<STEP: Thread.step true eS thS1 thS2>> /\
-   <<ST: thS2.(Thread.state) = thT2.(Thread.state)>> /\
-   <<PRM: thS2.(Thread.local).(Local.promises) = thT2.(Thread.local).(Local.promises)>> /\
+   <<ST: (Thread.state thS2) = (Thread.state thT2)>> /\
+   <<PRM: (Local.promises (Thread.local thS2)) = (Local.promises (Thread.local thT2))>> /\
    <<EVT: ThreadEvent.le eS eT>> /\
-   <<COM: TView.le thS2.(Thread.local).(Local.tview) thT2.(Thread.local).(Local.tview)>> /\
-   <<SC: TimeMap.le thS2.(Thread.sc) thT2.(Thread.sc)>> /\
-   <<MEM: mem_eqlerel_lift l t thT2.(Thread.local).(Local.promises) e thS2.(Thread.memory) thT2.(Thread.memory)>>).
+   <<COM: TView.le (Local.tview (Thread.local thS2)) (Local.tview (Thread.local thT2))>> /\
+   <<SC: TimeMap.le (Thread.sc thS2) (Thread.sc thT2)>> /\
+   <<MEM: mem_eqlerel_lift l t (Local.promises (Thread.local thT2)) e (Thread.memory thS2) (Thread.memory thT2)>>).
 Proof.
   inv STEP; [inv STEP0|inv STEP0; inv LOCAL]; ss.
   - symmetry in PF. apply promise_pf_inv in PF. des. subst.

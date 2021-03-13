@@ -280,7 +280,7 @@ Module Cell.
     WF: Raw.wf raw;
   }.
 
-  Definition get (ts:Time.t) (cell:t): option (Time.t * Message.t) := DOMap.find ts cell.(raw).
+  Definition get (ts:Time.t) (cell:t): option (Time.t * Message.t) := DOMap.find ts (raw cell).
 
   Lemma ext
         (lhs rhs:t)
@@ -385,7 +385,7 @@ Module Cell.
   Proof. eapply Raw.remove_o. eauto. Qed.
 
   Definition max_ts (cell:t): Time.t :=
-    DOMap.max_key cell.(raw).
+    DOMap.max_key (raw cell).
 
   Lemma max_ts_spec
         ts from msg cell
@@ -394,7 +394,7 @@ Module Cell.
     <<MAX: Time.le ts (max_ts cell)>>.
   Proof.
     unfold get in GET.
-    generalize (DOMap.max_key_spec cell.(Cell.raw)). i. des. splits; eauto.
+    generalize (DOMap.max_key_spec (Cell.raw cell)). i. des. splits; eauto.
     - destruct (DOMap.find
                   (DOMap.max_key (Cell.raw cell))
                   (Cell.raw cell)) as [[? []]|] eqn:X.
@@ -495,7 +495,7 @@ Module Cell.
     exfalso. exploit DISJOINT; eauto.
     - apply Interval.mem_ub. auto.
     - apply Interval.mem_ub.
-      destruct cell1.(Cell.WF). exploit VOLUME; eauto. i. des; ss.
+      destruct (Cell.WF cell1). exploit VOLUME; eauto. i. des; ss.
       inv x. inv TO.
   Qed.
 
@@ -507,7 +507,7 @@ Module Cell.
   Proof.
     inv SPLIT. splits; auto.
     destruct (get ts2 cell1) as [[]|] eqn:X; auto.
-    destruct cell1.(WF). exfalso. eapply DISJOINT.
+    destruct (WF cell1). exfalso. eapply DISJOINT.
     - apply X.
     - apply GET2.
     - ii. subst. eapply Time.lt_strorder. eauto.
@@ -579,7 +579,7 @@ Module Cell.
         from to val released (LT:Time.lt from to):
     remove (singleton val released LT) from to val released bot.
   Proof.
-    assert (Raw.bot = DOMap.remove to ((singleton val released LT).(raw))).
+    assert (Raw.bot = DOMap.remove to ((raw (singleton val released LT)))).
     { apply DOMap.eq_leibniz. ii.
       unfold Raw.bot. rewrite DOMap.gempty.
       rewrite DOMap.grspec. condtac; auto.

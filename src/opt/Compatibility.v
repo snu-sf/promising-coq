@@ -34,9 +34,9 @@ Definition SIM_REGS := forall (rs_src rs_tgt:RegFile.t), Prop.
 
 Inductive sim_terminal
           (sim_regs:SIM_REGS)
-          (st_src:lang.(Language.state)) (st_tgt:lang.(Language.state)): Prop :=
+          (st_src:(Language.state lang)) (st_tgt:(Language.state lang)): Prop :=
 | sim_terminal_intro
-    (REGS: sim_regs st_src.(State.regs) st_tgt.(State.regs))
+    (REGS: sim_regs (State.regs st_src) (State.regs st_tgt))
 .
 
 Definition sim_expr

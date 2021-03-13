@@ -403,8 +403,8 @@ Lemma promise_step_nonsynch_loc_inv
       (WF1: Local.wf lc1 mem1)
       (STEP: Local.promise_step lc1 mem1 loc from to val released lc2 mem2 kind)
       (NONPF: Memory.op_kind_is_lower kind = false \/ released <> None)
-      (NONSYNCH: Memory.nonsynch_loc l lc2.(Local.promises)):
-  Memory.nonsynch_loc l lc1.(Local.promises).
+      (NONSYNCH: Memory.nonsynch_loc l (Local.promises lc2)):
+  Memory.nonsynch_loc l (Local.promises lc1).
 Proof.
   guardH NONPF.
   ii. destruct msg.
@@ -523,10 +523,10 @@ Lemma reorder_nonpf_program
       e1 e2 th0 th1 th2
       (STEP1: @Thread.step lang false e1 th0 th1)
       (STEP2: Thread.program_step e2 th1 th2)
-      (CONS2: promise_consistent th2.(Thread.local))
-      (LOCAL: Local.wf th0.(Thread.local) th0.(Thread.memory))
-      (SC: Memory.closed_timemap th0.(Thread.sc) th0.(Thread.memory))
-      (MEMORY: Memory.closed th0.(Thread.memory)):
+      (CONS2: promise_consistent (Thread.local th2))
+      (LOCAL: Local.wf (Thread.local th0) (Thread.memory th0))
+      (SC: Memory.closed_timemap (Thread.sc th0) (Thread.memory th0))
+      (MEMORY: Memory.closed (Thread.memory th0)):
   exists th1',
      <<STEP1: Thread.program_step e2 th0 th1'>> /\
      <<STEP2: __guard__ (th2 = th1' \/ exists pf2' e2', Thread.promise_step pf2' e2' th1' th2)>>.
@@ -605,10 +605,10 @@ Lemma reorder_nonpf_pf
       e1 e2 th0 th1 th2
       (STEP1: @Thread.step lang false e1 th0 th1)
       (STEP2: Thread.step true e2 th1 th2)
-      (CONS2: promise_consistent th2.(Thread.local))
-      (LOCAL: Local.wf th0.(Thread.local) th0.(Thread.memory))
-      (SC: Memory.closed_timemap th0.(Thread.sc) th0.(Thread.memory))
-      (MEMORY: Memory.closed th0.(Thread.memory)):
+      (CONS2: promise_consistent (Thread.local th2))
+      (LOCAL: Local.wf (Thread.local th0) (Thread.memory th0))
+      (SC: Memory.closed_timemap (Thread.sc th0) (Thread.memory th0))
+      (MEMORY: Memory.closed (Thread.memory th0)):
   (exists pf2' e2',
       <<STEP: Thread.step pf2' e2' th0 th2>> /\
       <<EVENT: ThreadEvent.get_program e2' = ThreadEvent.get_program e2>>) \/

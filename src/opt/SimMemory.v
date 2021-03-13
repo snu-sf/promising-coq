@@ -79,7 +79,7 @@ Proof.
   inv SIM. destruct (COVER loc (Memory.max_timemap mem_src loc)) as [C1 C2].
   exploit C1; eauto.
   { econs; eauto. apply Interval.mem_ub.
-    destruct (mem_src loc).(Cell.WF). exploit VOLUME; eauto. i. des; auto.
+    destruct (Cell.WF (mem_src loc)). exploit VOLUME; eauto. i. des; auto.
     inv x. rewrite H1 in *. inv l.
   }
   i. inv x. inv ITV. destruct msg. ss.
