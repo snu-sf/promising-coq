@@ -36,7 +36,8 @@ Inductive Configuration_program_event c tid e : Prop :=
 | configuration_program_event_intro lang st st' lc
     (TH: IdentMap.find tid (Configuration.threads c) = Some (existT _ lang st, lc))
     (STATE: (Language.step lang) e st st').
-Hint Constructors Configuration_program_event.
+#[export]
+Hint Constructors Configuration_program_event: core.
 
 Inductive race_condition e1 e2 ord1 ord2 : Prop :=
 | race_condition_rw loc val1 val2
@@ -46,7 +47,8 @@ Inductive race_condition e1 e2 ord1 ord2 : Prop :=
     (EVENT1: ProgramEvent.is_writing e1 = Some (loc, val1, ord1))
     (EVENT2: ProgramEvent.is_writing e2 = Some (loc, val2, ord2))
 .
-Hint Constructors race_condition.
+#[export]
+Hint Constructors race_condition: core.
 
 Inductive race (c:Configuration.t) (ord1 ord2:Ordering.t): Prop :=
 | race_intro
@@ -57,7 +59,8 @@ Inductive race (c:Configuration.t) (ord1 ord2:Ordering.t): Prop :=
     (PROEVT2: Configuration_program_event c tid2 e2)
     (RACE: race_condition e1 e2 ord1 ord2)
 .
-Hint Constructors race.            
+#[export]
+Hint Constructors race: core.
 
 Definition pf_racefree (c1:Configuration.t): Prop :=
   forall c2 ordr ordw

@@ -225,14 +225,17 @@ Inductive pi_step_lift_except_aux l t (tid_except:Ident.t) e: (Configuration.t*C
     (TID: tid <> tid_except):
   pi_step_lift_except_aux l t tid_except e (cS1,cT1,M1) (cS2,cT2,M2)
 .
-Hint Constructors pi_step_lift_except_aux.
+#[export]
+Hint Constructors pi_step_lift_except_aux: core.
 
 Definition pi_step_lift_except l t tid_except := union (pi_step_lift_except_aux l t tid_except).
-Hint Unfold pi_step_lift_except.
+#[export]
+Hint Unfold pi_step_lift_except: core.
 
 Definition lift_view_le l t (msgs: list (Loc.t*Time.t)) loc ts cap1 cap2 : Prop :=
   cap1 = cap2 \/ (List.In (loc,ts) msgs /\ cap2 = Some (lift_view l t (View.unwrap cap1))).
-Hint Unfold lift_view_le.
+#[export]
+Hint Unfold lift_view_le: core.
 
 Global Program Instance lift_view_le_PreOrder l t msgs loc ts : PreOrder (lift_view_le l t msgs loc ts).
 Next Obligation.

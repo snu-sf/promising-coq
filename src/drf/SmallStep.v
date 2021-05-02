@@ -30,7 +30,8 @@ Inductive ftau T (step: forall (e:ThreadEvent.t) (e1 e2:T), Prop) (e:ThreadEvent
     (TSTEP: step e e1 e2)
     (EVENT: ThreadEvent.get_event e = None)
 .
-Hint Constructors ftau.
+#[export]
+Hint Constructors ftau: core.
 
 Inductive with_pre {A} {E} (step: E -> A -> A -> Prop) bs : option (A*E) ->  A -> Prop :=
 | swp_base:
@@ -41,7 +42,8 @@ Inductive with_pre {A} {E} (step: E -> A -> A -> Prop) bs : option (A*E) ->  A -
     (PSTEP: step e ms es):
   with_pre step bs (Some(ms,e)) es
 .
-Hint Constructors with_pre.
+#[export]
+Hint Constructors with_pre: core.
 
 Lemma with_pre_rtc_union
       A E (step: E -> A -> A -> Prop) c1 c2 pre
@@ -175,7 +177,8 @@ Inductive small_step (withprm: bool) (tid:Ident.t) (e:ThreadEvent.t) (c1:Configu
   :
   small_step withprm tid e c1 (Configuration.mk ths2 sc2 memory2)
 .
-Hint Constructors small_step.
+#[export]
+Hint Constructors small_step: core.
 
 Inductive small_opt_step withprm tid e: forall (c1 c2:Configuration.t), Prop :=
 | small_opt_step_none
@@ -190,11 +193,13 @@ Inductive small_opt_step withprm tid e: forall (c1 c2:Configuration.t), Prop :=
 
 Definition small_step_evt withprm (tid:Ident.t) (c1 c2:Configuration.t) : Prop :=
   union (small_step withprm tid) c1 c2.
-Hint Unfold small_step_evt.
+#[export]
+Hint Unfold small_step_evt: core.
 
 Definition small_step_all withprm (c1 c2:Configuration.t) : Prop :=
   union (small_step_evt withprm) c1 c2.
-Hint Unfold small_step_all.
+#[export]
+Hint Unfold small_step_all: core.
 
 Lemma small_step_evt_to_true
       withprm tid cST1 cST2

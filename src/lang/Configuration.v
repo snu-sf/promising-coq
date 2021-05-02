@@ -30,7 +30,8 @@ Inductive opt E T (step: forall (e:option E) (tid:Ident.t) (c1 c2:T), Prop):
     (STEP: step e tid c1 c2):
     opt step e tid c1 c2
 .
-Hint Constructors opt.
+#[export]
+Hint Constructors opt: core.
 
 
 Module Threads.

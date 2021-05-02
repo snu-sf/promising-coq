@@ -279,7 +279,8 @@ Inductive ctx (sim_thread:SIM_THREAD lang lang): SIM_THREAD lang lang :=
         (State.mk rs_src [Stmt.dowhile stmts_src cond_src]) lc_src sc0_src mem0_src
         (State.mk rs_tgt [Stmt.dowhile stmts_tgt cond_tgt]) lc_tgt sc0_tgt mem0_tgt
 .
-Hint Constructors ctx.
+#[export]
+Hint Constructors ctx: core.
 
 Lemma ctx_mon: monotone9 ctx.
 Proof.
@@ -290,7 +291,8 @@ Proof.
   - econs 4; eauto; eapply _sim_stmts_mon; eauto.
   - econs 5; eauto; eapply _sim_stmts_mon; eauto.
 Qed.
-Hint Resolve ctx_mon.
+#[export]
+Hint Resolve ctx_mon: core.
 
 
 Lemma ctx_wcompat: wcompatible9 (@_sim_thread lang lang) ctx.

@@ -30,7 +30,8 @@ Inductive ord_thread_step (ord:Ordering.t) (lang:language) (e:ThreadEvent.progra
     (LOCAL: Local.program_step e lc1 sc1 mem1 lc2 sc2 mem2):
     ord_thread_step ord e (Thread.mk lang st1 lc1 sc1 mem1) (Thread.mk lang st2 lc2 sc2 mem2)
 .
-Hint Constructors ord_thread_step.
+#[export]
+Hint Constructors ord_thread_step: core.
 
 Inductive ord_step (ord:Ordering.t) (e:ThreadEvent.program_t) (tid:Ident.t): forall (c1 c2:Configuration.t), Prop :=
 | ord_step_intro

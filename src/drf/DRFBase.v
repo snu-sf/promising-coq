@@ -22,15 +22,18 @@ Require Import Progress.
 
 Set Implicit Arguments.
 
-Hint Constructors Thread.program_step.
-Hint Constructors Thread.step.
+#[export]
+Hint Constructors Thread.program_step: core.
+#[export]
+Hint Constructors Thread.step: core.
 
 
 Inductive union {A} {E} (step: E -> A -> A -> Prop) (c1 c2: A) : Prop :=
 | step_evt_intro e
     (USTEP: step e c1 c2)
 .
-Hint Constructors union.
+#[export]
+Hint Constructors union: core.
 
 Inductive with_pre {A} {E} (step: E -> A -> A -> Prop) bs : option (A*E) ->  A -> Prop :=
 | swp_base:
@@ -41,7 +44,8 @@ Inductive with_pre {A} {E} (step: E -> A -> A -> Prop) bs : option (A*E) ->  A -
     (PSTEP: step e ms es):
   with_pre step bs (Some(ms,e)) es
 .
-Hint Constructors with_pre.
+#[export]
+Hint Constructors with_pre: core.
 
 Lemma with_pre_rtc_union
       A E (step: E -> A -> A -> Prop) c1 c2 pre
@@ -93,7 +97,8 @@ Definition mem_sub (cmp: Loc.t -> Time.t -> option View.t -> option View.t -> Pr
   <<CMP: cmp loc ts rel1 rel2>>.
 
 Definition loctmeq (l: Loc.t) (t: Time.t) (r1 r2: option View.t) : Prop := r1 = r2.
-Hint Unfold loctmeq.
+#[export]
+Hint Unfold loctmeq: core.
 
 Lemma local_simul_fence
       com prm prm' sc ordr ordw com' sc'

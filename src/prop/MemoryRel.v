@@ -32,7 +32,8 @@ Set Implicit Arguments.
 Definition VIEW_CMP := forall (loc:Loc.t) (ts:Time.t) (lhs rhs:option View.t), Prop.
 
 Definition loctmeq: VIEW_CMP := fun _ _ (r1 r2: option View.t) => r1 = r2.
-Hint Unfold loctmeq.
+#[export]
+Hint Unfold loctmeq: core.
 
 Definition mem_sub (cmp: VIEW_CMP) (m1 m2: Memory.t) : Prop :=
   forall loc ts from val rel1
@@ -44,11 +45,13 @@ Definition mem_sub (cmp: VIEW_CMP) (m1 m2: Memory.t) : Prop :=
 Definition mem_eqrel (cmp: VIEW_CMP) (m1 m2: Memory.t) : Prop :=
   <<LR: mem_sub cmp m1 m2>> /\
   <<RL: mem_sub (fun l t x y => cmp l t y x) m2 m1>>.
-Hint Unfold mem_eqrel.
+#[export]
+Hint Unfold mem_eqrel: core.
 
 Definition mem_eqlerel (m1 m2: Memory.t) : Prop :=
   mem_eqrel (fun _ _ => View.opt_le) m1 m2.
-Hint Unfold mem_eqlerel.
+#[export]
+Hint Unfold mem_eqlerel: core.
 
 Program Instance mem_eqlerel_PreOrder: PreOrder mem_eqlerel.
 Next Obligation.

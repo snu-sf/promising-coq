@@ -51,10 +51,12 @@ Section SimWhole.
     exploit STEP; eauto. i. des.
     esplits; eauto.
   Qed.
+  #[local]
   Hint Resolve _sim_whole_mon: paco.
 
   Definition sim_whole: SIM_WHOLE := paco2 _sim_whole bot2.
 End SimWhole.
+#[export]
 Hint Resolve _sim_whole_mon: paco.
 
 

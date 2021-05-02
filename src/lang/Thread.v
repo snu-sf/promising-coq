@@ -148,14 +148,16 @@ Inductive tau T (step: forall (e:ThreadEvent.t) (e1 e2:T), Prop) (e1 e2:T): Prop
     (TSTEP: step e e1 e2)
     (EVENT: ThreadEvent.get_event e = None)
 .
-Hint Constructors tau.
+#[export]
+Hint Constructors tau: core.
 
 Inductive union E T (step: forall (e:E) (e1 e2:T), Prop) (e1 e2:T): Prop :=
 | union_intro
     e
     (USTEP: step e e1 e2)
 .
-Hint Constructors union.
+#[export]
+Hint Constructors union: core.
 
 Lemma tau_mon T (step1 step2: forall (e:ThreadEvent.t) (e1 e2:T), Prop)
       (STEP: step1 <3= step2):
@@ -528,7 +530,8 @@ Module Thread.
         (LOCAL: Local.program_step e lc1 sc1 mem1 lc2 sc2 mem2):
         program_step e (mk st1 lc1 sc1 mem1) (mk st2 lc2 sc2 mem2)
     .
-    Hint Constructors program_step.
+    #[local]
+    Hint Constructors program_step: core.
 
     Inductive step: forall (pf:bool) (e:ThreadEvent.t) (e1 e2:t), Prop :=
     | step_promise
@@ -540,14 +543,16 @@ Module Thread.
         (STEP: program_step e e1 e2):
         step true e e1 e2
     .
-    Hint Constructors step.
+    #[local]
+    Hint Constructors step: core.
 
     Inductive step_allpf (e:ThreadEvent.t) (e1 e2:t): Prop :=
     | step_nopf_intro
         pf
         (STEP: step pf e e1 e2)
     .
-    Hint Constructors step_allpf.
+    #[local]
+    Hint Constructors step_allpf: core.
 
     Lemma allpf pf: step pf <3= step_allpf.
     Proof.
@@ -555,13 +560,16 @@ Module Thread.
     Qed.
 
     Definition pf_tau_step := tau (step true).
-    Hint Unfold pf_tau_step.
+    #[local]
+    Hint Unfold pf_tau_step: core.
 
     Definition tau_step := tau step_allpf.
-    Hint Unfold tau_step.
+    #[local]
+    Hint Unfold tau_step: core.
 
     Definition all_step := union step_allpf.
-    Hint Unfold all_step.
+    #[local]
+    Hint Unfold all_step: core.
 
     Inductive opt_step: forall (e:ThreadEvent.t) (e1 e2:t), Prop :=
     | step_none
@@ -572,7 +580,8 @@ Module Thread.
         (STEP: step pf e e1 e2):
         opt_step e e1 e2
     .
-    Hint Constructors opt_step.
+    #[local]
+    Hint Constructors opt_step: core.
 
     Definition consistent (e:t): Prop :=
       forall sc1 mem1

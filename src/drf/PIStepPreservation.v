@@ -55,7 +55,8 @@ Inductive can_fulfill_promises (tid: Ident.t) : Configuration.t -> Prop :=
               <<FULFILL2: can_fulfill_promises tid c2>>):
   can_fulfill_promises tid c1
 .
-Hint Constructors can_fulfill_promises.
+#[export]
+Hint Constructors can_fulfill_promises: core.
 
 Lemma rtc_small_step_fulfill
       tid loc ts c1 lst1 lc1 c2 lst2 lc2 from msg 
@@ -357,7 +358,8 @@ Definition pre_in_msgs A (pre: option (A * ThreadEvent.t)) msgs : Prop :=
     end
   | _ => True 
   end.
-Hint Unfold pre_in_msgs.
+#[export]
+Hint Unfold pre_in_msgs: core.
 
 Lemma key_lemma_core
   tid tid0 l t msgs e evt3 evt4 pre4'

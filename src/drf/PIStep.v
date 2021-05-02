@@ -7,10 +7,10 @@ From PromisingLib Require Import Axioms.
 From PromisingLib Require Import Basic.
 From PromisingLib Require Import DataStructure.
 From PromisingLib Require Import Loc.
+From PromisingLib Require Import Language.
 
 Require Import Time.
 Require Import Event.
-From PromisingLib Require Import Language.
 Require Import View.
 Require Import Cell.
 Require Import Memory.
@@ -45,22 +45,26 @@ Inductive pi_step withprm: Ident.t -> ThreadEvent.t -> Configuration.t*Configura
            ~ Threads.is_promised tid' loc ts' (Configuration.threads cT1)):
   pi_step withprm tid e (cS1,cT1) (cS2,cT2)
 .
-Hint Constructors pi_step.
+#[export]
+Hint Constructors pi_step: core.
 
 Definition pi_step_evt withprm tid cST1 cST2: Prop :=
   union (pi_step withprm tid) cST1 cST2.
-Hint Unfold pi_step_evt.
+#[export]
+Hint Unfold pi_step_evt: core.
 
 Definition pi_step_all withprm cST1 cST2: Prop :=
   union (pi_step_evt withprm) cST1 cST2.
-Hint Unfold pi_step_all.
+#[export]
+Hint Unfold pi_step_all: core.
 
 Inductive pi_step_except withprm (tid_except:Ident.t) cST1 cST2: Prop :=
 | pi_step_except_intro tid
     (PI_STEP: pi_step_evt withprm tid cST1 cST2)
     (TID: tid <> tid_except)
 .
-Hint Constructors pi_step_except.
+#[export]
+Hint Constructors pi_step_except: core.
 
 Definition remove_promise (th: {lang : language & Language.state lang} * Local.t) :=
   ((fst th), Local.mk (Local.tview (snd th)) Memory.bot).
@@ -81,7 +85,8 @@ Inductive pi_wf cmp: Configuration.t*Configuration.t -> Prop :=
          exists rel1, Memory.get loc ts (Configuration.memory cS) = Some (from, Message.mk val rel1) /\ <<CMP: cmp loc ts rel1 rel2>>):
   pi_wf cmp (cS,cT)
 .
-Hint Constructors pi_wf.
+#[export]
+Hint Constructors pi_wf: core.
 
 Inductive pi_consistent: Configuration.t*Configuration.t -> Prop :=
 | pi_consistent_intro cS1 cT1
@@ -97,7 +102,8 @@ Inductive pi_consistent: Configuration.t*Configuration.t -> Prop :=
     <<EVENT: ProgramEvent.is_writing e = Some (loc, val, ord)>> /\
     <<ORD: Ordering.le ord Ordering.relaxed>>):
   pi_consistent (cS1, cT1).
-Hint Constructors pi_consistent.
+#[export]
+Hint Constructors pi_consistent: core.
 
 Definition pi_pre_proj (pre: option (Configuration.t*Configuration.t*ThreadEvent.t)) := 
   option_map (fun p => ((snd (fst p)),(snd p))) pre.
@@ -707,7 +713,7 @@ Proof.
       subst. esplits; [|econs; try exact A23|]; eauto.
       econs; eauto. econs; econs.
       + instantiate (1 := e0).
-        inv STEP. inv STEP0; [by inv STEP|]. econs; eauto.
+        inv STEP. inv STEP0; [by inv STEP|]. econs; eauto. econs 2; eauto.
       + rewrite E0. eauto.
       + eauto.
       + ii. eapply NOWR0; eauto.
