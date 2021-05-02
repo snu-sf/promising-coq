@@ -335,7 +335,7 @@ Proof.
   - destruct c. eapply rtc_small_step_future; eauto.
   - s. rewrite IdentMap.gss. eauto.
   - ss. rewrite PROMISES. apply Cell.bot_get.
-Grab Existential Variables. exact true.
+Unshelve. exact true.
 Qed.
 
 Lemma promise_consistent_th_small_step_forward

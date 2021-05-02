@@ -299,17 +299,17 @@ Proof.
       - s. by rewrite !IdentMap.gss.
       - i. des; eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
     }
-Grab Existential Variables.
+Unshelve.
   { exact Time.bot. }
-  { exact xH. }
-  { exact xH. }
-  { exact xH. }
-  { exact xH. }
-  { exact xH. }
-  { exact xH. }
-  { exact xH. }
-  { exact xH. }
   { exact true. }
+  { exact xH. }
+  { exact xH. }
+  { exact xH. }
+  { exact xH. }
+  { exact xH. }
+  { exact xH. }
+  { exact xH. }
+  { exact xH. }
 Qed.
 
 Lemma small_step_evt_to_true

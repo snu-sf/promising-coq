@@ -346,7 +346,7 @@ Proof.
   - destruct lc4. eapply key_lemma_time_lt; eauto.
     inv WF4. inv WFT. eapply Local.read_step_future; eauto.
     eapply WF. eauto.
-Grab Existential Variables. exact true.
+Unshelve. exact true.
 Qed.
 
 Definition pre_in_msgs A (pre: option (A * ThreadEvent.t)) msgs : Prop :=
@@ -640,7 +640,7 @@ Proof.
     }
     eauto.
   }
-Grab Existential Variables.
+Unshelve.
 { exact xH. }
 { exact xH. }
 Qed.

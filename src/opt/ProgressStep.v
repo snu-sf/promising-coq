@@ -61,6 +61,6 @@ Proof.
       esplits. econs; [|econs 6]; eauto. econs. econs.
   - esplits. econs; [|econs 1]; eauto. econs.
   - esplits. econs; [|econs 1]; eauto. econs.
-Grab Existential Variables.
+Unshelve.
   { auto. }
 Qed.

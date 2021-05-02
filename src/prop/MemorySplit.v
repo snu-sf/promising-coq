@@ -51,7 +51,7 @@ Module MemorySplit.
       + econs. rewrite DOMap.gss. auto.
       + apply DOMap.eq_leibniz. ii.
         rewrite ? DOMap.grspec, DOMap.gsspec. condtac; auto.
-        Grab Existential Variables.
+        Unshelve.
         { eapply Cell.Raw.lower_wf; eauto.
           - econs; eauto.
           - apply mem0.

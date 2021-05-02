@@ -145,7 +145,7 @@ Proof.
     + auto.
     + left. eapply paco9_mon; [apply sim_fence_sim_thread|]; ss.
       econs; eauto.
-Grab Existential Variables.
-{ econs 2. }
+Unshelve.
 { econs. econs 3. }
+{ econs 2. }
 Qed.

@@ -130,9 +130,9 @@ Proof.
   }
   i. des.
   econs; [eauto|..]; s; eauto; etrans; eauto.
-Grab Existential Variables.
-{ econs 2. }
+Unshelve.
 { econs. econs 3. }
+{ econs 2. }
 Qed.
 
 Lemma sim_update_future
@@ -235,9 +235,9 @@ Proof.
       * apply Memory.max_timemap_spec; eauto. viewtac.
       * apply sim_memory_max_timemap; eauto.
     + apply Memory.max_timemap_closed. viewtac.
-Grab Existential Variables.
-{ econs 2. }
+Unshelve.
 { econs. econs 3. }
+{ econs 2. }
 Qed.
 
 Lemma sim_update_step
@@ -483,9 +483,9 @@ Proof.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
       * apply RegFun.add_add. ii. subst. apply REGS. apply RegSet.add_spec. auto.
       * etrans; eauto.
-Grab Existential Variables.
-{ econs 2. }
+Unshelve.
 { econs. econs 3. }
+{ econs 2. }
 Qed.
 
 Lemma sim_update_sim_thread:

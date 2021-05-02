@@ -1,4 +1,4 @@
-Require Import Omega.
+Require Import Lia.
 Require Import RelationClasses.
 
 From sflib Require Import sflib.
@@ -666,7 +666,7 @@ Proof.
         destruct pf; eauto. inv STEP0; ss. inv STEP1; ss.
       + rewrite COND. ss.
     - ss.
-    - omega.
+    - lia.
   }
   i. subst. inv PSTEP.
   { esplits; cycle 1.
@@ -675,7 +675,7 @@ Proof.
       + subst. eapply promise_consistent_th_small_step; eauto. by inv WF.
       + inv STEPT. ss. specialize (CONSIS tid0).
         ii. eapply CONSIS; eauto. s. rewrite IdentMap.gso; eauto.
-    - omega.
+    - lia.
   }
   inversion A12. inv PI_STEP. inv USTEP.
   destruct p.
@@ -757,7 +757,7 @@ Proof.
 
   exploit IH; try exact STEP2'; eauto.
   { eapply pi_step_future; try exact WF; eauto. }
-  i. des. esplits; [|econs; try exact STEPS0|]; eauto; omega.
+  i. des. esplits; [|econs; try exact STEPS0|]; eauto; lia.
 Qed.
 
 Lemma rtc_pi_step_remove_promises_aux

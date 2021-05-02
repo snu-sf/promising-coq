@@ -863,7 +863,7 @@ Proof.
     + apply TViewFacts.write_fence_sc_mon; [|refl|refl].
       apply ReorderTView.read_fence_write_tview; auto. apply WF0.
     + eapply ReorderTView.write_fence_write_sc; auto.
-Grab Existential Variables.
+Unshelve.
   { apply TimeMap.bot. }
 Qed.
 

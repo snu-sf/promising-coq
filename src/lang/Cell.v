@@ -413,7 +413,7 @@ Module Cell.
     exists cell2, add cell1 from to val released cell2.
   Proof.
     destruct cell1. eexists (mk _). unfold add. econs; eauto.
-  Grab Existential Variables.
+  Unshelve.
     eapply Raw.add_wf; eauto. econs; eauto.
   Qed.
 
@@ -448,7 +448,7 @@ Module Cell.
     exists cell2, split cell1 ts1 ts2 ts3 val2 val3 released2 released3 cell2.
   Proof.
     destruct cell1. eexists (mk _). unfold split. econs; eauto.
-  Grab Existential Variables.
+  Unshelve.
     eapply Raw.split_wf; eauto. econs; eauto.
   Qed.
 
@@ -470,7 +470,7 @@ Module Cell.
     exists cell2, lower cell1 from to val released1 released2 cell2.
   Proof.
     destruct cell1. eexists (mk _). unfold lower. econs; eauto.
-  Grab Existential Variables.
+  Unshelve.
     eapply Raw.lower_wf; eauto. econs; eauto.
   Qed.
 
@@ -596,7 +596,7 @@ Module Cell.
     exists cell2, remove cell1 from to val released cell2.
   Proof.
     eexists (mk _). destruct cell1. ss.
-    Grab Existential Variables.
+    Unshelve.
     { eapply Raw.remove_wf.
       - econs. eauto.
       - apply WF.

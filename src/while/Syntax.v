@@ -178,8 +178,8 @@ Module SyntaxNotations.
 
   Notation "'NOT' e" := (Instr.expr_op1 Op1.not e) (at level 41).
   Notation "e1 'ADD' e2" := (Instr.expr_op2 Op2.add e1 e2) (at level 41).
-  Notation "e1 'SUB' e2" := (Instr.expr_op2 Op2.sub e2 e2) (at level 41).
-  Notation "e1 'MUL' e2" := (Instr.expr_op2 Op2.mul e2 e2) (at level 41).
+  Notation "e1 'SUB' e2" := (Instr.expr_op2 Op2.sub e1 e2) (at level 41).
+  Notation "e1 'MUL' e2" := (Instr.expr_op2 Op2.mul e1 e2) (at level 41).
 
   Notation "'SKIP'" := (Instr.skip) (at level 42).
   Notation "'LET' lhs '::=' rhs" := (Instr.assign lhs rhs) (at level 42).

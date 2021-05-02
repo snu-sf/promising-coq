@@ -11,3 +11,4 @@ Makefile.coq.conf
 *.glob
 *.vok
 *.vos
+.lia.cache
