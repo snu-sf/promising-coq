@@ -1,6 +1,5 @@
-Require Import Omega.
-Require Import RelationClasses.
-
+From Stdlib Require Import Lia.
+From Stdlib Require Import RelationClasses.
 From sflib Require Import sflib.
 
 From PromisingLib Require Import Axioms.
@@ -8,19 +7,19 @@ From PromisingLib Require Import Basic.
 From PromisingLib Require Import DataStructure.
 From PromisingLib Require Import Loc.
 
-Require Import Time.
-Require Import Event.
+Require Import lang.Time.
+Require Import lang.Event.
 From PromisingLib Require Import Language.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import TView.
-Require Import Thread.
-Require Import Configuration.
-Require Import Progress.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.TView.
+Require Import lang.Thread.
+Require Import lang.Configuration.
+Require Import lang.Progress.
 
-Require Import MemoryRel.
-Require Import SmallStep.
+Require Import prop.MemoryRel.
+Require Import drf.SmallStep.
 
 Set Implicit Arguments.
 
@@ -36,8 +35,7 @@ Inductive Configuration_program_event c tid e : Prop :=
 | configuration_program_event_intro lang st st' lc
     (TH: IdentMap.find tid c.(Configuration.threads) = Some (existT _ lang st, lc))
     (STATE: lang.(Language.step) e st st').
-Hint Constructors Configuration_program_event.
-
+Hint Constructors Configuration_program_event : core.
 Inductive race_condition e1 e2 ord1 ord2 : Prop :=
 | race_condition_rw loc val1 val2
     (EVENT1: ProgramEvent.is_reading e1 = Some (loc, val1, ord1))
@@ -46,8 +44,7 @@ Inductive race_condition e1 e2 ord1 ord2 : Prop :=
     (EVENT1: ProgramEvent.is_writing e1 = Some (loc, val1, ord1))
     (EVENT2: ProgramEvent.is_writing e2 = Some (loc, val2, ord2))
 .
-Hint Constructors race_condition.
-
+Hint Constructors race_condition : core.
 Inductive race (c:Configuration.t) (ord1 ord2:Ordering.t): Prop :=
 | race_intro
     tid1 e1
@@ -57,8 +54,7 @@ Inductive race (c:Configuration.t) (ord1 ord2:Ordering.t): Prop :=
     (PROEVT2: Configuration_program_event c tid2 e2)
     (RACE: race_condition e1 e2 ord1 ord2)
 .
-Hint Constructors race.            
-
+Hint Constructors race : core.
 Definition pf_racefree (c1:Configuration.t): Prop :=
   forall c2 ordr ordw
     (STEPS: rtc (small_step_all false) c1 c2)

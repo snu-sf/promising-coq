@@ -8,3 +8,12 @@ Makefile.coq.conf
 *.vio
 *.v.d
 *.glob
+*.vos
+*.vok
+.lia.cache
+
+*~
+*.aux
+
+_build/
+_opam/

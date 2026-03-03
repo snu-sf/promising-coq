@@ -1,6 +1,5 @@
-Require Import Omega.
-Require Import RelationClasses.
-
+From Stdlib Require Import Lia.
+From Stdlib Require Import RelationClasses.
 From sflib Require Import sflib.
 
 From PromisingLib Require Import Axioms.
@@ -8,24 +7,24 @@ From PromisingLib Require Import Basic.
 From PromisingLib Require Import DataStructure.
 From PromisingLib Require Import Loc.
 
-Require Import Time.
-Require Import Event.
+Require Import lang.Time.
+Require Import lang.Event.
 From PromisingLib Require Import Language.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import TView.
-Require Import Thread.
-Require Import Configuration.
-Require Import Progress.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.TView.
+Require Import lang.Thread.
+Require Import lang.Configuration.
+Require Import lang.Progress.
 
-Require Import MemoryRel.
-Require Import SmallStep.
-Require Import Fulfilled.
-Require Import ReorderPromise.
-Require Import Race.
-Require Import PromiseConsistent.
-Require Import PIStep.
+Require Import prop.MemoryRel.
+Require Import drf.SmallStep.
+Require Import drf.Fulfilled.
+Require Import prop.ReorderPromise.
+Require Import drf.Race.
+Require Import drf.PromiseConsistent.
+Require Import drf.PIStep.
 
 Set Implicit Arguments.
 
@@ -43,10 +42,10 @@ Lemma pi_consistent_lang_step_pi_rw
       tid cST1 cST2
       (WF: pi_wf loctmeq cST1)
       (PI_CONSISTENT: pi_consistent cST1)
-      (PI_RACEFREE: pf_racefree cST1.(fst))
+      (PI_RACEFREE: pf_racefree (fst cST1))
       (PI_STEPS: rtc (pi_step_evt true tid) cST1 cST2)
-      (PRCONS: forall tid0, promise_consistent_th tid0 cST2.(snd)):
-  ~ is_reading_writing_promise_except tid cST2.(snd).
+      (PRCONS: forall tid0, promise_consistent_th tid0 (snd cST2)):
+  ~ is_reading_writing_promise_except tid (snd cST2).
 Proof.
   ii. inv H. inv PROM.
   inv PI_CONSISTENT. ss.
@@ -67,23 +66,23 @@ Proof.
 
   clear CONSIS. i. des.
   exploit (PI_RACEFREE cS3 ord ord0).
-  { etrans. 
-    - eapply rtc_implies; [by i; econs; eapply H|].
-      by eapply pi_steps_small_steps_fst in PI_STEPS; eauto.
-    - eapply rtc_implies, STEPS. by econs; eauto.
+  { etrans.
+    - eapply rtc_implies; [sfby i; econs; eapply H|].
+      sfby eapply pi_steps_small_steps_fst in PI_STEPS; eauto.
+    - eapply rtc_implies, STEPS. sfby econs; eauto.
   }
   { hexploit rtc_pi_step_future; [| |eapply rtc_implies; [eapply (@pi_step_evt_all_incl true)|]|]; eauto.
     i; des. clear FUTURES FUTURET.
     assert (LC1: exists lc1', IdentMap.find tid (Configuration.threads cS3) = Some (existT _ lang st1, lc1')).
     { erewrite <-rtc_small_step_find; eauto.
       inv WF2. rewrite THS. unfold remove_promise.
-      setoid_rewrite IdentMap.Properties.F.map_o. 
+      setoid_rewrite IdentMap.Properties.F.map_o.
       destruct (IdentMap.find tid (Configuration.threads cT2)) as [[]|]; [|done].
       inv ST1. s. eauto.
     }
     des.
     econs; cycle 1.
-    - econs; [by eauto|]. rdes RW; eauto.
+    - econs; [sfby eauto|]. rdes RW; eauto.
     - eauto.
     - rdes RW; eauto.
     - eauto.
@@ -95,24 +94,24 @@ Lemma pi_consistent_small_step_pi_rw
       e tid cST1 cST2 cT3 withprm
       (WF: pi_wf loctmeq cST1)
       (PI_CONSISTENT: pi_consistent cST1)
-      (PI_RACEFREE: pf_racefree cST1.(fst))
+      (PI_RACEFREE: pf_racefree (fst cST1))
       (PI_STEPS: rtc (pi_step_evt true tid) cST1 cST2)
-      (STEP: small_step withprm tid e cST2.(snd) cT3)
+      (STEP: small_step withprm tid e (snd cST2) cT3)
       (PRCONS: forall tid0, promise_consistent_th tid0 cT3):
   forall loc from to val rel ord tid' ts
     (NEQ: tid <> tid')
     (RW: ThreadEvent.is_reading e = Some (loc, to, val, rel, ord) \/
          ThreadEvent.is_writing e = Some (loc, from, to, val, rel, ord)),
-  ~Threads.is_promised tid' loc ts cST2.(snd).(Configuration.threads).
+  ~Threads.is_promised tid' loc ts (snd cST2).(Configuration.threads).
 Proof.
   ii. guardH RW.
   eapply pi_consistent_lang_step_pi_rw; eauto.
   - hexploit rtc_pi_step_future; [| |eapply rtc_implies; [eapply (@pi_step_evt_all_incl true)|]|]; eauto.
     i; des. clear FUTURES FUTURET. inv WF2.
     eauto using promise_consistent_th_small_step_backward.
-  - inv STEP. inv STEP0; inv STEP; [by rdes RW; inv RW|].
+  - inv STEP. inv STEP0; inv STEP; [sfby rdes RW; inv RW|].
     econs; eauto.
-    + by rewrite TID.
+    + sfby rewrite TID.
     + destruct e0; rdes RW; inv RW; s; eauto.
 Qed.
 
@@ -120,11 +119,11 @@ Lemma pi_consistent_small_step_pi
       e tid cST1 cST2 cT3 withprm
       (WF: pi_wf loctmeq cST1)
       (PI_CONSISTENT: pi_consistent cST1)
-      (PI_RACEFREE: pf_racefree cST1.(fst))
+      (PI_RACEFREE: pf_racefree (fst cST1))
       (PI_STEPS: rtc (pi_step_evt true tid) cST1 cST2)
-      (STEP: small_step withprm tid e cST2.(snd) cT3)
+      (STEP: small_step withprm tid e (snd cST2) cT3)
       (FULFILL: promise_consistent_th tid cT3)
-      (PRCONSIS: forall tid0, promise_consistent_th tid0 cST1.(snd)):
+      (PRCONSIS: forall tid0, promise_consistent_th tid0 (snd cST1)):
   exists cS3, pi_step withprm tid e cST2 (cS3,cT3).
 Proof.
   destruct cST1 as [cS1 cT1], cST2 as [cS2 cT2].
@@ -154,31 +153,31 @@ Proof.
 
   exploit rtc_pi_step_future; [| |eapply rtc_implies; [eapply pi_step_evt_all_incl|]|]; eauto.
   i; des. destruct cS2. inv WF2. ss. assert (MSTEP:=STEP). inv STEP. inv STEP0.
-  - eexists. econs; [by eauto|by inv STEP; s; eauto|..].
+  - eexists. econs; [sfby eauto|sfby inv STEP; s; eauto|..].
     + inv STEP. ss. rewrite IdentMap.gss.
       setoid_rewrite IdentMap.Properties.F.map_o.
-      by rewrite TID.
+      sfby rewrite TID.
     + i. des; eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
   - inv STEP. inv LOCAL.
     { eexists. econs.
       - eauto.
       - econs.
         + ss. setoid_rewrite IdentMap.Properties.F.map_o.
-          by rewrite TID.
+          sfby rewrite TID.
         + econs 2. econs; [|econs 1]; eauto.
         + eauto.
         + eauto.
-      - s. by rewrite !IdentMap.gss.
+      - s. sfby rewrite !IdentMap.gss.
       - i. des; eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
     }
     { inv LOCAL0. eexists. econs.
       - econs; eauto. econs 2. econs; [|econs 2]; eauto. econs; eauto.
       - econs.
         + ss. setoid_rewrite IdentMap.Properties.F.map_o.
-          by rewrite TID.
+          sfby rewrite TID.
         + econs 2. econs; [|econs 2]; eauto.
           econs; eauto.
-          s. hexploit RL; [| |by intro X; des; unfold loctmeq in *; subst; apply X]; eauto.
+          s. hexploit RL; [| |sfby intro X; des; unfold loctmeq in *; subst; apply X]; eauto.
           i. destruct (Ident.eq_dec tid tid0) eqn: EQ; cycle 1.
           { eapply RW; s; eauto. }
           subst. intro PROMISED. inv PROMISED.
@@ -196,14 +195,14 @@ Proof.
             eapply Time.lt_strorder. eauto.
         + eauto.
         + eauto.
-      - s. by rewrite !IdentMap.gss.
+      - s. sfby rewrite !IdentMap.gss.
       - i. des; eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
     }
-    { destruct lc1, lc2. exploit local_simul_write; [| |by eapply LOCAL0|..].
+    { destruct lc1, lc2. exploit local_simul_write; [| |sfby eapply LOCAL0|..].
       { instantiate (1:= memory). ii. eapply LR in IN.
         des; eauto. }
-      { econs. i. destruct msg1. exploit LR; eauto. i. des.
-        inv WFT. inv WF1. exploit THREADS; eauto. i. inv x. ss.
+      { econs. i. destruct msg1. exploit LR; eauto. intro x. des.
+        inv WFT. inv WF1. exploit THREADS; eauto. intro x. inv x. ss.
         exploit PROMISES; eauto. i.
         destruct (Time.eq_dec to1 to2); cycle 1.
         { destruct (Configuration.memory cT2 loc0).(Cell.WF). splits.
@@ -213,20 +212,20 @@ Proof.
         subst. exfalso. eapply NOT. econs; eauto.
       }
       intro WRITE; des.
-      eexists; econs. 
+      eexists; econs.
       - eauto.
       - s. econs; s; eauto.
-        + setoid_rewrite IdentMap.Properties.F.map_o. by rewrite TID.
+        + setoid_rewrite IdentMap.Properties.F.map_o. sfby rewrite TID.
         + rewrite Bool.orb_true_r. econs 2. econs; [|econs 3]; eauto.
-      - s. by rewrite !IdentMap.gss.
+      - s. sfby rewrite !IdentMap.gss.
       - i. des; eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
     }
-    { destruct lc2, lc3. exploit local_simul_write; [| |by eapply LOCAL2|..].
+    { destruct lc2, lc3. exploit local_simul_write; [| |sfby eapply LOCAL2|..].
       { instantiate (1:= memory). ii. eapply LR in IN.
         des; eauto. }
       { inv LOCAL1. ss.
-        econs. i. destruct msg1. exploit LR; eauto. i. des.
-        inv WFT. inv WF1. exploit THREADS; eauto. i. inv x.
+        econs. i. destruct msg1. exploit LR; eauto. intro x. des.
+        inv WFT. inv WF1. exploit THREADS; eauto. intro x. inv x.
         exploit PROMISES; eauto. i.
         destruct (Time.eq_dec to1 to2); cycle 1.
         { destruct (Configuration.memory cT2 loc0).(Cell.WF). splits.
@@ -241,11 +240,11 @@ Proof.
       - econs; eauto. econs 2. econs; [|econs 4]; eauto; econs; eauto.
       - s. econs.
         + ss. setoid_rewrite IdentMap.Properties.F.map_o.
-          by rewrite TID.
-        + econs 2. econs; [|econs 4]; [by eauto|..].
-          { 
+          sfby rewrite TID.
+        + econs 2. econs; [|econs 4]; [sfby eauto|..].
+          {
             econs; eauto.
-            s. hexploit RL; [| |by intro X; des; unfold loctmeq in *; subst; apply X]; eauto.
+            s. hexploit RL; [| |sfby intro X; des; unfold loctmeq in *; subst; apply X]; eauto.
             i. destruct (Ident.eq_dec tid tid0) eqn: EQ; cycle 1.
             { eapply RW; s; eauto. }
             subst. intro PROMISED. inv PROMISED.
@@ -270,46 +269,46 @@ Proof.
           { eauto. }
         + eauto.
         + eauto.
-      - s. by rewrite !IdentMap.gss.
+      - s. sfby rewrite !IdentMap.gss.
       - i. des; eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
     }
     { inv LOCAL0. eexists. econs.
       - econs; eauto. econs 2. econs; [|econs 5]; eauto. econs; eauto.
       - econs.
         + ss. setoid_rewrite IdentMap.Properties.F.map_o.
-          by rewrite TID.
+          sfby rewrite TID.
         + econs 2. econs; [|econs 5]; eauto.
           econs; eauto.
           s. i. apply Memory.bot_nonsynch.
         + eauto.
         + eauto.
-      - s. by rewrite !IdentMap.gss.
+      - s. sfby rewrite !IdentMap.gss.
       - i. des; eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
     }
     { inv LOCAL0. eexists. econs.
       - econs; eauto. econs 2. econs; [|econs 6]; eauto. econs; eauto.
       - econs.
         + ss. setoid_rewrite IdentMap.Properties.F.map_o.
-          by rewrite TID.
+          sfby rewrite TID.
         + econs 2. econs; [|econs 6]; eauto.
           econs; eauto.
           s. i. apply Memory.bot_nonsynch.
         + eauto.
         + eauto.
-      - s. by rewrite !IdentMap.gss.
+      - s. sfby rewrite !IdentMap.gss.
       - i. des; eapply (@pi_consistent_small_step_pi_rw _ _ _ (_,_)); s; try apply MSTEP; try apply PI_CONSISTENT; eauto.
     }
-Grab Existential Variables.
+Unshelve.
   { exact Time.bot. }
-  { exact xH. }
-  { exact xH. }
-  { exact xH. }
-  { exact xH. }
-  { exact xH. }
-  { exact xH. }
-  { exact xH. }
-  { exact xH. }
   { exact true. }
+  { exact Time.bot. }
+  { exact Time.bot. }
+  { exact Time.bot. }
+  { exact Time.bot. }
+  { exact Time.bot. }
+  { exact Time.bot. }
+  { exact Time.bot. }
+  { exact Time.bot. }
 Qed.
 
 Lemma small_step_evt_to_true
@@ -318,7 +317,7 @@ Lemma small_step_evt_to_true
   small_step_evt true tid cST1 cST2.
 Proof.
   destruct withprm; eauto.
-  inv STEP. inv USTEP. 
+  inv STEP. inv USTEP.
   econs. econs; eauto.
 Qed.
 
@@ -326,12 +325,12 @@ Lemma pi_consistent_rtc_small_step_pi
       tid cST1 cST2 withprm
       (WF: pi_wf loctmeq cST1)
       (PI_CONSISTENT: pi_consistent cST1)
-      (PI_RACEFREE: pf_racefree cST1.(fst))
+      (PI_RACEFREE: pf_racefree (fst cST1))
       (PI_STEPS: rtc (pi_step_evt true tid) cST1 cST2)
       cT3 pre
-      (STEP: with_pre (small_step withprm tid) cST2.(snd) pre cT3)
+      (STEP: with_pre (small_step withprm tid) (snd cST2) pre cT3)
       (FULFILL: forall tid0, promise_consistent_th tid0 cT3):
-  exists cS3 pre', with_pre (pi_step withprm tid) cST2 pre' (cS3,cT3) /\ 
+  exists cS3 pre', with_pre (pi_step withprm tid) cST2 pre' (cS3,cT3) /\
                    pre = pi_pre_proj pre'.
 Proof.
   destruct cST2 as [cS2 cT2].
@@ -356,10 +355,10 @@ Proof.
 
   intro STEPS. des. ss.
   eapply (@pi_consistent_small_step_pi _ _ _ (_,_)) in PSTEP; eauto; cycle 1.
-  { etrans; eauto. subst. 
+  { etrans; eauto. subst.
     eapply rtc_implies; [eapply pi_step_evt_to_true|].
     eapply with_pre_rtc_union; eauto. }
-  { eapply (@rtc_promise_consistent_th_small_step_backward true); try apply FULFILL. 
+  { eapply (@rtc_promise_consistent_th_small_step_backward true); try apply FULFILL.
     - etrans.
       + eapply pi_steps_small_steps_snd. eauto.
       + eapply rtc_implies; [eapply small_step_evt_to_true|].
@@ -374,10 +373,10 @@ Lemma pi_consistent_rtc_ftau_small_step_pi
       (WF: pi_wf loctmeq cST1)
       (CONSISTENT: Configuration.consistent (snd cST1))
       (PI_CONSISTENT: pi_consistent cST1)
-      (PI_RACEFREE: pf_racefree cST1.(fst))
+      (PI_RACEFREE: pf_racefree (fst cST1))
       (PI_STEPS: rtc (pi_step_evt true tid) cST1 cST2)
       cT3 pre
-      (STEP: with_pre (ftau (small_step withprm tid)) cST2.(snd) pre cT3)
+      (STEP: with_pre (ftau (small_step withprm tid)) (snd cST2) pre cT3)
       (FULFILL: forall tid0, promise_consistent_th tid0 cT3):
   exists cS3 pre', with_pre (ftau (pi_step withprm tid)) cST2 pre' (cS3,cT3) /\
                    pre = pi_pre_proj pre'.
@@ -426,15 +425,15 @@ Theorem pi_consistent_step_pi
       cST1 cT3 e tid
       (WF: pi_wf loctmeq cST1)
       (PI_CONSISTENT: pi_consistent cST1)
-      (CONSISTENT: Configuration.consistent cST1.(snd))
-      (PI_RACEFREE: pf_racefree cST1.(fst))
-      (STEP: Configuration.step e tid cST1.(snd) cT3):
+      (CONSISTENT: Configuration.consistent (snd cST1))
+      (PI_RACEFREE: pf_racefree (fst cST1))
+      (STEP: Configuration.step e tid (snd cST1) cT3):
   exists cST2 cS3 te,
     <<STEPS: rtc (tau (pi_step true tid)) cST1 cST2>> /\
     <<STEP: (pi_step true tid te) cST2 (cS3,cT3)>> /\
     <<EVENT: ThreadEvent.get_event te = e>>.
 Proof.
-  exploit step_small_steps; eauto; [by inv WF|]. i. des. subst.
+  exploit step_small_steps; eauto; [sfby inv WF|]. i. des. subst.
   eapply rtc_tau_with_pre in STEPS. des.
   exploit pi_consistent_rtc_ftau_small_step_pi; eauto.
   { eauto using consistent_promise_consistent_th, promise_consistent_th_small_step_backward. }

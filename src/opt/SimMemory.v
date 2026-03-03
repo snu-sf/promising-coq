@@ -1,7 +1,6 @@
-Require Import RelationClasses.
-Require Import Bool.
-Require Import List.
-
+From Stdlib Require Import RelationClasses.
+From Stdlib Require Import Bool.
+From Stdlib Require Import List.
 From sflib Require Import sflib.
 From Paco Require Import paco.
 
@@ -9,17 +8,17 @@ From PromisingLib Require Import Axioms.
 From PromisingLib Require Import Basic.
 From PromisingLib Require Import Loc.
 
-Require Import Event.
+Require Import lang.Event.
 From PromisingLib Require Import DenseOrder.
-Require Import Time.
+Require Import lang.Time.
 From PromisingLib Require Import Language.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import MemoryFacts.
-Require Import TView.
-Require Import Thread.
-Require Import Configuration.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.MemoryFacts.
+Require Import lang.TView.
+Require Import lang.Thread.
+Require Import lang.Configuration.
 
 Set Implicit Arguments.
 
@@ -41,6 +40,7 @@ Inductive sim_memory (mem_src mem_tgt:Memory.t): Prop :=
           <<RELEASED: View.opt_le released_src released_tgt>>)
 .
 
+#[global]
 Program Instance sim_memory_PreOrder: PreOrder sim_memory.
 Next Obligation.
   econs; try refl. i. esplits; eauto. refl.
@@ -71,7 +71,7 @@ Lemma sim_memory_max_timemap
       (SIM: sim_memory mem_src mem_tgt):
   TimeMap.le (Memory.max_timemap mem_src) (Memory.max_timemap mem_tgt).
 Proof.
-  apply Memory.max_timemap_spec'; try by apply CLOSED_TGT; auto. i.
+  apply Memory.max_timemap_spec'; try sfby apply CLOSED_TGT; auto. i.
   destruct (Time.le_lt_dec (Memory.max_timemap mem_src loc) Time.bot).
   { esplits; eauto. apply CLOSED_TGT. }
   exploit Memory.max_timemap_closed; try apply CLOSED_SRC; eauto.
@@ -79,10 +79,10 @@ Proof.
   inv SIM. destruct (COVER loc (Memory.max_timemap mem_src loc)) as [C1 C2].
   exploit C1; eauto.
   { econs; eauto. apply Interval.mem_ub.
-    destruct (mem_src loc).(Cell.WF). exploit VOLUME; eauto. i. des; auto.
+    destruct (mem_src loc).(Cell.WF). exploit VOLUME; eauto. intro x. des; auto.
     inv x. rewrite H1 in *. inv l.
   }
-  i. inv x. inv ITV. destruct msg. ss.
+  i. inv x1. inv ITV. destruct msg. ss.
   esplits; eauto.
 Qed.
 
@@ -122,7 +122,7 @@ Lemma covered_disjoint
 Proof.
   ii. exploit COVER; eauto.
   { econs; eauto. }
-  i. inv x0. eapply DISJOINT; eauto.
+  i. inv x1. eapply DISJOINT; eauto.
 Qed.
 
 Lemma get_disjoint_covered_disjoint
@@ -237,7 +237,7 @@ Lemma sim_memory_add
 Proof.
   inv SIM. econs.
   - i. rewrite add_covered; [|eauto]. rewrite (@add_covered mem2_tgt); [|eauto].
-    econs; i; des; (try by right).
+    econs; i; des; (try sfby right).
     + left. eapply COVER. eauto.
     + left. eapply COVER. eauto.
   - i. revert GET. erewrite Memory.add_o; eauto. condtac; ss.

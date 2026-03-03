@@ -1,6 +1,5 @@
-Require Import Omega.
-Require Import RelationClasses.
-
+From Stdlib Require Import Lia.
+From Stdlib Require Import RelationClasses.
 From sflib Require Import sflib.
 From Paco Require Import paco.
 
@@ -9,22 +8,22 @@ From PromisingLib Require Import Basic.
 From PromisingLib Require Import DataStructure.
 From PromisingLib Require Import Loc.
 
-Require Import Time.
-Require Import Event.
+Require Import lang.Time.
+Require Import lang.Event.
 From PromisingLib Require Import Language.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import MemoryFacts.
-Require Import TView.
-Require Import Thread.
-Require Import Configuration.
-Require Import Progress.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.MemoryFacts.
+Require Import lang.TView.
+Require Import lang.Thread.
+Require Import lang.Configuration.
+Require Import lang.Progress.
 
-Require Import FulfillStep.
-Require Import MemoryReorder.
-Require Import MemorySplit.
-Require Import MemoryMerge.
+Require Import opt.FulfillStep.
+Require Import prop.MemoryReorder.
+Require Import prop.MemorySplit.
+Require Import prop.MemoryMerge.
 
 Set Implicit Arguments.
 
@@ -32,8 +31,7 @@ Set Implicit Arguments.
 Definition VIEW_CMP := forall (loc:Loc.t) (ts:Time.t) (lhs rhs:option View.t), Prop.
 
 Definition loctmeq: VIEW_CMP := fun _ _ (r1 r2: option View.t) => r1 = r2.
-Hint Unfold loctmeq.
-
+Hint Unfold loctmeq : core.
 Definition mem_sub (cmp: VIEW_CMP) (m1 m2: Memory.t) : Prop :=
   forall loc ts from val rel1
     (IN: Memory.get loc ts m1 = Some (from, Message.mk val rel1)),
@@ -44,12 +42,11 @@ Definition mem_sub (cmp: VIEW_CMP) (m1 m2: Memory.t) : Prop :=
 Definition mem_eqrel (cmp: VIEW_CMP) (m1 m2: Memory.t) : Prop :=
   <<LR: mem_sub cmp m1 m2>> /\
   <<RL: mem_sub (fun l t x y => cmp l t y x) m2 m1>>.
-Hint Unfold mem_eqrel.
-
+Hint Unfold mem_eqrel : core.
 Definition mem_eqlerel (m1 m2: Memory.t) : Prop :=
   mem_eqrel (fun _ _ => View.opt_le) m1 m2.
-Hint Unfold mem_eqlerel.
-
+Hint Unfold mem_eqlerel : core.
+#[global]
 Program Instance mem_eqlerel_PreOrder: PreOrder mem_eqlerel.
 Next Obligation.
   ii. econs; ii; esplits; eauto; refl.
@@ -137,7 +134,7 @@ Lemma mem_eqrel_memory_op
       (OP2: Memory.op m2 loc from to val released2 m2' kind2):
   Memory.op_kind_match kind1 kind2.
 Proof.
-  inv OP1; inv OP2; try by econs.
+  inv OP1; inv OP2; try sfby econs.
   - exploit Memory.split_get0; eauto. i. des.
     apply EQMEM in GET3. des.
     inv ADD. inv ADD0. exfalso. eapply DISJOINT; eauto.
@@ -153,7 +150,7 @@ Proof.
     + inv SPLIT. inv SPLIT0. econs; auto. left. auto.
   - exploit Memory.split_get0; try exact SPLIT; eauto. i. des.
     apply EQMEM in GET3. des.
-    exploit Memory.split_get0; eauto. i. des.
+    exploit Memory.split_get0; eauto. intro x. des.
     exploit MemoryFacts.get_same_from; [exact IN|exact GET3|..].
     { ii. subst. inv SPLIT. inv SPLIT1. inv TS23. }
     { ii. subst. inv SPLIT0. inv SPLIT1. inv TS23. }
@@ -179,7 +176,7 @@ Lemma mem_eqlerel_add
     <<MEMLE': mem_eqlerel m1' m2'>>.
 Proof.
   exploit (@Memory.add_exists m1 loc from to);
-    try by inv ADD2; inv ADD; eauto.
+    try sfby inv ADD2; inv ADD; eauto.
   { i. destruct msg2. eapply MEMLE in GET2. des.
     inv ADD2. inv ADD. eapply DISJOINT. eauto.
   }
@@ -208,7 +205,7 @@ Lemma mem_eqlerel_split
 Proof.
   exploit Memory.split_get0; eauto. i. des. apply PRM1 in GET3.
   exploit (@Memory.split_exists m1 loc ts1 ts2 ts3);
-    try by inv SPLIT2; inv SPLIT; eauto. i. des.
+    try sfby inv SPLIT2; inv SPLIT; eauto. i. des.
   esplits; eauto.
   econs; splits; ii; revert IN.
   - erewrite Memory.split_o; eauto. erewrite (@Memory.split_o m2'); eauto.
@@ -236,7 +233,7 @@ Lemma mem_eqlerel_lower
 Proof.
   exploit Memory.lower_get0; eauto. i. apply PRM1 in x0.
   exploit (@Memory.lower_exists m1 loc from to val released1 released2);
-    try by inv LOWER2; inv LOWER; eauto; try by viewtac. i. des.
+    try sfby inv LOWER2; inv LOWER; eauto; try sfby viewtac. i. des.
   esplits; eauto.
   econs; esplits; ii; revert IN.
   - erewrite Memory.lower_o; eauto. erewrite (@Memory.lower_o m2'); eauto.
@@ -280,7 +277,7 @@ Lemma mem_eqlerel_add_forward
     <<MEMLE': mem_eqlerel m2' m1'>>.
 Proof.
   exploit (@Memory.add_exists m1 loc from to); eauto;
-    try by inv ADD2; inv ADD; eauto.
+    try sfby inv ADD2; inv ADD; eauto.
   { i. destruct msg2. eapply MEMLE in GET2. des.
     inv ADD2. inv ADD. eapply DISJOINT. eauto.
   }
@@ -310,7 +307,7 @@ Proof.
   exploit Memory.split_get0; eauto. i. des.
   apply MEMLE in GET3. i. des.
   exploit (@Memory.split_exists m1 loc ts1 ts2 ts3); eauto;
-    try by inv SPLIT2; inv SPLIT; eauto. i. des.
+    try sfby inv SPLIT2; inv SPLIT; eauto. i. des.
   esplits; eauto.
   econs; splits; ii; revert IN0.
   - erewrite Memory.split_o; eauto. erewrite (@Memory.split_o mem2); eauto.
@@ -337,7 +334,7 @@ Proof.
   exploit Memory.lower_get0; eauto. i.
   apply MEMLE in x0. des.
   exploit (@Memory.lower_exists m1 loc from to val rel2 released2); eauto;
-    try by inv LOWER2; inv LOWER; eauto; try by viewtac.
+    try sfby inv LOWER2; inv LOWER; eauto; try sfby viewtac.
   { etrans; eauto. inv LOWER2. inv LOWER. auto. }
   i. des.
   esplits; eauto.

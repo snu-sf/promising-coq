@@ -1,6 +1,5 @@
-Require Import Omega.
-Require Import RelationClasses.
-
+From Stdlib Require Import Lia.
+From Stdlib Require Import RelationClasses.
 From sflib Require Import sflib.
 
 From PromisingLib Require Import Axioms.
@@ -8,30 +7,28 @@ From PromisingLib Require Import Basic.
 From PromisingLib Require Import DataStructure.
 From PromisingLib Require Import Loc.
 
-Require Import Time.
-Require Import Event.
+Require Import lang.Time.
+Require Import lang.Event.
 From PromisingLib Require Import Language.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import MemoryFacts.
-Require Import TView.
-Require Import Thread.
-Require Import Configuration.
-Require Import Progress.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.MemoryFacts.
+Require Import lang.TView.
+Require Import lang.Thread.
+Require Import lang.Configuration.
+Require Import lang.Progress.
 
 Set Implicit Arguments.
 
-Hint Constructors Thread.program_step.
-Hint Constructors Thread.step.
-
+Hint Constructors Thread.program_step : core.
+Hint Constructors Thread.step : core.
 
 Inductive union {A} {E} (step: E -> A -> A -> Prop) (c1 c2: A) : Prop :=
 | step_evt_intro e
     (USTEP: step e c1 c2)
 .
-Hint Constructors union.
-
+Hint Constructors union : core.
 Inductive with_pre {A} {E} (step: E -> A -> A -> Prop) bs : option (A*E) ->  A -> Prop :=
 | swp_base:
   with_pre step bs None bs
@@ -41,8 +38,7 @@ Inductive with_pre {A} {E} (step: E -> A -> A -> Prop) bs : option (A*E) ->  A -
     (PSTEP: step e ms es):
   with_pre step bs (Some(ms,e)) es
 .
-Hint Constructors with_pre.
-
+Hint Constructors with_pre : core.
 Lemma with_pre_rtc_union
       A E (step: E -> A -> A -> Prop) c1 c2 pre
       (STEPS: with_pre step c1 pre c2):
@@ -74,7 +70,7 @@ Proof.
   induction STEPS; eauto.
 Qed.
 
-Lemma with_pre_trans 
+Lemma with_pre_trans
       A E (step: E -> A -> A -> Prop) c1 c2 c3 pre1 pre2
       (STEPS1: with_pre step c1 pre1 c2)
       (STEPS2: with_pre step c2 pre2 c3):
@@ -93,8 +89,7 @@ Definition mem_sub (cmp: Loc.t -> Time.t -> option View.t -> option View.t -> Pr
   <<CMP: cmp loc ts rel1 rel2>>.
 
 Definition loctmeq (l: Loc.t) (t: Time.t) (r1 r2: option View.t) : Prop := r1 = r2.
-Hint Unfold loctmeq.
-
+Hint Unfold loctmeq : core.
 Lemma local_simul_fence
       com prm prm' sc ordr ordw com' sc'
       (LOCAL: Local.fence_step (Local.mk com prm) sc ordr ordw (Local.mk com' prm') sc'):
@@ -127,10 +122,10 @@ Proof.
   hexploit (@Memory.add_exists mS loc from to val relw'); eauto.
   { i. destruct msg2.
     inv WRITE0. inv PROMISE.
-    - exploit SUB; eauto. i. des.
+    - exploit SUB; eauto. intro x. des.
       inv MEM. inv ADD. eauto.
-    - exploit Memory.split_get0; try exact PROMISES; eauto. s. i. des.
-      inv DISJOINT. exploit DISJOINT0; eauto. i. des.
+    - exploit Memory.split_get0; try exact PROMISES; eauto. s. intro x. des.
+      inv DISJOINT. exploit DISJOINT0; eauto. intro x. des.
       symmetry in x. eapply Interval.le_disjoint; eauto. econs; [refl|].
       inv MEM. inv SPLIT. left. auto.
     - exploit Memory.lower_get0; try exact PROMISES; eauto. s. i.
@@ -148,6 +143,6 @@ Proof.
   }
   esplits. econs; eauto.
   - econs; eauto. econs; eauto.
-    inv WRITE0. by inv PROMISE.
+    inv WRITE0. sfby inv PROMISE.
   - s. i. splits; ss. apply Memory.bot_nonsynch_loc.
 Qed.

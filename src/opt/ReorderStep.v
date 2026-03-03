@@ -1,6 +1,5 @@
-Require Import Bool.
-Require Import List.
-
+From Stdlib Require Import Bool.
+From Stdlib Require Import List.
 From sflib Require Import sflib.
 From Paco Require Import paco.
 
@@ -8,32 +7,32 @@ From PromisingLib Require Import Basic.
 From PromisingLib Require Import DenseOrder.
 From PromisingLib Require Import Loc.
 
-Require Import Event.
+Require Import lang.Event.
 From PromisingLib Require Import Language.
-Require Import Time.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import MemoryFacts.
-Require Import TView.
-Require Import Thread.
-Require Import Configuration.
-Require Import Progress.
+Require Import lang.Time.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.MemoryFacts.
+Require Import lang.TView.
+Require Import lang.Thread.
+Require Import lang.Configuration.
+Require Import lang.Progress.
 
-Require Import FulfillStep.
-Require Import SimMemory.
-Require Import SimPromises.
-Require Import SimLocal.
-Require Import Compatibility.
-Require Import SimThread.
+Require Import opt.FulfillStep.
+Require Import opt.SimMemory.
+Require Import opt.SimPromises.
+Require Import opt.SimLocal.
+Require Import opt.Compatibility.
+Require Import opt.SimThread.
 
 Require ReorderTView.
-Require Import MemoryReorder.
-Require Import MemoryMerge.
+Require Import prop.MemoryReorder.
+Require Import prop.MemoryMerge.
 
-Require Import Syntax.
-Require Import Semantics.
-Require Import ProgressStep.
+Require Import while.Syntax.
+Require Import while.Semantics.
+Require Import opt.ProgressStep.
 
 Set Implicit Arguments.
 
@@ -108,8 +107,8 @@ Proof.
       * specialize (LOC eq_refl). des. viewtac.
       * specialize (LOC eq_refl). des. viewtac.
     + apply TView.antisym; apply ReorderTView.read_read_tview;
-        (try by apply WF0);
-        (try by eapply MEM0; eauto).
+        (try sfby apply WF0);
+        (try sfby eapply MEM0; eauto).
 Qed.
 
 Lemma reorder_read_promise
@@ -230,8 +229,8 @@ Proof.
   { ii. inv H. congr. }
   i. des.
   exploit Local.promise_step_future; eauto. i. des.
-  exploit reorder_read_fulfill; try exact STEP5; try exact STEP3; eauto; try by viewtac. i. des.
-  exploit promise_fulfill_write; try exact x4; try exact STEP6; eauto; try by viewtac.
+  exploit reorder_read_fulfill; try exact STEP5; try exact STEP3; eauto; try sfby viewtac. i. des.
+  exploit promise_fulfill_write; try exact x4; try exact STEP6; eauto; try sfby viewtac.
   { i. exploit ORD0; eauto. i. des.
     splits; auto. inv STEP1. auto.
   }
@@ -350,7 +349,7 @@ Proof.
     + s. unfold View.singleton_ur_if.
       econs; repeat (try condtac; try splits; aggrtac; eauto; try apply WRITABLE;
                      unfold TimeMap.singleton, LocFun.add in *);
-        (try by inv WRITABLE; eapply TimeFacts.le_lt_lt; eauto; aggrtac).
+        (try sfby inv WRITABLE; eapply TimeFacts.le_lt_lt; eauto; aggrtac).
 Qed.
 
 Lemma reorder_fulfill_promise
@@ -450,8 +449,8 @@ Proof.
   exploit Local.promise_step_future; eauto. i. des.
   exploit reorder_fulfill_promise; try exact STEP1; eauto. i. des.
   exploit Local.promise_step_future; eauto. i. des.
-  exploit fulfill_step_future; try exact STEP5; try exact WF3; eauto; try by viewtac. i. des.
-  exploit reorder_fulfill_fulfill; try exact STEP5; try exact STEP3; eauto; try by viewtac. i. des.
+  exploit fulfill_step_future; try exact STEP5; try exact WF3; eauto; try sfby viewtac. i. des.
+  exploit reorder_fulfill_fulfill; try exact STEP5; try exact STEP3; eauto; try sfby viewtac. i. des.
   exploit promise_fulfill_write; eauto.
   { i. exploit ORD; eauto. i. des. splits; ss.
     ii. unfold Memory.get in GET.
@@ -559,7 +558,7 @@ Proof.
   exploit Local.promise_step_future; eauto. i. des.
   exploit Local.read_step_future; eauto. i. des.
   exploit sim_local_fulfill; try exact STEP4; try exact LOCAL; try exact REL1;
-    try exact WF3; try exact WF5; try refl; eauto; try by viewtac. i. des.
+    try exact WF3; try exact WF5; try refl; eauto; try sfby viewtac. i. des.
   esplits; eauto.
 Qed.
 
@@ -621,10 +620,10 @@ Proof.
   exploit Local.read_step_future; try exact STEP1; eauto. i. des.
   exploit fulfill_step_future; try exact STEP2; eauto. i. des.
   exploit reorder_fulfill_fulfill; try exact STEP2; try exact STEP3; eauto. i. des.
-  exploit fulfill_step_future; try exact STEP0; eauto; try by viewtac. i. des.
-  exploit reorder_read_fulfill; try exact STEP1; try exact STEP0; eauto; try by viewtac. i. des.
-  exploit fulfill_step_future; try exact STEP5; eauto; try by viewtac. i. des.
-  exploit Local.read_step_future; try exact STEP6; eauto; try by viewtac. i. des.
+  exploit fulfill_step_future; try exact STEP0; eauto; try sfby viewtac. i. des.
+  exploit reorder_read_fulfill; try exact STEP1; try exact STEP0; eauto; try sfby viewtac. i. des.
+  exploit fulfill_step_future; try exact STEP5; eauto; try sfby viewtac. i. des.
+  exploit Local.read_step_future; try exact STEP6; eauto; try sfby viewtac. i. des.
   exploit sim_local_fulfill; try exact STEP4; try exact LOCAL0; try refl; eauto. i. des.
   esplits; eauto.
   - etrans; eauto.
@@ -670,8 +669,8 @@ Proof.
   i. des.
   exploit Local.promise_step_future; eauto. i. des.
   exploit Local.read_step_future; eauto. i. des.
-  hexploit reorder_update_fulfill; try exact STEP6; try exact STEP7; try exact STEP4; eauto; try by viewtac. i. des.
-  exploit fulfill_step_future; try exact STEP8; try exact WF3; eauto; try by viewtac. i. des.
+  hexploit reorder_update_fulfill; try exact STEP6; try exact STEP7; try exact STEP4; eauto; try sfby viewtac. i. des.
+  exploit fulfill_step_future; try exact STEP8; try exact WF3; eauto; try sfby viewtac. i. des.
   exploit promise_fulfill_write; eauto.
   { i. exploit ORD; eauto. i. des.
     splits; auto.
@@ -863,7 +862,7 @@ Proof.
     + apply TViewFacts.write_fence_sc_mon; [|refl|refl].
       apply ReorderTView.read_fence_write_tview; auto. apply WF0.
     + eapply ReorderTView.write_fence_write_sc; auto.
-Grab Existential Variables.
+Unshelve.
   { apply TimeMap.bot. }
 Qed.
 
@@ -894,7 +893,7 @@ Proof.
   exploit write_promise_fulfill; eauto. i. des.
   exploit reorder_fence_promise; try exact STEP1; try exact STEP0; eauto. i. des.
   exploit Local.promise_step_future; eauto. i. des.
-  exploit reorder_fence_fulfill; try exact STEP5; try exact STEP3; eauto; try by viewtac. i. des.
+  exploit reorder_fence_fulfill; try exact STEP5; try exact STEP3; eauto; try sfby viewtac. i. des.
   exploit promise_fulfill_write; eauto.
   { i. exploit ORD; eauto. i. des.
     splits; auto. inv STEP1. auto.

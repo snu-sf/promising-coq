@@ -1,6 +1,5 @@
-Require Import Omega.
-Require Import RelationClasses.
-
+From Stdlib Require Import Lia.
+From Stdlib Require Import RelationClasses.
 From sflib Require Import sflib.
 
 From PromisingLib Require Import Axioms.
@@ -8,19 +7,19 @@ From PromisingLib Require Import Basic.
 From PromisingLib Require Import DataStructure.
 From PromisingLib Require Import Loc.
 
-Require Import Time.
-Require Import Event.
+Require Import lang.Time.
+Require Import lang.Event.
 From PromisingLib Require Import Language.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import MemoryFacts.
-Require Import TView.
-Require Import Thread.
-Require Import Configuration.
-Require Import Progress.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.MemoryFacts.
+Require Import lang.TView.
+Require Import lang.Thread.
+Require Import lang.Configuration.
+Require Import lang.Progress.
 
-Require Import MemoryRel.
+Require Import prop.MemoryRel.
 
 Set Implicit Arguments.
 
@@ -30,8 +29,7 @@ Inductive ftau T (step: forall (e:ThreadEvent.t) (e1 e2:T), Prop) (e:ThreadEvent
     (TSTEP: step e e1 e2)
     (EVENT: ThreadEvent.get_event e = None)
 .
-Hint Constructors ftau.
-
+Hint Constructors ftau : core.
 Inductive with_pre {A} {E} (step: E -> A -> A -> Prop) bs : option (A*E) ->  A -> Prop :=
 | swp_base:
   with_pre step bs None bs
@@ -41,8 +39,7 @@ Inductive with_pre {A} {E} (step: E -> A -> A -> Prop) bs : option (A*E) ->  A -
     (PSTEP: step e ms es):
   with_pre step bs (Some(ms,e)) es
 .
-Hint Constructors with_pre.
-
+Hint Constructors with_pre : core.
 Lemma with_pre_rtc_union
       A E (step: E -> A -> A -> Prop) c1 c2 pre
       (STEPS: with_pre step c1 pre c2):
@@ -140,10 +137,10 @@ Proof.
   hexploit (@Memory.add_exists mS loc from to val relw'); eauto.
   { i. destruct msg2.
     inv WRITE0. inv PROMISE.
-    - exploit SUB; eauto. i. des.
+    - exploit SUB; eauto. intro x. des.
       inv MEM. inv ADD. eauto.
-    - exploit Memory.split_get0; try exact PROMISES; eauto. s. i. des.
-      inv DISJOINT. exploit DISJOINT0; eauto. i. des.
+    - exploit Memory.split_get0; try exact PROMISES; eauto. s. intro x. des.
+      inv DISJOINT. exploit DISJOINT0; eauto. intro x. des.
       symmetry in x. eapply Interval.le_disjoint; eauto. econs; [refl|].
       inv MEM. inv SPLIT. left. auto.
     - exploit Memory.lower_get0; try exact PROMISES; eauto. s. i.
@@ -161,7 +158,7 @@ Proof.
   }
   esplits. econs; eauto.
   - econs; eauto. econs; eauto.
-    inv WRITE0. by inv PROMISE.
+    inv WRITE0. sfby inv PROMISE.
   - s. i. splits; ss. apply Memory.bot_nonsynch.
 Qed.
 
@@ -175,8 +172,7 @@ Inductive small_step (withprm: bool) (tid:Ident.t) (e:ThreadEvent.t) (c1:Configu
   :
   small_step withprm tid e c1 (Configuration.mk ths2 sc2 memory2)
 .
-Hint Constructors small_step.
-
+Hint Constructors small_step : core.
 Inductive small_opt_step withprm tid e: forall (c1 c2:Configuration.t), Prop :=
 | small_opt_step_none
     c
@@ -190,12 +186,10 @@ Inductive small_opt_step withprm tid e: forall (c1 c2:Configuration.t), Prop :=
 
 Definition small_step_evt withprm (tid:Ident.t) (c1 c2:Configuration.t) : Prop :=
   union (small_step withprm tid) c1 c2.
-Hint Unfold small_step_evt.
-
+Hint Unfold small_step_evt : core.
 Definition small_step_all withprm (c1 c2:Configuration.t) : Prop :=
   union (small_step_evt withprm) c1 c2.
-Hint Unfold small_step_all.
-
+Hint Unfold small_step_all : core.
 Lemma small_step_evt_to_true
       withprm tid cST1 cST2
       (STEP: small_step_evt withprm tid cST1 cST2):
@@ -217,7 +211,7 @@ Proof.
   inv WF1. inv WF. inv STEP. ss. clear PFREE.
   exploit THREADS; ss; eauto. i.
   exploit Thread.step_future; eauto.
-  s; i; des. splits; [|by eauto|by eauto]. econs; ss. econs.
+  s; i; des. splits; [|sfby eauto|sfby eauto]. econs; ss. econs.
   - i. Configuration.simplify.
     + exploit THREADS; try apply TH1; eauto. i. des.
       exploit Thread.step_disjoint; eauto. s. i. des.
@@ -508,7 +502,7 @@ Proof.
     inv STEP; inv STEP0;
       (try inv LOCAL);
       (try inv LOCAL0);
-      (try by esplits; eauto).
+      (try sfby esplits; eauto).
     + ss. apply promise_pf_inv in PFREE; eauto. des. subst. inv PROMISE.
       destruct msg2. exploit Memory.op_get_inv; eauto.
       { econs 3. eauto. }

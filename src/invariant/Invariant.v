@@ -1,6 +1,5 @@
-Require Import Omega.
-Require Import RelationClasses.
-
+From Stdlib Require Import Lia.
+From Stdlib Require Import RelationClasses.
 From sflib Require Import sflib.
 From Paco Require Import paco.
 
@@ -10,18 +9,18 @@ From PromisingLib Require Import DataStructure.
 From PromisingLib Require Import DenseOrder.
 From PromisingLib Require Import Loc.
 
-Require Import Event.
-Require Import Time.
+Require Import lang.Event.
+Require Import lang.Time.
 From PromisingLib Require Import Language.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import TView.
-Require Import Thread.
-Require Import Configuration.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.TView.
+Require Import lang.Thread.
+Require Import lang.Configuration.
 
-Require Import PromiseConsistent.
-Require Import ReorderPromises.
+Require Import drf.PromiseConsistent.
+Require Import prop.ReorderPromises.
 
 Set Implicit Arguments.
 
@@ -267,45 +266,45 @@ Section Invariant.
   Proof.
     inv SEM. econs.
     - inv STEP. ss. ii. revert FIND.
-      rewrite IdentMap.gsspec. condtac; ss; [|by apply TH]. subst.
+      rewrite IdentMap.gsspec. condtac; ss; [|sfby apply TH]. subst.
       i. inv FIND. apply inj_pair2 in H1. subst.
-      eapply rtc_implies in STEPS; [|by apply tau_union].
+      eapply rtc_implies in STEPS; [|sfby apply tau_union].
       exploit rtc_n1; eauto; i.
       { econs. econs. eauto. }
-      exploit Thread.rtc_all_step_future; eauto; ss; try by inv WF.
+      exploit Thread.rtc_all_step_future; eauto; ss; try sfby inv WF.
       { inv WF. eapply WF0. eauto. }
       i. des.
-      exploit steps_pf_steps; eauto; ss; try by inv WF.
+      exploit steps_pf_steps; eauto; ss; try sfby inv WF.
       { hexploit consistent_promise_consistent; eauto. }
       { inv WF. eapply WF0. eauto. }
       i. des.
       exploit rtc_implies; [|exact STEPS1|i].
       { apply union_mon. apply Thread.allpf. }
-      exploit Thread.rtc_all_step_future; eauto; ss; try by inv WF.
+      exploit Thread.rtc_all_step_future; eauto; ss; try sfby inv WF.
       { inv WF. eapply WF0. eauto. }
       i. des.
       exploit Thread.rtc_step_nonpf_future; eauto. s. i. des.
-      subst. eapply rtc_thread_step_sem; try exact STEPS1; eauto; ss; try by inv WF.
+      subst. eapply rtc_thread_step_sem; try exact STEPS1; eauto; ss; try sfby inv WF.
       inv WF. eapply WF3. eauto.
     - inv STEP. ss.
-      eapply rtc_implies in STEPS; [|by apply tau_union].
+      eapply rtc_implies in STEPS; [|sfby apply tau_union].
       exploit rtc_n1; eauto; i.
       { econs. econs. eauto. }
-      exploit Thread.rtc_all_step_future; eauto; ss; try by inv WF.
+      exploit Thread.rtc_all_step_future; eauto; ss; try sfby inv WF.
       { inv WF. eapply WF0. eauto. }
       i. des.
       exploit CONSISTENT; eauto; ss; try refl. i. des.
-      eapply rtc_implies in STEPS0; [|by apply tau_union].
+      eapply rtc_implies in STEPS0; [|sfby apply tau_union].
       rewrite STEPS0 in x0.
-      exploit steps_pf_steps; try exact x0; eauto; ss; try by inv WF.
+      exploit steps_pf_steps; try exact x0; eauto; ss; try sfby inv WF.
       { ii. rewrite PROMISES, Memory.bot_get in *. congr. }
       { inv WF. eapply WF0. eauto. }
       i. des.
       exploit rtc_union_step_nonpf_bot; eauto. i. subst.
-      exploit rtc_thread_step_sem; try exact STEPS1; eauto; ss; try by inv WF.
+      exploit rtc_thread_step_sem; try exact STEPS1; eauto; ss; try sfby inv WF.
       { inv WF. eapply WF0. eauto. }
       i. des.
-      exploit Thread.rtc_all_step_future; try exact STEPS; eauto; ss; try by inv WF.
+      exploit Thread.rtc_all_step_future; try exact STEPS; eauto; ss; try sfby inv WF.
       { inv WF. eapply WF0. eauto. }
       i. des.
       exploit Thread.step_future; try exact STEP0; eauto. s. i. des.
@@ -334,7 +333,7 @@ Section Invariant.
                   (@sigT _ (@Language.syntax ProgramEvent.t)) tid program) eqn:X; inv FIND.
       apply inj_pair2 in H1. subst. destruct s. ss.
       eapply TH; eauto.
-    - ii. cut (x0 = LocFun.init 0); [by i; subst|].
+    - ii. cut (x0 = LocFun.init 0); [sfby i; subst|].
       apply LocFun.ext. i. rewrite LocFun.init_spec.
       specialize (PR i). des. ss.
       unfold Memory.get, Memory.init in PR. unfold Cell.get, Cell.init in PR. ss.

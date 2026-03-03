@@ -1,6 +1,5 @@
-Require Import Omega.
-Require Import RelationClasses.
-
+From Stdlib Require Import Lia.
+From Stdlib Require Import RelationClasses.
 From sflib Require Import sflib.
 
 From PromisingLib Require Import Axioms.
@@ -8,14 +7,14 @@ From PromisingLib Require Import Basic.
 From PromisingLib Require Import DataStructure.
 From PromisingLib Require Import Loc.
 
-Require Import Time.
-Require Import Event.
+Require Import lang.Time.
+Require Import lang.Event.
 From PromisingLib Require Import Language.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import TView.
-Require Import Thread.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.TView.
+Require Import lang.Thread.
 
 Set Implicit Arguments.
 
@@ -30,8 +29,7 @@ Inductive opt E T (step: forall (e:option E) (tid:Ident.t) (c1 c2:T), Prop):
     (STEP: step e tid c1 c2):
     opt step e tid c1 c2
 .
-Hint Constructors opt.
-
+Hint Constructors opt : core.
 
 Module Threads.
   Definition syntax := IdentMap.t {lang:language & lang.(Language.syntax)}.
@@ -39,7 +37,7 @@ Module Threads.
 
   Definition init (s:syntax): t :=
     IdentMap.map
-      (fun s => (existT _ _ (s.(projT1).(Language.init) s.(projT2)), Local.init))
+      (fun s => (existT _ _ ((Language.init (projT1 s)) (projT2 s)), Local.init))
       s.
 
   Definition is_terminal (ths:t): Prop :=
@@ -225,7 +223,7 @@ Module Configuration.
     exploit THREADS; ss; eauto. i.
     exploit Thread.rtc_tau_step_future; eauto. s. i. des.
     exploit Thread.step_future; eauto. s. i. des.
-    splits; [| |by etrans; eauto|by etrans; eauto].
+    splits; [| |sfby etrans; eauto|sfby etrans; eauto].
     - econs; ss. econs.
       + i. simplify.
         * exploit THREADS; try apply TH1; eauto. i. des.

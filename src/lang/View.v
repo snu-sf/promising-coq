@@ -1,6 +1,5 @@
-Require Import Omega.
-Require Import RelationClasses.
-
+From Stdlib Require Import Lia.
+From Stdlib Require Import RelationClasses.
 From sflib Require Import sflib.
 From Paco Require Import paco.
 
@@ -10,15 +9,15 @@ From PromisingLib Require Import DataStructure.
 From PromisingLib Require Import DenseOrder.
 From PromisingLib Require Import Loc.
 
-Require Import Event.
-Require Import Time.
+Require Import lang.Event.
+Require Import lang.Time.
 
 Set Implicit Arguments.
 
 
 Definition loc_ts_eq_dec (lhs rhs:Loc.t * Time.t):
-  {lhs.(fst) = rhs.(fst) /\ lhs.(snd) = rhs.(snd)} +
-  {lhs.(fst) <> rhs.(fst) \/ lhs.(snd) <> rhs.(snd)}.
+  {(fst lhs) = (fst rhs) /\ (snd lhs) = (snd rhs)} +
+  {(fst lhs) <> (fst rhs) \/ (snd lhs) <> (snd rhs)}.
 Proof.
   destruct lhs, rhs.
   destruct (Loc.eq_dec t t1), (Time.eq_dec t0 t2); subst; auto.
@@ -403,7 +402,7 @@ Module View <: JoinableType.
   Lemma unwrap_opt_wf
         view
         (WF: opt_wf view):
-    wf view.(unwrap).
+    wf (unwrap view).
   Proof.
     inv WF; ss. apply bot_wf.
   Qed.
@@ -411,7 +410,7 @@ Module View <: JoinableType.
   Lemma unwrap_opt_le
         view1 view2
         (WF: opt_le view1 view2):
-    le view1.(unwrap) view2.(unwrap).
+    le (unwrap view1) (unwrap view2).
   Proof.
     inv WF; ss. apply bot_spec.
   Qed.

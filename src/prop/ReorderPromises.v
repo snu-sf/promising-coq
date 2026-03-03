@@ -1,6 +1,5 @@
-Require Import Omega.
-Require Import RelationClasses.
-
+From Stdlib Require Import Lia.
+From Stdlib Require Import RelationClasses.
 From sflib Require Import sflib.
 From Paco Require Import paco.
 
@@ -8,18 +7,18 @@ From PromisingLib Require Import Axioms.
 From PromisingLib Require Import Basic.
 From PromisingLib Require Import DataStructure.
 From PromisingLib Require Import DenseOrder.
-Require Import Event.
-Require Import Time.
+Require Import lang.Event.
+Require Import lang.Time.
 From PromisingLib Require Import Language.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import TView.
-Require Import Thread.
-Require Import Configuration.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.TView.
+Require Import lang.Thread.
+Require Import lang.Configuration.
 
-Require Import PromiseConsistent.
-Require Import ReorderPromiseSame.
+Require Import drf.PromiseConsistent.
+Require Import prop.ReorderPromiseSame.
 
 Set Implicit Arguments.
 
@@ -61,7 +60,7 @@ Proof.
     esplits; cycle 1.
     + econs 2; eauto.
     + auto.
-    + omega.
+    + lia.
   }
   exploit IH; try exact A23; try refl; eauto. i. des.
   assert (CONS2: promise_consistent (Thread.local e2)).
@@ -77,7 +76,7 @@ Proof.
   { esplits; cycle 1.
     - eauto.
     - econs; eauto.
-    - omega.
+    - lia.
   }
   inversion A12. exploit Thread.step_future; eauto. i. des.
   exploit reorder_nonpf_pf; eauto.
@@ -94,10 +93,10 @@ Proof.
       - eapply rtcn_imply; [|exact A0]. apply union_mon. apply Thread.allpf.
     }
     exploit IH; try exact STEPS; eauto.
-    { omega. }
+    { lia. }
     i. des. esplits; cycle 1; eauto.
     + etrans; eauto.
-    + omega.
+    + lia.
   - assert (STEPS: rtcn (@Thread.all_step lang) (S n) th1' e2).
     { econs 2.
       - econs. econs 1. eauto.
@@ -105,11 +104,11 @@ Proof.
     }
     exploit Thread.step_future; eauto. i. des.
     exploit IH; try exact STEPS; eauto.
-    { omega. }
+    { lia. }
     i. des. esplits; cycle 1.
     + econs 2; eauto.
     + etrans; eauto.
-    + omega.
+    + lia.
 Qed.
 
 Lemma steps_pf_steps
@@ -152,7 +151,7 @@ Proof.
     esplits; cycle 1.
     + econs 2; eauto.
     + auto.
-    + omega.
+    + lia.
   }
   exploit IH; try exact A23; try refl; eauto. i. des.
   assert (CONS2: promise_consistent (Thread.local e2)).
@@ -168,7 +167,7 @@ Proof.
   { esplits; cycle 1.
     - eauto.
     - econs; eauto.
-    - omega.
+    - lia.
   }
   inversion A12. exploit Thread.step_future; eauto. i. des.
   exploit reorder_nonpf_pf; eauto.
@@ -181,14 +180,14 @@ Proof.
   i. des.
   - assert (STEPS: rtcn (@Thread.tau_step lang) (S n) e1 e2).
     { econs 2.
-      - econs. econs; eauto. by destruct e2', e0; inv EVENT1.
+      - econs. econs; eauto. sfby destruct e2', e0; inv EVENT1.
       - eapply rtcn_imply; [|exact A0]. apply tau_mon. apply Thread.allpf.
     }
     exploit IH; try exact STEPS; eauto.
-    { omega. }
+    { lia. }
     i. des. esplits; cycle 1; eauto.
     + etrans; eauto.
-    + omega.
+    + lia.
   - assert (STEPS: rtcn (@Thread.tau_step lang) (S n) th1' e2).
     { econs 2.
       - econs.
@@ -198,11 +197,11 @@ Proof.
     }
     exploit Thread.step_future; eauto. i. des.
     exploit IH; try exact STEPS; eauto.
-    { omega. }
+    { lia. }
     i. des. esplits; cycle 1.
-    + econs 2; eauto. econs; eauto. by destruct e2', e0; inv EVENT1.
+    + econs 2; eauto. econs; eauto. sfby destruct e2', e0; inv EVENT1.
     + etrans; eauto.
-    + omega.
+    + lia.
 Qed.
 
 Lemma tau_steps_pf_tau_steps

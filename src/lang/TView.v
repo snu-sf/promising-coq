@@ -1,6 +1,5 @@
-Require Import Omega.
-Require Import RelationClasses.
-
+From Stdlib Require Import Lia.
+From Stdlib Require Import RelationClasses.
 From sflib Require Import sflib.
 From Paco Require Import paco.
 
@@ -9,12 +8,12 @@ From PromisingLib Require Import Basic.
 From PromisingLib Require Import DataStructure.
 From PromisingLib Require Import Loc.
 
-Require Import Event.
-Require Import Time.
+Require Import lang.Event.
+Require Import lang.Time.
 From PromisingLib Require Import Language.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
 
 Set Implicit Arguments.
 
@@ -54,7 +53,7 @@ Module TView <: JoinableType.
   Proof.
     econs; i; eapply Memory.closed_view_bot; apply Memory.init_closed.
   Qed.
-  
+
   Lemma future_closed
         tview mem1 mem2
         (CLOSED: closed tview mem1)
@@ -155,12 +154,12 @@ Module TView <: JoinableType.
           (View.join
              tview1.(cur)
              (View.singleton_ur_if (Ordering.le Ordering.relaxed ord) loc ts))
-          (if Ordering.le Ordering.acqrel ord then released.(View.unwrap) else View.bot))
+          (if Ordering.le Ordering.acqrel ord then (View.unwrap released) else View.bot))
        (View.join
           (View.join
              tview1.(acq)
              (View.singleton_ur_if (Ordering.le Ordering.relaxed ord) loc ts))
-          (if Ordering.le Ordering.relaxed ord then released.(View.unwrap) else View.bot)).
+          (if Ordering.le Ordering.relaxed ord then (View.unwrap released) else View.bot)).
 
   Inductive writable
             (view1:View.t) (sc1:TimeMap.t) (loc:Loc.t) (ts:Time.t) (ord:Ordering.t): Prop :=
@@ -187,7 +186,7 @@ Module TView <: JoinableType.
   Definition write_released tview sc loc ts releasedm ord :=
     if Ordering.le Ordering.relaxed ord
     then Some (View.join
-                 releasedm.(View.unwrap)
+                 (View.unwrap releasedm)
                  ((write_tview tview sc loc ts ord).(rel) loc))
     else None.
 
@@ -283,7 +282,7 @@ Module TViewFacts.
              apply View.unwrap_opt_wf
            | [WF: View.opt_le ?rel1 ?rel2 |- View.le (View.unwrap ?rel1) (View.unwrap ?rel2)] =>
              apply View.unwrap_opt_le
-           | [WF: Memory.closed_opt_view ?view ?mem |- Memory.closed_view ?view.(View.unwrap) ?mem] =>
+           | [WF: Memory.closed_opt_view ?view ?mem |- Memory.closed_view (View.unwrap ?view) ?mem] =>
              apply Memory.unwrap_closed_opt_view
            | [|- View.opt_wf None] =>
              econs
@@ -292,37 +291,37 @@ Module TViewFacts.
 
            | [H1: is_true (Ordering.le ?o Ordering.relaxed),
               H2: Ordering.le Ordering.acqrel ?o = true |- _] =>
-               by destruct o; inv H1; inv H2
+               sfby destruct o; inv H1; inv H2
            | [H1: is_true (Ordering.le ?o Ordering.relaxed),
               H2: Ordering.le Ordering.seqcst ?o = true |- _] =>
-               by destruct o; inv H1; inv H2
+               sfby destruct o; inv H1; inv H2
            | [H1: is_true (Ordering.le ?o Ordering.acqrel),
               H2: Ordering.le Ordering.seqcst ?o = true |- _] =>
-               by destruct o; inv H1; inv H2
+               sfby destruct o; inv H1; inv H2
            | [H1: is_true (Ordering.le ?o Ordering.plain),
               H2: Ordering.le Ordering.acqrel ?o = true |- _] =>
-               by destruct o; inv H1; inv H2
+               sfby destruct o; inv H1; inv H2
            | [H1: is_true (Ordering.le ?o Ordering.plain),
               H2: Ordering.le Ordering.relaxed ?o = true |- _] =>
-               by destruct o; inv H1; inv H2
+               sfby destruct o; inv H1; inv H2
            | [H1: is_true (Ordering.le ?o Ordering.plain),
               H2: is_true (Ordering.le Ordering.relaxed ?o) |- _] =>
-               by destruct o; inv H1; inv H2
+               sfby destruct o; inv H1; inv H2
            | [H1: is_true (Ordering.le ?o Ordering.plain),
               H2: is_true (Ordering.le Ordering.seqcst ?o) |- _] =>
-               by destruct o; inv H1; inv H2
+               sfby destruct o; inv H1; inv H2
            | [H1: is_true (Ordering.le ?o Ordering.acqrel),
               H2: is_true (Ordering.le Ordering.seqcst ?o) |- _] =>
-               by destruct o; inv H1; inv H2
+               sfby destruct o; inv H1; inv H2
            | [H1: is_true (Ordering.le ?o Ordering.relaxed),
               H2: is_true (Ordering.le Ordering.seqcst ?o) |- _] =>
-               by destruct o; inv H1; inv H2
+               sfby destruct o; inv H1; inv H2
            | [H1: is_true (Ordering.le ?o1 ?o2),
               H2: Ordering.le ?o0 ?o1 = true,
               H3: Ordering.le ?o0 ?o2 = false |- _] =>
-               by destruct o1, o2; inv H1; inv H2; inv H3
+               sfby destruct o1, o2; inv H1; inv H2; inv H3
            | [|- View.wf (View.mk ?tm ?tm)] =>
-               by econs; refl
+               sfby econs; refl
            | [|- View.wf (View.mk TimeMap.bot TimeMap.bot _)] =>
              econs; apply TimeMap.bot_spec
 
@@ -411,14 +410,14 @@ Module TViewFacts.
            | [|- Time.le ?t1 (TimeMap.singleton ?l ?t2 ?l)] =>
              unfold TimeMap.singleton, LocFun.add; condtac; [|congr]
            | [|- View.le _ (View.join _ _)] =>
-             try (by rewrite <- View.join_l; aggrtac);
-             try (by rewrite <- View.join_r; aggrtac)
+             try (sfby rewrite <- View.join_l; aggrtac);
+             try (sfby rewrite <- View.join_r; aggrtac)
            | [|- TimeMap.le _ (TimeMap.join _ _)] =>
-             try (by rewrite <- TimeMap.join_l; aggrtac);
-             try (by rewrite <- TimeMap.join_r; aggrtac)
+             try (sfby rewrite <- TimeMap.join_l; aggrtac);
+             try (sfby rewrite <- TimeMap.join_r; aggrtac)
            | [|- Time.le _ (TimeMap.join _ _ _)] =>
-             try (by etrans; [|by apply Time.join_l]; aggrtac);
-             try (by etrans; [|by apply Time.join_r]; aggrtac)
+             try (sfby etrans; [|sfby apply Time.join_l]; aggrtac);
+             try (sfby etrans; [|sfby apply Time.join_r]; aggrtac)
 
            | [|- View.le _ (View.mk ?tm ?tm)] =>
              apply rlx_le_view_le
@@ -504,8 +503,8 @@ Module TViewFacts.
   Proof.
     unfold TView.read_tview, View.singleton_ur_if.
     econs; repeat (condtac; aggrtac);
-      (try by etrans; [apply TVIEW|aggrtac]);
-      (try by rewrite <- ? View.join_r; econs; aggrtac);
+      (try sfby etrans; [apply TVIEW|aggrtac]);
+      (try sfby rewrite <- ? View.join_r; econs; aggrtac);
       (try apply WF2).
   Qed.
 
@@ -521,8 +520,8 @@ Module TViewFacts.
   Proof.
     unfold TView.write_tview, View.singleton_ur_if.
     econs; repeat (condtac; aggrtac);
-      (try by etrans; [apply TVIEW|aggrtac]);
-      (try by rewrite <- ? View.join_r; econs; aggrtac);
+      (try sfby etrans; [apply TVIEW|aggrtac]);
+      (try sfby rewrite <- ? View.join_r; econs; aggrtac);
       (try apply WF2).
   Qed.
 
@@ -542,10 +541,10 @@ Module TViewFacts.
     destruct (Ordering.le Ordering.relaxed ord1) eqn:ORD1,
              (Ordering.le Ordering.relaxed ord2) eqn:ORD2; tac;
       try econs; repeat (condtac; aggrtac);
-      (try by etrans; [apply TVIEW|aggrtac]);
-      (try by rewrite <- ? View.join_r; econs; aggrtac);
-      (try by rewrite <- ? TimeMap.join_l; apply RELM);
-      (try by rewrite <- TimeMap.join_r, <- ? TimeMap.join_l; etrans; [apply TVIEW|apply WF2]);
+      (try sfby etrans; [apply TVIEW|aggrtac]);
+      (try sfby rewrite <- ? View.join_r; econs; aggrtac);
+      (try sfby rewrite <- ? TimeMap.join_l; apply RELM);
+      (try sfby rewrite <- TimeMap.join_r, <- ? TimeMap.join_l; etrans; [apply TVIEW|apply WF2]);
       (try apply WF2).
   Qed.
 
@@ -560,8 +559,8 @@ Module TViewFacts.
   Proof.
     unfold TView.read_fence_tview.
     econs; repeat (condtac; aggrtac);
-      (try by etrans; [apply TVIEW|aggrtac]);
-      (try by rewrite <- ? View.join_r; aggrtac;
+      (try sfby etrans; [apply TVIEW|aggrtac]);
+      (try sfby rewrite <- ? View.join_r; aggrtac;
        rewrite <- ? TimeMap.join_r; apply TVIEW).
   Qed.
 
@@ -577,11 +576,11 @@ Module TViewFacts.
   Proof.
     unfold TView.write_fence_tview, TView.write_fence_sc.
     econs; repeat (condtac; aggrtac).
-    all: try by etrans; [apply TVIEW|aggrtac].
-    all: try by apply WF1.
-    all: try by rewrite <- ? View.join_r; aggrtac;
+    all: try sfby etrans; [apply TVIEW|aggrtac].
+    all: try sfby apply WF1.
+    all: try sfby rewrite <- ? View.join_r; aggrtac;
       (rewrite <- ? TimeMap.join_r; apply TVIEW);
-      (try by apply WF1).
+      (try sfby apply WF1).
     - rewrite <- TimeMap.join_r. etrans; [apply WF1|]. apply TVIEW.
     - etrans; [apply WF1|]. apply TVIEW.
   Qed.
@@ -597,7 +596,7 @@ Module TViewFacts.
   Proof.
     unfold TView.write_fence_sc.
     repeat (condtac; aggrtac);
-      (try by etrans; [apply TVIEW|aggrtac]);
+      (try sfby etrans; [apply TVIEW|aggrtac]);
       (try rewrite <- ? View.join_r; aggrtac;
        rewrite <- ? TimeMap.join_r; apply TVIEW).
   Qed.
@@ -634,7 +633,7 @@ Module TViewFacts.
   Proof.
     unfold TView.write_fence_tview, TView.write_fence_sc.
     destruct tview. ss.
-    f_equal; repeat (condtac; aggrtac); try by destruct o.
+    f_equal; repeat (condtac; aggrtac); try sfby destruct o.
     rewrite View.join_comm, View.join_bot_l. ss.
   Qed.
 
@@ -646,7 +645,7 @@ Module TViewFacts.
     <<WF_TVIEW: TView.wf (TView.read_tview tview loc to released ord)>>.
   Proof.
     econs; repeat (try condtac; tac);
-        try by rewrite <- ? View.join_l; apply WF_TVIEW.
+        try sfby rewrite <- ? View.join_l; apply WF_TVIEW.
     - apply TimeMap.singleton_inv.
       rewrite <- TimeMap.join_l. tac.
     - apply TimeMap.singleton_inv.
@@ -677,12 +676,12 @@ Module TViewFacts.
         (OP: Memory.op mem1 loc from to val released mem2 kind):
     TView.closed (TView.write_tview tview1 sc1 loc to ord) mem2.
   Proof.
-    hexploit Memory.op_future0; eauto; try by tac. i. des.
+    hexploit Memory.op_future0; eauto; try sfby tac. i. des.
     unfold TView.write_tview.
     econs; repeat (try condtac; tac);
-      (try by eapply Memory.op_closed_view; eauto; apply CLOSED2);
-      (try by econs; tac; eapply Memory.op_closed_timemap; eauto; apply CLOSED0);
-      (try by eapply Memory.op_get2; eauto).
+      (try sfby eapply Memory.op_closed_view; eauto; apply CLOSED2);
+      (try sfby econs; tac; eapply Memory.op_closed_timemap; eauto; apply CLOSED0);
+      (try sfby eapply Memory.op_get2; eauto).
   Qed.
 
   Lemma op_closed_sc
@@ -692,7 +691,7 @@ Module TViewFacts.
         (OP: Memory.op mem1 loc from to val released mem2 kind):
     Memory.closed_timemap sc1 mem2.
   Proof.
-    hexploit Memory.op_future0; eauto; try by tac. i. des.
+    hexploit Memory.op_future0; eauto; try sfby tac. i. des.
     eapply Memory.op_closed_timemap; eauto.
   Qed.
 
@@ -705,7 +704,7 @@ Module TViewFacts.
         (OP: Memory.op mem1 loc from to val released mem2 kind):
     Memory.closed_opt_view (TView.write_released tview1 sc1 loc to releasedm ord) mem2.
   Proof.
-    hexploit Memory.op_future0; eauto; try by tac. i. des.
+    hexploit Memory.op_future0; eauto; try sfby tac. i. des.
     unfold TView.write_released. condtac; econs.
     apply Memory.join_closed_view.
     - eapply Memory.op_closed_view; eauto.
@@ -721,8 +720,8 @@ Module TViewFacts.
         (GET: Memory.get loc to mem1 = Some (from, Message.mk val released)):
     TView.closed (TView.write_tview tview1 sc1 loc to ord) mem1.
   Proof.
-    econs; tac; (try by apply CLOSED2).
-    - unfold LocFun.add. repeat condtac; tac; (try by apply CLOSED2).
+    econs; tac; (try sfby apply CLOSED2).
+    - unfold LocFun.add. repeat condtac; tac; (try sfby apply CLOSED2).
   Qed.
 
   Lemma get_closed_released

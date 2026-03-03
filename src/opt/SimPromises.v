@@ -1,29 +1,28 @@
-Require Import RelationClasses.
-Require Import Bool.
-Require Import List.
-
+From Stdlib Require Import RelationClasses.
+From Stdlib Require Import Bool.
+From Stdlib Require Import List.
 From sflib Require Import sflib.
 From Paco Require Import paco.
 
 From PromisingLib Require Import Axioms.
 From PromisingLib Require Import Basic.
-Require Import Event.
+Require Import lang.Event.
 From PromisingLib Require Import DenseOrder.
 From PromisingLib Require Import Loc.
 
-Require Import Time.
+Require Import lang.Time.
 From PromisingLib Require Import Language.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import MemoryFacts.
-Require Import TView.
-Require Import Thread.
-Require Import Configuration.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.MemoryFacts.
+Require Import lang.TView.
+Require Import lang.Thread.
+Require Import lang.Configuration.
 
-Require Import SimMemory.
-Require Import MemorySplit.
-Require Import MemoryMerge.
+Require Import opt.SimMemory.
+Require Import prop.MemorySplit.
+Require Import prop.MemoryMerge.
 
 Set Implicit Arguments.
 
@@ -229,7 +228,7 @@ Module SimPromises.
   Proof.
     inv PROMISE_TGT.
     - exploit (@Memory.add_exists mem1_src loc from to val released);
-        try by inv MEM; inv ADD.
+        try sfby inv MEM; inv ADD.
       { eapply covered_disjoint.
         - apply SIM1.
         - inv MEM. inv ADD. auto.
@@ -257,13 +256,13 @@ Module SimPromises.
         * i. inv INV1. exploit SOUND; eauto. i.
           erewrite Memory.add_o; eauto. erewrite (@Memory.add_o promises2); eauto.
           condtac; ss. des. subst.
-          erewrite Memory.add_get0 in x3; eauto. congr.
+          erewrite Memory.add_get0 in x4; eauto. congr.
         * i. revert SRC TGT.
           erewrite Memory.add_o; eauto. erewrite (@Memory.add_o promises2_tgt); eauto.
           condtac; ss. inv INV1. eapply COMPLETE; eauto.
     - exploit Memory.split_get0; try exact PROMISES; eauto. i. des.
       exploit (@Memory.split_exists promises1_src loc from to ts3 val val3 released);
-        try by inv PROMISES; inv SPLIT.
+        try sfby inv PROMISES; inv SPLIT.
       { apply INV1. eauto. }
       i. des.
       exploit Memory.split_exists_le; try apply LE1_SRC; eauto. i. des.
@@ -298,7 +297,7 @@ Module SimPromises.
           repeat condtac; ss. inv INV1. eapply COMPLETE; eauto.
     - exploit Memory.lower_get0; try exact PROMISES; eauto. i.
       exploit (@Memory.lower_exists promises1_src loc from to val (none_if loc to none_for released0) (none_if loc to none_for released));
-        try by inv MEM; inv LOWER.
+        try sfby inv MEM; inv LOWER.
       { apply INV1. eauto. }
       { unfold none_if. condtac; ss.
         - econs.
@@ -549,7 +548,7 @@ Module SimPromises.
     { esplits; eauto. refl. }
     assert (LE_SRC: Memory.le promises_src y).
     { ii. exploit LE1_SRC; eauto. i. destruct msg.
-      exploit Memory.future_get1; try exact x0; eauto.
+      exploit Memory.future_get1; try exact x1; eauto.
       { econs 2; [|refl]. eauto. }
       i. des.
       exploit Memory.future_get1; try exact GET; eauto. i. des.
@@ -619,6 +618,6 @@ Module SimPromises.
     destruct (Memory.get loc ts promises_tgt) as [[? []]|] eqn:X.
     - inv SEM. exploit LE; eauto.
     - destruct (Memory.get loc ts promises_src) as [[? []]|] eqn:Y; auto.
-      inv SEM. exploit COMPLETE; eauto. i. inv x.
+      inv SEM. exploit COMPLETE; eauto. intro x. inv x.
   Qed.
 End SimPromises.

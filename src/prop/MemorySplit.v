@@ -1,6 +1,5 @@
-Require Import Omega.
-Require Import RelationClasses.
-
+From Stdlib Require Import Lia.
+From Stdlib Require Import RelationClasses.
 From sflib Require Import sflib.
 From Paco Require Import paco.
 
@@ -10,12 +9,12 @@ From PromisingLib Require Import DataStructure.
 From PromisingLib Require Import DenseOrder.
 From PromisingLib Require Import Loc.
 
-Require Import Event.
-Require Import Time.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import MemoryFacts.
+Require Import lang.Event.
+Require Import lang.Time.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.MemoryFacts.
 
 Set Implicit Arguments.
 
@@ -51,7 +50,7 @@ Module MemorySplit.
       + econs. rewrite DOMap.gss. auto.
       + apply DOMap.eq_leibniz. ii.
         rewrite ? DOMap.grspec, DOMap.gsspec. condtac; auto.
-        Grab Existential Variables.
+        Unshelve.
         { eapply Cell.Raw.lower_wf; eauto.
           - econs; eauto.
           - apply mem0.
@@ -64,7 +63,7 @@ Module MemorySplit.
         (REL_LE: View.opt_le released2 released1)
         (REL_WF1: View.opt_wf released1)
         (REL_WF2: View.opt_wf released2)
-        (REL_TO: Time.le (released1.(View.unwrap).(View.rlx) loc) to)
+        (REL_TO: Time.le ((View.unwrap released1).(View.rlx) loc) to)
         (TS: Time.lt from to)
         (REMOVE: Memory.remove promises0 loc from to val released1 promises2):
     exists promises1' mem1',
@@ -100,7 +99,7 @@ Module MemorySplit.
         clear -o1. des; congr.
     }
     i. des. esplits; eauto.
-    cut (mem4 = mem3); [by i; subst|].
+    cut (mem4 = mem3); [sfby i; subst|].
     apply Memory.ext. i.
     erewrite Memory.remove_o; eauto. erewrite Memory.remove_o; eauto.
     erewrite Memory.split_o; eauto. erewrite (@Memory.remove_o mem3); eauto.
@@ -115,7 +114,7 @@ Module MemorySplit.
         (TS12: Time.lt ts1 ts2)
         (TS23: Time.lt ts2 ts3)
         (WF2: View.opt_wf released2)
-        (TS2: Time.le (released2.(View.unwrap).(View.rlx) loc) ts2)
+        (TS2: Time.le ((View.unwrap released2).(View.rlx) loc) ts2)
         (LE: Memory.le promises0 mem0)
         (REMOVE: Memory.remove promises0 loc ts1 ts3 val3 released3 promises3):
     exists promises1 promises2 mem1,
@@ -158,7 +157,7 @@ Module MemorySplit.
     { inv SPLIT2. inv SPLIT. auto. }
     { inv ADD1. inv ADD. auto. }
     i. des.
-    cut (mem4 = mem2); [by i; subst; eauto|].
+    cut (mem4 = mem2); [sfby i; subst; eauto|].
     apply Memory.ext. i.
     erewrite Memory.add_o; eauto. erewrite Memory.add_o; eauto.
     erewrite (@Memory.split_o mem2); eauto. erewrite (@Memory.add_o mem1); eauto.

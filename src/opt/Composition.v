@@ -1,6 +1,5 @@
-Require Import Bool.
-Require Import List.
-
+From Stdlib Require Import Bool.
+From Stdlib Require Import List.
 From sflib Require Import sflib.
 From Paco Require Import paco.
 
@@ -8,16 +7,16 @@ From PromisingLib Require Import Axioms.
 From PromisingLib Require Import Basic.
 From PromisingLib Require Import Loc.
 
-Require Import Event.
+Require Import lang.Event.
 From PromisingLib Require Import Language.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import TView.
-Require Import Thread.
-Require Import Configuration.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.TView.
+Require Import lang.Thread.
+Require Import lang.Configuration.
 
-Require Import Simulation.
+Require Import opt.Simulation.
 
 Set Implicit Arguments.
 
@@ -117,9 +116,9 @@ Section Compose.
                  (IdentMap.find tid2 ths1) eqn:TH21,
                  (IdentMap.find tid2 ths2) eqn:TH22;
           Configuration.simplify;
-          try (by eapply DISJOINT; eauto);
-          try (by eapply DISJOINT0; eauto);
-          try (by eapply DISJOINT1; eauto).
+          try (sfby eapply DISJOINT; eauto);
+          try (sfby eapply DISJOINT0; eauto);
+          try (sfby eapply DISJOINT1; eauto).
         * symmetry. eapply DISJOINT; eauto.
         * symmetry. eapply DISJOINT; eauto.
       + i. rewrite ? Threads.compose_spec in *.

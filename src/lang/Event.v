@@ -1,16 +1,15 @@
-Require Import List.
-Require Import PeanoNat.
-Require Import Orders.
-Require Import MSetList.
-Require Import Omega.
-
+From Stdlib Require Import List.
+From Stdlib Require Import PeanoNat.
+From Stdlib Require Import Orders.
+From Stdlib Require Import MSetList.
+From Stdlib Require Import Lia.
 From sflib Require Import sflib.
 
 From PromisingLib Require Import Basic.
 From PromisingLib Require Import Loc.
 From PromisingLib Require Import Language.
 
-Require Import Time.
+Require Import lang.Time.
 
 Set Implicit Arguments.
 Import ListNotations.

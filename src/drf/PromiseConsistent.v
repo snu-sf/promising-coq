@@ -1,6 +1,5 @@
-Require Import Omega.
-Require Import RelationClasses.
-
+From Stdlib Require Import Lia.
+From Stdlib Require Import RelationClasses.
 From sflib Require Import sflib.
 From Paco Require Import paco.
 
@@ -10,22 +9,22 @@ From PromisingLib Require Import DataStructure.
 From PromisingLib Require Import DenseOrder.
 From PromisingLib Require Import Loc.
 
-Require Import Event.
-Require Import Time.
+Require Import lang.Event.
+Require Import lang.Time.
 From PromisingLib Require Import Language.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import TView.
-Require Import Thread.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.TView.
+Require Import lang.Thread.
 
-Require Import SimMemory.
-Require Import SimPromises.
-Require Import SimLocal.
-Require Import FulfillStep.
-Require Import MemoryReorder.
-Require Import Configuration.
-Require Import SmallStep.
+Require Import opt.SimMemory.
+Require Import opt.SimPromises.
+Require Import opt.SimLocal.
+Require Import opt.FulfillStep.
+Require Import prop.MemoryReorder.
+Require Import lang.Configuration.
+Require Import drf.SmallStep.
 
 Set Implicit Arguments.
 
@@ -103,7 +102,7 @@ Lemma fence_step_promise_consistent
 Proof.
   exploit Local.fence_step_future; eauto. i. des.
   inversion STEP. subst. ii. exploit CONS; eauto. i.
-  eapply TimeFacts.le_lt_lt; eauto. apply TVIEW_FUTURE. 
+  eapply TimeFacts.le_lt_lt; eauto. apply TVIEW_FUTURE.
 Qed.
 
 Lemma ordering_relaxed_dec
@@ -167,7 +166,7 @@ Lemma consistent_promise_consistent
   promise_consistent th.(Thread.local).
 Proof.
   exploit CONS; eauto; try refl. i. des.
-  eapply rtc_tau_step_promise_consistent; (try by destruct th; eauto).
+  eapply rtc_tau_step_promise_consistent; (try sfby destruct th; eauto).
   ii. rewrite PROMISES, Memory.bot_get in *. congr.
 Qed.
 
@@ -179,7 +178,7 @@ Lemma promise_consistent_promise_read
       (CONS: promise_consistent lc2):
   Time.lt to t.
 Proof.
-  inv STEP. exploit CONS; eauto. s. i.
+  inv STEP. exploit CONS; eauto. s. intro x.
   apply TimeFacts.join_lt_des in x. des.
   apply TimeFacts.join_lt_des in AC. des.
   revert BC0. unfold View.singleton_ur_if. condtac; ss.
@@ -198,12 +197,12 @@ Proof.
   destruct (Memory.get loc t (Local.promises lc2)) as [[]|] eqn:X.
   - inv STEP. inv WRITE. destruct m.
     exploit CONS; eauto. i. ss.
-    apply TimeFacts.join_lt_des in x. des.
+    apply TimeFacts.join_lt_des in x0. des.
     left. revert BC. unfold TimeMap.singleton, LocFun.add. condtac; ss.
   - inv STEP. inv WRITE. destruct m.
     exploit Memory.promise_promises_get1; eauto. i. des.
     exploit fulfill_unset_promises; eauto. i. des. subst. refl.
-Qed.  
+Qed.
 
 Lemma thread_step_unset_promises
       lang loc pf e from ts msg (th1 th2:Thread.t lang)
@@ -216,13 +215,13 @@ Lemma thread_step_unset_promises
   <<TIME: Time.lt (th1.(Thread.local).(Local.tview).(TView.cur).(View.rlx) loc) ts>>.
 Proof.
   inv STEP.
-  { inv STEP0. inv LOCAL. destruct msg. ss. 
+  { inv STEP0. inv LOCAL. destruct msg. ss.
     exploit Memory.promise_promises_get1; eauto. i. des. congr.
   }
   destruct msg.
   inv STEP0; ss; inv LOCAL; ss;
     (try congr);
-    (try by inv LOCAL0; ss; congr).
+    (try sfby inv LOCAL0; ss; congr).
   - inv LOCAL0. inv WRITE.
     exploit Memory.promise_promises_get1; eauto. i. des.
     exploit fulfill_unset_promises; eauto. i. des. subst.
@@ -261,9 +260,9 @@ Lemma rtc_small_step_unset_promises
 Proof.
   ginduction STEPS; i; subst.
   { ss. rewrite FIND1 in FIND2. depdes FIND2.
-    by rewrite GET1 in GET2.
+    sfby rewrite GET1 in GET2.
   }
-  inv H. 
+  inv H.
   exploit small_step_future; eauto. intros [WF2 _].
   inv USTEP. ss. rewrite FIND1 in TID. depdes TID.
   destruct (Memory.get loc ts lc3.(Local.promises)) as [[t m]|] eqn: PRM.
@@ -271,7 +270,7 @@ Proof.
     exploit IHSTEPS; eauto.
     intro LT. move STEP at bottom.
     eapply TimeFacts.le_lt_lt; eauto.
-    inv WF. exploit thread_step_tview_le; try exact STEP; eauto. 
+    inv WF. exploit thread_step_tview_le; try exact STEP; eauto.
     { eapply WF0. rewrite FIND1. eauto. }
     s. i. apply x1.
   - guardH PFREE.
@@ -292,7 +291,7 @@ Proof.
   }
   subst.
   ii. destruct (IdentMap.find tid (Configuration.threads c2)) as [[lang2 lc2]|] eqn: THREAD2; cycle 1.
-  { inv STEP. inv USTEP. ss. by rewrite IdentMap.gss in THREAD2. }
+  { inv STEP. inv USTEP. ss. sfby rewrite IdentMap.gss in THREAD2. }
   destruct (Memory.get loc ts (Local.promises lc2)) as [[from2 msg2]|] eqn: PROMISE2; cycle 1.
   - apply Operators_Properties.clos_rt1n_step in STEP.
     eapply rtc_small_step_unset_promises; eauto.
@@ -301,7 +300,7 @@ Proof.
     inv STEP. inv USTEP. ss.
     rewrite THREAD in TID. inv TID.
     rewrite IdentMap.gss in THREAD2. inv THREAD2.
-    inv WF. exploit thread_step_tview_le; try exact STEP; eauto. 
+    inv WF. exploit thread_step_tview_le; try exact STEP; eauto.
     { eapply WF0. rewrite THREAD. eauto. }
     s. i. apply x0.
 Qed.
@@ -313,14 +312,14 @@ Lemma promise_consistent_th_rtc_small_step
       (FULFILL: promise_consistent_th tid' c2):
   promise_consistent_th tid' c1.
 Proof.
-  ginduction STEP; eauto. 
+  ginduction STEP; eauto.
   i. eapply promise_consistent_th_small_step; eauto.
   eapply IHSTEP; eauto.
   inv H. eapply small_step_future; eauto.
 Qed.
 
 Lemma consistent_promise_consistent_th
-      tid c 
+      tid c
       (WF: Configuration.wf c)
       (CONSISTENT: Configuration.consistent c):
   promise_consistent_th tid c.
@@ -330,12 +329,12 @@ Proof.
   i. des. destruct e2.
   exploit rtc_thread_step_rtc_small_step; [eauto|..].
   { ss. eapply rtc_implies, STEPS. apply tau_union. }
-  intro STEPS2. 
+  intro STEPS2.
   eapply rtc_small_step_unset_promises in STEPS2; eauto.
   - destruct c. eapply rtc_small_step_future; eauto.
   - s. rewrite IdentMap.gss. eauto.
   - ss. rewrite PROMISES. apply Cell.bot_get.
-Grab Existential Variables. exact true.
+Unshelve. exact true.
 Qed.
 
 Lemma promise_consistent_th_small_step_forward
@@ -349,8 +348,8 @@ Proof.
   i. s. destruct (Ident.eq_dec tid0 tid) eqn: EQ.
   - subst. eauto.
   - ii. exploit small_step_find; eauto.
-    s; intro X. rewrite <-X in THREAD. 
-    eapply (PRCONS tid0); eauto.  
+    s; intro X. rewrite <-X in THREAD.
+    eapply (PRCONS tid0); eauto.
 Qed.
 
 Lemma rtc_promise_consistent_th_small_step_forward
@@ -385,8 +384,8 @@ Proof.
   i. s. destruct (Ident.eq_dec tid0 tid) eqn: EQ.
   - subst. hexploit promise_consistent_th_small_step; eauto.
   - ii. exploit small_step_find; eauto.
-    s; intro X. rewrite X in THREAD. 
-    eapply (PRCONS tid0); eauto.  
+    s; intro X. rewrite X in THREAD.
+    eapply (PRCONS tid0); eauto.
 Qed.
 
 Lemma rtc_promise_consistent_th_small_step_backward
@@ -397,7 +396,7 @@ Lemma rtc_promise_consistent_th_small_step_backward
   forall tid0, promise_consistent_th tid0 c1.
 Proof.
   ginduction STEP; eauto.
-  i. inv H. 
+  i. inv H.
   i. hexploit promise_consistent_th_small_step_backward; eauto.
   i. hexploit IHSTEP; eauto.
   eapply small_step_future; eauto.

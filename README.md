@@ -8,34 +8,25 @@ Please visit the [project website](http://sf.snu.ac.kr/promise-concurrency/) for
 
 ## Build
 
-- Requirement: [Coq 8.9.1](https://coq.inria.fr/download), opam, Make, Rsync.
+Requirements: opam (>=2.0.0), OCaml 5.x, Rocq 9.0+, dune (>=3.21)
 
-- Installing dependencies with opam
+1. Create a local opam switch and install dependencies
+```
+opam switch create . ocaml-base-compiler.5.4.0 --no-install
+eval $(opam env)
+opam repo add rocq-released https://rocq-prover.org/opam/released
+opam pin add -y rocq-promising . --no-action
+opam install -y --deps-only rocq-promising
+```
 
-        opam repo add coq-released https://coq.inria.fr/opam/released
-        opam remote add coq-promising -k git https://github.com/snu-sf/promising-opam-coq-archive
-        opam install coq-paco.2.0.3
-        opam install coq-sflib
-        opam install coq-promising-lib
-
-- Initialization
-
-        git clone https://github.com/snu-sf/promising-coq.git
-
-- `make`: quickly build without checking the proofs.
-
-- `./build.sh`: build with checking all the proofs.  It will incrementally copy the development in the `.build` directory, and then build there.
-
-- Interactive Theorem Proving: use [ProofGeneral](https://proofgeneral.github.io/) or [CoqIDE](https://coq.inria.fr/download).
-  Note that `make` creates `_CoqProject`, which is then used by ProofGeneral and CoqIDE. To use it:
-    + ProofGeneral: use a recent version.
-    + CoqIDE: configure it to use `_CoqProject`: `Edit` > `Preferences` > `Project`: change `ignored` to `appended to arguments`.
+2. Build the project
+```
+dune build
+```
 
 ## References
 
 ### Model
-
-- `lib` and `src/lib` contains libraries not necessarily related to the relaxed-memory concurrency.
 
 - `src/lang`: Model (Section 2-4)
     + `Language.v`: abstract interface of the programming languages

@@ -1,6 +1,5 @@
-Require Import Omega.
-Require Import RelationClasses.
-
+From Stdlib Require Import Lia.
+From Stdlib Require Import RelationClasses.
 From sflib Require Import sflib.
 From Paco Require Import paco.
 
@@ -8,27 +7,27 @@ From PromisingLib Require Import Axioms.
 From PromisingLib Require Import Basic.
 From PromisingLib Require Import DataStructure.
 From PromisingLib Require Import DenseOrder.
-Require Import Event.
-Require Import Time.
+Require Import lang.Event.
+Require Import lang.Time.
 From PromisingLib Require Import Language.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import TView.
-Require Import Thread.
-Require Import Configuration.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.TView.
+Require Import lang.Thread.
+Require Import lang.Configuration.
 
-Require Import SimMemory.
-Require Import SimPromises.
-Require Import SimLocal.
-Require Import FulfillStep.
-Require Import MemoryReorder.
+Require Import opt.SimMemory.
+Require Import opt.SimPromises.
+Require Import opt.SimLocal.
+Require Import opt.FulfillStep.
+Require Import prop.MemoryReorder.
 
-Require Import MemoryRel.
-Require Import SmallStep.
-Require Import PromiseConsistent.
-Require Import ReorderPromiseSame.
-Require Import ReorderPromiseDiff.
+Require Import prop.MemoryRel.
+Require Import drf.SmallStep.
+Require Import drf.PromiseConsistent.
+Require Import prop.ReorderPromiseSame.
+Require Import prop.ReorderPromiseDiff.
 
 Set Implicit Arguments.
 
@@ -58,11 +57,11 @@ Proof.
   destruct (Ident.eq_dec tid1 tid2).
   - subst. inv STEP1. inv STEP2. ss.
     rewrite IdentMap.gss in TID0. inv TID0. apply inj_pair2 in H1. subst.
-    clear PFREE. destruct pf0; ss. inv STEP; [|by inv STEP1; inv E1].
+    clear PFREE. destruct pf0; ss. inv STEP; [|sfby inv STEP1; inv E1].
     destruct pf.
-    { inv STEP1. by destruct kind, released. }
+    { inv STEP1. sfby destruct kind, released. }
     r in PCONS; ss. rewrite IdentMap.gss in PCONS.
-    exploit (@reorder_nonpf_pf lang0 e1 e2); eauto; try by eapply WF; eauto.
+    exploit (@reorder_nonpf_pf lang0 e1 e2); eauto; try sfby eapply WF; eauto.
     i. des.
     + left. esplits; eauto. econs; eauto. rewrite IdentMap.add_add_eq; eauto.
     + right. assert (X:=STEP3). inv X.
@@ -74,7 +73,7 @@ Proof.
 
   - right. inv STEP1. inv STEP2. ss. clear PFREE. des; try done.
     rewrite IdentMap.gso in TID0; auto.
-    inv STEP; [|by inv STEP1; inv E1].
+    inv STEP; [|sfby inv STEP1; inv E1].
     inv STEP0.
     { inv STEP. inv STEP1. 
       exploit reorder_promise_promise_diff; eauto; try eapply WF; eauto.
@@ -85,7 +84,7 @@ Proof.
     }
     inv STEP1. ss. inv E1.
     exploit reorder_promise_program_diff; eauto;
-      (try by eapply WF; eauto). i. des.
+      (try sfby eapply WF; eauto). i. des.
     esplits.
     + eauto.
     + econs; s; rewrite ?IdentMap.gso; [| |econs; econs|..]; eauto.

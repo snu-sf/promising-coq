@@ -1,7 +1,6 @@
-Require Import RelationClasses.
-Require Import Bool.
-Require Import List.
-
+From Stdlib Require Import RelationClasses.
+From Stdlib Require Import Bool.
+From Stdlib Require Import List.
 From sflib Require Import sflib.
 From Paco Require Import paco.
 
@@ -9,24 +8,24 @@ From PromisingLib Require Import Axioms.
 From PromisingLib Require Import Basic.
 From PromisingLib Require Import Loc.
 
-Require Import Event.
-Require Import Time.
+Require Import lang.Event.
+Require Import lang.Time.
 From PromisingLib Require Import Language.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import MemoryFacts.
-Require Import TView.
-Require Import Thread.
-Require Import Configuration.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.MemoryFacts.
+Require Import lang.TView.
+Require Import lang.Thread.
+Require Import lang.Configuration.
 
-Require Import FulfillStep.
-Require Import SimMemory.
-Require Import SimPromises.
-Require Import SimLocal.
+Require Import opt.FulfillStep.
+Require Import opt.SimMemory.
+Require Import opt.SimPromises.
+Require Import opt.SimLocal.
 
-Require Import Syntax.
-Require Import Semantics.
+Require Import while.Syntax.
+Require Import while.Semantics.
 
 Set Implicit Arguments.
 
@@ -46,8 +45,8 @@ Lemma sim_localF_nonsynch_loc
 Proof.
   inv SIM. inv PROMISES. ii. destruct msg.
   destruct (Memory.get loc t lc_tgt.(Local.promises)) as [[? []]|] eqn:X.
-  - exploit NONSYNCH; eauto. s. i. subst.
-    exploit LE; eauto. rewrite GET. i. inv x.
+  - exploit NONSYNCH; eauto. s. intro x. subst.
+    exploit LE; eauto. rewrite GET. intro x. inv x.
     unfold SimPromises.none_if. condtac; ss.
   - exploit COMPLETE; eauto. rewrite SimPromises.bot_spec. congr.
 Qed.
@@ -127,13 +126,13 @@ Proof.
   splits.
   - unfold TView.read_tview, View.singleton_ur_if.
     repeat (condtac; aggrtac);
-      (try by etrans; [apply TVIEW|aggrtac]);
-      (try by rewrite <- ? View.join_r; econs; aggrtac);
+      (try sfby etrans; [apply TVIEW|aggrtac]);
+      (try sfby rewrite <- ? View.join_r; econs; aggrtac);
       (try apply WF2).
   - unfold TView.read_tview, View.singleton_ur_if.
     repeat (condtac; aggrtac);
-      (try by etrans; [apply TVIEW|aggrtac]);
-      (try by rewrite <- ? View.join_r; econs; aggrtac);
+      (try sfby etrans; [apply TVIEW|aggrtac]);
+      (try sfby rewrite <- ? View.join_r; econs; aggrtac);
       (try apply WF2).
 Qed.
 
@@ -183,13 +182,13 @@ Proof.
   splits.
   - unfold TView.write_tview.
     repeat (condtac; aggrtac);
-      (try by etrans; [apply TVIEW|aggrtac]);
-      (try by rewrite <- ? View.join_r; econs; aggrtac);
+      (try sfby etrans; [apply TVIEW|aggrtac]);
+      (try sfby rewrite <- ? View.join_r; econs; aggrtac);
       (try apply WF2).
   - unfold TView.write_tview.
     repeat (condtac; aggrtac);
-      (try by etrans; [apply TVIEW|aggrtac]);
-      (try by rewrite <- ? View.join_r; econs; aggrtac);
+      (try sfby etrans; [apply TVIEW|aggrtac]);
+      (try sfby rewrite <- ? View.join_r; econs; aggrtac);
       (try apply WF2).
 Qed.
 
@@ -229,11 +228,11 @@ Proof.
      (TView.write_released lc1_tgt.(Local.tview) sc2_tgt loc to releasedm_tgt ord_tgt)).
   { unguardH NONEFOR. des.
     - unfold TView.write_released.
-      condtac; [|by econs].
+      condtac; [|sfby econs].
       condtac; cycle 1.
-      { by destruct ord_tgt; inv NONEFOR; inv COND0. }
+      { sfby destruct ord_tgt; inv NONEFOR; inv COND0. }
       econs. unfold TView.write_tview. s.
-      repeat (condtac; aggrtac); try by apply WF1_TGT.
+      repeat (condtac; aggrtac); try sfby apply WF1_TGT.
       + rewrite <- View.join_r. rewrite <- ? View.join_l. apply LOCAL1.
       + rewrite <- View.join_r. rewrite <- ? View.join_l.
         etrans; [|apply LOCAL1]. apply WF1_SRC.
@@ -305,9 +304,9 @@ Proof.
   { destruct (Ordering.le ord_tgt Ordering.strong_relaxed) eqn:X.
     - right. unguardH ORD_TGT. destruct ord_tgt; des; ss.
     - left. splits.
-      { by destruct ord_tgt; inv X. }
+      { sfby destruct ord_tgt; inv X. }
       exploit ORD0.
-      { by destruct ord_tgt; inv X. }
+      { sfby destruct ord_tgt; inv X. }
       i. des. subst.
       destruct (SimPromises.mem loc to none_for) eqn:Y; ss.
       inv LOCAL1. inv PROMISES. exploit NONEFOR; eauto. i. des.
@@ -325,7 +324,7 @@ Proof.
   i. des. esplits; eauto.
   - unguardH NONEFOR. des.
     + unfold SimPromises.none_if in *. rewrite NONEFOR0 in *. ss.
-    + subst. unfold TView.write_released at 1. condtac; [|by econs].
+    + subst. unfold TView.write_released at 1. condtac; [|sfby econs].
       destruct ord_src, ord_tgt; inv ORD; inv NONEFOR; inv COND.
   - etrans; eauto.
 Qed.
@@ -451,15 +450,15 @@ Proof.
       * rewrite SimPromises.set_o. condtac; ss.
         { des. subst. condtac; ss; cycle 1.
           { revert COND0. condtac; ss. des; congr. }
-          rewrite x in x1. inv x1. ss.
+          rewrite x0 in x1. inv x1. ss.
         }
         { guardH o. condtac.
           { revert COND0. condtac; ss.
             { des. subst. unguardH o. des; congr. }
             guardH o0. i.
-            rewrite x. repeat f_equal. unfold SimPromises.none_if. condtac; ss.
+            rewrite x0. repeat f_equal. unfold SimPromises.none_if. condtac; ss.
           }
-          rewrite x. repeat f_equal. unfold SimPromises.none_if. condtac; ss.
+          rewrite x0. repeat f_equal. unfold SimPromises.none_if. condtac; ss.
           revert COND0. condtac; ss.
         }
       * condtac; ss. des. subst. congr.
@@ -508,17 +507,17 @@ Proof.
   }
   destruct a as [loc to]. i.
   destruct (Memory.get loc to lc1_src.(Local.promises)) as [[? []]|] eqn:X; cycle 1.
-  { eapply IHdom; eauto. i. exploit FINITE'; eauto. i. inv x; ss.
+  { eapply IHdom; eauto. i. exploit FINITE'; eauto. intro x. inv x; ss.
     inv H1. congr.
   }
   destruct released; cycle 1.
-  { eapply IHdom; eauto. i. exploit FINITE'; eauto. i. inv x; ss.
+  { eapply IHdom; eauto. i. exploit FINITE'; eauto. intro x. inv x; ss.
     inv H1. rewrite H in X. inv X. ss.
   }
   exploit MemoryFacts.promise_exists_None; eauto.
-  { eapply MemoryFacts.some_released_time_lt; [by apply MEM1_SRC|]. apply LOCAL1_SRC. eauto. }
+  { eapply MemoryFacts.some_released_time_lt; [sfby apply MEM1_SRC|]. apply LOCAL1_SRC. eauto. }
   i. des.
-  exploit Memory.promise_future; try apply LOCAL1_SRC; eauto; try by econs. i. des.
+  exploit Memory.promise_future; try apply LOCAL1_SRC; eauto; try sfby econs. i. des.
   exploit sim_localF_lower_src; eauto.
   { econs; eauto. econs. }
   i. des.
@@ -528,7 +527,7 @@ Proof.
   { s. i. inv x0. revert H.
     erewrite Memory.lower_o; eauto. condtac; ss.
     - i. des. inv H. ss.
-    - guardH o. i. exploit FINITE'; eauto. i. des; ss.  inv x.
+    - guardH o. i. exploit FINITE'; eauto. intro x. des; ss.  inv x.
       unguardH o. des; congr.
   }
   i. des. esplits; try exact NONSYNCH2; eauto.
@@ -577,7 +576,7 @@ Proof.
   - unfold TView.read_fence_tview. condtac; ss.
     unfold TView.write_fence_tview. econs; repeat (condtac; aggrtac).
     etrans; [|apply TVIEW_CUR]. apply WF1_SRC.
-  - econs; try by apply PROMISES.
+  - econs; try sfby apply PROMISES.
     + inv PROMISES. ii. exploit LE; eauto.
       unfold SimPromises.none_if. condtac; ss.
       exploit RELEASE; eauto. s. i. subst. ss.
