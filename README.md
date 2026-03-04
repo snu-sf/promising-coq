@@ -24,6 +24,18 @@ opam install -y --deps-only rocq-promising
 dune build
 ```
 
+## IDE (VSCode)
+
+After building the project, the `_CoqProject` file is pre-configured so that
+VSCode extensions (VsCoq or coq-lsp) can find the compiled files:
+
+```
+-R _build/default/src Promising
+```
+
+Make sure to run `dune build` first so that the compiled `.vo` files exist
+in `_build/default/src/`.
+
 ## References
 
 ### Model
