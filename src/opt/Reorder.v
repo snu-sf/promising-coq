@@ -1,37 +1,36 @@
-Require Import Bool.
-Require Import List.
-
+From Stdlib Require Import Bool.
+From Stdlib Require Import List.
 From sflib Require Import sflib.
 From Paco Require Import paco.
 
 From PromisingLib Require Import Basic.
-Require Import Event.
+Require Import lang.Event.
 From PromisingLib Require Import Language.
-Require Import Time.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import MemoryFacts.
-Require Import TView.
-Require Import Thread.
-Require Import Configuration.
-Require Import Progress.
+Require Import lang.Time.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.MemoryFacts.
+Require Import lang.TView.
+Require Import lang.Thread.
+Require Import lang.Configuration.
+Require Import lang.Progress.
 
-Require Import FulfillStep.
-Require Import SimMemory.
-Require Import SimPromises.
-Require Import SimLocal.
-Require Import Compatibility.
-Require Import SimThread.
+Require Import opt.FulfillStep.
+Require Import opt.SimMemory.
+Require Import opt.SimPromises.
+Require Import opt.SimLocal.
+Require Import opt.Compatibility.
+Require Import opt.SimThread.
 
-Require Import ReorderStep.
-Require Import ReorderLoad.
-Require Import ReorderStore.
-Require Import ReorderUpdate.
-Require Import ReorderFence.
+Require Import opt.ReorderStep.
+Require Import opt.ReorderLoad.
+Require Import opt.ReorderStore.
+Require Import opt.ReorderUpdate.
+Require Import opt.ReorderFence.
 
-Require Import Syntax.
-Require Import Semantics.
+Require Import while.Syntax.
+Require Import while.Semantics.
 
 Set Implicit Arguments.
 
@@ -99,10 +98,10 @@ Proof.
       econs; [eauto|..]; s; eauto.
       eapply Local.read_step_future; eauto.
   - (* store *)
-    exploit Local.write_step_future; eauto; try by viewtac. i. des.
+    exploit Local.write_step_future; eauto; try sfby viewtac. i. des.
     hexploit sim_local_write; try exact LOCAL1; try exact SC;
       try exact WF_SRC; try refl; viewtac. i. des.
-    exploit write_promise_fulfill; eauto; try by viewtac. i. des.
+    exploit write_promise_fulfill; eauto; try sfby viewtac. i. des.
     exploit Local.promise_step_future; eauto. i. des.
     esplits.
     + eauto.
@@ -117,14 +116,14 @@ Proof.
     exploit Local.write_step_future; eauto. i. des.
     exploit sim_local_read; eauto; try refl. i. des.
     exploit Local.read_step_future; eauto. i. des.
-    hexploit sim_local_write; try apply LOCAL2; try apply LOCAL0; try apply SC; eauto; try refl; try by viewtac. i. des.
-    exploit write_promise_fulfill; eauto; try by viewtac. i. des.
+    hexploit sim_local_write; try apply LOCAL2; try apply LOCAL0; try apply SC; eauto; try refl; try sfby viewtac. i. des.
+    exploit write_promise_fulfill; eauto; try sfby viewtac. i. des.
     exploit Local.promise_step_future; eauto. i. des.
     exploit reorder_read_promise; try exact STEP_SRC; try exact STEP1; eauto. i. des.
     exploit Local.promise_step_future; eauto. i. des.
     exploit Local.read_step_future; eauto. i. des.
     exploit sim_local_fulfill; try exact STEP2; try exact LOCAL4; try exact REL1;
-      try exact WF3; try refl; eauto; try by viewtac. i. des.
+      try exact WF3; try refl; eauto; try sfby viewtac. i. des.
     esplits.
     + eauto.
     + econs 2. econs 1. econs; eauto.
@@ -132,7 +131,7 @@ Proof.
     + etrans; eauto.
     + auto.
     + left. eapply paco9_mon; [apply sim_update_sim_thread|done].
-      econs; [eauto|..]; s; eauto. 
+      econs; [eauto|..]; s; eauto.
       * etrans; eauto.
       * etrans; eauto.
   - (* fence *)
@@ -145,7 +144,7 @@ Proof.
     + auto.
     + left. eapply paco9_mon; [apply sim_fence_sim_thread|]; ss.
       econs; eauto.
-Grab Existential Variables.
-{ econs 2. }
-{ econs. econs 3. }
+Unshelve.
+{ exact Time.bot. }
+{ exact None. }
 Qed.

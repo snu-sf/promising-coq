@@ -1,29 +1,28 @@
-Require Import Bool.
-Require Import List.
-
+From Stdlib Require Import Bool.
+From Stdlib Require Import List.
 From sflib Require Import sflib.
 From Paco Require Import paco.
 
 From PromisingLib Require Import Basic.
-Require Import Event.
+Require Import lang.Event.
 From PromisingLib Require Import Language.
-Require Import Time.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import TView.
-Require Import Thread.
-Require Import Configuration.
-Require Import Progress.
+Require Import lang.Time.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.TView.
+Require Import lang.Thread.
+Require Import lang.Configuration.
+Require Import lang.Progress.
 
-Require Import SimMemory.
-Require Import SimPromises.
-Require Import SimLocal.
-Require Import Compatibility.
-Require Import SimThread.
+Require Import opt.SimMemory.
+Require Import opt.SimPromises.
+Require Import opt.SimLocal.
+Require Import opt.Compatibility.
+Require Import opt.SimThread.
 
-Require Import Syntax.
-Require Import Semantics.
+Require Import while.Syntax.
+Require Import while.Semantics.
 
 Set Implicit Arguments.
 

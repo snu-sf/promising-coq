@@ -1,7 +1,6 @@
-Require Import Omega.
-Require Import Bool.
-Require Import RelationClasses.
-
+From Stdlib Require Import Lia.
+From Stdlib Require Import Bool.
+From Stdlib Require Import RelationClasses.
 From sflib Require Import sflib.
 From Paco Require Import paco.
 
@@ -11,14 +10,14 @@ From PromisingLib Require Import DataStructure.
 From PromisingLib Require Import DenseOrder.
 From PromisingLib Require Import Loc.
 
-Require Import Event.
-Require Import Time.
+Require Import lang.Event.
+Require Import lang.Time.
 From PromisingLib Require Import Language.
 
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import TView.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.TView.
 
 Set Implicit Arguments.
 
@@ -148,15 +147,13 @@ Inductive tau T (step: forall (e:ThreadEvent.t) (e1 e2:T), Prop) (e1 e2:T): Prop
     (TSTEP: step e e1 e2)
     (EVENT: ThreadEvent.get_event e = None)
 .
-Hint Constructors tau.
-
+Hint Constructors tau : core.
 Inductive union E T (step: forall (e:E) (e1 e2:T), Prop) (e1 e2:T): Prop :=
 | union_intro
     e
     (USTEP: step e e1 e2)
 .
-Hint Constructors union.
-
+Hint Constructors union : core.
 Lemma tau_mon T (step1 step2: forall (e:ThreadEvent.t) (e1 e2:T), Prop)
       (STEP: step1 <3= step2):
   tau step1 <2= tau step2.
@@ -248,7 +245,7 @@ Module Local.
       fence_step lc1 sc1 ordr ordw (mk (TView.write_fence_tview tview2 sc1 ordw) lc1.(promises)) (TView.write_fence_sc tview2 sc1 ordw)
   .
 
-  Inductive program_step: forall (e:ThreadEvent.t) lc1 sc1 mem1 lc2 sc2 mem2, Prop :=
+  Inductive program_step: forall (e:ThreadEvent.t) (lc1:Local.t) (sc1:TimeMap.t) (mem1:Memory.t) (lc2:Local.t) (sc2:TimeMap.t) (mem2:Memory.t), Prop :=
   | step_silent
       lc1 sc1 mem1:
       program_step ThreadEvent.silent lc1 sc1 mem1 lc1 sc1 mem1
@@ -293,7 +290,7 @@ Module Local.
     <<FUTURE: Memory.future mem1 mem2>> /\
     <<TVIEW_FUTURE: TView.le lc1.(tview) lc2.(tview)>> /\
     <<REL_WF: View.opt_wf released>> /\
-    <<REL_TS: Time.le (released.(View.unwrap).(View.rlx) loc) to>> /\
+    <<REL_TS: Time.le ((View.unwrap released).(View.rlx) loc) to>> /\
     <<REL_CLOSED: Memory.closed_opt_view released mem2>>.
   Proof.
     inv WF1. inv STEP.
@@ -306,7 +303,7 @@ Module Local.
       + inv PROMISES0. inv ADD. auto.
       + inv PROMISES0. inv SPLIT. auto.
       + inv PROMISES0. inv LOWER. auto.
-    - by inv PROMISE.
+    - sfby inv PROMISE.
   Qed.
 
   Lemma read_step_future lc1 mem1 loc ts val released ord lc2
@@ -341,7 +338,7 @@ Module Local.
     <<SC_FUTURE: TimeMap.le sc1 sc2>> /\
     <<MEM_FUTURE: Memory.future mem1 mem2>> /\
     <<REL_WF: View.opt_wf released>> /\
-    <<REL_TS: Time.le (released.(View.unwrap).(View.rlx) loc) to>> /\
+    <<REL_TS: Time.le ((View.unwrap released).(View.rlx) loc) to>> /\
     <<REL_CLOSED: Memory.closed_opt_view released mem2>>.
   Proof.
     inv WF1. inv STEP.
@@ -349,7 +346,7 @@ Module Local.
     { inv WRITE. eapply Memory.promise_op. eauto. }
     s. i. des.
     exploit Memory.write_future; try apply WRITE; eauto. i. des.
-    exploit Memory.write_get2; try apply WRITE; eauto; try by viewtac. i. des.
+    exploit Memory.write_get2; try apply WRITE; eauto; try sfby viewtac. i. des.
     splits; eauto.
     - econs; ss.
     - apply TViewFacts.write_tview_incr. auto.
@@ -395,10 +392,10 @@ Module Local.
     - esplits; eauto; try refl.
     - exploit read_step_future; eauto. i. des.
       esplits; eauto; try refl.
-    - exploit write_step_future; eauto; try by econs. i. des.
+    - exploit write_step_future; eauto; try sfby econs. i. des.
       esplits; eauto; try refl.
     - exploit read_step_future; eauto. i. des.
-      exploit write_step_future; eauto; try by econs. i. des.
+      exploit write_step_future; eauto; try sfby econs. i. des.
       esplits; eauto. etrans; eauto.
     - exploit fence_step_future; eauto. i. des. esplits; eauto; try refl.
     - exploit fence_step_future; eauto. i. des. esplits; eauto; try refl.
@@ -445,7 +442,7 @@ Module Local.
     <<WF: wf lc mem2>>.
   Proof.
     inv WF1. inv DISJOINT1. inversion WF. inv STEP.
-    exploit Memory.write_future0; try apply WRITE; eauto; try by viewtac. i. des.
+    exploit Memory.write_future0; try apply WRITE; eauto; try sfby viewtac. i. des.
     exploit Memory.write_disjoint; try apply WRITE; eauto. i. des.
     splits; ss. econs; eauto.
     inv WRITE. eapply TView.promise_closed; eauto.

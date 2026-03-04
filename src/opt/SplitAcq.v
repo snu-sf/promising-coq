@@ -1,31 +1,30 @@
-Require Import Bool.
-Require Import List.
-
+From Stdlib Require Import Bool.
+From Stdlib Require Import List.
 From sflib Require Import sflib.
 From Paco Require Import paco.
 
 From PromisingLib Require Import Basic.
 From PromisingLib Require Import Loc.
 
-Require Import Event.
+Require Import lang.Event.
 From PromisingLib Require Import Language.
-Require Import Time.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import TView.
-Require Import Thread.
-Require Import Configuration.
+Require Import lang.Time.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.TView.
+Require Import lang.Thread.
+Require Import lang.Configuration.
 
-Require Import FulfillStep.
-Require Import SimMemory.
-Require Import SimPromises.
-Require Import SimLocal.
-Require Import Compatibility.
-Require Import SimThread.
+Require Import opt.FulfillStep.
+Require Import opt.SimMemory.
+Require Import opt.SimPromises.
+Require Import opt.SimLocal.
+Require Import opt.Compatibility.
+Require Import opt.SimThread.
 
-Require Import Syntax.
-Require Import Semantics.
+Require Import while.Syntax.
+Require Import while.Semantics.
 
 Set Implicit Arguments.
 
@@ -80,7 +79,7 @@ Lemma sim_local_fulfill_acquired
       (STEP_TGT: fulfill_step lc1_tgt sc1_tgt loc from to val releasedm_tgt released ord_tgt lc2_tgt sc2_tgt)
       (LOCAL1: sim_local lc1_src (local_acquired lc1_tgt))
       (ACQUIRED1: View.le lc1_src.(Local.tview).(TView.cur)
-                          (View.join lc1_tgt.(Local.tview).(TView.cur) releasedm_tgt.(View.unwrap)))
+                          (View.join lc1_tgt.(Local.tview).(TView.cur) (View.unwrap releasedm_tgt)))
       (SC1: TimeMap.le sc1_src sc1_tgt)
       (MEM1: sim_memory mem1_src mem1_tgt)
       (WF1_SRC: Local.wf lc1_src mem1_src)
@@ -127,8 +126,8 @@ Proof.
         eapply TimeFacts.le_lt_lt; eauto.
   - econs; eauto. s. unfold TView.write_tview, TView.read_fence_tview. ss.
     econs; ss; repeat (try condtac; aggrtac).
-    all: try by destruct ord_src, ord_tgt.
-    all: try by apply WF1_TGT.
+    all: try sfby destruct ord_src, ord_tgt.
+    all: try sfby apply WF1_TGT.
     + etrans; [apply LOCAL1|]. aggrtac.
     + etrans; [apply LOCAL1|]. aggrtac.
     + etrans; [apply WF1_SRC|]. etrans; [apply LOCAL1|]. aggrtac.
@@ -152,7 +151,7 @@ Lemma sim_local_write_acquired
       (STEP_TGT: Local.write_step lc1_tgt sc1_tgt mem1_tgt loc from to val releasedm_tgt released_tgt ord_tgt lc2_tgt sc2_tgt mem2_tgt kind)
       (LOCAL1: sim_local lc1_src (local_acquired lc1_tgt))
       (ACQUIRED1: View.le lc1_src.(Local.tview).(TView.cur)
-                          (View.join lc1_tgt.(Local.tview).(TView.cur) releasedm_tgt.(View.unwrap)))
+                          (View.join lc1_tgt.(Local.tview).(TView.cur) (View.unwrap releasedm_tgt)))
       (SC1: TimeMap.le sc1_src sc1_tgt)
       (MEM1: sim_memory mem1_src mem1_tgt)
       (WF1_SRC: Local.wf lc1_src mem1_src)
@@ -306,7 +305,7 @@ Proof.
   - (* fence *)
     exploit Local.fence_step_future; eauto. i. des.
     inv STATE. inv INSTR. inv LOCAL1. ss.
-    esplits; (try by econs 1); eauto.
+    esplits; (try sfby econs 1); eauto.
     left. eapply paco9_mon; [apply sim_stmts_nil|]; ss. econs; ss.
     + rewrite TViewFacts.write_fence_tview_strong_relaxed; ss. apply LOCAL.
     + apply LOCAL.
@@ -318,7 +317,7 @@ Proof.
   pcofix CIH. i. pfold. ii. ss. splits; ss; ii.
   - inv TERMINAL_TGT. inv PR; ss.
   - exploit sim_acquired_mon; eauto. i.
-    exploit sim_acquired_future; try apply x0; eauto. i. des.
+    exploit sim_acquired_future; try apply x8; eauto. i. des.
     esplits; eauto.
   - esplits; eauto.
     inv PR. eapply sim_local_memory_bot; eauto.
@@ -355,8 +354,8 @@ Proof.
   - econs; eauto. s.
     unfold TView.read_tview, TView.read_fence_tview. ss.
     econs; repeat (condtac; aggrtac).
-    all: try by apply TVIEW.
-    all: try by apply WF1_TGT.
+    all: try sfby apply TVIEW.
+    all: try sfby apply WF1_TGT.
     + rewrite <- ? View.join_l. etrans; [apply TVIEW|]. apply WF1_TGT.
     + inv MEM1_TGT. exploit CLOSED; eauto. i. des. apply View.unwrap_opt_wf. ss.
     + rewrite <- ? View.join_l. apply TVIEW.

@@ -1,4 +1,4 @@
-Require Import Program.
+From Stdlib Require Import Program.
 From sflib Require Import sflib.
 From Paco Require Import paco.
 
@@ -6,18 +6,18 @@ From PromisingLib Require Import Axioms.
 From PromisingLib Require Import Basic.
 From PromisingLib Require Import Loc.
 
-Require Import Event.
+Require Import lang.Event.
 From PromisingLib Require Import Language.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import TView.
-Require Import Thread.
-Require Import Configuration.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.TView.
+Require Import lang.Thread.
+Require Import lang.Configuration.
 
-Require Import SimMemory.
-Require Import SimPromises.
-Require Import Behavior.
+Require Import opt.SimMemory.
+Require Import opt.SimPromises.
+Require Import lang.Behavior.
 
 Set Implicit Arguments.
 

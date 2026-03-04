@@ -1,6 +1,5 @@
-Require Import Omega.
-Require Import RelationClasses.
-
+From Stdlib Require Import Lia.
+From Stdlib Require Import RelationClasses.
 From Paco Require Import paco.
 From sflib Require Import sflib.
 
@@ -9,31 +8,31 @@ From PromisingLib Require Import Basic.
 From PromisingLib Require Import DataStructure.
 From PromisingLib Require Import Loc.
 
-Require Import Time.
-Require Import Event.
+Require Import lang.Time.
+Require Import lang.Event.
 From PromisingLib Require Import Language.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import TView.
-Require Import Thread.
-Require Import Configuration.
-Require Import Progress.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.TView.
+Require Import lang.Thread.
+Require Import lang.Configuration.
+Require Import lang.Progress.
 
-Require Import MemoryRel.
-Require Import SmallStep.
-Require Import Fulfilled.
-Require Import Race.
-Require Import PIStep.
-Require Import PIStepProgress.
-Require Import Lift.
-Require Import PromiseConsistent.
-Require Import PFConsistent.
-Require Import PIStepPreservation.
+Require Import prop.MemoryRel.
+Require Import drf.SmallStep.
+Require Import drf.Fulfilled.
+Require Import drf.Race.
+Require Import drf.PIStep.
+Require Import drf.PIStepProgress.
+Require Import drf.Lift.
+Require Import drf.PromiseConsistent.
+Require Import prop.PFConsistent.
+Require Import drf.PIStepPreservation.
 
-Require Import OrdStep.
-Require Import SimWhole.
-Require Import Behavior.
+Require Import drf.OrdStep.
+Require Import drf.SimWhole.
+Require Import lang.Behavior.
 
 Set Implicit Arguments.
 
@@ -154,12 +153,12 @@ Proof.
   s. pcofix CIH. i. pfold. econs.
   - i. esplits; eauto. inv PR. inv WF. rewrite THS. clear -TERMINAL_TGT.
     ii. rewrite IdentMap.Facts.map_o in FIND.
-    destruct (IdentMap.find tid x3.(Configuration.threads)) as [[]|] eqn:X; ss. inv FIND.
+    destruct (IdentMap.find tid x1.(Configuration.threads)) as [[]|] eqn:X; ss. inv FIND.
     exploit TERMINAL_TGT; eauto. i. des. esplits; ss.
   - hexploit sim_pf_has_promise; eauto. i.
     i. exploit sim_pf_step; eauto. i. des.
     exploit rtc_tau_small_step_false_rtc_union_ord_step_plain; eauto. i. des.
-    esplits; [by eauto| |by eauto].
+    esplits; [sfby eauto| |sfby eauto].
     inv STEP_SRC.
     + rewrite EVENT0. econs 1.
     + econs 2. hexploit small_step_false_ord_step_plain; eauto. i. des. subst.

@@ -1,6 +1,5 @@
-Require Import Omega.
-Require Import RelationClasses.
-
+From Stdlib Require Import Lia.
+From Stdlib Require Import RelationClasses.
 From sflib Require Import sflib.
 From Paco Require Import paco.
 
@@ -10,15 +9,15 @@ From PromisingLib Require Import DataStructure.
 From PromisingLib Require Import DenseOrder.
 From PromisingLib Require Import Loc.
 
-Require Import Event.
-Require Import Time.
+Require Import lang.Event.
+Require Import lang.Time.
 From PromisingLib Require Import Language.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import MemoryFacts.
-Require Import TView.
-Require Import Thread.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.MemoryFacts.
+Require Import lang.TView.
+Require Import lang.Thread.
 
 Set Implicit Arguments.
 
@@ -53,7 +52,7 @@ Lemma program_step_promise
       (PROMISES: lc1.(Local.promises) = Memory.bot):
   lc2.(Local.promises) = Memory.bot.
 Proof.
-  inv STEP. inv LOCAL; ss; try by inv LOCAL0.
+  inv STEP. inv LOCAL; ss; try sfby inv LOCAL0.
   - eapply write_step_promise; eauto.
   - eapply write_step_promise; eauto.
     inv LOCAL1. auto.
@@ -93,9 +92,9 @@ Proof.
   - econs; eauto.
     unfold TView.write_released.
     viewtac; repeat (condtac; viewtac);
-      (try by apply Time.bot_spec);
-      (try by unfold TimeMap.singleton, LocFun.add; condtac; [refl|congr]);
-      (try by left; eapply TimeFacts.le_lt_lt; [|eauto];
+      (try sfby apply Time.bot_spec);
+      (try sfby unfold TimeMap.singleton, LocFun.add; condtac; [refl|congr]);
+      (try sfby left; eapply TimeFacts.le_lt_lt; [|eauto];
        eapply closed_timemap_max_ts; apply WF1).
     left. eapply TimeFacts.le_lt_lt; [|eauto].
     eapply closed_timemap_max_ts. apply Memory.unwrap_closed_opt_view; viewtac.
@@ -119,7 +118,7 @@ Lemma progress_read_step
 Proof.
   exploit (Memory.max_ts_spec loc); try apply MEM1; eauto. i. des.
   esplits; eauto. econs; eauto.
-  econs; try by i; eapply Memory.max_ts_spec2; apply WF1.
+  econs; try sfby i; eapply Memory.max_ts_spec2; apply WF1.
 Qed.
 
 Lemma progress_write_step
@@ -135,8 +134,8 @@ Lemma progress_write_step
   exists released lc2 sc2 mem2,
     Local.write_step lc1 sc1 mem1 loc (Memory.max_ts loc mem1) to val releasedm released ord lc2 sc2 mem2 Memory.op_kind_add.
 Proof.
-  exploit progress_promise_step; eauto. i. des.
-  exploit Local.promise_step_future; eauto. i. des. inv x0.
+  exploit progress_promise_step; eauto. intro x0. des.
+  exploit Local.promise_step_future; eauto. intro x1. des. inv x0.
   exploit Memory.remove_exists; eauto.
   { inv PROMISE. erewrite Memory.add_o; try eexact PROMISES.
     condtac; eauto. ss. des; exfalso; apply o; eauto.

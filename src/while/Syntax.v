@@ -1,12 +1,11 @@
-Require Import RelationClasses.
-Require Import List.
-
+From Stdlib Require Import RelationClasses.
+From Stdlib Require Import List.
 From sflib Require Import sflib.
 
 From PromisingLib Require Import Basic.
 From PromisingLib Require Import Loc.
 
-Require Import Event.
+Require Import lang.Event.
 
 Set Implicit Arguments.
 
@@ -167,9 +166,6 @@ Module SyntaxNotations.
 
   Delimit Scope string_scope with string.
   Open Scope string_scope.
-
-  Notation "'%r' var" := (Reg.of_string var) (at level 41).
-  Notation "'%l' var" := (Loc.of_string var) (at level 41).
 
   Notation "'pln'" := (Ordering.plain) (at level 41).
   Notation "'rlx'" := (Ordering.relaxed) (at level 41).

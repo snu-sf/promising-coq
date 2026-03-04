@@ -1,6 +1,5 @@
-Require Import Omega.
-Require Import RelationClasses.
-
+From Stdlib Require Import Lia.
+From Stdlib Require Import RelationClasses.
 From sflib Require Import sflib.
 
 From PromisingLib Require Import Axioms.
@@ -8,18 +7,18 @@ From PromisingLib Require Import Basic.
 From PromisingLib Require Import DataStructure.
 From PromisingLib Require Import Loc.
 
-Require Import Time.
-Require Import Event.
+Require Import lang.Time.
+Require Import lang.Event.
 From PromisingLib Require Import Language.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import TView.
-Require Import Thread.
-Require Import Configuration.
-Require Import Progress.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.TView.
+Require Import lang.Thread.
+Require Import lang.Configuration.
+Require Import lang.Progress.
 
-Require Import SmallStep.
+Require Import drf.SmallStep.
 
 Set Implicit Arguments.
 
@@ -137,8 +136,8 @@ Proof.
         + i. inv TID0. apply inj_pair2 in H1. subst. ss.
           revert PROMISES0. erewrite Memory.remove_o; eauto. condtac; ss.
           des; congr.
-        + i. exploit Memory.add_get0; eauto. i.
-          inv WF. inv WF0. exploit THREADS; eauto. i. inv x.
+        + i. exploit Memory.add_get0; eauto. intro x.
+          inv WF. inv WF0. exploit THREADS; eauto. intro y. inv y.
           apply PROMISES1 in PROMISES0. congr.
     }
     { econs; s.
@@ -148,8 +147,8 @@ Proof.
         + i. inv TID0. apply inj_pair2 in H1. subst. ss.
           revert PROMISES0. erewrite Memory.remove_o; eauto. condtac; ss.
           des; congr.
-        + i. exploit Memory.split_get0; eauto. i. des.
-          inv WF. inv WF0. exploit THREADS; eauto. i. inv x.
+        + i. exploit Memory.split_get0; eauto. intro x. des.
+          inv WF. inv WF0. exploit THREADS; eauto. intro x. inv x.
           apply PROMISES1 in PROMISES0. congr.
     }
     { econs; s.
@@ -160,7 +159,7 @@ Proof.
           des; congr.
         + i. exploit Memory.lower_get0; eauto. i.
           inv WF. inv WF0. exploit DISJOINT; eauto. i.
-          eapply Memory.disjoint_get; try apply x; eauto.
+          eapply Memory.disjoint_get; try apply x1; eauto.
           eapply Memory.lower_get0. eauto.
     }
   - inv LOCAL1. clear GET.
@@ -171,8 +170,8 @@ Proof.
         + i. inv TID0. apply inj_pair2 in H1. subst. ss.
           revert PROMISES0. erewrite Memory.remove_o; eauto. condtac; ss.
           des; congr.
-        + i. exploit Memory.add_get0; eauto. i.
-          inv WF. inv WF0. exploit THREADS; eauto. i. inv x.
+        + i. exploit Memory.add_get0; eauto. intro x.
+          inv WF. inv WF0. exploit THREADS; eauto. intro y. inv y.
           apply PROMISES1 in PROMISES0. congr.
     }
     { econs; s.
@@ -182,8 +181,8 @@ Proof.
         + i. inv TID0. apply inj_pair2 in H1. subst. ss.
           revert PROMISES0. erewrite Memory.remove_o; eauto. condtac; ss.
           des; congr.
-        + i. exploit Memory.split_get0; eauto. i. des.
-          inv WF. inv WF0. exploit THREADS; eauto. i. inv x.
+        + i. exploit Memory.split_get0; eauto. intro x. des.
+          inv WF. inv WF0. exploit THREADS; eauto. intro x. inv x.
           apply PROMISES1 in PROMISES0. congr.
     }
     { econs; s.
@@ -194,7 +193,7 @@ Proof.
           des; congr.
         + i. exploit Memory.lower_get0; eauto. i.
           inv WF. inv WF0. exploit DISJOINT; eauto. i.
-          eapply Memory.disjoint_get; try apply x; eauto.
+          eapply Memory.disjoint_get; try apply x1; eauto.
           eapply Memory.lower_get0. eauto.
     }
 Qed.

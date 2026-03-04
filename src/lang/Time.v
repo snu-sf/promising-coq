@@ -1,5 +1,4 @@
-Require Import Orders.
-
+From Stdlib Require Import Orders.
 From sflib Require Import sflib.
 From Paco Require Import paco.
 
@@ -18,13 +17,13 @@ Ltac timetac :=
     (try match goal with
          | [H: Some _ = None |- _] => inv H
          | [H: None = Some _ |- _] => inv H
-         | [H: ?x <> ?x |- _] => by contradict H
+         | [H: ?x <> ?x |- _] => sfby contradict H
          | [H: Time.lt ?x ?x |- _] =>
-           apply Time.lt_strorder in H; by inv H
+           apply Time.lt_strorder in H; sfby inv H
          | [H1: Time.lt ?a ?b, H2: Time.le ?b ?a |- _] =>
            exploit (@TimeFacts.lt_le_lt a b a); eauto;
            let H := fresh "H" in
-           intro H; apply Time.lt_strorder in H; by inv H
+           intro H; apply Time.lt_strorder in H; sfby inv H
 
          | [H: Some _ = Some _ |- _] => inv H
 
@@ -47,8 +46,8 @@ Module Interval <: UsualOrderedType.
 
   Inductive mem (interval:t) (x:Time.t): Prop :=
   | mem_intro
-      (FROM: Time.lt interval.(fst) x)
-      (TO: Time.le x interval.(snd))
+      (FROM: Time.lt (fst interval) x)
+      (TO: Time.le x (snd interval))
   .
 
   Lemma mem_dec i x: {mem i x} + {~ mem i x}.
@@ -63,8 +62,8 @@ Module Interval <: UsualOrderedType.
 
   Inductive le (lhs rhs:t): Prop :=
   | le_intro
-      (FROM: Time.le rhs.(fst) lhs.(fst))
-      (TO: Time.le lhs.(snd) rhs.(snd))
+      (FROM: Time.le (fst rhs) (fst lhs))
+      (TO: Time.le (snd lhs) (snd rhs))
   .
 
   Lemma le_mem lhs rhs x

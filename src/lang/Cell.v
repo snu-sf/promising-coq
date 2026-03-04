@@ -1,6 +1,5 @@
-Require Import Omega.
-Require Import RelationClasses.
-
+From Stdlib Require Import Lia.
+From Stdlib Require Import RelationClasses.
 From sflib Require Import sflib.
 From Paco Require Import paco.
 
@@ -10,9 +9,9 @@ From PromisingLib Require Import DataStructure.
 From PromisingLib Require Import DenseOrder.
 From PromisingLib Require Import Loc.
 
-Require Import Event.
-Require Import Time.
-Require Import View.
+Require Import lang.Event.
+Require Import lang.Time.
+Require Import lang.View.
 
 Set Implicit Arguments.
 
@@ -179,21 +178,21 @@ Module Cell.
         + inv GET1.
           inv SPLIT. hexploit DISJOINT; try exact n0; eauto. i.
           symmetry in H. eapply Interval.le_disjoint; eauto.
-          econs; [refl|by left].
+          econs; [refl|sfby left].
         + inv GET1. inv GET2.
           symmetry. eapply Interval.disjoint_imm.
         + inv GET1.
           inv SPLIT. hexploit DISJOINT; try exact NEQ; eauto. i.
           eapply Interval.le_disjoint; eauto.
-          econs; [by left|refl].
+          econs; [sfby left|refl].
         + inv GET2.
           inv SPLIT. hexploit DISJOINT; try exact n0; eauto. i.
           symmetry in H. symmetry. eapply Interval.le_disjoint; eauto.
-          econs; [refl|by left].
+          econs; [refl|sfby left].
         + inv GET2.
           inv SPLIT. hexploit DISJOINT; try exact n0; eauto. i.
           symmetry in H. symmetry. eapply Interval.le_disjoint; eauto.
-          econs; [by left|refl].
+          econs; [sfby left|refl].
         + eapply DISJOINT; eauto.
     Qed.
 
@@ -413,7 +412,7 @@ Module Cell.
     exists cell2, add cell1 from to val released cell2.
   Proof.
     destruct cell1. eexists (mk _). unfold add. econs; eauto.
-  Grab Existential Variables.
+  Unshelve.
     eapply Raw.add_wf; eauto. econs; eauto.
   Qed.
 
@@ -448,7 +447,7 @@ Module Cell.
     exists cell2, split cell1 ts1 ts2 ts3 val2 val3 released2 released3 cell2.
   Proof.
     destruct cell1. eexists (mk _). unfold split. econs; eauto.
-  Grab Existential Variables.
+  Unshelve.
     eapply Raw.split_wf; eauto. econs; eauto.
   Qed.
 
@@ -470,7 +469,7 @@ Module Cell.
     exists cell2, lower cell1 from to val released1 released2 cell2.
   Proof.
     destruct cell1. eexists (mk _). unfold lower. econs; eauto.
-  Grab Existential Variables.
+  Unshelve.
     eapply Raw.lower_wf; eauto. econs; eauto.
   Qed.
 
@@ -495,7 +494,7 @@ Module Cell.
     exfalso. exploit DISJOINT; eauto.
     - apply Interval.mem_ub. auto.
     - apply Interval.mem_ub.
-      destruct cell1.(Cell.WF). exploit VOLUME; eauto. i. des; ss.
+      destruct cell1.(Cell.WF). exploit VOLUME; eauto. intro x. des; ss.
       inv x. inv TO.
   Qed.
 
@@ -511,7 +510,7 @@ Module Cell.
     - apply X.
     - apply GET2.
     - ii. subst. eapply Time.lt_strorder. eauto.
-    - apply Interval.mem_ub. exploit VOLUME; eauto. i. des; auto.
+    - apply Interval.mem_ub. exploit VOLUME; eauto. intro x. des; auto.
       inv x. inv TS12.
     - econs; ss. left. auto.
   Qed.
@@ -596,7 +595,7 @@ Module Cell.
     exists cell2, remove cell1 from to val released cell2.
   Proof.
     eexists (mk _). destruct cell1. ss.
-    Grab Existential Variables.
+    Unshelve.
     { eapply Raw.remove_wf.
       - econs. eauto.
       - apply WF.

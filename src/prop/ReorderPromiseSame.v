@@ -1,7 +1,6 @@
-Require Import Omega.
-Require Import RelationClasses.
-Require Import Bool.
-
+From Stdlib Require Import Lia.
+From Stdlib Require Import RelationClasses.
+From Stdlib Require Import Bool.
 From sflib Require Import sflib.
 From Paco Require Import paco.
 
@@ -9,22 +8,22 @@ From PromisingLib Require Import Axioms.
 From PromisingLib Require Import Basic.
 From PromisingLib Require Import DataStructure.
 From PromisingLib Require Import DenseOrder.
-Require Import Event.
-Require Import Time.
+Require Import lang.Event.
+Require Import lang.Time.
 From PromisingLib Require Import Language.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import TView.
-Require Import Thread.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.TView.
+Require Import lang.Thread.
 
-Require Import SimMemory.
-Require Import SimPromises.
-Require Import SimLocal.
-Require Import FulfillStep.
-Require Import MemoryReorder.
+Require Import opt.SimMemory.
+Require Import opt.SimPromises.
+Require Import opt.SimLocal.
+Require Import opt.FulfillStep.
+Require Import prop.MemoryReorder.
 
-Require Import PromiseConsistent.
+Require Import drf.PromiseConsistent.
 
 Set Implicit Arguments.
 
@@ -75,7 +74,7 @@ Proof.
       left. esplits; ss. econs; eauto. econs 1; eauto.
     + exploit MemoryReorder.add_lower; try exact MEM1; try exact MEM; eauto. i. des; [congr|].
       right. esplits.
-      * econs; [|by econs]. econs 3; eauto.
+      * econs; [|sfby econs]. econs 3; eauto.
       * refine (Local.promise_step_intro _ _ _); eauto.
         { econs 1; eauto. }
         { eapply Memory.lower_closed_opt_view; eauto. }
@@ -84,17 +83,17 @@ Proof.
       exploit MemoryReorder.split_lower_same; try exact PROMISES0; try exact PROMISES; eauto. i. des.
       exploit MemoryReorder.split_lower_same; try exact MEM1; try exact MEM; eauto. i. des.
       subst. right. esplits.
-      - econs; [|by econs]. econs 3; eauto.
+      - econs; [|sfby econs]. econs 3; eauto.
       - refine (Local.promise_step_intro _ _ _); eauto.
         + econs 2; eauto.
         + eapply Memory.lower_closed_opt_view; eauto.
     }
     { exploit MemoryReorder.split_lower_diff; try exact PROMISES0; try exact PROMISES; eauto. i. des.
       - subst. exploit MemoryReorder.split_lower_diff; try exact MEM1; try exact MEM; eauto. i. des; [|congr].
-        left. esplits; eauto. econs; [|by econs]. econs 2; eauto.
+        left. esplits; eauto. econs; [|sfby econs]. econs 2; eauto.
       - exploit MemoryReorder.split_lower_diff; try exact MEM1; try exact MEM; eauto. i. des; [congr|].
         right. esplits; eauto.
-        + econs; [|by econs]. econs 3; eauto.
+        + econs; [|sfby econs]. econs 3; eauto.
         + refine (Local.promise_step_intro _ _ _); eauto.
           * econs 2; eauto.
           * eapply Memory.lower_closed_opt_view; eauto.
@@ -106,7 +105,7 @@ Proof.
       econs; eauto. econs 3; eauto.
     + exploit MemoryReorder.lower_lower; try exact MEM1; try exact MEM; eauto. i. des; [congr|].
       right. esplits.
-      * econs; [|by econs]. econs 3; eauto.
+      * econs; [|sfby econs]. econs 3; eauto.
       * refine (Local.promise_step_intro _ _ _); eauto.
         { econs 3; eauto. }
         { eapply Memory.lower_closed_opt_view; eauto. }
@@ -448,7 +447,7 @@ Lemma reorder_promise_write
 Proof.
   guardH NONPF.
   exploit Local.promise_step_future; eauto. i. des.
-  exploit write_promise_fulfill; eauto; try by viewtac. i. des.
+  exploit write_promise_fulfill; eauto; try sfby viewtac. i. des.
   exploit reorder_promise_promise; try exact STEP1; eauto.
   { i. subst.
     exploit Memory.promise_op; eauto. i.
@@ -469,8 +468,8 @@ Proof.
     exploit reorder_promise_fulfill; try exact STEP6; eauto.
     { i. eapply STEP6; eauto. }
     i. des.
-    exploit fulfill_step_future; try exact STEP7; try exact WF0; eauto; try by viewtac. i. des.
-    exploit promise_fulfill_write_exact; try exact STEP4; eauto; try by viewtac.
+    exploit fulfill_step_future; try exact STEP7; try exact WF0; eauto; try sfby viewtac. i. des.
+    exploit promise_fulfill_write_exact; try exact STEP4; eauto; try sfby viewtac.
     { i. exploit ORD; eauto. i. des. subst. splits; auto.
       eapply promise_step_nonsynch_loc_inv; try exact STEP1; eauto.
     }
@@ -515,8 +514,8 @@ Proof.
     + guardH o. des; congr.
 Qed.
 
-Hint Constructors Thread.program_step.
-Hint Constructors Thread.step.
+Hint Constructors Thread.program_step : core.
+Hint Constructors Thread.step : core.
 
 Lemma reorder_nonpf_program
       lang
@@ -538,7 +537,7 @@ Proof.
     + econs; eauto. econs.
     + right. esplits. econs; eauto.
   - (* read *)
-    exploit reorder_promise_read; try exact LOCAL0; eauto; try by viewtac.
+    exploit reorder_promise_read; try exact LOCAL0; eauto; try sfby viewtac.
     { ii. inv H.
       inv LOCAL0. exploit Memory.promise_get2; eauto. i.
       exploit promise_consistent_promise_read; eauto. i.
@@ -548,7 +547,7 @@ Proof.
     + econs; eauto. econs 2; eauto.
     + right. esplits. econs; eauto.
   - (* write *)
-    exploit reorder_promise_write'; try exact LOCAL0; eauto; try by viewtac.
+    exploit reorder_promise_write'; try exact LOCAL0; eauto; try sfby viewtac.
     { apply promise_pf_false_inv. ss. }
     i. des.
     { subst. inv LOCAL0. exploit Memory.promise_get2; eauto. i.
@@ -561,7 +560,7 @@ Proof.
       * inv STEP2. left. auto.
       * right. esplits. econs; eauto.
   - (* update *)
-    exploit reorder_promise_read; try exact LOCAL1; eauto; try by viewtac.
+    exploit reorder_promise_read; try exact LOCAL1; eauto; try sfby viewtac.
     { ii. inv H.
       inv LOCAL0. exploit Memory.promise_get2; eauto. i.
       exploit promise_consistent_promise_read; eauto.
@@ -570,7 +569,7 @@ Proof.
     }
     i. des.
     exploit Local.read_step_future; eauto. i. des.
-    exploit reorder_promise_write'; try exact LOCAL2; eauto; try by viewtac.
+    exploit reorder_promise_write'; try exact LOCAL2; eauto; try sfby viewtac.
     { apply promise_pf_false_inv. ss. }
     i. des.
     { subst. inv STEP2. exploit Memory.promise_get2; eauto. i.

@@ -1,6 +1,5 @@
-Require Import Omega.
-Require Import RelationClasses.
-
+From Stdlib Require Import Lia.
+From Stdlib Require Import RelationClasses.
 From sflib Require Import sflib.
 From Paco Require Import paco.
 
@@ -8,21 +7,21 @@ From PromisingLib Require Import Axioms.
 From PromisingLib Require Import Basic.
 From PromisingLib Require Import DataStructure.
 From PromisingLib Require Import DenseOrder.
-Require Import Event.
-Require Import Time.
+Require Import lang.Event.
+Require Import lang.Time.
 From PromisingLib Require Import Language.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import TView.
-Require Import Thread.
-Require Import Configuration.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.TView.
+Require Import lang.Thread.
+Require Import lang.Configuration.
 
-Require Import SimMemory.
-Require Import SimPromises.
-Require Import SimLocal.
-Require Import FulfillStep.
-Require Import MemoryReorder.
+Require Import opt.SimMemory.
+Require Import opt.SimPromises.
+Require Import opt.SimLocal.
+Require Import opt.FulfillStep.
+Require Import prop.MemoryReorder.
 
 Set Implicit Arguments.
 
@@ -252,7 +251,7 @@ Proof.
     { ii. inv H. eapply E2. eauto. }
     i. des. esplits; eauto. econs; [|econs 2]; eauto.
   - (* write *)
-    exploit reorder_promise_write_diff; eauto; try by viewtac. i. des.
+    exploit reorder_promise_write_diff; eauto; try sfby viewtac. i. des.
     esplits; eauto. econs; [|econs 3]; eauto.
   - (* update *)
     exploit reorder_promise_read_diff; eauto.

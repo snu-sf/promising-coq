@@ -1,30 +1,29 @@
-Require Import Bool.
-Require Import List.
-
+From Stdlib Require Import Bool.
+From Stdlib Require Import List.
 From sflib Require Import sflib.
 From Paco Require Import paco.
 
 From PromisingLib Require Import Basic.
-Require Import Event.
+Require Import lang.Event.
 From PromisingLib Require Import Language.
-Require Import Time.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import TView.
-Require Import Thread.
-Require Import Configuration.
+Require Import lang.Time.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.TView.
+Require Import lang.Thread.
+Require Import lang.Configuration.
 
-Require Import SimMemory.
-Require Import SimPromises.
-Require Import SimLocal.
-Require Import Compatibility.
-Require Import SimThread.
+Require Import opt.SimMemory.
+Require Import opt.SimPromises.
+Require Import opt.SimLocal.
+Require Import opt.Compatibility.
+Require Import opt.SimThread.
 
-Require Import ReorderStep.
+Require Import opt.ReorderStep.
 
-Require Import Syntax.
-Require Import Semantics.
+Require Import while.Syntax.
+Require Import while.Semantics.
 
 Set Implicit Arguments.
 
@@ -177,7 +176,7 @@ Proof.
     + eauto.
     + right. econs; eauto. etrans; eauto.
   - (* load *)
-    exploit sim_local_read; (try by etrans; eauto); eauto; try refl. i. des.
+    exploit sim_local_read; (try sfby etrans; eauto); eauto; try refl. i. des.
     exploit reorder_read_read; try exact READ; try exact STEP_SRC; eauto. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
@@ -193,8 +192,8 @@ Proof.
       * apply RegSet.singleton_spec. eauto.
   - (* update-load *)
     guardH ORDW2.
-    exploit sim_local_read; (try by etrans; eauto); eauto; try refl. i. des.
-    exploit reorder_read_read; try exact READ; try exact STEP_SRC; try by eauto. i. des.
+    exploit sim_local_read; (try sfby etrans; eauto); eauto; try refl. i. des.
+    exploit reorder_read_read; try exact READ; try exact STEP_SRC; try sfby eauto. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
       * econs. econs 2. econs; [|econs 2]; eauto. econs. econs.
@@ -214,8 +213,8 @@ Proof.
   - (* store *)
     guardH ORD.
     hexploit sim_local_write; try exact LOCAL1; try exact SC;
-      try exact WF2; try refl; eauto; try by viewtac. i. des.
-    exploit reorder_read_write; try exact READ; try exact STEP_SRC; eauto; try by viewtac. i. des.
+      try exact WF2; try refl; eauto; try sfby viewtac. i. des.
+    exploit reorder_read_write; try exact READ; try exact STEP_SRC; eauto; try sfby viewtac. i. des.
     esplits.
     + econs 2; [|econs 1]. econs.
       * econs. econs 2. econs; [|econs 3]; eauto. econs.
@@ -275,7 +274,7 @@ Proof.
   pcofix CIH. i. pfold. ii. ss. splits; ss; ii.
   - inv TERMINAL_TGT. inv PR; ss.
   - exploit sim_load_mon; eauto. i.
-    exploit sim_load_future; try apply x0; eauto. i. des.
+    exploit sim_load_future; try apply x8; eauto. i. des.
     esplits; eauto.
   - esplits; eauto.
     inv PR. inv READ. inv LOCAL. ss.

@@ -1,37 +1,36 @@
-Require Import Bool.
-Require Import List.
-
+From Stdlib Require Import Bool.
+From Stdlib Require Import List.
 From sflib Require Import sflib.
 From Paco Require Import paco.
 
 From PromisingLib Require Import Basic.
-Require Import Event.
+Require Import lang.Event.
 From PromisingLib Require Import Language.
-Require Import Time.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import MemoryFacts.
-Require Import TView.
-Require Import Thread.
-Require Import Configuration.
-Require Import Progress.
+Require Import lang.Time.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.MemoryFacts.
+Require Import lang.TView.
+Require Import lang.Thread.
+Require Import lang.Configuration.
+Require Import lang.Progress.
 
-Require Import FulfillStep.
-Require Import SimMemory.
-Require Import SimPromises.
-Require Import SimLocal.
-Require Import Compatibility.
-Require Import SimThread.
+Require Import opt.FulfillStep.
+Require Import opt.SimMemory.
+Require Import opt.SimPromises.
+Require Import opt.SimLocal.
+Require Import opt.Compatibility.
+Require Import opt.SimThread.
 
 Require MergeTView.
 Require ReorderTView.
-Require Import MemoryReorder.
-Require Import MemorySplit.
-Require Import MemoryMerge.
+Require Import prop.MemoryReorder.
+Require Import prop.MemorySplit.
+Require Import prop.MemoryMerge.
 
-Require Import Syntax.
-Require Import Semantics.
+Require Import while.Syntax.
+Require Import while.Semantics.
 
 Set Implicit Arguments.
 
@@ -72,11 +71,11 @@ Proof.
   inv STEP. econs; eauto.
   - inv WRITE.
     hexploit Memory.promise_op; eauto. i.
-    hexploit TViewFacts.write_future; try exact H; eauto; try apply WF0; try by viewtac. i. des.
-    hexploit Memory.promise_future; try apply PROMISE; try apply WF0; eauto; try by viewtac. i. des.
+    hexploit TViewFacts.write_future; try exact H; eauto; try apply WF0; try sfby viewtac. i. des.
+    hexploit Memory.promise_future; try apply PROMISE; try apply WF0; eauto; try sfby viewtac. i. des.
     hexploit Memory.promise_get2; eauto.
   - inv WRITABLE. unfold TView.write_released. s.
-    econs; repeat (try condtac; aggrtac); (try by left; eauto).
+    econs; repeat (try condtac; aggrtac); (try sfby left; eauto).
     + etrans; [|left; eauto]. apply WF0.
   - unfold TView.read_tview, TView.write_released, TView.write_tview. s.
     apply TView.antisym; econs;
@@ -94,19 +93,19 @@ Lemma merge_write_read2
       (MEM0: Memory.closed mem0)
       (WF_RELEASED: View.opt_wf releasedm)
       (WF_CLOSED: Memory.closed_opt_view releasedm mem0)
-      (RLX: Ordering.le Ordering.relaxed ord2 -> View.le releasedm.(View.unwrap) lc0.(Local.tview).(TView.acq))
-      (ACQ: Ordering.le Ordering.acqrel ord2 -> View.le releasedm.(View.unwrap) lc0.(Local.tview).(TView.cur))
+      (RLX: Ordering.le Ordering.relaxed ord2 -> View.le (View.unwrap releasedm) lc0.(Local.tview).(TView.acq))
+      (ACQ: Ordering.le Ordering.acqrel ord2 -> View.le (View.unwrap releasedm) lc0.(Local.tview).(TView.cur))
       (STEP: Local.write_step lc0 sc0 mem0 loc from to val releasedm released ord1 lc1 sc1 mem1 kind):
   Local.read_step lc1 mem1 loc to val released ord2 lc1.
 Proof.
   inv STEP. econs; eauto.
   - inv WRITE.
     hexploit Memory.promise_op; eauto. i.
-    hexploit TViewFacts.write_future; try exact H; eauto; try apply WF0; try by viewtac. i. des.
-    hexploit Memory.promise_future; try apply PROMISE; try apply WF0; eauto; try by viewtac. i. des.
+    hexploit TViewFacts.write_future; try exact H; eauto; try apply WF0; try sfby viewtac. i. des.
+    hexploit Memory.promise_future; try apply PROMISE; try apply WF0; eauto; try sfby viewtac. i. des.
     hexploit Memory.promise_get2; eauto.
   - inv WRITABLE. unfold TView.write_released. s.
-    econs; repeat (try condtac; aggrtac); (try by left; eauto).
+    econs; repeat (try condtac; aggrtac); (try sfby left; eauto).
     + etrans; [|left; eauto]. apply WF0.
   - unfold TView.read_tview, TView.write_released, TView.write_tview. s.
     apply TView.antisym; econs;
@@ -142,7 +141,7 @@ Proof.
   - apply GET1.
   - apply GET2.
   - ii. subst. eapply Time.lt_strorder. eauto.
-  - apply Interval.mem_ub. exploit VOLUME; try exact GET1; eauto. i. des; auto.
+  - apply Interval.mem_ub. exploit VOLUME; try exact GET1; eauto. intro x. des; auto.
     inv x. inv l.
   - econs.
     + apply l.
@@ -174,7 +173,7 @@ Lemma merge_split
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
       (LC0_TS: Time.le (lc0.(Local.tview).(TView.cur).(View.rlx) loc) ts1)
-      (REL0_TS: Time.le (released0.(View.unwrap).(View.rlx) loc) ts1)
+      (REL0_TS: Time.le ((View.unwrap released0).(View.rlx) loc) ts1)
       (REL0_WF: View.opt_wf released0)
       (REL0_CLOSED: Memory.closed_opt_view released0 mem0)
       (TS12: Time.lt ts1 ts2)
@@ -191,7 +190,7 @@ Lemma merge_split
 Proof.
   set (released1' := TView.write_released (Local.tview lc0) sc0 loc ts2 released0 ord).
   assert (REL1'_WF: View.opt_wf released1').
-  { unfold released1', TView.write_released. condtac; econs. repeat (try condtac; aggrtac; try by apply WF0). }
+  { unfold released1', TView.write_released. condtac; econs. repeat (try condtac; aggrtac; try sfby apply WF0). }
   exploit fulfill_step_future; eauto. i. des.
   inv STEP.
   exploit MemorySplit.remove_promise_promise_remove_remove;
@@ -208,7 +207,7 @@ Proof.
   { unfold released1'. eapply TViewFacts.op_closed_released; eauto; try apply WF0.
     eapply Memory.promise_op. eauto.
   }
-  exploit Memory.promise_future; try eexact STEP1; (try by apply WF0); (try by viewtac); eauto. i. des.
+  exploit Memory.promise_future; try eexact STEP1; (try sfby apply WF0); (try sfby viewtac); eauto. i. des.
   esplits.
   - econs; eauto.
   - econs; try exact STEP2; auto.
@@ -224,7 +223,7 @@ Proof.
   - unfold Local.tview at 1.
     econs; try exact STEP3; auto.
     + etrans; eauto. unfold released1', TView.write_released. s. condtac; econs.
-      repeat (try condtac; aggrtac; try by apply WF0).
+      repeat (try condtac; aggrtac; try sfby apply WF0).
     + s. inv WRITABLE. econs; repeat (try condtac; aggrtac; eauto).
   - s. econs; ss.
     + eapply MergeTView.write_write_tview; eauto. apply WF0.
@@ -242,7 +241,7 @@ Lemma merge_write_write_relaxed
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
       (REL0_WF: View.opt_wf released0)
-      (REL0_TS: Time.le (released0.(View.unwrap).(View.rlx) loc) ts1)
+      (REL0_TS: Time.le ((View.unwrap released0).(View.rlx) loc) ts1)
       (REL0_CLOSED: Memory.closed_opt_view released0 mem0)
       (ORD: Ordering.le ord Ordering.relaxed)
       (TS12: Time.lt ts1 ts2)
@@ -260,14 +259,14 @@ Proof.
   exploit Local.write_step_future; eauto. i. des.
   exploit write_promise_fulfill; eauto. i. des.
   exploit Local.promise_step_future; eauto. i. des.
-  exploit merge_split; try exact STEP2; eauto; try by viewtac.
+  exploit merge_split; try exact STEP2; eauto; try sfby viewtac.
   { eapply fulfill_step_lc_from; eauto. }
   i. des.
   exploit Local.promise_step_future; try exact STEP0; eauto. i. des.
-  exploit promise_fulfill_write; try eexact STEP3; eauto; try by viewtac.
+  exploit promise_fulfill_write; try eexact STEP3; eauto; try sfby viewtac.
   { i. destruct ord; inv ORD; inv H. }
   i. des.
-  exploit Local.write_step_future; eauto; try by viewtac. i. des.
+  exploit Local.write_step_future; eauto; try sfby viewtac. i. des.
   exploit sim_local_fulfill; try eexact STEP4; try exact REL_LE; try refl; eauto. i. des.
   exploit (@fulfill_write lc2' sc2' mem2'); try eexact STEP_SRC; eauto. i. des.
   esplits; eauto.
@@ -348,7 +347,7 @@ Lemma reorder_promise_add_fulfill
     <<STEP2: Local.promise_step lc1' mem0 loc1 from1 to1 val1 released1 lc2 mem1 Memory.op_kind_add>>.
 Proof.
   exploit Local.promise_step_future; try exact STEP1; eauto. i. des.
-  exploit fulfill_step_future; try exact STEP2; try exact WF2; eauto; try by viewtac. i. des.
+  exploit fulfill_step_future; try exact STEP2; try exact WF2; eauto; try sfby viewtac. i. des.
   inv STEP1. inv STEP2.
   exploit MemoryReorder.promise_add_remove; try exact PROMISE; eauto. i. des.
   esplits.
@@ -381,7 +380,7 @@ Lemma merge_write_write_add
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
       (REL0_WF: View.opt_wf released0)
-      (REL0_TS: Time.le (released0.(View.unwrap).(View.rlx) loc) ts1)
+      (REL0_TS: Time.le ((View.unwrap released0).(View.rlx) loc) ts1)
       (REL0_CLOSED: Memory.closed_opt_view released0 mem0)
       (TS12: Time.lt ts1 ts2)
       (TS23: Time.lt ts2 ts3)
@@ -397,7 +396,7 @@ Proof.
   exploit Local.write_step_future; eauto. i. des.
   exploit write_promise_fulfill; eauto. i. des.
   exploit Local.promise_step_future; eauto. i. des.
-  exploit merge_split; try exact STEP2; eauto; try by viewtac.
+  exploit merge_split; try exact STEP2; eauto; try sfby viewtac.
   { eapply fulfill_step_lc_from; eauto. }
   i. des.
   exploit promise_add_promise_split_promise_add_promise_add; try exact STEP1; eauto.
@@ -408,10 +407,10 @@ Proof.
   }
   i. des.
   exploit Local.promise_step_future; try eexact STEP5; eauto. i. des.
-  exploit reorder_promise_add_fulfill; try exact STEP6; try eexact STEP3; eauto; try by viewtac.
+  exploit reorder_promise_add_fulfill; try exact STEP6; try eexact STEP3; eauto; try sfby viewtac.
   { ii. inv H. exfalso. eapply Time.lt_strorder. eauto. }
   i. des.
-  exploit fulfill_step_future; try eexact STEP7; try exact WF3; eauto; try by viewtac. i. des.
+  exploit fulfill_step_future; try eexact STEP7; try exact WF3; eauto; try sfby viewtac. i. des.
   exploit promise_fulfill_write; try eexact STEP5; eauto. i. des.
   exploit Local.write_step_future; eauto. i. des.
   exploit promise_fulfill_write; try eexact STEP8; eauto.
@@ -435,7 +434,7 @@ Lemma merge_write_write
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
       (REL0_WF: View.opt_wf released0)
-      (REL0_TS: Time.le (released0.(View.unwrap).(View.rlx) loc) ts1)
+      (REL0_TS: Time.le ((View.unwrap released0).(View.rlx) loc) ts1)
       (REL0_CLOSED: Memory.closed_opt_view released0 mem0)
       (TS12: Time.lt ts1 ts2)
       (TS23: Time.lt ts2 ts3)
@@ -453,7 +452,7 @@ Proof.
   - exploit merge_write_write_relaxed; try apply TS12; eauto. i. des.
     esplits; try exact STEP2; eauto.
   - assert (kind = Memory.op_kind_add).
-    { inv STEP. eapply RELEASE. by destruct ord; inv ORD. }
+    { inv STEP. eapply RELEASE. sfby destruct ord; inv ORD. }
     subst. exploit merge_write_write_add; try apply TS12; eauto. i. des.
     esplits; try apply STEP2; eauto.
 Qed.
@@ -466,7 +465,7 @@ Lemma merge_write_write_None
       (SC0: Memory.closed_timemap sc0 mem0)
       (MEM0: Memory.closed mem0)
       (REL0_WF: View.opt_wf released0)
-      (REL0_TS: Time.le (released0.(View.unwrap).(View.rlx) loc) ts1)
+      (REL0_TS: Time.le ((View.unwrap released0).(View.rlx) loc) ts1)
       (REL0_CLOSED: Memory.closed_opt_view released0 mem0)
       (TS12: Time.lt ts1 ts2)
       (TS23: Time.lt ts2 ts3)
@@ -485,7 +484,7 @@ Proof.
     exploit Memory.future_closed_opt_view; try exact REL0_CLOSED; eauto. i.
     exploit Local.write_step_future; try apply STEP2; eauto. i. des.
     hexploit sim_local_write; try apply STEP3;
-      try apply View.opt_None_spec; try refl; eauto; try by viewtac. i. des.
+      try apply View.opt_None_spec; try refl; eauto; try sfby viewtac. i. des.
     esplits; cycle 1; eauto; try (etrans; eauto).
   - inv STEP1.
     exploit Local.write_step_future; try apply STEP2; eauto. i. des.

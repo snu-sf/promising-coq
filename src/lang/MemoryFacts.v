@@ -1,6 +1,5 @@
-Require Import Omega.
-Require Import RelationClasses.
-
+From Stdlib Require Import Lia.
+From Stdlib Require Import RelationClasses.
 From sflib Require Import sflib.
 From Paco Require Import paco.
 
@@ -10,11 +9,11 @@ From PromisingLib Require Import DataStructure.
 From PromisingLib Require Import DenseOrder.
 From PromisingLib Require Import Loc.
 
-Require Import Event.
-Require Import Time.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
+Require Import lang.Event.
+Require Import lang.Time.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
 
 Set Implicit Arguments.
 
@@ -142,10 +141,10 @@ Module MemoryFacts.
     assert (t1 <> t2).
     { ii. subst. eapply Time.lt_strorder. eauto. }
     eapply DISJOINT; try exact H0; eauto.
-    - apply Interval.mem_ub. exploit VOLUME; try exact GET1; eauto. i. des; ss.
+    - apply Interval.mem_ub. exploit VOLUME; try exact GET1; eauto. intro x. des; ss.
       inv x. congr.
     - econs; ss.
-      + exploit VOLUME; try exact GET1; eauto. i. des; ss. inv x. congr.
+      + exploit VOLUME; try exact GET1; eauto. intro x. des; ss. inv x. congr.
       + left. ss.
   Qed.
 
@@ -159,7 +158,7 @@ Module MemoryFacts.
   Proof.
     destruct (Time.le_lt_dec t1 t2).
     - eapply get_same_from_aux; eauto.
-    - exploit get_same_from_aux; (try by left; eauto); eauto. i. des. ss.
+    - exploit get_same_from_aux; (try sfby left; eauto); eauto. i. des. ss.
   Qed.
 
   Lemma write_not_bot
@@ -193,9 +192,9 @@ Module MemoryFacts.
     exists promises2 mem2,
       Memory.promise promises1 mem1 loc from to val None promises2 mem2 (Memory.op_kind_lower released).
   Proof.
-    exploit Memory.lower_exists; eauto; try by econs. i. des.
+    exploit Memory.lower_exists; eauto; try sfby econs. i. des.
     exploit LE; eauto. i.
-    exploit Memory.lower_exists; eauto; try by econs. i. des.
+    exploit Memory.lower_exists; eauto; try sfby econs. i. des.
     esplits. econs; eauto. apply Time.bot_spec.
   Qed.
 
@@ -205,7 +204,7 @@ Module MemoryFacts.
   (GET: Memory.get loc to mem = Some (from, Message.mk val (Some released))):
     Time.lt from to.
   Proof.
-    destruct (mem loc).(Cell.WF). exploit VOLUME; eauto. i. des; ss. inv x.
+    destruct (mem loc).(Cell.WF). exploit VOLUME; eauto. intro x. des; ss. inv x.
     inv CLOSED. rewrite INHABITED in GET. inv GET.
   Qed.
 End MemoryFacts.

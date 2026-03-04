@@ -1,6 +1,5 @@
-Require Import Omega.
-Require Import RelationClasses.
-
+From Stdlib Require Import Lia.
+From Stdlib Require Import RelationClasses.
 From sflib Require Import sflib.
 
 From PromisingLib Require Import Axioms.
@@ -8,16 +7,16 @@ From PromisingLib Require Import Basic.
 From PromisingLib Require Import DataStructure.
 From PromisingLib Require Import Loc.
 
-Require Import Time.
-Require Import Event.
+Require Import lang.Time.
+Require Import lang.Event.
 From PromisingLib Require Import Language.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import TView.
-Require Import Thread.
-Require Import Configuration.
-Require Import SmallStep.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.TView.
+Require Import lang.Thread.
+Require Import lang.Configuration.
+Require Import drf.SmallStep.
 
 Set Implicit Arguments.
 
@@ -30,8 +29,7 @@ Inductive ord_thread_step (ord:Ordering.t) (lang:language) (e:ThreadEvent.progra
     (LOCAL: Local.program_step e lc1 sc1 mem1 lc2 sc2 mem2):
     ord_thread_step ord e (Thread.mk lang st1 lc1 sc1 mem1) (Thread.mk lang st2 lc2 sc2 mem2)
 .
-Hint Constructors ord_thread_step.
-
+Hint Constructors ord_thread_step : core.
 Inductive ord_step (ord:Ordering.t) (e:ThreadEvent.program_t) (tid:Ident.t): forall (c1 c2:Configuration.t), Prop :=
 | ord_step_intro
     c1 lang st1 lc1 st2 lc2 sc2 memory2
@@ -62,8 +60,8 @@ Definition interleaving (e:ThreadEvent.t) (c2:Configuration.t): bool :=
 
 Inductive interleaving_step (etid:ThreadEvent.program_t * Ident.t) (c1 c2:Configuration.t): Prop :=
 | interleaving_step_intro
-    (STEP: ord_step Ordering.acqrel etid.(fst) etid.(snd) c1 c2)
-    (INTERLEAVING: interleaving etid.(fst) c2)
+    (STEP: ord_step Ordering.acqrel (fst etid) (snd etid) c1 c2)
+    (INTERLEAVING: interleaving (fst etid) c2)
 .
 
 Lemma ord_step_threads1
@@ -81,13 +79,13 @@ Proof. inv STEP. s. rewrite IdentMap.gss. eauto. Qed.
 Lemma interleaving_step_threads1
       etid c1 c2
       (STEP: interleaving_step etid c1 c2):
-  exists th1, IdentMap.find etid.(snd) c1.(Configuration.threads) = Some th1.
+  exists th1, IdentMap.find (snd etid) c1.(Configuration.threads) = Some th1.
 Proof. inv STEP. eapply ord_step_threads1. eauto. Qed.
 
 Lemma interleaving_step_threads2
       etid c1 c2
       (STEP: interleaving_step etid c1 c2):
-  exists th2, IdentMap.find etid.(snd) c2.(Configuration.threads) = Some th2.
+  exists th2, IdentMap.find (snd etid) c2.(Configuration.threads) = Some th2.
 Proof. inv STEP. eapply ord_step_threads2. eauto. Qed.
 
 Lemma small_step_false_ord_step_plain

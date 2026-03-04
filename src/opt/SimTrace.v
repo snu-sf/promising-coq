@@ -1,30 +1,29 @@
-Require Import Bool.
-Require Import List.
-
+From Stdlib Require Import Bool.
+From Stdlib Require Import List.
 From sflib Require Import sflib.
 From Paco Require Import paco.
 
 From PromisingLib Require Import Axioms.
 From PromisingLib Require Import Basic.
-Require Import Event.
-Require Import Time.
+Require Import lang.Event.
+Require Import lang.Time.
 From PromisingLib Require Import Language.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import TView.
-Require Import Thread.
-Require Import Configuration.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.TView.
+Require Import lang.Thread.
+Require Import lang.Configuration.
 
-Require Import FulfillStep.
-Require Import SimMemory.
-Require Import SimPromises.
-Require Import SimLocal.
-Require Import SimThread.
-Require Import Compatibility.
+Require Import opt.FulfillStep.
+Require Import opt.SimMemory.
+Require Import opt.SimPromises.
+Require Import opt.SimLocal.
+Require Import opt.SimThread.
+Require Import opt.Compatibility.
 
-Require Import Syntax.
-Require Import Semantics.
+Require Import while.Syntax.
+Require Import while.Semantics.
 
 Set Implicit Arguments.
 
@@ -102,7 +101,7 @@ Proof.
   - i. exploit TERMINAL; eauto. i. des.
     exploit rtc_lang_tau_step_rtc_thread_tau_step; eauto. i.
     esplits; eauto. econs. ss.
-  - i. exploit SimPromises.future; (try by apply LOCAL); eauto. i. des.
+  - i. exploit SimPromises.future; (try sfby apply LOCAL); eauto. i. des.
     esplits; eauto.
     + etrans.
       * apply Memory.max_timemap_spec; eauto. viewtac.
@@ -120,13 +119,13 @@ Proof.
     + exploit STEP; eauto. i. des. inv SIM0; [|done].
       inv EVT. inv STEP_SRC.
       { esplits;
-        (try by apply rtc_lang_tau_step_rtc_thread_tau_step; eauto);
+        (try sfby apply rtc_lang_tau_step_rtc_thread_tau_step; eauto);
         (try exact SC);
           eauto.
         econs 1.
       }
       { esplits;
-        (try by apply rtc_lang_tau_step_rtc_thread_tau_step; eauto);
+        (try sfby apply rtc_lang_tau_step_rtc_thread_tau_step; eauto);
         (try exact SC);
           eauto.
         econs 2. econs 2. econs; [|econs 1]; eauto.
@@ -135,7 +134,7 @@ Proof.
       inv EVT. inv STEP_SRC.
       exploit sim_local_read; eauto. i. des.
       esplits;
-        (try by apply rtc_lang_tau_step_rtc_thread_tau_step; eauto);
+        (try sfby apply rtc_lang_tau_step_rtc_thread_tau_step; eauto);
         (try exact SC).
       * econs 2. econs 2. econs; [|econs 2]; eauto.
       * ss.
@@ -146,9 +145,9 @@ Proof.
       hexploit sim_local_write;
         (try exact LOCAL);
         (try exact SC);
-        eauto; try refl; try by viewtac. i. des.
+        eauto; try refl; try sfby viewtac. i. des.
       esplits;
-        (try by apply rtc_lang_tau_step_rtc_thread_tau_step; eauto);
+        (try sfby apply rtc_lang_tau_step_rtc_thread_tau_step; eauto);
         (try exact SC).
       * econs 2. econs 2. econs; [|econs 3]; eauto.
       * ss.
@@ -163,9 +162,9 @@ Proof.
       hexploit sim_local_write;
         (try exact LOCAL0);
         (try exact SC);
-        eauto; try refl; try by viewtac. i. des.
+        eauto; try refl; try sfby viewtac. i. des.
       esplits;
-        (try by apply rtc_lang_tau_step_rtc_thread_tau_step; eauto);
+        (try sfby apply rtc_lang_tau_step_rtc_thread_tau_step; eauto);
         (try exact SC).
       * econs 2. econs 2. econs; [|econs 4]; eauto.
       * ss.
@@ -179,7 +178,7 @@ Proof.
         (try exact SC);
         eauto; try refl. i. des.
       esplits;
-        (try by apply rtc_lang_tau_step_rtc_thread_tau_step; eauto);
+        (try sfby apply rtc_lang_tau_step_rtc_thread_tau_step; eauto);
         (try exact SC).
       * econs 2. econs 2. econs; [|econs 5]; eauto.
       * ss.
@@ -193,7 +192,7 @@ Proof.
         (try exact SC);
         eauto; try refl. i. des.
       esplits;
-        (try by apply rtc_lang_tau_step_rtc_thread_tau_step; eauto);
+        (try sfby apply rtc_lang_tau_step_rtc_thread_tau_step; eauto);
         (try exact SC).
       * econs 2. econs 2. econs; [|econs 6]; eauto.
       * ss.

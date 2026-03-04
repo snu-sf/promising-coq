@@ -1,31 +1,30 @@
-Require Import Bool.
-Require Import List.
-
+From Stdlib Require Import Bool.
+From Stdlib Require Import List.
 From sflib Require Import sflib.
 From Paco Require Import paco.
 
 From PromisingLib Require Import Basic.
 From PromisingLib Require Import Loc.
 
-Require Import Event.
+Require Import lang.Event.
 From PromisingLib Require Import Language.
-Require Import Time.
-Require Import View.
-Require Import Cell.
-Require Import Memory.
-Require Import TView.
-Require Import Thread.
-Require Import Configuration.
+Require Import lang.Time.
+Require Import lang.View.
+Require Import lang.Cell.
+Require Import lang.Memory.
+Require Import lang.TView.
+Require Import lang.Thread.
+Require Import lang.Configuration.
 
-Require Import FulfillStep.
-Require Import SimMemory.
-Require Import SimPromises.
-Require Import SimLocal.
-Require Import Compatibility.
-Require Import SimThread.
+Require Import opt.FulfillStep.
+Require Import opt.SimMemory.
+Require Import opt.SimPromises.
+Require Import opt.SimLocal.
+Require Import opt.Compatibility.
+Require Import opt.SimThread.
 
-Require Import Syntax.
-Require Import Semantics.
+Require Import while.Syntax.
+Require Import while.Semantics.
 
 Set Implicit Arguments.
 
@@ -182,8 +181,8 @@ Proof.
   - econs; eauto. s.
     unfold TView.write_tview, View.singleton_ur_if. repeat (condtac; aggrtac).
     econs; repeat (condtac; aggrtac);
-      (try by etrans; [apply LOCAL1|aggrtac]);
-      (try by rewrite <- ? View.join_r; econs; aggrtac);
+      (try sfby etrans; [apply LOCAL1|aggrtac]);
+      (try sfby rewrite <- ? View.join_r; econs; aggrtac);
       (try apply WF1_TGT).
     + ss. i. unfold LocFun.find. repeat (condtac; aggrtac).
       * etrans; eauto. apply LOCAL1.
@@ -228,7 +227,7 @@ Proof.
   exploit sim_local_fulfill_released; try apply STEP2;
     try apply LOCAL2; try apply MEM2; eauto.
   { eapply Memory.future_closed_opt_view; eauto. }
-  { by inv STEP1. }
+  { sfby inv STEP1. }
   i. des.
   exploit promise_fulfill_write; try exact STEP_SRC; try exact STEP_SRC0; eauto.
   { i. exploit ORD; eauto. i. des. splits; ss.
@@ -259,14 +258,14 @@ Proof.
     + right. econs; eauto.
       inv LOCAL0. ss.
   - (* update-load *)
-    exploit sim_local_read; (try by etrans; eauto); eauto; try refl. i. des.
+    exploit sim_local_read; (try sfby etrans; eauto); eauto; try refl. i. des.
     esplits; eauto.
     + econs 2. econs 2. econs; [|econs 2]; eauto. econs. econs. eauto.
     + eauto.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
   - (* write *)
-    hexploit sim_local_write_released; (try by etrans; eauto); eauto; try refl; try by econs.
-    { by rewrite <- View.join_l. }
+    hexploit sim_local_write_released; (try sfby etrans; eauto); eauto; try refl; try sfby econs.
+    { sfby rewrite <- View.join_l. }
     i. des.
     esplits; eauto.
     + econs 2. econs 2. econs; [|econs 3]; eauto. econs. econs.
@@ -274,12 +273,12 @@ Proof.
     + left. eapply paco9_mon; [apply sim_stmts_nil|]; ss.
   - (* update *)
     exploit Local.read_step_future; eauto. i. des.
-    exploit sim_local_read; (try by etrans; eauto); eauto; try refl; try by econs. i. des.
+    exploit sim_local_read; (try sfby etrans; eauto); eauto; try refl; try sfby econs. i. des.
     exploit Local.read_step_future; eauto. i. des.
-    hexploit sim_local_write_released; (try by etrans; eauto); eauto; try refl; try by econs.
+    hexploit sim_local_write_released; (try sfby etrans; eauto); eauto; try refl; try sfby econs.
     { assert (TS: Time.lt tsr tsw).
       { inv LOCAL2. eapply MemoryFacts.MemoryFacts.write_time_lt. eauto. }
-      inv LOCAL1. ss. repeat (condtac; aggrtac); try by apply WF_TGT.
+      inv LOCAL1. ss. repeat (condtac; aggrtac); try sfby apply WF_TGT.
       destruct ordr; ss.
     }
     i. des.
@@ -295,7 +294,7 @@ Proof.
   pcofix CIH. i. pfold. ii. ss. splits; ss; ii.
   - inv TERMINAL_TGT. inv PR; ss.
   - exploit sim_released_mon; eauto. i.
-    exploit sim_released_future; try apply x0; eauto. i. des.
+    exploit sim_released_future; try apply x8; eauto. i. des.
     esplits; eauto.
   - esplits; eauto.
     inv PR. eapply sim_local_memory_bot; eauto.
